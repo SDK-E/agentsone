@@ -51,3 +51,14 @@ test("settings, remove a person asks first", async ({ page }, testInfo) => {
   await checkPage(page, testInfo, "settings-remove-person-confirm");
   clean();
 });
+
+test("settings, read the licence", async ({ page }, testInfo) => {
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Settings");
+
+  await page.getByText("Read the licence").click();
+
+  await expect(page.locator(".disclosure__body")).toBeVisible();
+  await checkPage(page, testInfo, "settings-licence-open");
+  clean();
+});

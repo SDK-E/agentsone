@@ -895,9 +895,32 @@ ul.notice {
 .disclosure summary {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
   min-height: 44px;
   cursor: pointer;
+  color: var(--color-accent);
   font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  list-style: none;
+}
+
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure summary::before {
+  content: "";
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.disclosure[open] summary::before {
+  transform: rotate(45deg);
 }
 
 .disclosure__body {

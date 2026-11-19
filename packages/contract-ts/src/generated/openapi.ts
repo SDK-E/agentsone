@@ -928,7 +928,8 @@ export interface paths {
      *     `urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may
      *     reset the password without it. A human's own password change ends all their other sessions and
      *     rotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting
-     *     another human's password ends all of that human's sessions.
+     *     another human's password ends all of that human's sessions. A wrong `current_password` counts
+     *     against the sign-in throttle; when it trips, the answer is 429 with `Retry-After`.
      */
     patch: operations["updateHuman"];
     trace?: never;
@@ -6258,6 +6259,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      429: components["responses"]["TooManyRequests"];
       501: components["responses"]["NotImplemented"];
     };
   };

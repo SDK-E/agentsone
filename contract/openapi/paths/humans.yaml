@@ -81,7 +81,8 @@ human:
       `urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may
       reset the password without it. A human's own password change ends all their other sessions and
       rotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting
-      another human's password ends all of that human's sessions.
+      another human's password ends all of that human's sessions. A wrong `current_password` counts
+      against the sign-in throttle; when it trips, the answer is 429 with `Retry-After`.
     security:
       - cookieAuth: []
     requestBody:
@@ -110,6 +111,8 @@ human:
         $ref: "../components/responses.yaml#/Forbidden"
       "404":
         $ref: "../components/responses.yaml#/NotFound"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
   delete:
     operationId: deleteHuman
     tags: [humans]

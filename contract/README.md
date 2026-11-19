@@ -102,6 +102,8 @@ All changes are additive and backward compatible.
   another human resetting the password does not. A human's own change ends their other sessions and
   rotates the caller's session (`Set-Cookie` on the 200); resetting another human's password ends
   all of that human's sessions.
+- `updateHuman` declares 429 (`rate-limited`, with `Retry-After`): a wrong `current_password`
+  counts against the sign-in throttle.
 - `deleteMemory`: humans may delete any record, with an optional `reason` query parameter kept in
   the audit record. Humans cannot edit records.
 - New fixture variants: `createTask.error`, `createTask.frozen`, `verifyAuditChain.broken`,

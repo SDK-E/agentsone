@@ -3,6 +3,9 @@
 #
 # Smoke test of a built machine image, run the way compose runs it: no
 # privileges, no capabilities added, private cgroup namespace, named volumes.
+# The gateway-key volume holds a throwaway key laid out as the edge writes
+# it (folder 0700 and file 0600, both owned by the edge user 65532) and is
+# mounted read-only, as in compose.yaml.
 #
 #   1. the container turns healthy (agentsoned answers on api.sock);
 #   2. its log has no warning or error lines;
@@ -22,12 +25,22 @@ image=$1
 name="agentsone-smoke-$$"
 state="$name-state"
 home="$name-home"
+gatewaykey="$name-gateway-key"
 
 cleanup() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  docker volume rm -f "$state" "$home" >/dev/null 2>&1 || true
+  docker volume rm -f "$state" "$home" "$gatewaykey" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+
+# make_gateway_key fills the gateway-key volume the way the edge does
+# (internal/edge/tokenkey, image/edge/Dockerfile): 32 random bytes in key.
+make_gateway_key() {
+  docker run --rm --network none --entrypoint sh -v "$gatewaykey:/gateway-key" "$image" -c \
+    'umask 077 && head -c 32 /dev/urandom >/gateway-key/key &&
+     chown 65532:65532 /gateway-key /gateway-key/key &&
+     chmod 0700 /gateway-key && chmod 0600 /gateway-key/key'
+}
 
 start() {
   docker run -d --name "$name" \
@@ -39,6 +52,7 @@ start() {
     -e AGENTSONE_EDGE_IP=10.77.42.2 \
     -v "$state:/var/lib/agentsone" \
     -v "$home:/home" \
+    -v "$gatewaykey:/run/agentsone/gateway-key:ro" \
     "$image" >/dev/null
 }
 
@@ -91,6 +105,7 @@ key_sum() {
     /var/lib/agentsone/secrets/machine.key
 }
 
+make_gateway_key
 start
 wait_healthy
 check_logs

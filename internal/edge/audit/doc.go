@@ -1,8 +1,22 @@
 // SPDX-License-Identifier: MIT
 
-// Package audit is the edge audit sink: it receives the machine's hash-chained records as written,
-// verifies them with internal/auditchain, and keeps what the edge itself saw. It provides the
-// audit command.
+// Package audit is the edge audit sink. It keeps two hash chains in audit.db in the edge data
+// folder, both append only:
+//
+//   - inside: the machine's records, shipped by the daemon as written to the inner address (port
+//     7710). Each one is checked with internal/auditchain: its hash must match its content and it
+//     must continue the chain. A gap or a fork is kept as an alert for the control page and the
+//     record is refused, so the copy the edge holds never contains a break. This is testimony:
+//     real root inside the machine could have written anything, but it cannot change what the
+//     edge already holds.
+//   - proof: what the edge itself saw (origin host): freeze changes, refused egress, model calls.
+//     Every part records it through env.Proof, which this component shares.
+//
+// The control page reads both chains, the alerts and a full verification through the admin
+// routes under /v1/audit/. It also provides the audit command.
+//
+// Shape: domain (judging an arriving record), app (the sink), adapters/sqlite (audit.db),
+// adapters/http (inner and admin routes). component.go wires them as an edge component.
 //
 // Owned by work package 16 (edge: gateway, budget, audit sink, web door).
 package audit

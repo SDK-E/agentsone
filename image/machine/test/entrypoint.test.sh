@@ -160,6 +160,11 @@ if grep -qx 'trusted_proxies = \["10.77.42.2"\]' "$config" && grep -qx '\[edge\]
 else
   fail "trusts the edge address as the daemon's proxy: config is $(cat "$config")"
 fi
+if grep -qx 'edge_sink = "http://10.77.42.2:7710"' "$config" && grep -qx '\[audit\]' "$config"; then
+  pass "ships audit records to the edge audit sink"
+else
+  fail "ships audit records to the edge audit sink: config is $(cat "$config")"
+fi
 if [ "$(head -c "$(stat -c %s "$template")" "$config")" = "$(cat "$template")" ]; then
   pass "keeps the image template above the edge table"
 else
@@ -178,6 +183,9 @@ out="$(AGENTSONE_EDGE_IP=fd00:77::2 "$entrypoint" true 2>&1)" || code=$?
 expect_code "accepts an IPv6 edge address" 0
 if grep -qx 'trusted_proxies = \["fd00:77::2"\]' "$config"; then pass "writes the IPv6 edge address"; else
   fail "writes the IPv6 edge address: config is $(cat "$config")"
+fi
+if grep -qx 'edge_sink = "http://\[fd00:77::2\]:7710"' "$config"; then pass "brackets an IPv6 audit sink address"; else
+  fail "brackets an IPv6 audit sink address: config is $(cat "$config")"
 fi
 
 for bad in '10.77.42.0/24' 'edge' 'beef' '10.77.42.256' '1.2.3.4"] [x' ''\''1.2.3.4'; do

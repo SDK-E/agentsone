@@ -36,6 +36,10 @@ type wireTarget struct {
 	ID   string `json:"id"`
 }
 
+// EncodeRecord writes r in its schema form, as the edge audit sink receives
+// it. This file stays the only place that knows the wire field names.
+func EncodeRecord(r domain.Record) ([]byte, error) { return encodeRecord(r) }
+
 // encodeRecord writes r in its schema form. An empty hash is left out, which
 // is the form the chain hash is computed over.
 func encodeRecord(r domain.Record) ([]byte, error) {

@@ -17,19 +17,27 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/SDK-E/agentsone/internal/edge/adminsock"
+	"github.com/SDK-E/agentsone/internal/edge/audit"
 	"github.com/SDK-E/agentsone/internal/edge/component"
+	"github.com/SDK-E/agentsone/internal/edge/door"
 	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
+	"github.com/SDK-E/agentsone/internal/edge/freeze"
 	"github.com/SDK-E/agentsone/internal/edge/gateway"
 	edgenet "github.com/SDK-E/agentsone/internal/edge/net"
 )
 
 // Components are the parts of the edge, in start order. Add a part here; see package component.
-// The internet filter shares the freeze switch, so it starts before the parts that use it; the
-// model gateway refuses to start without one.
+// The audit sink comes first: it shares the proof recorder with every part after it. The internet
+// filter shares the egress freeze; the freeze-all switch then takes its place for the later parts.
+// The model gateway refuses to start without a freeze switch, so it starts after freeze and gets
+// the freeze-all switch. The door, the humans' way in, opens last.
 func Components() []component.Component {
 	return []component.Component{
+		audit.Component{},
 		edgenet.Component{},
+		freeze.Component{},
 		gateway.Component{},
+		door.Component{},
 	}
 }
 

@@ -4,8 +4,9 @@
 // daemon (tini is PID 1 in the container; there is no systemd). A custom
 // agent's runner runs as the agent's user. Its limits are enforced by a
 // per-agent cgroup v2 at <CgroupRoot>/<agent> when the cgroup tree is
-// writable (container option writable-cgroups=true); the runner is cloned
-// straight into it, so it never runs unlimited. Without a writable tree only
+// writable (container option writable-cgroups=true); the runner stops at
+// exec and is moved into it before its first instruction, so it never runs
+// unlimited. Without a writable tree only
 // process resource limits apply and the mode is reported as soft. Root
 // agents have no limits: they are trusted and could lift them anyway. A
 // runner that exits with a failure is restarted after RestartDelay.
@@ -18,6 +19,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -141,11 +143,19 @@ func (l *Launcher) startLocked(name string) error {
 	if err != nil {
 		return fmt.Errorf("start %s: %w", name, err)
 	}
+	// The thread that starts a traced child must also release it.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	if err := cmd.Start(); err != nil {
 		sys.cleanup()
 		return fmt.Errorf("start %s: %w", name, err)
 	}
-	mode := sys.afterStart(cmd.Process.Pid, spec.Limits)
+	mode, err := sys.afterStart(cmd.Process.Pid, spec.Limits)
+	if err != nil {
+		_ = cmd.Wait()
+		sys.cleanup()
+		return fmt.Errorf("start %s: %w", name, err)
+	}
 	if mode == domain.LimitsSoft {
 		l.Log.Warn("agent limits are soft: no writable cgroup v2, CPU quota not enforced", "agent", name)
 	}

@@ -18,11 +18,11 @@ func prepare(_ *exec.Cmd, spec domain.UnitSpec, _ string) (*sysState, error) {
 	return &sysState{isRoot: spec.Account.IsRoot}, nil
 }
 
-func (st *sysState) afterStart(_ int, l domain.Limits) domain.LimitMode {
+func (st *sysState) afterStart(_ int, l domain.Limits) (domain.LimitMode, error) {
 	if st.isRoot || l == (domain.Limits{}) {
-		return domain.LimitsNone
+		return domain.LimitsNone, nil
 	}
-	return domain.LimitsSoft
+	return domain.LimitsSoft, nil
 }
 
 func (*sysState) cleanup() {}

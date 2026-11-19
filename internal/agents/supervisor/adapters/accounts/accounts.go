@@ -117,7 +117,11 @@ func (a *Accounts) Ensure(ctx context.Context, acc domain.Account) (int, error) 
 // home makes the home directory private to the agent: mode 0700 and owned
 // by it, also when it survived from before (an archived or reset system).
 func (a *Accounts) home(path string, uid, gid int) error {
-	if err := os.MkdirAll(path, 0o700); err != nil {
+	// The homes root must stay traversable for every agent; only each home is private.
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { // #nosec G301 -- /home/agents is world-traversable by design
+		return fmt.Errorf("homes root for %s: %w", path, err)
+	}
+	if err := os.Mkdir(path, 0o700); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("home %s: %w", path, err)
 	}
 	if err := os.Chmod(path, 0o700); err != nil { // #nosec G302 -- a directory needs the owner's execute bit; 0700 is private

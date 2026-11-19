@@ -20,14 +20,16 @@ import (
 
 // sysState is what prepare set up for one process.
 type sysState struct {
-	cgroup string   // the agent's cgroup directory, or ""
-	fd     *os.File // open cgroup directory, passed to clone
-	isRoot bool
+	cgroup  string // the agent's cgroup directory, or ""
+	isRoot  bool
+	stopped bool // the child stops at exec until afterStart releases it
 }
 
-// prepare sets the runner's credentials and, when the cgroup tree is
-// writable, the per-agent cgroup the child is cloned into (clone3 with
-// CLONE_INTO_CGROUP), so there is no moment without limits.
+// prepare sets a custom agent's credentials and makes its runner stop right
+// after exec, before its first instruction (PTRACE_TRACEME). afterStart then
+// moves it into its cgroup and sets its rlimits, and only then lets it run,
+// so it never runs unlimited. clone3 with CLONE_INTO_CGROUP would do the
+// same, but Docker's default seccomp profile answers clone3 with ENOSYS.
 func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState, error) {
 	st := &sysState{isRoot: spec.Account.IsRoot}
 	if spec.Account.IsRoot {
@@ -41,6 +43,8 @@ func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState,
 		// Groups is set so the runner keeps none of the daemon's groups.
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid, Groups: []uint32{gid}}
 	}
+	cmd.SysProcAttr.Ptrace = true
+	st.stopped = true
 	if cgroupRoot == "" || spec.Limits == (domain.Limits{}) {
 		return st, nil
 	}
@@ -52,14 +56,7 @@ func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState,
 		_ = os.Remove(dir)
 		return st, nil
 	}
-	fd, err := os.Open(dir) // #nosec G304 -- our own cgroup directory
-	if err != nil {
-		_ = os.Remove(dir)
-		return st, nil
-	}
-	st.cgroup, st.fd = dir, fd
-	cmd.SysProcAttr.UseCgroupFD = true
-	cmd.SysProcAttr.CgroupFD = int(fd.Fd())
+	st.cgroup = dir
 	return st, nil
 }
 
@@ -109,15 +106,26 @@ func writeLimits(dir string, l domain.Limits) error {
 	return nil
 }
 
-// afterStart sets process resource limits on a custom agent's runner. With
-// a cgroup they back it up; without one they are the only limits (soft).
-func (st *sysState) afterStart(pid int, l domain.Limits) domain.LimitMode {
-	if st.fd != nil {
-		_ = st.fd.Close()
-		st.fd = nil
-	}
+// afterStart runs while a custom agent's runner is stopped at exec: it
+// moves the runner into its cgroup, sets its rlimits and releases it. It
+// must run on the OS thread that started the child (the tracer). With a
+// cgroup the limits are hard; with rlimits only they are soft.
+func (st *sysState) afterStart(pid int, l domain.Limits) (domain.LimitMode, error) {
 	if st.isRoot {
-		return domain.LimitsNone
+		return domain.LimitsNone, nil
+	}
+	if st.stopped {
+		var ws syscall.WaitStatus
+		if _, err := syscall.Wait4(pid, &ws, syscall.WALL|syscall.WUNTRACED, nil); err != nil {
+			return "", fmt.Errorf("wait for runner stop: %w", err)
+		}
+		defer func() { _ = syscall.PtraceDetach(pid) }()
+	}
+	if st.cgroup != "" {
+		if err := os.WriteFile(filepath.Join(st.cgroup, "cgroup.procs"), []byte(strconv.Itoa(pid)), 0o644); err != nil { // #nosec G306 -- cgroupfs control file
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+			return "", fmt.Errorf("move runner into %s: %w", st.cgroup, err)
+		}
 	}
 	set := func(res int, v uint64) { _ = unix.Prlimit(pid, res, &unix.Rlimit{Cur: v, Max: v}, nil) }
 	set(unix.RLIMIT_CORE, 0)
@@ -130,20 +138,16 @@ func (st *sysState) afterStart(pid int, l domain.Limits) domain.LimitMode {
 	}
 	switch {
 	case l == (domain.Limits{}):
-		return domain.LimitsNone
+		return domain.LimitsNone, nil
 	case st.cgroup != "":
-		return domain.LimitsHard
+		return domain.LimitsHard, nil
 	default:
-		return domain.LimitsSoft
+		return domain.LimitsSoft, nil
 	}
 }
 
 // cleanup removes the agent's cgroup once its processes are gone.
 func (st *sysState) cleanup() {
-	if st.fd != nil {
-		_ = st.fd.Close()
-		st.fd = nil
-	}
 	if st.cgroup != "" {
 		_ = os.Remove(st.cgroup)
 	}

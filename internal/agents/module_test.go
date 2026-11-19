@@ -176,6 +176,11 @@ func TestModule_SeedsTheSmallSeedOnceTheFirstHumanExists(t *testing.T) {
 	if c, _ := m.Society().Charter(ctx); c.Version != 1 || !strings.Contains(c.Text, "humans") {
 		t.Errorf("charter = %+v", c)
 	}
+	ports := core.NewPorts()
+	m.Provide(ports)
+	if installed, err := ports.Seed.SeedInstalled(ctx); err != nil || !installed {
+		t.Errorf("Seed port = %v, %v, want installed", installed, err)
+	}
 	if err := m.Stop(ctx); err != nil {
 		t.Fatal(err)
 	}

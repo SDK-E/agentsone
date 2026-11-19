@@ -98,6 +98,38 @@ func (s *Society) seedCharter(ctx context.Context, founder, by string, tpl core.
 	return err
 }
 
+// SeedStatus reports whether plan's society was created, as the
+// core.SeedStatus port.
+func (s *Society) SeedStatus(plan SeedPlan) core.SeedStatus { return seedStatus{s, plan} }
+
+type seedStatus struct {
+	s    *Society
+	plan SeedPlan
+}
+
+// SeedInstalled is true when the founder came from the plan's founder
+// template and an agent, in any state, came from each team template.
+func (st seedStatus) SeedInstalled(ctx context.Context) (bool, error) {
+	chart, err := st.s.chart(ctx)
+	if err != nil {
+		return false, err
+	}
+	founder, ok := chart.Founder()
+	if !ok || founder.Template != st.plan.Founder.Template {
+		return false, nil
+	}
+	from := make(map[string]bool)
+	for _, a := range chart.Agents() {
+		from[a.Template] = true
+	}
+	for _, member := range st.plan.Team {
+		if !from[member.Template] {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (a SeedAgent) spec(tpl core.AgentTemplate) domain.HireSpec {
 	return domain.HireSpec{
 		Name: tpl.Name, DisplayName: a.DisplayName, Kind: domain.Kind(tpl.Kind), Runner: tpl.Runner,

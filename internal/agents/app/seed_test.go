@@ -135,6 +135,37 @@ func TestSeed_TheFounderCanHire(t *testing.T) {
 	}
 }
 
+func TestSeedInstalled_OnceTheWholeSeedWasCreated(t *testing.T) {
+	t.Parallel()
+	e := newSeedEnv(t)
+	status := e.society.SeedStatus(seedPlan)
+	ctx := context.Background()
+	if got, err := status.SeedInstalled(ctx); err != nil || got {
+		t.Fatalf("before the seed = %v, %v, want false", got, err)
+	}
+	half := seedPlan
+	half.Team = nil
+	if _, err := e.society.Seed(asSystem(), half); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := status.SeedInstalled(ctx); got {
+		t.Fatal("installed with only the founder, want false")
+	}
+
+	if _, err := e.society.Seed(asSystem(), seedPlan); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := status.SeedInstalled(ctx); err != nil || !got {
+		t.Fatalf("after the seed = %v, %v, want true", got, err)
+	}
+	if err := e.society.Retire(asAgent("founder"), "router"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := status.SeedInstalled(ctx); !got {
+		t.Error("retiring the router undid the seed, want still installed")
+	}
+}
+
 func TestSeed_TwiceChangesNothing(t *testing.T) {
 	t.Parallel()
 	e := newSeedEnv(t)

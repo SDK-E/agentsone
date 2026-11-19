@@ -86,7 +86,7 @@ func answer(r *fakeRouter, status int, contentType, body string) {
 func token(t *testing.T, defence bool, exp time.Time) string {
 	t.Helper()
 	tok, err := gatewaytoken.Sign(key, gatewaytoken.Claims{
-		Agent: "worker", Kind: gatewaytoken.KindAlwaysOn, Team: "t", Defence: defence,
+		Agent: "worker", Kind: gatewaytoken.KindAlwaysOn, Chart: "founder/worker", Defence: defence,
 		IssuedAt: now.Add(-time.Minute).Unix(), ExpiresAt: exp.Unix(),
 	})
 	if err != nil {
@@ -123,7 +123,7 @@ func TestFreeze_RefusesEveryModelCallWith423(t *testing.T) {
 	} {
 		r := &fakeRouter{}
 		srv := serverWithFreeze(t, r, frozen)
-		auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(time.Hour))}
+		auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(10*time.Minute))}
 		for _, path := range []string{"/v1/chat/completions", "/anthropic/v1/messages", "/anthropic/v1/messages/count_tokens"} {
 			got := do(t, srv, http.MethodPost, path, `{"model":"autoagents/one"}`, auth)
 			var p map[string]any
@@ -155,7 +155,7 @@ func TestFreeze_StillChecksTheTokenFirst(t *testing.T) {
 func TestFreeze_LeavesReadsOpen(t *testing.T) {
 	t.Parallel()
 	srv := serverWithFreeze(t, &fakeRouter{}, func(context.Context) (bool, error) { return true, nil })
-	auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(time.Hour))}
+	auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(10*time.Minute))}
 
 	for _, path := range []string{"/v1/models", "/v1/budget"} {
 		if got := do(t, srv, http.MethodGet, path, "", auth); got.StatusCode != http.StatusOK {
@@ -193,7 +193,7 @@ func do(t *testing.T, srv *httptest.Server, method, path, body string, hdr map[s
 }
 
 func bearer(t *testing.T) map[string]string {
-	return map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(time.Hour))}
+	return map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(10*time.Minute))}
 }
 
 func problem(t *testing.T, resp *reply) map[string]any {
@@ -256,7 +256,7 @@ func TestAnthropicEndpointAcceptsAPIKeyHeader(t *testing.T) {
 	srv := server(t, r)
 	resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages",
 		`{"model":"autoagents/one","max_tokens":256,"messages":[]}`,
-		map[string]string{"X-Api-Key": token(t, true, now.Add(time.Hour)), "Anthropic-Version": "2026-10-21"})
+		map[string]string{"X-Api-Key": token(t, true, now.Add(10*time.Minute)), "Anthropic-Version": "2026-10-21"})
 	if resp.StatusCode != 200 {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
@@ -273,7 +273,7 @@ func TestCountTokensPassesThrough(t *testing.T) {
 	srv := server(t, r)
 	resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages/count_tokens",
 		`{"model":"autoagents/one:deep","messages":[]}`,
-		map[string]string{"X-Api-Key": token(t, false, now.Add(time.Hour)), "Anthropic-Beta": "b1"})
+		map[string]string{"X-Api-Key": token(t, false, now.Add(10*time.Minute)), "Anthropic-Beta": "b1"})
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 || string(body) != `{"input_tokens":99}` {
 		t.Fatalf("status %d body %q", resp.StatusCode, body)
@@ -351,7 +351,7 @@ func TestRefusals(t *testing.T) {
 				hdr = map[string]string{}
 			}
 			if _, set := hdr["Authorization"]; !set && tc.name != "no token" {
-				hdr["Authorization"] = "Bearer " + token(t, false, now.Add(time.Hour))
+				hdr["Authorization"] = "Bearer " + token(t, false, now.Add(10*time.Minute))
 			}
 			method := http.MethodPost
 			if tc.path == "/v1/models" {

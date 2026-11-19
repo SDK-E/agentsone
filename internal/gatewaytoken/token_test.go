@@ -22,10 +22,10 @@ func validClaims() gatewaytoken.Claims {
 	return gatewaytoken.Claims{
 		Agent:     "founder",
 		Kind:      gatewaytoken.KindAlwaysOn,
-		Team:      "founder",
+		Chart:     "founder/lead",
 		Defence:   false,
 		IssuedAt:  issued.Unix(),
-		ExpiresAt: issued.Add(time.Hour).Unix(),
+		ExpiresAt: issued.Add(10 * time.Minute).Unix(),
 	}
 }
 
@@ -58,7 +58,7 @@ func TestVerifyRefuses(t *testing.T) {
 	}
 	parts := strings.Split(good, ".")
 	forged := base64.RawURLEncoding.EncodeToString(
-		[]byte(`{"agent":"founder","kind":"always-on","team":"founder","defence":true,"iat":1,"exp":99999999999}`))
+		[]byte(`{"agent":"founder","kind":"always-on","chart":"founder/lead","defence":true,"iat":1,"exp":99999999999}`))
 
 	tests := []struct {
 		name  string
@@ -107,6 +107,18 @@ func TestSignRejectsInvalidClaims(t *testing.T) {
 		{"unknown kind", func(c *gatewaytoken.Claims) { c.Kind = "robot" }},
 		{"expiry before issue", func(c *gatewaytoken.Claims) { c.ExpiresAt = c.IssuedAt }},
 		{"no issue time", func(c *gatewaytoken.Claims) { c.IssuedAt = 0 }},
+		{"lives too long", func(c *gatewaytoken.Claims) {
+			c.ExpiresAt = c.IssuedAt + int64(gatewaytoken.MaxLifetime/time.Second) + 1
+		}},
+		{"agent with no chart", func(c *gatewaytoken.Claims) { c.Chart = "" }},
+		{"agent named like a system caller", func(c *gatewaytoken.Claims) { c.Agent = "system:router" }},
+		{"system kind for an agent", func(c *gatewaytoken.Claims) { c.Kind = gatewaytoken.KindSystem; c.Chart = "" }},
+		{"system caller with a chart", func(c *gatewaytoken.Claims) {
+			c.Agent, c.Kind = "system:router", gatewaytoken.KindSystem
+		}},
+		{"system caller with no name", func(c *gatewaytoken.Claims) {
+			c.Agent, c.Kind, c.Chart = "system:", gatewaytoken.KindSystem, ""
+		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -133,8 +145,31 @@ func TestVerifyRefusesSignedButInvalidClaims(t *testing.T) {
 	}
 }
 
+func TestSystemCallersHaveNoChart(t *testing.T) {
+	c := validClaims()
+	c.Agent, c.Kind, c.Chart = "system:router", gatewaytoken.KindSystem, ""
+	c.ExpiresAt = c.IssuedAt + int64(gatewaytoken.MaxLifetime/time.Second)
+
+	tok, err := gatewaytoken.Sign(testKey, c)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	if got, err := gatewaytoken.Verify(testKey, tok, issued); err != nil || got != c {
+		t.Fatalf("Verify = %+v, %v; want %+v", got, err, c)
+	}
+}
+
+func TestVerifyRefusesTheOldTeamClaim(t *testing.T) {
+	body := base64.RawURLEncoding.EncodeToString(
+		[]byte(`{"agent":"founder","kind":"always-on","team":"founder","defence":false,"iat":1,"exp":2}`))
+	tok := gatewaytoken.Prefix + body + "." + base64.RawURLEncoding.EncodeToString(gatewaytoken.MAC(testKey, gatewaytoken.Prefix+body))
+	if _, err := gatewaytoken.Verify(testKey, tok, time.Unix(1, 0)); !errors.Is(err, gatewaytoken.ErrMalformed) {
+		t.Fatalf("Verify error = %v, want ErrMalformed", err)
+	}
+}
+
 func TestParseKind(t *testing.T) {
-	for _, k := range []string{"always-on", "chat", "waker"} {
+	for _, k := range []string{"always-on", "chat", "waker", "system"} {
 		if _, err := gatewaytoken.ParseKind(k); err != nil {
 			t.Fatalf("ParseKind(%q): %v", k, err)
 		}

@@ -129,8 +129,8 @@ func serve(t *testing.T, srv *gateway.Server) (string, func()) {
 func agentToken(t *testing.T, srv *gateway.Server, now time.Time) string {
 	t.Helper()
 	tok, err := gatewaytoken.Sign(srv.TokenKey(), gatewaytoken.Claims{
-		Agent: "worker", Kind: gatewaytoken.KindChat, Team: "t",
-		IssuedAt: now.Unix(), ExpiresAt: now.Add(time.Hour).Unix(),
+		Agent: "worker", Kind: gatewaytoken.KindChat, Chart: "founder/worker",
+		IssuedAt: now.Unix(), ExpiresAt: now.Add(10 * time.Minute).Unix(),
 	})
 	if err != nil {
 		t.Fatalf("Sign: %v", err)

@@ -229,6 +229,9 @@ func generateModels(r repo, s spec, tmp string) error {
 	if err != nil {
 		return err
 	}
+	if out, err = useCommonTimestamp(out, importPath(commonDir)); err != nil {
+		return fmt.Errorf("models: %w", err)
+	}
 	return r.writeGo(apiDir+"/models.gen.go", out)
 }
 

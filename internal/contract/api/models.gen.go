@@ -8,7 +8,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"time"
+	"github.com/SDK-E/agentsone/internal/contract/common"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -1661,8 +1661,8 @@ type Agent struct {
 
 	// Kind `always-on` keeps a session and works its goals; `chat` wakes for chat messages and tasks;
 	// `waker` watches events and wakes others. Every kind sleeps when idle; sleeping costs nothing.
-	Kind       AgentKind  `json:"kind"`
-	LastTurnAt *time.Time `json:"last_turn_at"`
+	Kind       AgentKind         `json:"kind"`
+	LastTurnAt *common.Timestamp `json:"last_turn_at"`
 
 	// Limits Null for root agents.
 	Limits *AgentLimits `json:"limits"`
@@ -2279,8 +2279,8 @@ type Channel struct {
 	Description string `json:"description"`
 
 	// Kind `public` is open to every agent; `team` is limited to one chart branch.
-	Kind          ChannelKind `json:"kind"`
-	LastMessageAt *time.Time  `json:"last_message_at"`
+	Kind          ChannelKind       `json:"kind"`
+	LastMessageAt *common.Timestamp `json:"last_message_at"`
 
 	// Name Channel name, for example `general` or `team.founder`.
 	//
@@ -2652,8 +2652,8 @@ type Emitter struct {
 
 	// Kind `builtin` runs inside the daemon (auth, services, disk, load, files, git, agents, clock, webhooks);
 	// `process` runs as `emitter@<id>.service`; `webhook` turns signed HTTP posts into events.
-	Kind        EmitterKind `json:"kind"`
-	LastEventAt *time.Time  `json:"last_event_at"`
+	Kind        EmitterKind       `json:"kind"`
+	LastEventAt *common.Timestamp `json:"last_event_at"`
 
 	// Name Examples: disk
 	Name string `json:"name"`
@@ -2733,8 +2733,8 @@ type EngineFetchStatus struct {
 
 // EngineLicence defines model for EngineLicence.
 type EngineLicence struct {
-	Accepted   bool       `json:"accepted"`
-	AcceptedAt *time.Time `json:"accepted_at"`
+	Accepted   bool              `json:"accepted"`
+	AcceptedAt *common.Timestamp `json:"accepted_at"`
 
 	// AcceptedBy Human who accepted, or null.
 	AcceptedBy *string `json:"accepted_by"`
@@ -3085,8 +3085,8 @@ type Human struct {
 	CreatedAt Timestamp `json:"created_at"`
 
 	// DisplayName Free display name shown in the interface.
-	DisplayName DisplayName `json:"display_name"`
-	LastLoginAt *time.Time  `json:"last_login_at"`
+	DisplayName DisplayName       `json:"display_name"`
+	LastLoginAt *common.Timestamp `json:"last_login_at"`
 
 	// Name Human login name. It is also the human's Linux username, checked through PAM.
 	//
@@ -3146,9 +3146,9 @@ type IdeServer struct {
 	// Human Human login name. It is also the human's Linux username, checked through PAM.
 	//
 	// Examples: ada
-	Human     HumanName      `json:"human"`
-	StartedAt *time.Time     `json:"started_at"`
-	State     IdeServerState `json:"state"`
+	Human     HumanName         `json:"human"`
+	StartedAt *common.Timestamp `json:"started_at"`
+	State     IdeServerState    `json:"state"`
 
 	// Url Loopback path served through the daemon proxy, for example `/ide/ada/`. Null unless running.
 	Url *string `json:"url"`
@@ -4101,13 +4101,13 @@ type Schedule struct {
 	Enabled   bool  `json:"enabled"`
 
 	// Id Schedule id, `sch_` plus a ULID.
-	Id        ScheduleId `json:"id"`
-	LastRunAt *time.Time `json:"last_run_at"`
+	Id        ScheduleId        `json:"id"`
+	LastRunAt *common.Timestamp `json:"last_run_at"`
 
 	// Message Wake reason delivered to the agent.
-	Message   string     `json:"message"`
-	Name      string     `json:"name"`
-	NextRunAt *time.Time `json:"next_run_at"`
+	Message   string            `json:"message"`
+	Name      string            `json:"name"`
+	NextRunAt *common.Timestamp `json:"next_run_at"`
 }
 
 // ScheduleCreate defines model for ScheduleCreate.
@@ -4339,9 +4339,9 @@ type Task struct {
 	//
 	//
 	// Examples: agent:founder
-	CreatedBy Actor      `json:"created_by"`
-	Detail    string     `json:"detail"`
-	DueAt     *time.Time `json:"due_at"`
+	CreatedBy Actor             `json:"created_by"`
+	Detail    string            `json:"detail"`
+	DueAt     *common.Timestamp `json:"due_at"`
 
 	// Id Task id, `tsk_` plus a ULID.
 	Id       TaskId       `json:"id"`
@@ -4520,7 +4520,7 @@ type ThemeSelectionUpdate struct {
 }
 
 // Timestamp RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
-type Timestamp = time.Time
+type Timestamp = common.Timestamp
 
 // TokenCreate defines model for TokenCreate.
 type TokenCreate struct {
@@ -4550,9 +4550,9 @@ type Trigger struct {
 	FiredCount int64       `json:"fired_count"`
 
 	// Id Trigger id, `trg_` plus a ULID.
-	Id          TriggerId  `json:"id"`
-	LastFiredAt *time.Time `json:"last_fired_at"`
-	Name        string     `json:"name"`
+	Id          TriggerId         `json:"id"`
+	LastFiredAt *common.Timestamp `json:"last_fired_at"`
+	Name        string            `json:"name"`
 
 	// Owner Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Owner AgentName `json:"owner"`

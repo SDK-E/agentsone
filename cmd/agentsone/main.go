@@ -14,7 +14,6 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/audit"
 	"github.com/SDK-E/agentsone/internal/edge/budget"
 	"github.com/SDK-E/agentsone/internal/edge/control"
-	"github.com/SDK-E/agentsone/internal/edge/door"
 	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 	"github.com/SDK-E/agentsone/internal/edge/gateway"
 	"github.com/SDK-E/agentsone/internal/edge/net"
@@ -42,7 +41,7 @@ func newRoot(env *edgeenv.Env) *cobra.Command {
 	root.SetErr(env.Err)
 	for _, commands := range []func(*edgeenv.Env) []*cobra.Command{
 		edge.Commands, control.Commands, net.Commands, gateway.Commands, budget.Commands,
-		audit.Commands, door.Commands,
+		audit.Commands,
 	} {
 		root.AddCommand(commands(env)...)
 	}

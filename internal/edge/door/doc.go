@@ -14,7 +14,7 @@
 //     identity: the daemon's own session decides who is calling.
 //
 // Shape: domain (header rules), adapters/listen (guarded listeners), adapters/proxy (the reverse
-// proxy). component.go wires them as an edge component. It also provides the door command.
+// proxy). component.go wires them as an edge component; `agentsone edge --door-addr` opens it.
 //
 // Owned by work package 16 (edge: gateway, budget, audit sink, web door).
 package door

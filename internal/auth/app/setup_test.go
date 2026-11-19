@@ -50,6 +50,21 @@ func TestSetupStatus_WalksThroughFirstBoot(t *testing.T) {
 	}
 }
 
+func TestSetupStatus_ReportsTheSeed(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
+	st, err := env.Service.SetupStatus(ctx)
+	if err != nil || st.SeedInstalled {
+		t.Fatalf("before seeding: %+v %v", st, err)
+	}
+	env.Seed.SetInstalled(true)
+	st, err = env.Service.SetupStatus(ctx)
+	if err != nil || !st.SeedInstalled || st.Phase != app.PhaseNeedsLicence {
+		t.Fatalf("after seeding: %+v %v", st, err)
+	}
+}
+
 func TestCreateFirstHuman_RefusedOnceAHumanExists(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")

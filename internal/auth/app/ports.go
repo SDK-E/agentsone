@@ -29,4 +29,7 @@ type Deps struct {
 	Licence  LicenceSource
 	Events   core.EventPublisher
 	Audit    core.AuditLog
+	// Seed says whether the default society exists. ErrUnavailable, while
+	// the agents module is not up, reads as not installed.
+	Seed core.SeedStatus
 }

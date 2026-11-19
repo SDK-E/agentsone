@@ -280,7 +280,7 @@ func (h setupHandlers) GetSetupStatus(ctx context.Context, _ setupapi.GetSetupSt
 	}
 	return setupapi.GetSetupStatus200JSONResponse{
 		Phase: contract.SetupPhase(st.Phase), FirstHumanCreated: st.FirstHumanCreated, LicenceAccepted: st.LicenceAccepted,
-		Engine: toFetch(st.Engine), ContractVersion: contractVersion(),
+		Engine: toFetch(st.Engine), SeedInstalled: st.SeedInstalled, ContractVersion: contractVersion(),
 	}, nil
 }
 

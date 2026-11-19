@@ -21,4 +21,4 @@ thm = "thm"
 ede = "ede"
 
 [files]
-extend-exclude = ["pnpm-lock.yaml", "go.sum", "contract/fixtures/**", ".claude/**"]
+extend-exclude = ["pnpm-lock.yaml", "go.sum", "contract/fixtures/**", "contract/vendor/**", ".claude/**"]

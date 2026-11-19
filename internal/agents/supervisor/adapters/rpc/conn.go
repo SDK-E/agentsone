@@ -177,6 +177,23 @@ func (c *Conn) Call(ctx context.Context, method string, params, result any) erro
 	}
 }
 
+// Notify sends a notification to the runner. Like Call, it is refused
+// before the runner's first status (rule H8), so it never precedes the
+// welcome.
+func (c *Conn) Notify(_ context.Context, method string, params any) error {
+	c.mu.Lock()
+	switch {
+	case c.closed:
+		c.mu.Unlock()
+		return ErrClosed
+	case !c.ready:
+		c.mu.Unlock()
+		return ErrNotReady
+	}
+	c.mu.Unlock()
+	return c.send(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
+}
+
 func (c *Conn) drop(id int) {
 	c.mu.Lock()
 	delete(c.pending, id)

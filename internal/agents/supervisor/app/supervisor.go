@@ -342,8 +342,9 @@ func (s *Supervisor) dropConnLocked(r *runner) {
 // Tick restarts every runner that has been silent for the heartbeat
 // timeout (rule B2): it records -32003 in the audit trail, closes the
 // connection and restarts the unit. Every WallRecheck it checks the network
-// wall again. The module calls it on a timer; tests call it after moving
-// the fake clock.
+// wall again. It also sends credentials.update to 1.1 runners whose tokens
+// are due. The module calls it on a timer; tests call it after moving the
+// fake clock.
 func (s *Supervisor) Tick(ctx context.Context) error {
 	now := s.d.Clock.Now()
 	if s.wallDue(now) {
@@ -360,6 +361,7 @@ func (s *Supervisor) Tick(ctx context.Context) error {
 		}
 	}
 	s.mu.Unlock()
+	s.renewCredentials(ctx, now)
 	var errs []error
 	for _, name := range expired {
 		s.audit(ctx, ActionHeartbeatTimeout, "agent:"+name, map[string]any{"code": -32003})

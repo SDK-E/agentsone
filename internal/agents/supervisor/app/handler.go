@@ -32,6 +32,22 @@ type Handler struct {
 	attached chan struct{}
 	conn     RunnerConn
 	log      *slog.Logger
+	// creds are the tokens of a 1.1 connection, nil on 1.0; the
+	// supervisor's lock guards them.
+	creds *credentials
+}
+
+// notify waits, like call, until the connection is attached and ready.
+func (h *Handler) notify(ctx context.Context, method string, params any) error {
+	select {
+	case <-h.attached:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if err := h.conn.WaitReady(ctx); err != nil {
+		return err
+	}
+	return h.conn.Notify(ctx, method, params)
 }
 
 // Connect returns the handler for a new connection on agent name's socket.
@@ -128,6 +144,7 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 		return h.helloFailed("welcome the runner", err)
 	}
 	r.conn = h
+	h.creds = welcomeCredentials(version, now, gw, s.d.Config.GatewayTokenTTL, mcp)
 	paused := r.session.PausedTurn()
 	s.mu.Unlock()
 	if paused == "" {

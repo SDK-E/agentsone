@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -212,16 +213,43 @@ type call struct {
 // the read loop does only after Status returns (rule H8).
 type fakeConn struct {
 	calls     chan call
-	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call
+	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call or Notify
 	ready     chan struct{}
 	mu        sync.Mutex
 	wakeErr   error // answers every wake when set
 	readyOnce sync.Once
 	closed    chan struct{}
 	once      sync.Once
+
+	mu    sync.Mutex
+	notes []call
 }
 
-var errFakeNotReady = errors.New("runner has not reported its first status")
+func (c *fakeConn) Notify(_ context.Context, method string, params any) error {
+	select {
+	case <-c.ready:
+	default:
+		c.arrive("refused " + method)
+		return errFakeNotReady
+	}
+	raw, _ := json.Marshal(params)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.notes = append(c.notes, call{method, raw})
+	return nil
+}
+
+// notified returns the notifications the daemon sent, in order.
+func (c *fakeConn) notified() []call {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.notes)
+}
+
+var (
+	errFakeNotReady = errors.New("runner has not reported its first status")
+	errFakeClosed   = errors.New("runner connection closed")
+)
 
 // runnerRefusal is an error the runner answered a request with, as the real
 // connection returns it.
@@ -281,6 +309,8 @@ func (c *fakeConn) WaitReady(ctx context.Context) error {
 	select {
 	case <-c.ready:
 		return nil
+	case <-c.closed:
+		return errFakeClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -378,6 +408,12 @@ func newUncheckedWorld(t *testing.T, edits ...func(*app.Deps)) *world {
 	return w
 }
 
+// newWorldWith builds a checked world whose config tune changes.
+func newWorldWith(t *testing.T, tune func(*app.Config)) *world {
+	t.Helper()
+	return newWorld(t, func(d *app.Deps) { tune(&d.Config) })
+}
+
 // fakeWall answers what the test sets and counts the checks.
 type fakeWall struct {
 	mu     sync.Mutex
@@ -458,6 +494,22 @@ func (w logWith) WithAttrs(as []slog.Attr) slog.Handler {
 	return logWith{l: w.l, attrs: append(slices.Clone(w.attrs), as...)}
 }
 func (w logWith) WithGroup(string) slog.Handler { return w }
+
+// text is every kept record, its attributes included, as one string.
+func (l *logLines) text() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var b strings.Builder
+	for i, line := range l.lines {
+		b.WriteString(line)
+		for k, v := range l.attrs[i] {
+			b.WriteString(" " + k + "=" + v)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 func (l *logLines) all() []string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -481,10 +533,16 @@ var helloParams = protocol.HelloParams{
 // connect plays a runner that connects and finishes the handshake.
 func (w *world) connect(t *testing.T, agent string) (*app.Handler, *fakeConn, protocol.HelloResult) {
 	t.Helper()
+	return w.connectAt(t, agent, "1.0")
+}
+
+// connectAt is connect on a connection that negotiated version.
+func (w *world) connectAt(t *testing.T, agent, version string) (*app.Handler, *fakeConn, protocol.HelloResult) {
+	t.Helper()
 	h := w.sup.Connect(agent)
 	conn := newFakeConn()
 	h.Attach(conn)
-	res, err := h.Hello(t.Context(), "1.0", helloParams)
+	res, err := h.Hello(t.Context(), version, helloParams)
 	if err != nil {
 		t.Fatalf("Hello() error = %v", err)
 	}

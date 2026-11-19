@@ -47,6 +47,19 @@ func TestValidateName_AcceptsOnlyContractAgentNames(t *testing.T) {
 }
 
 // PROTOCOL.md rule H4: the highest version both sides speak.
+// Rule K1: credentials.update goes only to connections on 1.1 or later.
+func TestCredentialsUpdates_OnlyFrom11(t *testing.T) {
+	t.Parallel()
+	for v, want := range map[string]bool{"1.0": false, "1.1": true, "1.10": true, "2.0": true, "0.9": false, "x": false, "": false} {
+		if got := domain.CredentialsUpdates(v); got != want {
+			t.Errorf("CredentialsUpdates(%q) = %v, want %v", v, got, want)
+		}
+	}
+	if got, err := domain.Negotiate([]string{"1.1", "1.0"}, domain.DaemonVersions); err != nil || got != "1.1" {
+		t.Errorf("Negotiate with a 1.1 runner = %q, %v; want 1.1", got, err)
+	}
+}
+
 func TestNegotiate_PicksHighestCommonVersion(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

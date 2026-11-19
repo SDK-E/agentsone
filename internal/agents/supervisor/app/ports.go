@@ -134,6 +134,8 @@ type RunnerConn interface {
 	// waits here first. It returns an error when the connection ends or ctx is done.
 	WaitReady(ctx context.Context) error
 	Close() error
+	// Notify sends a notification; it fails before the runner's first status.
+	Notify(ctx context.Context, method string, params any) error
 }
 
 // Config holds the supervisor's settings.
@@ -191,6 +193,7 @@ type Deps struct {
 	States AgentStates
 	// Wall checks the network wall. Nil cannot prove it, so no agent wakes.
 	Wall NetworkWall
-	// Log takes the network wall lines; nil means slog.Default().
+	// Log takes the supervisor's lines (the network wall, the credential
+	// renewals); nil means slog.Default().
 	Log *slog.Logger
 }

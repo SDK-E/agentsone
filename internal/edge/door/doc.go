@@ -10,8 +10,9 @@
 //     drops any connection that arrives on the inner address.
 //   - It removes every forwarding and identity header a client or the platform sent (Forwarded,
 //     X-Forwarded-*, X-Real-IP, Remote-User, X-Remote-*, X-Auth-* and the like) and sets only
-//     X-Forwarded-For (the peer that connected) and X-Forwarded-Proto. It never sends a human's
-//     identity: the daemon's own session decides who is calling.
+//     X-Forwarded-For (the peer that connected), X-Forwarded-Proto and X-Forwarded-Host (the
+//     Host the browser sent, which the daemon matches the browser's Origin against). It never
+//     sends a human's identity: the daemon's own session decides who is calling.
 //
 // Shape: domain (header rules), adapters/listen (guarded listeners), adapters/proxy (the reverse
 // proxy). component.go wires them as an edge component; `agentsone edge --door-addr` opens it.

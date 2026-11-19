@@ -10,6 +10,9 @@ type OriginCheck struct {
 	Method string
 	// Origin is the Origin header.
 	Origin string
+	// Scheme, when set, is the scheme the Origin must have too (the
+	// configured public URL's).
+	Scheme string
 	// FetchSite is the Sec-Fetch-Site header.
 	FetchSite string
 	// Host is the Host the request was sent to.
@@ -29,6 +32,9 @@ func SameOrigin(c OriginCheck) bool {
 	}
 	u, err := url.Parse(c.Origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Path != "" || u.RawQuery != "" {
+		return false
+	}
+	if c.Scheme != "" && u.Scheme != c.Scheme {
 		return false
 	}
 	return u.Host == c.Host

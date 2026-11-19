@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,6 +54,10 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	public, err := parsePublicURL(deps.Config.API.PublicURL)
+	if err != nil {
+		return nil, err
+	}
 	ports := deps.Ports
 	verify := func(ctx context.Context, v string) (core.Caller, error) { return ports.Tokens.Verify(ctx, v) }
 	ui := httpadapter.UI(os.DirFS(filepath.Join(deps.Config.LibDir, "ui")))
@@ -61,7 +66,7 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 		composed: composed,
 		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(verify, web)),
 		tcp: httpadapter.RequestLog(deps.Log, "tcp", deps.Clock,
-			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress}.Wrap(web)),
+			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress, Public: public}.Wrap(web)),
 		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, AgentByUID: agentByUID(ports)},
 		log:      deps.Log,
 		cfg:      *deps.Config,
@@ -109,6 +114,20 @@ func parseIPs(in []string) ([]netip.Addr, error) {
 		out = append(out, a.Unmap())
 	}
 	return out, nil
+}
+
+// parsePublicURL reads [api] public_url: an http or https origin, scheme and
+// host only. Empty means none is configured.
+func parsePublicURL(s string) (*url.URL, error) {
+	if s == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return nil, fmt.Errorf("[api] public_url %q must be an http or https origin such as https://agents.example.com", s)
+	}
+	return &url.URL{Scheme: u.Scheme, Host: u.Host}, nil
 }
 
 // ownAddress reports whether a is one of this machine's interface

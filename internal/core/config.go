@@ -51,6 +51,11 @@ type APIConfig struct {
 	Addr string `toml:"addr"`
 	// Socket overrides the Unix socket path; empty means RuntimeDir/api.sock.
 	Socket string `toml:"socket"`
+	// PublicURL is the origin humans open the interface at, such as
+	// https://agents.example.com (scheme and host, no path). When set, only
+	// this origin may send state-changing browser requests. Empty means the
+	// address the web door was reached at, as the edge reports it.
+	PublicURL string `toml:"public_url"`
 }
 
 // LogConfig configures logging.

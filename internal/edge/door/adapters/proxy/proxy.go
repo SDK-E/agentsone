@@ -3,8 +3,9 @@
 // Package proxy is the web door's reverse proxy to the machine's daemon. It passes HTTP, server
 // sent event streams (flushed at once, never buffered) and WebSocket upgrades (terminals, the
 // desktop VNC bridge). Before a request leaves, every forwarding and identity header the client
-// sent is removed and the door sets exactly two of its own: X-Forwarded-For (the peer that
-// connected to the door) and X-Forwarded-Proto. It never sends a human's identity.
+// sent is removed and the door sets exactly three of its own: X-Forwarded-For (the peer that
+// connected to the door), X-Forwarded-Proto and X-Forwarded-Host (the Host the browser sent).
+// It never sends a human's identity.
 package proxy
 
 import (
@@ -35,6 +36,9 @@ func New(upstream *url.URL, log *slog.Logger) http.Handler {
 				pr.Out.Header.Set("X-Forwarded-For", ip)
 			}
 			pr.Out.Header.Set("X-Forwarded-Proto", proto)
+			// The host the browser used: the daemon matches the browser's Origin
+			// against it, and believes it only from the door's address.
+			pr.Out.Header.Set("X-Forwarded-Host", pr.In.Host)
 		},
 		// Flush every write: event streams and long polls reach the browser as they happen.
 		FlushInterval: -1,

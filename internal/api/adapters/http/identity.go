@@ -67,7 +67,7 @@ func SocketIdentity(verify Verifier, next http.Handler) http.Handler {
 		dropIdentityHeaders(r.Header)
 		c, ok := r.Context().Value(peerKey{}).(core.Caller)
 		if !ok {
-			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthorized", "peer credentials unavailable"))
+			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthenticated", "peer credentials unavailable"))
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(core.WithCaller(r.Context(), c)))
@@ -136,7 +136,7 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 			}
 		}
 		if caller.Name == "" && needsCaller(r) {
-			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthorized", "sign in or send a token"))
+			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthenticated", "sign in or send a token"))
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(core.WithCaller(r.Context(), caller)))

@@ -103,6 +103,18 @@ func (s *Service) SignIn(ctx context.Context, name, password, remote string) (do
 	return sess, secret, h, nil
 }
 
+// startSession saves a new session for a human and returns its secret.
+func (s *Service) startSession(ctx context.Context, name string) (string, error) {
+	sess, secret, err := domain.NewSession(s.d.Rand, name, s.d.Clock.Now())
+	if err != nil {
+		return "", err
+	}
+	if err := s.d.Sessions.SaveSession(ctx, sess); err != nil {
+		return "", fmt.Errorf("save session: %w", err)
+	}
+	return secret, nil
+}
+
 func (s *Service) checkThrottle(name string, now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

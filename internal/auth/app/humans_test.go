@@ -9,6 +9,7 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/auth/app"
 	"github.com/SDK-E/agentsone/internal/auth/authtest"
+	"github.com/SDK-E/agentsone/internal/auth/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -81,11 +82,15 @@ func TestCreateHuman_RejectsAShortPassword(t *testing.T) {
 	}
 }
 
+func ptr(s string) *string { return &s }
+
+const newPassword = "a brand new passphrase"
+
 func TestUpdateHuman_RejectsAShortPassword(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")
-	short := "short"
-	if _, err := env.Service.UpdateHuman(context.Background(), authtest.Human("ada"), "ada", app.HumanChange{Password: &short}); !errors.Is(err, core.ErrInvalid) {
+	c := app.HumanChange{Password: ptr("short"), CurrentPassword: ptr(password)}
+	if _, err := env.Service.UpdateHuman(context.Background(), authtest.Human("ada"), "ada", c); !errors.Is(err, core.ErrInvalid) {
 		t.Fatalf("err %v", err)
 	}
 }
@@ -94,9 +99,9 @@ func TestUpdateHuman_ChangesTheDisplayName(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")
 	name := "Ada L."
-	h, err := env.Service.UpdateHuman(context.Background(), authtest.Human("ada"), "ada", app.HumanChange{DisplayName: &name})
-	if err != nil || h.DisplayName != name {
-		t.Fatalf("human %+v err %v", h, err)
+	u, err := env.Service.UpdateHuman(context.Background(), authtest.Human("ada"), "ada", app.HumanChange{DisplayName: &name})
+	if err != nil || u.Human.DisplayName != name || u.Session != "" {
+		t.Fatalf("update %+v err %v", u, err)
 	}
 	got, _ := env.Service.GetHuman(context.Background(), "ada")
 	if got.DisplayName != name {
@@ -104,20 +109,97 @@ func TestUpdateHuman_ChangesTheDisplayName(t *testing.T) {
 	}
 }
 
-func TestUpdateHuman_NewPasswordEndsOldSessions(t *testing.T) {
+func TestUpdateHuman_OwnPasswordEndsOtherSessionsAndRotatesTheCallers(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")
 	ctx := context.Background()
-	_, secret, _, _ := env.Service.SignIn(ctx, "ada", password, "")
-	pw := "a brand new passphrase"
-	if _, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", app.HumanChange{Password: &pw}); err != nil {
+	_, mine, _, _ := env.Service.SignIn(ctx, "ada", password, "")
+	_, other, _, _ := env.Service.SignIn(ctx, "ada", password, "")
+	u, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", app.HumanChange{Password: ptr(newPassword), CurrentPassword: ptr(password)})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := env.Service.SessionCaller(ctx, secret); !errors.Is(err, core.ErrUnauthorized) {
-		t.Fatalf("old session works: %v", err)
+	for name, secret := range map[string]string{"caller's old": mine, "other": other} {
+		if _, err := env.Service.SessionCaller(ctx, secret); !errors.Is(err, core.ErrUnauthorized) {
+			t.Fatalf("%s session still works: %v", name, err)
+		}
 	}
-	if _, _, _, err := env.Service.SignIn(ctx, "ada", pw, ""); err != nil {
+	c, err := env.Service.SessionCaller(ctx, u.Session)
+	if err != nil || c.Name != "ada" {
+		t.Fatalf("rotated session: %+v %v", c, err)
+	}
+	if _, _, _, err := env.Service.SignIn(ctx, "ada", newPassword, ""); err != nil {
 		t.Fatalf("new password: %v", err)
+	}
+}
+
+func TestUpdateHuman_OwnPasswordNeedsTheCurrentOne(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		current *string
+		want    error
+	}{
+		"missing": {nil, app.ErrCurrentPasswordMissing},
+		"wrong":   {ptr("not the password at all"), app.ErrCurrentPasswordWrong},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			env := withHuman(t, "ada")
+			ctx := context.Background()
+			_, secret, _, _ := env.Service.SignIn(ctx, "ada", password, "")
+			_, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", app.HumanChange{Password: ptr(newPassword), CurrentPassword: c.current})
+			if !errors.Is(err, c.want) || !errors.Is(err, core.ErrInvalid) {
+				t.Fatalf("err %v", err)
+			}
+			if _, err := env.Service.SessionCaller(ctx, secret); err != nil {
+				t.Fatalf("refused change ended the session: %v", err)
+			}
+			if _, _, _, err := env.Service.SignIn(ctx, "ada", password, ""); err != nil {
+				t.Fatalf("old password changed: %v", err)
+			}
+		})
+	}
+}
+
+func TestUpdateHuman_WrongCurrentPasswordIsThrottled(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
+	c := app.HumanChange{Password: ptr(newPassword), CurrentPassword: ptr("not the password at all")}
+	for range domain.MaxFailures {
+		_, _ = env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c)
+	}
+	c.CurrentPassword = ptr(password)
+	_, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c)
+	var tooMany *app.TooManyAttempts
+	if !errors.As(err, &tooMany) || tooMany.RetryAfter != domain.FailureWindow {
+		t.Fatalf("err %v", err)
+	}
+	env.Clock.Advance(domain.FailureWindow)
+	if _, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c); err != nil {
+		t.Fatalf("after the window: %v", err)
+	}
+}
+
+func TestUpdateHuman_ResetOfAnotherHumanEndsAllTheirSessions(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
+	if _, err := env.Service.CreateHuman(ctx, authtest.Human("ada"), bob()); err != nil {
+		t.Fatal(err)
+	}
+	_, bobs, _, _ := env.Service.SignIn(ctx, "bob", password, "")
+	_, adas, _, _ := env.Service.SignIn(ctx, "ada", password, "")
+	u, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "bob", app.HumanChange{Password: ptr(newPassword)})
+	if err != nil || u.Session != "" {
+		t.Fatalf("update %+v err %v", u, err)
+	}
+	if _, err := env.Service.SessionCaller(ctx, bobs); !errors.Is(err, core.ErrUnauthorized) {
+		t.Fatalf("bob's session still works: %v", err)
+	}
+	if _, err := env.Service.SessionCaller(ctx, adas); err != nil {
+		t.Fatalf("ada's session ended: %v", err)
 	}
 }
 

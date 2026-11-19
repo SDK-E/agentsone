@@ -228,3 +228,31 @@ allow-list:
         $ref: "../components/responses.yaml#/Unauthorized"
       "403":
         $ref: "../components/responses.yaml#/Forbidden"
+gateway-secret:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  put:
+    operationId: setGatewaySecret
+    tags: [host]
+    summary: Set the gateway secret
+    description: >-
+      The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with
+      it (HMAC), and the gateway checks them. The key is never returned.
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/GatewaySecret"
+    responses:
+      "204":
+        description: Stored; tokens signed with the previous key stop working.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"

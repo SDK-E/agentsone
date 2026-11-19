@@ -18,6 +18,31 @@ linters:
     - errorlint
     - bodyclose
     - nolintlint
+    - forbidigo
+    - depguard
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^time\.Sleep$
+          msg: tests wait on a fake clock, a channel or a deadline loop, never a sleep (TESTING.md)
+      analyze-types: true
+    depguard:
+      rules:
+        no-mocking-frameworks:
+          deny:
+            - pkg: github.com/stretchr/testify
+              desc: use the standard testing package and hand-written fakes (TESTING.md)
+            - pkg: github.com/golang/mock
+              desc: write a fake in <package>test or internal/core/coretest instead
+            - pkg: go.uber.org/mock
+              desc: write a fake in <package>test or internal/core/coretest instead
+            - pkg: github.com/vektra/mockery
+              desc: write a fake in <package>test or internal/core/coretest instead
+  exclusions:
+    rules:
+      - path-except: _test\.go$
+        linters:
+          - forbidigo
 
 formatters:
   enable:

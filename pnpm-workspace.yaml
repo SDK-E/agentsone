@@ -5,8 +5,14 @@ packages:
   - runners/claude
   - plugins/*
 
-# eslint-plugin-jsx-a11y 6.10.2 is the latest release and has not yet widened its
-# peer range to ESLint 10. It works with flat config, so allow it explicitly.
+minimumReleaseAgeExclude:
+  - "@redocly/cli@2.82.0"
+
 peerDependencyRules:
   allowedVersions:
+    # eslint-plugin-jsx-a11y 6.10.2 is the latest release and has not yet widened its
+    # peer range to ESLint 10. It works with flat config, so allow it explicitly.
     eslint-plugin-jsx-a11y>eslint: "10"
+    # openapi-typescript 7.13.0 is the latest release and still declares TypeScript 5.
+    # It only uses the stable compiler API to print code, which TypeScript 6 keeps.
+    openapi-typescript>typescript: "6"

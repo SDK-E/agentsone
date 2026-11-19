@@ -172,8 +172,8 @@ func TestTCPIdentity_IdentityHeadersFromTheEdgeGiveNoSession(t *testing.T) {
 		"X-Forwarded-For": "203.0.113.9", "X-Forwarded-User": "ada", "X-Remote-User": "ada", "Remote-User": "ada", "X-Auth-Request-User": "ada",
 	}
 	rec := send(req{method: "GET", path: "/v1/agents", remote: "172.18.0.2:4000", headers: h})
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("got %d %q, want 401", rec.Code, rec.Header().Get("X-Caller"))
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:unauthenticated"`) {
+		t.Fatalf("got %d %q %s, want the 401 unauthenticated problem", rec.Code, rec.Header().Get("X-Caller"), rec.Body)
 	}
 }
 
@@ -192,6 +192,18 @@ func TestSocketIdentity_IgnoresForwardedAndIdentityHeaders(t *testing.T) {
 	}
 	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerSystem, Name: "uid:0"}))
 	h.ServeHTTP(httptest.NewRecorder(), r)
+}
+
+func TestSocketIdentity_WithoutPeerCredentialsIsUnauthenticated(t *testing.T) {
+	t.Parallel()
+	h := httpadapter.SocketIdentity(nil, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("request without peer credentials reached the module")
+	}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/v1/agents", nil))
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:unauthenticated"`) {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
 }
 
 func TestTCPIdentity_DropsAClientSuppliedViaHeader(t *testing.T) {

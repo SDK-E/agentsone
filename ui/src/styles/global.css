@@ -799,6 +799,15 @@ ul.notice {
   box-shadow: var(--shadow-lg);
 }
 
+/* The sheet scrolls on its own; the page behind it holds still. */
+.sheet {
+  overscroll-behavior: contain;
+}
+
+body:has(.sheet[open]) {
+  overflow: hidden;
+}
+
 .sheet::backdrop {
   background: rgb(0 0 0 / 0.4);
 }

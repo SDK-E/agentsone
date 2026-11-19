@@ -174,6 +174,31 @@ test("panel tabs, a cue shows where more tabs hide and the chosen tab comes into
   clean();
 });
 
+test("panels sheet, it reaches the screen bottom and the page behind holds still", async ({
+  page,
+}) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the sheet is for phones");
+  const clean = await useScenario(page, {});
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open panels" }).click();
+  const sheet = page.getByRole("dialog", { name: "Panels" });
+  await expect(sheet).toBeVisible();
+
+  const viewport = page.viewportSize();
+  const box = await sheet.boundingBox();
+  expect(box?.y).toBeGreaterThan(0);
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeCloseTo(viewport?.height ?? 0, 0);
+
+  const before = await page.evaluate(() => window.scrollY);
+  await page.mouse.move(100, 500);
+  await page.mouse.wheel(0, 4000);
+  await expect
+    .poll(() => sheet.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1))
+    .toBe(true);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  clean();
+});
+
 test("audit, show only proof", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Audit");

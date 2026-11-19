@@ -40,6 +40,9 @@ type Config struct {
 	API    APIConfig    `toml:"api"`
 	Log    LogConfig    `toml:"log"`
 	Budget BudgetConfig `toml:"budget"`
+
+	// sections holds module tables, read with Section.
+	sections map[string]any
 }
 
 // APIConfig configures listeners.
@@ -96,19 +99,75 @@ func DefaultConfig() Config {
 // LoadConfig reads path over the defaults. A missing file gives defaults.
 // Unknown keys are an error so typos do not pass silently.
 func LoadConfig(path string) (Config, error) {
-	c := DefaultConfig()
 	b, err := os.ReadFile(path) // #nosec G304 -- the path is the daemon's own config file
 	if errors.Is(err, fs.ErrNotExist) {
-		return c, nil
+		return DefaultConfig(), nil
 	}
 	if err != nil {
-		return c, fmt.Errorf("read config: %w", err)
+		return DefaultConfig(), fmt.Errorf("read config: %w", err)
 	}
-	dec := toml.NewDecoder(bytes.NewReader(b)).DisallowUnknownFields()
-	if err := dec.Decode(&c); err != nil {
-		return c, fmt.Errorf("parse config %s: %w", path, err)
+	c, err := ParseConfig(b)
+	if err != nil {
+		return c, fmt.Errorf("config %s: %w", path, err)
 	}
 	return c, nil
+}
+
+// coreKeys are the top-level keys Config itself decodes. Every other
+// top-level key must be a table that a module reads with Section.
+var coreKeys = map[string]bool{
+	"state_dir": true, "runtime_dir": true, "lib_dir": true, "agents_home": true,
+	"api": true, "log": true, "budget": true,
+}
+
+// ParseConfig decodes TOML over the defaults. Core keys are checked here;
+// module tables are kept for Section.
+func ParseConfig(b []byte) (Config, error) {
+	c := DefaultConfig()
+	var all map[string]any
+	if err := toml.Unmarshal(b, &all); err != nil {
+		return c, fmt.Errorf("parse: %w", err)
+	}
+	own := map[string]any{}
+	c.sections = map[string]any{}
+	for k, v := range all {
+		switch _, table := v.(map[string]any); {
+		case coreKeys[k]:
+			own[k] = v
+		case table:
+			c.sections[k] = v
+		default:
+			return c, fmt.Errorf("unknown key %q", k)
+		}
+	}
+	if err := decodeStrict(own, &c); err != nil {
+		return c, err
+	}
+	return c, nil
+}
+
+// Section decodes the module table [name] into v. Fields of v keep their
+// values when the table or a key is absent; unknown keys are an error.
+func (c Config) Section(name string, v any) error {
+	table, ok := c.sections[name]
+	if !ok {
+		return nil
+	}
+	if err := decodeStrict(table, v); err != nil {
+		return fmt.Errorf("[%s]: %w", name, err)
+	}
+	return nil
+}
+
+func decodeStrict(table any, v any) error {
+	b, err := toml.Marshal(table)
+	if err != nil {
+		return fmt.Errorf("re-encode: %w", err)
+	}
+	if err := toml.NewDecoder(bytes.NewReader(b)).DisallowUnknownFields().Decode(v); err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	return nil
 }
 
 // SocketPath is the API Unix socket.

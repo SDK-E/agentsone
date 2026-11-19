@@ -9,9 +9,9 @@ import common "github.com/SDK-E/agentsone/internal/contract/common"
 // One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64
 // lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON
 // Canonicalization Scheme) form of the whole record with the hash property removed
-// (prevHash stays in). The first record of a log has seq 1 and prevHash of 64
+// (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64
 // zeros; every later record has seq one higher than the record before it and
-// prevHash equal to that record's hash. Records written inside the VM have origin
+// prev_hash equal to that record's hash. Records written inside the VM have origin
 // inside and are testimony: real root inside can rewrite them, so they are shipped
 // to the host as written and the host keeps its own copy. Records written by the
 // host tool have origin host and are proof. Keep details free of floating-point
@@ -23,7 +23,7 @@ type AuditRecord struct {
 	Action string `json:"action"`
 
 	// Actor corresponds to the JSON schema field "actor".
-	Actor common.Actor `json:"actor"`
+	Actor common.AuditActor `json:"actor"`
 
 	// Free-form detail about the action. Never contains secrets.
 	Details AuditRecordDetails `json:"details"`
@@ -39,8 +39,8 @@ type AuditRecord struct {
 	// it.
 	Outcome AuditRecordOutcome `json:"outcome"`
 
-	// PrevHash corresponds to the JSON schema field "prevHash".
-	PrevHash common.Sha256Hex `json:"prevHash"`
+	// PrevHash corresponds to the JSON schema field "prev_hash".
+	PrevHash common.Sha256Hex `json:"prev_hash"`
 
 	// Position in the log, starting at 1.
 	Seq int `json:"seq"`

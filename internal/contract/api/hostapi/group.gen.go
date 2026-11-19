@@ -69,6 +69,11 @@ func (Unimplemented) ApplyFreeze(context.Context, ApplyFreezeRequestObject) (App
 	return nil, core.ErrNotImplemented
 }
 
+// SetGatewaySecret is not implemented yet.
+func (Unimplemented) SetGatewaySecret(context.Context, SetGatewaySecretRequestObject) (SetGatewaySecretResponseObject, error) {
+	return nil, core.ErrNotImplemented
+}
+
 // GetDoorHealth is not implemented yet.
 func (Unimplemented) GetDoorHealth(context.Context, GetDoorHealthRequestObject) (GetDoorHealthResponseObject, error) {
 	return nil, core.ErrNotImplemented

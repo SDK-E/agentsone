@@ -34,15 +34,15 @@ export interface MemoryRecord {
    * @maxItems 64
    */
   links: Link[];
-  source: Source;
+  source: MemorySource;
   /**
    * RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
    */
-  createdAt: string;
+  created_at: string;
   /**
    * RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
    */
-  updatedAt: string;
+  updated_at: string;
   /**
    * Starts at 1 and rises by 1 on every change. Writers send the revision they read; a mismatch is a conflict.
    */
@@ -66,9 +66,9 @@ export interface Link {
  * Where the content came from. ref is the agent or human name, event id, import file or plugin name.
  *
  * This interface was referenced by `MemoryRecord`'s JSON-Schema
- * via the `definition` "Source".
+ * via the `definition` "MemorySource".
  */
-export interface Source {
+export interface MemorySource {
   kind: "agent" | "human" | "event" | "import" | "plugin";
   ref?: string;
 }

@@ -130,7 +130,7 @@ func TestTamperWrongGenesis(t *testing.T) {
 }
 
 func TestTamperMissingHash(t *testing.T) {
-	expectBreak(t, []json.RawMessage{json.RawMessage(`{"prevHash":"` + Genesis + `"}`)}, 0)
+	expectBreak(t, []json.RawMessage{json.RawMessage(`{"prev_hash":"` + Genesis + `"}`)}, 0)
 }
 
 // TestContractFixtureChain verifies the contract's valid chain-<n>.json audit

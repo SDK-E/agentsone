@@ -397,7 +397,7 @@ type CreateScheduleResponseObject interface {
 	VisitCreateScheduleResponse(w http.ResponseWriter) error
 }
 
-type CreateSchedule201JSONResponse Schedule2
+type CreateSchedule201JSONResponse Schedule
 
 func (response CreateSchedule201JSONResponse) VisitCreateScheduleResponse(w http.ResponseWriter) error {
 
@@ -547,7 +547,7 @@ type GetScheduleResponseObject interface {
 	VisitGetScheduleResponse(w http.ResponseWriter) error
 }
 
-type GetSchedule200JSONResponse Schedule2
+type GetSchedule200JSONResponse Schedule
 
 func (response GetSchedule200JSONResponse) VisitGetScheduleResponse(w http.ResponseWriter) error {
 
@@ -602,7 +602,7 @@ type UpdateScheduleResponseObject interface {
 	VisitUpdateScheduleResponse(w http.ResponseWriter) error
 }
 
-type UpdateSchedule200JSONResponse Schedule2
+type UpdateSchedule200JSONResponse Schedule
 
 func (response UpdateSchedule200JSONResponse) VisitUpdateScheduleResponse(w http.ResponseWriter) error {
 

@@ -19,6 +19,7 @@ const (
 	ActorKindAgent  ActorKind = "agent"
 	ActorKindHost   ActorKind = "host"
 	ActorKindHuman  ActorKind = "human"
+	ActorKindPlugin ActorKind = "plugin"
 	ActorKindSystem ActorKind = "system"
 )
 
@@ -30,6 +31,8 @@ func (e ActorKind) Valid() bool {
 	case ActorKindHost:
 		return true
 	case ActorKindHuman:
+		return true
+	case ActorKindPlugin:
 		return true
 	case ActorKindSystem:
 		return true
@@ -929,6 +932,30 @@ func (e MachineUserKind) Valid() bool {
 	}
 }
 
+// Defines values for ManifestSourceKind.
+const (
+	ManifestSourceKindAgentSkills ManifestSourceKind = "agent-skills"
+	ManifestSourceKindAgentsone   ManifestSourceKind = "agentsone"
+	ManifestSourceKindClaudeCode  ManifestSourceKind = "claude-code"
+	ManifestSourceKindMcpRegistry ManifestSourceKind = "mcp-registry"
+)
+
+// Valid indicates whether the value is a known member of the ManifestSourceKind enum.
+func (e ManifestSourceKind) Valid() bool {
+	switch e {
+	case ManifestSourceKindAgentSkills:
+		return true
+	case ManifestSourceKindAgentsone:
+		return true
+	case ManifestSourceKindClaudeCode:
+		return true
+	case ManifestSourceKindMcpRegistry:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemoryRecordScope.
 const (
 	MemoryRecordScopeCommon  MemoryRecordScope = "common"
@@ -965,6 +992,33 @@ func (e MemoryScope) Valid() bool {
 	case MemoryScopePrivate:
 		return true
 	case MemoryScopeTeam:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemorySourceKind.
+const (
+	MemorySourceKindAgent  MemorySourceKind = "agent"
+	MemorySourceKindEvent  MemorySourceKind = "event"
+	MemorySourceKindHuman  MemorySourceKind = "human"
+	MemorySourceKindImport MemorySourceKind = "import"
+	MemorySourceKindPlugin MemorySourceKind = "plugin"
+)
+
+// Valid indicates whether the value is a known member of the MemorySourceKind enum.
+func (e MemorySourceKind) Valid() bool {
+	switch e {
+	case MemorySourceKindAgent:
+		return true
+	case MemorySourceKindEvent:
+		return true
+	case MemorySourceKindHuman:
+		return true
+	case MemorySourceKindImport:
+		return true
+	case MemorySourceKindPlugin:
 		return true
 	default:
 		return false
@@ -1322,57 +1376,6 @@ func (e SignalRequestSignal) Valid() bool {
 	}
 }
 
-// Defines values for SourceKind.
-const (
-	SourceKindAgent  SourceKind = "agent"
-	SourceKindEvent  SourceKind = "event"
-	SourceKindHuman  SourceKind = "human"
-	SourceKindImport SourceKind = "import"
-	SourceKindPlugin SourceKind = "plugin"
-)
-
-// Valid indicates whether the value is a known member of the SourceKind enum.
-func (e SourceKind) Valid() bool {
-	switch e {
-	case SourceKindAgent:
-		return true
-	case SourceKindEvent:
-		return true
-	case SourceKindHuman:
-		return true
-	case SourceKindImport:
-		return true
-	case SourceKindPlugin:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for Source2Kind.
-const (
-	Source2KindAgentSkills Source2Kind = "agent-skills"
-	Source2KindAgentsone   Source2Kind = "agentsone"
-	Source2KindClaudeCode  Source2Kind = "claude-code"
-	Source2KindMcpRegistry Source2Kind = "mcp-registry"
-)
-
-// Valid indicates whether the value is a known member of the Source2Kind enum.
-func (e Source2Kind) Valid() bool {
-	switch e {
-	case Source2KindAgentSkills:
-		return true
-	case Source2KindAgentsone:
-		return true
-	case Source2KindClaudeCode:
-		return true
-	case Source2KindMcpRegistry:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for StateFrameKind.
 const (
 	StateFrameKindState StateFrameKind = "state"
@@ -1624,29 +1627,15 @@ func (e Wall) Valid() bool {
 // Examples: agent:founder
 type Actor = string
 
-// Actor2 Who did something, as an object (used in records).
-type Actor2 struct {
-	// Kind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.
-	Kind ActorKind `json:"kind"`
-
-	// Name Agent name, human user name, or component name such as agentsoned or emitter-auth.
-	Name string `json:"name"`
-
-	// Uid Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.
-	Uid *int `json:"uid,omitempty"`
-}
-
-// ActorKind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.
+// ActorKind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
 type ActorKind string
 
-// ActorRef Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+// ActorRef Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
 type ActorRef = string
 
 // Agent defines model for Agent.
 type Agent struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -1681,13 +1670,11 @@ type Agent struct {
 	// Manager Agent directly above in the chart; null for the founder.
 	Manager *string `json:"manager"`
 
-	// Name Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Name Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Name AgentName `json:"name"`
 
 	// OneLine Latest one-line, or null before the first turn.
-	OneLine *OneLine `json:"one_line"`
+	OneLine *AgentOneLine `json:"one_line"`
 
 	// Role Short job title, for example "Router" or "Disk watcher".
 	Role string `json:"role"`
@@ -1699,8 +1686,6 @@ type Agent struct {
 	State  AgentState `json:"state"`
 
 	// Team Name of the agent that heads this agent's chart branch (team). Used for team memory and freeze.
-	//
-	// Examples: founder
 	Team AgentName `json:"team"`
 
 	// Template Agent template name the agent was hired from, or null.
@@ -1726,14 +1711,10 @@ type AgentCreate struct {
 	Kind   AgentKind         `json:"kind"`
 	Limits *AgentLimitsInput `json:"limits,omitempty"`
 
-	// Manager Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Manager Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Manager *AgentName `json:"manager,omitempty"`
 
-	// Name Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Name Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Name   AgentName `json:"name"`
 	Role   string    `json:"role"`
 	Runner string    `json:"runner"`
@@ -1778,28 +1759,19 @@ type AgentList struct {
 	NextCursor *Cursor `json:"next_cursor"`
 }
 
-// AgentName Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-//
-// Examples: founder
+// AgentName Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 type AgentName = string
-
-// AgentName2 Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
-type AgentName2 = string
 
 // AgentNetRules Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall.
 type AgentNetRules struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 	Allow []string  `json:"allow"`
 
 	// Mode `inherit` uses the whole allow list; `allow-only` narrows it to `allow`; `deny-all` blocks the agent's traffic.
 	Mode NetMode `json:"mode"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 
 	// UpdatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -1832,6 +1804,15 @@ type AgentNetRulesSet struct {
 	Mode NetMode `json:"mode"`
 }
 
+// AgentOneLine The live list entry body. Every agent turn writes one; it is what the router reads.
+type AgentOneLine struct {
+	// Text One line (no line breaks, at most 255 characters) saying the agent's goal and what it does now.
+	Text OneLineText `json:"text"`
+
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
 // AgentOutputFrame defines model for AgentOutputFrame.
 type AgentOutputFrame struct {
 	union json.RawMessage
@@ -1862,8 +1843,8 @@ type AgentTemplate struct {
 	Schema *string `json:"$schema,omitempty"`
 
 	// Charter Starting charter. The agent may rewrite it. Empty for no charter.
-	Charter Markdown   `json:"charter"`
-	Goals   []OneLine2 `json:"goals"`
+	Charter Markdown  `json:"charter"`
+	Goals   []OneLine `json:"goals"`
 
 	// IsRoot Root agents run as uid 0 with no sandbox. Only root agents may hire from a template with isRoot true.
 	IsRoot bool `json:"isRoot"`
@@ -1878,12 +1859,12 @@ type AgentTemplate struct {
 	McpServers []string `json:"mcpServers"`
 
 	// Name Default name for an agent hired from this template.
-	Name AgentName2 `json:"name"`
+	Name AgentName `json:"name"`
 
 	// OneLine First one-line profile, shown in the live list until the agent publishes its own.
-	OneLine   OneLine2     `json:"oneLine"`
-	Runner    RunnerChoice `json:"runner"`
-	Schedules []Schedule   `json:"schedules"`
+	OneLine   OneLine            `json:"oneLine"`
+	Runner    RunnerChoice       `json:"runner"`
+	Schedules []TemplateSchedule `json:"schedules"`
 
 	// Skills Skills the agent can use, by name, from installed plugins.
 	Skills []SkillName `json:"skills"`
@@ -1928,9 +1909,7 @@ type AllowEntry struct {
 // AllowList Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS
 // only for these names. Read-only inside the VM; humans change it on the host.
 type AllowList struct {
-	// AsOf RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// AsOf RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	AsOf     Timestamp         `json:"as_of"`
 	Entries  []AllowEntry      `json:"entries"`
 	ReadOnly AllowListReadOnly `json:"read_only"`
@@ -1967,14 +1946,10 @@ type Assignment struct {
 	// Examples: /v1/agents/helper/chat
 	ChatPath string `json:"chat_path"`
 
-	// Chosen Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Chosen Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Chosen AgentName `json:"chosen"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -1993,8 +1968,6 @@ type Assignment struct {
 	Id AssignmentId `json:"id"`
 
 	// Router Router that made the final pick.
-	//
-	// Examples: founder
 	Router AgentName `json:"router"`
 
 	// Shortlist Rated candidates, best first. The chosen agent is the first entry.
@@ -2017,11 +1990,23 @@ type AuditAckResult struct {
 	AckedSeq int64 `json:"acked_seq"`
 }
 
+// AuditActor Who did something, as an object (used in audit records). The one-string form is ActorRef.
+type AuditActor struct {
+	// Kind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
+	Kind ActorKind `json:"kind"`
+
+	// Name Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID).
+	Name string `json:"name"`
+
+	// Uid Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.
+	Uid *int `json:"uid,omitempty"`
+}
+
 // AuditFrame defines model for AuditFrame.
 type AuditFrame struct {
 	Kind AuditFrameKind `json:"kind"`
 
-	// Record One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+	// Record One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
 	Record AuditRecord `json:"record"`
 }
 
@@ -2036,13 +2021,13 @@ type AuditList struct {
 	NextCursor *Cursor `json:"next_cursor"`
 }
 
-// AuditRecord One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+// AuditRecord One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
 type AuditRecord struct {
 	// Action What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.
 	Action string `json:"action"`
 
-	// Actor Who did something, as an object (used in records).
-	Actor Actor2 `json:"actor"`
+	// Actor Who did something, as an object (used in audit records). The one-string form is ActorRef.
+	Actor AuditActor `json:"actor"`
 
 	// Details Free-form detail about the action. Never contains secrets.
 	Details map[string]interface{} `json:"details"`
@@ -2057,7 +2042,7 @@ type AuditRecord struct {
 	Outcome AuditRecordOutcome `json:"outcome"`
 
 	// PrevHash SHA-256 digest as 64 lowercase hexadecimal characters.
-	PrevHash Sha256Hex `json:"prevHash"`
+	PrevHash Sha256Hex `json:"prev_hash"`
 
 	// Seq Position in the log, starting at 1.
 	Seq int `json:"seq"`
@@ -2066,7 +2051,7 @@ type AuditRecord struct {
 	Target Target `json:"target"`
 
 	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
-	Time Timestamp2 `json:"time"`
+	Time Timestamp `json:"time"`
 }
 
 // AuditRecordOrigin inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).
@@ -2094,9 +2079,7 @@ type AuditVerification struct {
 	Ok           bool  `json:"ok"`
 	ToSeq        int64 `json:"to_seq"`
 
-	// VerifiedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// VerifiedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	VerifiedAt Timestamp `json:"verified_at"`
 }
 
@@ -2120,8 +2103,6 @@ type BoxShadow = string
 // gateway on the Mac refuses model calls past it, whatever happens inside the VM.
 type Budget struct {
 	// AsOf When the host last pushed this state.
-	//
-	// Examples: 2026-11-19T18:40:00Z
 	AsOf Timestamp `json:"as_of"`
 
 	// CheckIntervalSeconds How often the gateway checks usage in chunks.
@@ -2133,14 +2114,10 @@ type Budget struct {
 	// Defence Budget reserved for wakers and security work. The human can switch it off on the host.
 	Defence DefenceSlice `json:"defence"`
 
-	// PeriodEnd RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// PeriodEnd RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	PeriodEnd Timestamp `json:"period_end"`
 
-	// PeriodStart RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// PeriodStart RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	PeriodStart     Timestamp `json:"period_start"`
 	RemainingMicros int64     `json:"remaining_micros"`
 	SpentMicros     int64     `json:"spent_micros"`
@@ -2163,9 +2140,7 @@ type BudgetAllocationSet struct {
 // BudgetNode One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a
 // root agent can bypass it. Only the total is hard.
 type BudgetNode struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 
 	// AllocatedMicros Soft allocation set by the manager; null means "share the manager's remainder".
@@ -2184,9 +2159,7 @@ type BudgetNodeWall string
 
 // BudgetSplit defines model for BudgetSplit.
 type BudgetSplit struct {
-	// AsOf RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// AsOf RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	AsOf     Timestamp `json:"as_of"`
 	Currency string    `json:"currency"`
 
@@ -2204,9 +2177,7 @@ type BusMessage struct {
 	// CorrelationId Ties a conversation across bus, tasks and events.
 	CorrelationId *string `json:"correlation_id"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// From Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -2238,9 +2209,7 @@ type BusMessageCreate struct {
 	ReplyTo *MessageId `json:"reply_to,omitempty"`
 	Text    string     `json:"text"`
 
-	// To Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// To Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	To *AgentName `json:"to,omitempty"`
 }
 
@@ -2296,9 +2265,7 @@ type CatalogList struct {
 
 // Channel defines model for Channel.
 type Channel struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -2358,30 +2325,22 @@ type Chart struct {
 	AgentCount int         `json:"agent_count"`
 	Roots      []ChartNode `json:"roots"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 }
 
 // ChartMove Move an agent (and its branch) under a new manager. Both must be below the caller.
 type ChartMove struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 
-	// NewManager Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// NewManager Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	NewManager AgentName `json:"new_manager"`
 }
 
 // ChartNode defines model for ChartNode.
 type ChartNode struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent    AgentName   `json:"agent"`
 	Children []ChartNode `json:"children"`
 
@@ -2404,9 +2363,7 @@ type Charter struct {
 	// Text Markdown.
 	Text string `json:"text"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 
 	// UpdatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -2444,8 +2401,6 @@ type ChatDeltaFrameKind string
 // ChatMessage defines model for ChatMessage.
 type ChatMessage struct {
 	// Agent Agent whose chat this is.
-	//
-	// Examples: founder
 	Agent AgentName `json:"agent"`
 
 	// AssignmentId Router assignment that opened this chat, when the message came through the router.
@@ -2460,9 +2415,7 @@ type ChatMessage struct {
 	// Examples: agent:founder
 	Author Actor `json:"author"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// Id Chat message id, `cht_` plus a ULID.
@@ -2602,13 +2555,13 @@ type ComponentName = string
 
 // Contents What the plugin provides. All seven lists are present; any may be empty. The plugin manager refuses a plugin whose lists are all empty (a rule the schema leaves out to stay simple for code generators).
 type Contents struct {
-	AgentTemplates []FileRef   `json:"agentTemplates"`
-	Emitters       []Emitter2  `json:"emitters"`
-	McpServers     []McpServer `json:"mcpServers"`
-	Panels         []Panel     `json:"panels"`
-	Runners        []Runner    `json:"runners"`
-	Skills         []Skill     `json:"skills"`
-	Themes         []FileRef   `json:"themes"`
+	AgentTemplates []FileRef         `json:"agentTemplates"`
+	Emitters       []ManifestEmitter `json:"emitters"`
+	McpServers     []McpServer       `json:"mcpServers"`
+	Panels         []Panel           `json:"panels"`
+	Runners        []ManifestRunner  `json:"runners"`
+	Skills         []Skill           `json:"skills"`
+	Themes         []FileRef         `json:"themes"`
 }
 
 // ContrastPair A foreground drawn on a background. minRatio is 4.5 for normal text and 3 for large text or interface parts (WCAG 2.2 AA 1.4.3 and 1.4.11).
@@ -2632,9 +2585,7 @@ type CpuMetrics struct {
 
 // CreateTaskAction defines model for CreateTaskAction.
 type CreateTaskAction struct {
-	// Assignee Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Assignee Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Assignee AgentName            `json:"assignee"`
 	Kind     CreateTaskActionKind `json:"kind"`
 	Priority TaskPriority         `json:"priority"`
@@ -2681,18 +2632,14 @@ type DoorHealth struct {
 	Frozen bool `json:"frozen"`
 	Ok     bool `json:"ok"`
 
-	// Time RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time          Timestamp `json:"time"`
 	UptimeSeconds int64     `json:"uptime_seconds"`
 }
 
 // Emitter defines model for Emitter.
 type Emitter struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt   Timestamp `json:"created_at"`
 	Description string    `json:"description"`
 	Enabled     bool      `json:"enabled"`
@@ -2726,20 +2673,6 @@ type Emitter struct {
 
 	// WebhookPath Intake path for `webhook` emitters, for example `/v1/webhooks/emt_...`.
 	WebhookPath *string `json:"webhook_path"`
-}
-
-// Emitter2 An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.
-type Emitter2 struct {
-	Args Args `json:"args"`
-
-	// Catalog An events catalog (events-catalog.schema.json) describing the data of each event type.
-	Catalog *PluginPath `json:"catalog,omitempty"`
-	Command string      `json:"command"`
-
-	// Env Environment variables for a process. Values may contain ${PLUGIN_ROOT}.
-	Env        EnvMap        `json:"env"`
-	EventTypes []EventType   `json:"eventTypes"`
-	Name       ComponentName `json:"name"`
 }
 
 // EmitterId Emitter id, `emt_` plus a ULID.
@@ -2791,9 +2724,7 @@ type EngineFetchStatus struct {
 	Progress float32          `json:"progress"`
 	State    EngineFetchState `json:"state"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 
 	// Version Engine version once known.
@@ -2862,25 +2793,14 @@ type Event struct {
 	Subject *string `json:"subject,omitempty"`
 
 	// Time When the occurrence happened.
-	Time Timestamp2 `json:"time"`
+	Time Timestamp `json:"time"`
 
 	// Type Event type, agentsone.<emitter>.<event>.
 	Type EventType `json:"type"`
 }
 
-// EventFilter All given fields must match. types matches any one of its entries.
+// EventFilter Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
 type EventFilter struct {
-	// Chartscope Which part of the org chart something concerns, as one string. machine: the whole machine. team:<root>: the chart branch whose root agent is <root>. agent:<name>: one agent.
-	Chartscope *ChartScope `json:"chartscope,omitempty"`
-
-	// Source Exact source, for example /emitters/auth.
-	Source        *string           `json:"source,omitempty"`
-	SubjectPrefix *string           `json:"subjectPrefix,omitempty"`
-	Types         []EventTypeFilter `json:"types"`
-}
-
-// EventFilter2 Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
-type EventFilter2 struct {
 	Actors        *[]Actor  `json:"actors,omitempty"`
 	Sources       *[]string `json:"sources,omitempty"`
 	SubjectPrefix *string   `json:"subject_prefix,omitempty"`
@@ -2902,9 +2822,6 @@ type EventFrameKind string
 // EventId Event id, prefix evt_.
 type EventId = string
 
-// EventId2 Event id, `evt_` plus a ULID.
-type EventId2 = string
-
 // EventList defines model for EventList.
 type EventList struct {
 	Items []Event `json:"items"`
@@ -2916,9 +2833,9 @@ type EventList struct {
 // EventPublish Publish an event. The daemon fills `id`, `time`, `sequence`, `actor` (the caller) and
 // `source` (`/agents/<name>` unless the caller owns a registered emitter named in `source`).
 type EventPublish struct {
-	// Causationid Event id, `evt_` plus a ULID.
-	Causationid   *EventId2 `json:"causationid,omitempty"`
-	Correlationid *string   `json:"correlationid,omitempty"`
+	// Causationid Event id, prefix evt_.
+	Causationid   *EventId `json:"causationid,omitempty"`
+	Correlationid *string  `json:"correlationid,omitempty"`
 
 	// Data Event payload, at most 64 KiB once encoded.
 	Data    map[string]interface{} `json:"data"`
@@ -2959,9 +2876,7 @@ type FileEntry struct {
 	// Mode Examples: 0644
 	Mode string `json:"mode"`
 
-	// ModifiedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// ModifiedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	ModifiedAt Timestamp `json:"modified_at"`
 	Name       string    `json:"name"`
 	Owner      string    `json:"owner"`
@@ -3022,9 +2937,7 @@ type FontWeight int
 // Freeze An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.
 // `team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.
 type Freeze struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// Id Freeze id, `frz_` plus a ULID.
@@ -3057,28 +2970,31 @@ type FreezeRequest struct {
 	Scope  FreezeScope `json:"scope"`
 
 	// Target Required for `team` and `agent`.
-	//
-	// Examples: founder
 	Target *AgentName `json:"target,omitempty"`
 }
 
 // FreezeScope defines model for FreezeScope.
 type FreezeScope string
 
+// GatewaySecret Per-boot key for signing agents' model gateway tokens. Write only.
+type GatewaySecret struct {
+	// RotatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
+	RotatedAt Timestamp `json:"rotated_at"`
+
+	// Secret 32 random bytes, base64url without padding.
+	Secret *string `json:"secret,omitempty"`
+}
+
 // Goal defines model for Goal.
 type Goal struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 	Detail    string    `json:"detail"`
 
 	// Id Goal id, `gol_` plus a ULID.
 	Id GoalId `json:"id"`
 
-	// Owner Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Owner Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Owner AgentName `json:"owner"`
 
 	// ParentId Goal of the manager this goal serves, or null.
@@ -3086,9 +3002,7 @@ type Goal struct {
 	Status   GoalStatus `json:"status"`
 	Title    string     `json:"title"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 }
 
@@ -3097,8 +3011,6 @@ type GoalCreate struct {
 	Detail *string `json:"detail,omitempty"`
 
 	// Owner Defaults to the caller. Another owner must be below the caller.
-	//
-	// Examples: founder
 	Owner *AgentName `json:"owner,omitempty"`
 
 	// ParentId Goal id, `gol_` plus a ULID.
@@ -3131,9 +3043,7 @@ type GoalUpdate struct {
 type Heartbeat struct {
 	Kind HeartbeatKind `json:"kind"`
 
-	// Time RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time Timestamp `json:"time"`
 }
 
@@ -3142,22 +3052,16 @@ type HeartbeatKind string
 
 // HostBudgetPush Budget state from the gateway. The daemon shows it and splits it; it cannot raise it.
 type HostBudgetPush struct {
-	// AsOf RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// AsOf RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	AsOf                 Timestamp       `json:"as_of"`
 	CheckIntervalSeconds int             `json:"check_interval_seconds"`
 	Currency             string          `json:"currency"`
 	Defence              HostDefencePush `json:"defence"`
 
-	// PeriodEnd RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// PeriodEnd RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	PeriodEnd Timestamp `json:"period_end"`
 
-	// PeriodStart RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// PeriodStart RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	PeriodStart     Timestamp `json:"period_start"`
 	RemainingMicros int64     `json:"remaining_micros"`
 	SpentMicros     int64     `json:"spent_micros"`
@@ -3177,9 +3081,7 @@ type HostDefencePush struct {
 // Human A human account. Human accounts are Linux users checked through PAM. The wall is soft:
 // a root agent inside the VM can change Linux accounts; the host tool is the hard record.
 type Human struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// DisplayName Free display name shown in the interface.
@@ -3281,9 +3183,7 @@ type InstalledTheme struct {
 	// Id Installed theme id, `thm_` plus a ULID.
 	Id ThemeId `json:"id"`
 
-	// InstalledAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// InstalledAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	InstalledAt Timestamp `json:"installed_at"`
 	Name        string    `json:"name"`
 	PluginId    *string   `json:"plugin_id"`
@@ -3294,14 +3194,10 @@ type InstalledTheme struct {
 
 // IssuedToken defines model for IssuedToken.
 type IssuedToken struct {
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
-	// ExpiresAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// ExpiresAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	ExpiresAt Timestamp `json:"expires_at"`
 
 	// Id Token id, `tok_` plus a ULID. The id is not the secret.
@@ -3383,7 +3279,7 @@ type Link struct {
 	Ref  string   `json:"ref"`
 
 	// Title One line of plain text: 1 to 255 characters, no line breaks.
-	Title *OneLine2 `json:"title,omitempty"`
+	Title *OneLine `json:"title,omitempty"`
 }
 
 // LinkKind defines model for Link.Kind.
@@ -3391,9 +3287,7 @@ type LinkKind string
 
 // LiveEntry One row of the live list. The router rates these rows against a human request.
 type LiveEntry struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 
 	// DisplayName Free display name shown in the interface.
@@ -3401,14 +3295,12 @@ type LiveEntry struct {
 
 	// Kind `always-on` keeps a session and works its goals; `chat` wakes for chat messages and tasks;
 	// `waker` watches events and wakes others. Every kind sleeps when idle; sleeping costs nothing.
-	Kind    AgentKind  `json:"kind"`
-	OneLine *OneLine   `json:"one_line"`
-	Role    string     `json:"role"`
-	State   AgentState `json:"state"`
+	Kind    AgentKind     `json:"kind"`
+	OneLine *AgentOneLine `json:"one_line"`
+	Role    string        `json:"role"`
+	State   AgentState    `json:"state"`
 
-	// Team Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Team Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Team AgentName `json:"team"`
 }
 
@@ -3432,9 +3324,7 @@ type LiveList struct {
 
 // LiveRemovedFrame An agent left the live list (retired).
 type LiveRemovedFrame struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName            `json:"agent"`
 	Kind  LiveRemovedFrameKind `json:"kind"`
 }
@@ -3467,9 +3357,7 @@ type MachineMetrics struct {
 	Memory MemoryMetrics `json:"memory"`
 	Net    NetMetrics    `json:"net"`
 
-	// Time RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time          Timestamp `json:"time"`
 	UptimeSeconds int64     `json:"uptime_seconds"`
 }
@@ -3494,6 +3382,46 @@ type MachineUserList struct {
 	// NextCursor Opaque cursor for the next page, or null when this is the last page.
 	NextCursor *Cursor `json:"next_cursor"`
 }
+
+// ManifestEmitter An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.
+type ManifestEmitter struct {
+	Args Args `json:"args"`
+
+	// Catalog An events catalog (events-catalog.schema.json) describing the data of each event type.
+	Catalog *PluginPath `json:"catalog,omitempty"`
+	Command string      `json:"command"`
+
+	// Env Environment variables for a process. Values may contain ${PLUGIN_ROOT}.
+	Env        EnvMap        `json:"env"`
+	EventTypes []EventType   `json:"eventTypes"`
+	Name       ComponentName `json:"name"`
+}
+
+// ManifestRunner A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.
+type ManifestRunner struct {
+	Args    Args   `json:"args"`
+	Command string `json:"command"`
+
+	// Description One line of plain text: 1 to 255 characters, no line breaks.
+	Description *OneLine `json:"description,omitempty"`
+
+	// Env Environment variables for a process. Values may contain ${PLUGIN_ROOT}.
+	Env              EnvMap        `json:"env"`
+	Name             ComponentName `json:"name"`
+	ProtocolVersions []string      `json:"protocolVersions"`
+}
+
+// ManifestSource Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.
+type ManifestSource struct {
+	Kind ManifestSourceKind `json:"kind"`
+	Ref  string             `json:"ref"`
+
+	// Sha256 Digest of the fetched archive, when one was fetched.
+	Sha256 *Sha256Hex `json:"sha256,omitempty"`
+}
+
+// ManifestSourceKind defines model for ManifestSource.Kind.
+type ManifestSourceKind string
 
 // Markdown CommonMark text, up to 64 KiB of characters.
 type Markdown = string
@@ -3538,9 +3466,6 @@ type MemoryHit struct {
 // MemoryId Memory record id, prefix mem_.
 type MemoryId = string
 
-// MemoryId2 Memory record id, `mem_` plus a ULID.
-type MemoryId2 = string
-
 // MemoryList defines model for MemoryList.
 type MemoryList struct {
 	Items []MemoryRecord `json:"items"`
@@ -3562,31 +3487,31 @@ type MemoryRecord struct {
 	Body Markdown `json:"body"`
 
 	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
-	CreatedAt Timestamp2 `json:"createdAt"`
+	CreatedAt Timestamp `json:"created_at"`
 
 	// Id Memory record id, prefix mem_.
 	Id    MemoryId `json:"id"`
 	Links []Link   `json:"links"`
 
 	// Owner Agent that wrote the memory and may change it.
-	Owner AgentName2 `json:"owner"`
+	Owner AgentName `json:"owner"`
 
 	// Revision Starts at 1 and rises by 1 on every change. Writers send the revision they read; a mismatch is a conflict.
 	Revision int               `json:"revision"`
 	Scope    MemoryRecordScope `json:"scope"`
 
 	// Source Where the content came from. ref is the agent or human name, event id, import file or plugin name.
-	Source Source   `json:"source"`
-	Tags   []string `json:"tags"`
+	Source MemorySource `json:"source"`
+	Tags   []string     `json:"tags"`
 
 	// Team Root agent of the owner's chart branch when the memory was written. Decides who reads team memories.
-	Team AgentName2 `json:"team"`
+	Team AgentName `json:"team"`
 
 	// Title One line of plain text: 1 to 255 characters, no line breaks.
-	Title OneLine2 `json:"title"`
+	Title OneLine `json:"title"`
 
 	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
-	UpdatedAt Timestamp2 `json:"updatedAt"`
+	UpdatedAt Timestamp `json:"updated_at"`
 }
 
 // MemoryRecordScope defines model for MemoryRecord.Scope.
@@ -3603,6 +3528,15 @@ type MemorySearchResult struct {
 	// NextCursor Opaque cursor for the next page, or null when this is the last page.
 	NextCursor *Cursor `json:"next_cursor"`
 }
+
+// MemorySource Where the content came from. ref is the agent or human name, event id, import file or plugin name.
+type MemorySource struct {
+	Kind MemorySourceKind `json:"kind"`
+	Ref  *string          `json:"ref,omitempty"`
+}
+
+// MemorySourceKind defines model for MemorySource.Kind.
+type MemorySourceKind string
 
 // MemoryWrite Write a memory record owned by the caller. Writing with an existing `key` in the same scope replaces it.
 type MemoryWrite struct {
@@ -3668,30 +3602,17 @@ type OfficialIdeRequestAcceptLicence bool
 // OfficialIdeState defines model for OfficialIdeState.
 type OfficialIdeState string
 
-// OneLine The live list entry body. Every agent turn writes one; it is what the router reads.
-type OneLine struct {
-	// Text One line (no line breaks, at most 255 characters) saying the agent's goal and what it does now.
-	Text OneLineText `json:"text"`
-
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
-	UpdatedAt Timestamp `json:"updated_at"`
-}
-
-// OneLine2 One line of plain text: 1 to 255 characters, no line breaks.
-type OneLine2 = string
+// OneLine One line of plain text: 1 to 255 characters, no line breaks.
+type OneLine = string
 
 // OneLineFrame defines model for OneLineFrame.
 type OneLineFrame struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName        `json:"agent"`
 	Kind  OneLineFrameKind `json:"kind"`
 
 	// OneLine The live list entry body. Every agent turn writes one; it is what the router reads.
-	OneLine OneLine `json:"one_line"`
+	OneLine AgentOneLine `json:"one_line"`
 }
 
 // OneLineFrameKind defines model for OneLineFrame.Kind.
@@ -3708,17 +3629,13 @@ type OneLineUpdate struct {
 
 // OutputFrame A chunk of runner output (tool calls, thoughts the runner chose to show, logs).
 type OutputFrame struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent  AgentName         `json:"agent"`
 	Kind   OutputFrameKind   `json:"kind"`
 	Stream OutputFrameStream `json:"stream"`
 	Text   string            `json:"text"`
 
-	// Time RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time Timestamp `json:"time"`
 }
 
@@ -3747,9 +3664,7 @@ type PackageInstall struct {
 type PackageJob struct {
 	Action PackageJobAction `json:"action"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// Id Background job id, `job_` plus a ULID.
@@ -3812,9 +3727,7 @@ type Plugin struct {
 	// Id Installed plugin id, `plg_` plus a ULID.
 	Id PluginId `json:"id"`
 
-	// InstalledAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// InstalledAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	InstalledAt Timestamp `json:"installed_at"`
 
 	// InstalledBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -3883,8 +3796,8 @@ type PluginManifest struct {
 	Contents Contents `json:"contents"`
 
 	// Description One line of plain text: 1 to 255 characters, no line breaks.
-	Description OneLine2 `json:"description"`
-	Homepage    *string  `json:"homepage,omitempty"`
+	Description OneLine `json:"description"`
+	Homepage    *string `json:"homepage,omitempty"`
 
 	// License SPDX license expression, for example MIT or Apache-2.0 OR MIT.
 	License string `json:"license"`
@@ -3893,7 +3806,7 @@ type PluginManifest struct {
 	Name PluginName `json:"name"`
 
 	// Source Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.
-	Source Source2 `json:"source"`
+	Source ManifestSource `json:"source"`
 
 	// Version Semantic Versioning 2.0.0 version, without a leading v.
 	Version Semver `json:"version"`
@@ -3935,8 +3848,6 @@ type PowerAction struct {
 	Action PowerActionAction `json:"action"`
 
 	// At When the reboot will start.
-	//
-	// Examples: 2026-11-19T18:40:00Z
 	At     Timestamp `json:"at"`
 	Reason string    `json:"reason"`
 
@@ -4016,9 +3927,7 @@ type Process struct {
 	Ppid       int     `json:"ppid"`
 	RssBytes   int64   `json:"rss_bytes"`
 
-	// StartedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// StartedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	StartedAt Timestamp `json:"started_at"`
 
 	// Unit systemd unit owning the process.
@@ -4051,9 +3960,7 @@ type PtySession struct {
 	Cols    int      `json:"cols"`
 	Command []string `json:"command"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 	ExitCode  *int      `json:"exit_code"`
 	Exited    bool      `json:"exited"`
@@ -4115,8 +4022,6 @@ type ReleaseRequest struct {
 // RouteRequest defines model for RouteRequest.
 type RouteRequest struct {
 	// Router Router agent to start with. Defaults to the society's main router.
-	//
-	// Examples: founder
 	Router *AgentName `json:"router,omitempty"`
 
 	// Text The human's request in their own words.
@@ -4125,34 +4030,16 @@ type RouteRequest struct {
 
 // RouterHop One router in the chain. A router may hand the request to a more specialised router.
 type RouterHop struct {
-	// HandedTo Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// HandedTo Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	HandedTo AgentName `json:"handed_to"`
 	Reason   string    `json:"reason"`
 
-	// Router Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Router Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Router AgentName `json:"router"`
 }
 
-// Runner A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.
+// Runner A registered runner adapter. Each agent runs one runner process.
 type Runner struct {
-	Args    Args   `json:"args"`
-	Command string `json:"command"`
-
-	// Description One line of plain text: 1 to 255 characters, no line breaks.
-	Description *OneLine2 `json:"description,omitempty"`
-
-	// Env Environment variables for a process. Values may contain ${PLUGIN_ROOT}.
-	Env              EnvMap        `json:"env"`
-	Name             ComponentName `json:"name"`
-	ProtocolVersions []string      `json:"protocolVersions"`
-}
-
-// Runner2 A registered runner adapter. Each agent runs one runner process.
-type Runner2 struct {
 	Builtin     bool   `json:"builtin"`
 	Description string `json:"description"`
 	DisplayName string `json:"display_name"`
@@ -4181,7 +4068,7 @@ type RunnerChoice struct {
 
 // RunnerList defines model for RunnerList.
 type RunnerList struct {
-	Items []Runner2 `json:"items"`
+	Items []Runner `json:"items"`
 
 	// NextCursor Opaque cursor for the next page, or null when this is the last page.
 	NextCursor *Cursor `json:"next_cursor"`
@@ -4190,23 +4077,9 @@ type RunnerList struct {
 // RunnerStatus defines model for RunnerStatus.
 type RunnerStatus string
 
-// Schedule A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.
+// Schedule An agent's own timer. When it fires the agent wakes with `message`.
 type Schedule struct {
-	Cron string `json:"cron"`
-	Name string `json:"name"`
-
-	// Note Text handed to the runner in the timer wake.
-	Note *OneLine2 `json:"note,omitempty"`
-
-	// Timezone IANA time zone name, for example UTC or Europe/Paris.
-	Timezone string `json:"timezone"`
-}
-
-// Schedule2 An agent's own timer. When it fires the agent wakes with `message`.
-type Schedule2 struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 
 	// Calendar systemd `OnCalendar` expression in UTC, for example `*-*-* 09:00:00` or `hourly`.
@@ -4214,9 +4087,7 @@ type Schedule2 struct {
 	// Examples: *-*-* 09:00:00
 	Calendar string `json:"calendar"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -4242,8 +4113,6 @@ type Schedule2 struct {
 // ScheduleCreate defines model for ScheduleCreate.
 type ScheduleCreate struct {
 	// Agent Defaults to the caller. Another agent must be below the caller.
-	//
-	// Examples: founder
 	Agent    *AgentName `json:"agent,omitempty"`
 	Calendar string     `json:"calendar"`
 	Enabled  *bool      `json:"enabled,omitempty"`
@@ -4256,7 +4125,7 @@ type ScheduleId = string
 
 // ScheduleList defines model for ScheduleList.
 type ScheduleList struct {
-	Items []Schedule2 `json:"items"`
+	Items []Schedule `json:"items"`
 
 	// NextCursor Opaque cursor for the next page, or null when this is the last page.
 	NextCursor *Cursor `json:"next_cursor"`
@@ -4313,9 +4182,7 @@ type ServiceList struct {
 
 // Session defines model for Session.
 type Session struct {
-	// ExpiresAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// ExpiresAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	ExpiresAt Timestamp `json:"expires_at"`
 
 	// Human A human account. Human accounts are Linux users checked through PAM. The wall is soft:
@@ -4357,9 +4224,7 @@ type Shadows struct {
 
 // ShortlistEntry defines model for ShortlistEntry.
 type ShortlistEntry struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
 
 	// OneLine One line (no line breaks, at most 255 characters) saying the agent's goal and what it does now.
@@ -4400,27 +4265,6 @@ type SleepRequest struct {
 	Compact *bool `json:"compact,omitempty"`
 }
 
-// Source Where the content came from. ref is the agent or human name, event id, import file or plugin name.
-type Source struct {
-	Kind SourceKind `json:"kind"`
-	Ref  *string    `json:"ref,omitempty"`
-}
-
-// SourceKind defines model for Source.Kind.
-type SourceKind string
-
-// Source2 Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.
-type Source2 struct {
-	Kind Source2Kind `json:"kind"`
-	Ref  string      `json:"ref"`
-
-	// Sha256 Digest of the fetched archive, when one was fetched.
-	Sha256 *Sha256Hex `json:"sha256,omitempty"`
-}
-
-// Source2Kind defines model for Source2.Kind.
-type Source2Kind string
-
 // Spacing defines model for Spacing.
 type Spacing struct {
 	// Lg CSS length in px or rem, or 0.
@@ -4441,16 +4285,12 @@ type Spacing struct {
 
 // StateFrame defines model for StateFrame.
 type StateFrame struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName      `json:"agent"`
 	Kind  StateFrameKind `json:"kind"`
 	State AgentState     `json:"state"`
 
-	// Time RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time Timestamp `json:"time"`
 }
 
@@ -4460,8 +4300,19 @@ type StateFrameKind string
 // Subscription Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped.
 type Subscription struct {
 	// Filter All given fields must match. types matches any one of its entries.
-	Filter    EventFilter `json:"filter"`
-	RateLimit RateLimit   `json:"rateLimit"`
+	Filter    SubscriptionFilter `json:"filter"`
+	RateLimit RateLimit          `json:"rateLimit"`
+}
+
+// SubscriptionFilter All given fields must match. types matches any one of its entries.
+type SubscriptionFilter struct {
+	// Chartscope Which part of the org chart something concerns, as one string. machine: the whole machine. team:<root>: the chart branch whose root agent is <root>. agent:<name>: one agent.
+	Chartscope *ChartScope `json:"chartscope,omitempty"`
+
+	// Source Exact source, for example /emitters/auth.
+	Source        *string           `json:"source,omitempty"`
+	SubjectPrefix *string           `json:"subjectPrefix,omitempty"`
+	Types         []EventTypeFilter `json:"types"`
 }
 
 // Target What the action was done to. id is the agent name, record id, plugin name, path, host name or similar.
@@ -4478,9 +4329,7 @@ type Task struct {
 	// Assignee Agent doing the task. Assigning wakes a sleeping agent.
 	Assignee *string `json:"assignee"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
@@ -4508,17 +4357,13 @@ type Task struct {
 	// TriggerId Trigger that created the task, if any.
 	TriggerId *string `json:"trigger_id"`
 
-	// UpdatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// UpdatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	UpdatedAt Timestamp `json:"updated_at"`
 }
 
 // TaskAssign defines model for TaskAssign.
 type TaskAssign struct {
-	// Assignee Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Assignee Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Assignee AgentName `json:"assignee"`
 }
 
@@ -4533,15 +4378,11 @@ type TaskCompletionOutcome string
 
 // TaskCreate defines model for TaskCreate.
 type TaskCreate struct {
-	// Assignee Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Assignee Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Assignee *AgentName `json:"assignee,omitempty"`
 	Detail   *string    `json:"detail,omitempty"`
 
-	// DueAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// DueAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	DueAt *Timestamp `json:"due_at,omitempty"`
 
 	// ParentId Task id, `tsk_` plus a ULID.
@@ -4591,6 +4432,18 @@ type TaskUpdate struct {
 	Title    *string       `json:"title,omitempty"`
 }
 
+// TemplateSchedule A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.
+type TemplateSchedule struct {
+	Cron string `json:"cron"`
+	Name string `json:"name"`
+
+	// Note Text handed to the runner in the timer wake.
+	Note *OneLine `json:"note,omitempty"`
+
+	// Timezone IANA time zone name, for example UTC or Europe/Paris.
+	Timezone string `json:"timezone"`
+}
+
 // TextStyle defines model for TextStyle.
 type TextStyle struct {
 	// LineHeight Unitless line height.
@@ -4611,7 +4464,7 @@ type Theme struct {
 	ContrastPairs []ContrastPair `json:"contrastPairs"`
 
 	// Description One line of plain text: 1 to 255 characters, no line breaks.
-	Description *OneLine2 `json:"description,omitempty"`
+	Description *OneLine `json:"description,omitempty"`
 	Modes       struct {
 		Dark  ModeTokens `json:"dark"`
 		Light ModeTokens `json:"light"`
@@ -4666,13 +4519,8 @@ type ThemeSelectionUpdate struct {
 	ThemeId *ThemeId `json:"theme_id,omitempty"`
 }
 
-// Timestamp RFC 3339 time in UTC with a `Z` suffix.
-//
-// Examples: 2026-11-19T18:40:00Z
+// Timestamp RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 type Timestamp = time.Time
-
-// Timestamp2 RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
-type Timestamp2 = time.Time
 
 // TokenCreate defines model for TokenCreate.
 type TokenCreate struct {
@@ -4690,9 +4538,7 @@ type TokenId = string
 type Trigger struct {
 	Action TriggerAction `json:"action"`
 
-	// CreatedAt RFC 3339 time in UTC with a `Z` suffix.
-	//
-	// Examples: 2026-11-19T18:40:00Z
+	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
 
 	// DroppedCount Matches dropped by the wake-rate limit.
@@ -4700,17 +4546,15 @@ type Trigger struct {
 	Enabled      bool  `json:"enabled"`
 
 	// Filter Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
-	Filter     EventFilter2 `json:"filter"`
-	FiredCount int64        `json:"fired_count"`
+	Filter     EventFilter `json:"filter"`
+	FiredCount int64       `json:"fired_count"`
 
 	// Id Trigger id, `trg_` plus a ULID.
 	Id          TriggerId  `json:"id"`
 	LastFiredAt *time.Time `json:"last_fired_at"`
 	Name        string     `json:"name"`
 
-	// Owner Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Owner Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Owner AgentName `json:"owner"`
 
 	// WakeRate At most `max` firings per `per_seconds`. Extra matching events are counted and dropped.
@@ -4728,8 +4572,8 @@ type TriggerCreate struct {
 	Enabled *bool         `json:"enabled,omitempty"`
 
 	// Filter Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
-	Filter EventFilter2 `json:"filter"`
-	Name   string       `json:"name"`
+	Filter EventFilter `json:"filter"`
+	Name   string      `json:"name"`
 
 	// WakeRate At most `max` firings per `per_seconds`. Extra matching events are counted and dropped.
 	WakeRate WakeRate `json:"wake_rate"`
@@ -4752,8 +4596,8 @@ type TriggerUpdate struct {
 	Enabled *bool          `json:"enabled,omitempty"`
 
 	// Filter Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
-	Filter *EventFilter2 `json:"filter,omitempty"`
-	Name   *string       `json:"name,omitempty"`
+	Filter *EventFilter `json:"filter,omitempty"`
+	Name   *string      `json:"name,omitempty"`
 
 	// WakeRate At most `max` firings per `per_seconds`. Extra matching events are counted and dropped.
 	WakeRate *WakeRate `json:"wake_rate,omitempty"`
@@ -4796,9 +4640,7 @@ type Wake struct {
 
 // WakeAction defines model for WakeAction.
 type WakeAction struct {
-	// Agent Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-	//
-	// Examples: founder
+	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName      `json:"agent"`
 	Kind  WakeActionKind `json:"kind"`
 
@@ -4830,13 +4672,11 @@ type Wall string
 
 // WebhookAccepted defines model for WebhookAccepted.
 type WebhookAccepted struct {
-	// EventId Event id, `evt_` plus a ULID.
-	EventId EventId2 `json:"event_id"`
+	// EventId Event id, prefix evt_.
+	EventId EventId `json:"event_id"`
 }
 
-// AgentNameParameter Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-//
-// Examples: founder
+// AgentNameParameter Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 type AgentNameParameter = AgentName
 
 // AssignmentIdParameter Router assignment id, `asg_` plus a ULID.
@@ -4876,8 +4716,8 @@ type McpProtocolVersion = string
 // McpSessionId defines model for McpSessionId.
 type McpSessionId = string
 
-// MemoryIdParameter Memory record id, `mem_` plus a ULID.
-type MemoryIdParameter = MemoryId2
+// MemoryIdParameter Memory record id, prefix mem_.
+type MemoryIdParameter = MemoryId
 
 // PackageName defines model for PackageName.
 type PackageName = string
@@ -5665,6 +5505,9 @@ type PushBudgetStateJSONRequestBody = HostBudgetPush
 
 // ApplyFreezeJSONRequestBody defines body for ApplyFreeze for application/json ContentType.
 type ApplyFreezeJSONRequestBody = FreezeRequest
+
+// SetGatewaySecretJSONRequestBody defines body for SetGatewaySecret for application/json ContentType.
+type SetGatewaySecretJSONRequestBody = GatewaySecret
 
 // ReleaseFreezeJSONRequestBody defines body for ReleaseFreeze for application/json ContentType.
 type ReleaseFreezeJSONRequestBody = ReleaseRequest

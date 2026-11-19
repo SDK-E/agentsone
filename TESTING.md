@@ -427,10 +427,16 @@ export default defineConfig({
 ```
 
 ```ts
-// One spec per page. The four states run in each of the four projects.
+// One spec per page. The four states run in each of the four projects. The fake daemon
+// (cmd/agentsoned-fake) serves contract/fixtures/api/<operationId>[.<variant>].json; the
+// X-Fixture-Variant header picks the variant for every request of the page, and an operation
+// without that variant serves its default (loaded) fixture. ?fixture=<variant> picks it for one
+// request and is strict: a missing variant is a 404. X-Fixture-Variant-Served says what was served.
 for (const state of ["empty", "loaded", "error", "long-text"] as const) {
   test(`agents page, ${state}`, async ({ page }, testInfo) => {
-    await useScenario(page, `agents-${state}`); // tells the fake daemon what to serve
+    if (state !== "loaded") {
+      await page.setExtraHTTPHeaders({ "X-Fixture-Variant": state });
+    }
     await page.goto("/agents");
     await expect(page.getByRole("main")).toBeVisible();
 

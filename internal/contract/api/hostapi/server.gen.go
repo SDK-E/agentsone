@@ -39,6 +39,9 @@ type ServerInterface interface {
 	// ApplyFreeze Freeze all, a team or an agent
 	// (POST /host/freezes)
 	ApplyFreeze(w http.ResponseWriter, r *http.Request)
+	// SetGatewaySecret Set the gateway secret
+	// (PUT /host/gateway-secret)
+	SetGatewaySecret(w http.ResponseWriter, r *http.Request)
 	// GetDoorHealth Door health
 	// (GET /host/health)
 	GetDoorHealth(w http.ResponseWriter, r *http.Request)
@@ -204,6 +207,20 @@ func (siw *ServerInterfaceWrapper) ApplyFreeze(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// SetGatewaySecret operation middleware
+func (siw *ServerInterfaceWrapper) SetGatewaySecret(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetGatewaySecret(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDoorHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetDoorHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -358,6 +375,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/host/budget", wrapper.PushBudgetState)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/host/freezes", wrapper.ListFreezes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/host/freezes", wrapper.ApplyFreeze)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/host/gateway-secret", wrapper.SetGatewaySecret)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/host/health", wrapper.GetDoorHealth)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/host/release", wrapper.ReleaseFreeze)
 
@@ -814,6 +832,70 @@ func (response ApplyFreeze404ApplicationProblemPlusJSONResponse) VisitApplyFreez
 	return err
 }
 
+type SetGatewaySecretRequestObject struct {
+	Body *SetGatewaySecretJSONRequestBody
+}
+
+type SetGatewaySecretResponseObject interface {
+	VisitSetGatewaySecretResponse(w http.ResponseWriter) error
+}
+
+type SetGatewaySecret204Response struct {
+}
+
+func (response SetGatewaySecret204Response) VisitSetGatewaySecretResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetGatewaySecret400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SetGatewaySecret400ApplicationProblemPlusJSONResponse) VisitSetGatewaySecretResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetGatewaySecret401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SetGatewaySecret401ApplicationProblemPlusJSONResponse) VisitSetGatewaySecretResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetGatewaySecret403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SetGatewaySecret403ApplicationProblemPlusJSONResponse) VisitSetGatewaySecretResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDoorHealthRequestObject struct {
 }
 
@@ -973,6 +1055,9 @@ type StrictServerInterface interface {
 	// ApplyFreeze Freeze all, a team or an agent
 	// (POST /host/freezes)
 	ApplyFreeze(ctx context.Context, request ApplyFreezeRequestObject) (ApplyFreezeResponseObject, error)
+	// SetGatewaySecret Set the gateway secret
+	// (PUT /host/gateway-secret)
+	SetGatewaySecret(ctx context.Context, request SetGatewaySecretRequestObject) (SetGatewaySecretResponseObject, error)
 	// GetDoorHealth Door health
 	// (GET /host/health)
 	GetDoorHealth(ctx context.Context, request GetDoorHealthRequestObject) (GetDoorHealthResponseObject, error)
@@ -1189,6 +1274,37 @@ func (sh *strictHandler) ApplyFreeze(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ApplyFreezeResponseObject); ok {
 		if err := validResponse.VisitApplyFreezeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetGatewaySecret operation middleware
+func (sh *strictHandler) SetGatewaySecret(w http.ResponseWriter, r *http.Request) {
+	var request SetGatewaySecretRequestObject
+
+	var body SetGatewaySecretJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetGatewaySecret(ctx, request.(SetGatewaySecretRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetGatewaySecret")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetGatewaySecretResponseObject); ok {
+		if err := validResponse.VisitSetGatewaySecretResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

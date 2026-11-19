@@ -22,6 +22,10 @@ type Ports struct {
 	Live      LiveList        // owned by internal/router
 	Budget    BudgetView      // owned by internal/agents (reads the host gateway)
 	Runners   RunnerRegistry  // owned by internal/plugins
+	Bus       BusSender       // owned by internal/bus
+	Freezer   Freezer         // owned by internal/agents
+	Tokens    TokenIssuer     // owned by internal/auth
+	Templates TemplateCatalog // owned by internal/plugins
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -30,6 +34,7 @@ func NewPorts() *Ports {
 	return &Ports{
 		Agents: u, Waker: u, Events: u, Subscribe: u, Tasks: u,
 		Audit: u, Live: u, Budget: u, Runners: u,
+		Bus: u, Freezer: u, Tokens: u, Templates: u,
 	}
 }
 
@@ -82,6 +87,7 @@ const (
 )
 
 // Waker wakes a sleeping agent. Waking an awake agent delivers the payload.
+// Waking a frozen agent returns ErrFrozen.
 type Waker interface {
 	Wake(ctx context.Context, agent string, reason WakeReason, payload json.RawMessage) error
 }
@@ -146,6 +152,8 @@ type NewTask struct {
 	CreatedBy string
 	// CauseEventID links a task created from an event.
 	CauseEventID string
+	// Priority is low, normal or high; empty means normal.
+	Priority string
 }
 
 // Task is a created task.
@@ -154,13 +162,51 @@ type Task struct {
 	Title    string
 	Assignee string
 	// Status is a contract TaskStatus value: open, in-progress, blocked, done, cancelled or failed.
-	Status  string
+	Status    string
+	Priority  string
+	CreatedBy string
+	// Result is what the assignee reported when the task ended.
+	Result  string
 	Created time.Time
 }
 
-// TaskService creates tasks.
+// TaskService creates and completes tasks.
 type TaskService interface {
+	// CreateTask stores an open task. A priority TaskPriority rejects is an ErrInvalid.
 	CreateTask(ctx context.Context, t NewTask) (Task, error)
+	GetTask(ctx context.Context, id string) (Task, error)
+	// CompleteTask ends a task. An outcome that fails Validate is an ErrInvalid.
+	CompleteTask(ctx context.Context, id string, outcome TaskOutcome) (Task, error)
+}
+
+// BusSender sends messages to agents and channels.
+type BusSender interface {
+	// Send stores m with an ID and send time and returns it. A message that
+	// fails Validate is an ErrInvalid.
+	Send(ctx context.Context, m BusMessage) (BusMessage, error)
+}
+
+// Freezer holds the daemon's freeze levers. Freezing all is also held as a
+// hard wall by the host; team and agent freezes are soft.
+type Freezer interface {
+	Freeze(ctx context.Context, scope FreezeScope) error
+	Release(ctx context.Context, scope FreezeScope) error
+	// State returns the active freezes.
+	State(ctx context.Context) ([]FreezeScope, error)
+}
+
+// TokenIssuer issues and checks bearer tokens.
+type TokenIssuer interface {
+	Issue(ctx context.Context, subject Caller, scopes []string, ttl time.Duration) (Token, error)
+	// Verify returns the token's caller, or ErrUnauthorized when the token
+	// is unknown or expired.
+	Verify(ctx context.Context, value string) (Caller, error)
+}
+
+// TemplateCatalog lists installed agent templates.
+type TemplateCatalog interface {
+	List(ctx context.Context) ([]AgentTemplate, error)
+	Get(ctx context.Context, id string) (AgentTemplate, error)
 }
 
 // AuditEntry is one fact to record. The audit module adds sequence, time,
@@ -266,3 +312,21 @@ func (unavailable) Runner(context.Context, string) (RunnerAdapter, error) {
 	return nil, ErrUnavailable
 }
 func (unavailable) Runners(context.Context) ([]RunnerInfo, error) { return nil, ErrUnavailable }
+func (unavailable) GetTask(context.Context, string) (Task, error) { return Task{}, ErrUnavailable }
+func (unavailable) CompleteTask(context.Context, string, TaskOutcome) (Task, error) {
+	return Task{}, ErrUnavailable
+}
+func (unavailable) Send(context.Context, BusMessage) (BusMessage, error) {
+	return BusMessage{}, ErrUnavailable
+}
+func (unavailable) Freeze(context.Context, FreezeScope) error      { return ErrUnavailable }
+func (unavailable) Release(context.Context, FreezeScope) error     { return ErrUnavailable }
+func (unavailable) State(context.Context) ([]FreezeScope, error)   { return nil, ErrUnavailable }
+func (unavailable) Verify(context.Context, string) (Caller, error) { return Caller{}, ErrUnavailable }
+func (unavailable) List(context.Context) ([]AgentTemplate, error)  { return nil, ErrUnavailable }
+func (unavailable) Get(context.Context, string) (AgentTemplate, error) {
+	return AgentTemplate{}, ErrUnavailable
+}
+func (unavailable) Issue(context.Context, Caller, []string, time.Duration) (Token, error) {
+	return Token{}, ErrUnavailable
+}

@@ -97,7 +97,7 @@ func waitForStatus(t *testing.T, url string, want int) {
 			}
 			t.Fatalf("status %d, want %d", res.StatusCode, want)
 		}
-		time.Sleep(20 * time.Millisecond)
+		<-time.After(20 * time.Millisecond) // retry gap inside a deadline loop
 	}
 	t.Fatalf("server at %s never answered", url)
 }

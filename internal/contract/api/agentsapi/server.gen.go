@@ -1532,7 +1532,7 @@ type GetAgentOneLineResponseObject interface {
 	VisitGetAgentOneLineResponse(w http.ResponseWriter) error
 }
 
-type GetAgentOneLine200JSONResponse OneLine
+type GetAgentOneLine200JSONResponse AgentOneLine
 
 func (response GetAgentOneLine200JSONResponse) VisitGetAgentOneLineResponse(w http.ResponseWriter) error {
 
@@ -1587,7 +1587,7 @@ type SetAgentOneLineResponseObject interface {
 	VisitSetAgentOneLineResponse(w http.ResponseWriter) error
 }
 
-type SetAgentOneLine200JSONResponse OneLine
+type SetAgentOneLine200JSONResponse AgentOneLine
 
 func (response SetAgentOneLine200JSONResponse) VisitSetAgentOneLineResponse(w http.ResponseWriter) error {
 

@@ -119,7 +119,7 @@
         "name": "memory_id",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/MemoryId-2"
+          "$ref": "#/components/schemas/MemoryId"
         }
       },
       "PackageName": {
@@ -336,44 +336,20 @@
         "pattern": "^((agent|human|system|host):[a-z][a-z0-9-]{0,30}|plugin:plg_[0-9A-HJKMNP-TV-Z]{26})$",
         "type": "string"
       },
-      "Actor-2": {
-        "additionalProperties": false,
-        "description": "Who did something, as an object (used in records).",
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/ActorKind"
-          },
-          "name": {
-            "description": "Agent name, human user name, or component name such as agentsoned or emitter-auth.",
-            "pattern": "^[a-z_][a-z0-9_-]{0,31}$",
-            "type": "string"
-          },
-          "uid": {
-            "description": "Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.",
-            "maximum": 4294967295,
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "kind",
-          "name"
-        ],
-        "type": "object"
-      },
       "ActorKind": {
-        "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.",
+        "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
         "enum": [
           "agent",
           "human",
           "system",
-          "host"
+          "host",
+          "plugin"
         ],
         "type": "string"
       },
       "ActorRef": {
-        "description": "Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.",
-        "pattern": "^(agent|human|system|host):[a-z_][a-z0-9_-]{0,31}$",
+        "description": "Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.",
+        "pattern": "^((agent|human|system|host):[a-z_][a-z0-9_-]{0,31}|plugin:plg_[0-7][0-9A-HJKMNP-TV-Z]{25})$",
         "type": "string"
       },
       "Agent": {
@@ -436,7 +412,7 @@
             "description": "Latest one-line, or null before the first turn.",
             "oneOf": [
               {
-                "$ref": "#/components/schemas/OneLine"
+                "$ref": "#/components/schemas/AgentOneLine"
               },
               {
                 "type": "null"
@@ -632,14 +608,6 @@
         "type": "object"
       },
       "AgentName": {
-        "description": "Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.",
-        "examples": [
-          "founder"
-        ],
-        "pattern": "^[a-z][a-z0-9-]{0,30}$",
-        "type": "string"
-      },
-      "AgentName-2": {
         "description": "Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.",
         "pattern": "^[a-z][a-z0-9-]{0,30}$",
         "type": "string"
@@ -719,6 +687,22 @@
         ],
         "type": "object"
       },
+      "AgentOneLine": {
+        "description": "The live list entry body. Every agent turn writes one; it is what the router reads.",
+        "properties": {
+          "text": {
+            "$ref": "#/components/schemas/OneLineText"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "required": [
+          "text",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "AgentOutputFrame": {
         "discriminator": {
           "mapping": {
@@ -790,38 +774,6 @@
       },
       "AgentTemplate": {
         "$defs": {
-          "EventFilter": {
-            "additionalProperties": false,
-            "description": "All given fields must match. types matches any one of its entries.",
-            "properties": {
-              "chartscope": {
-                "$ref": "#/components/schemas/ChartScope"
-              },
-              "source": {
-                "description": "Exact source, for example /emitters/auth.",
-                "maxLength": 255,
-                "type": "string"
-              },
-              "subjectPrefix": {
-                "maxLength": 1024,
-                "minLength": 1,
-                "type": "string"
-              },
-              "types": {
-                "items": {
-                  "$ref": "#/components/schemas/EventTypeFilter"
-                },
-                "maxItems": 32,
-                "minItems": 1,
-                "type": "array",
-                "uniqueItems": true
-              }
-            },
-            "required": [
-              "types"
-            ],
-            "type": "object"
-          },
           "Limits": {
             "additionalProperties": false,
             "description": "systemd resource limits for custom agents (CPUQuota, MemoryMax, TasksMax). Root agents are not limited.",
@@ -890,7 +842,56 @@
             ],
             "type": "object"
           },
-          "Schedule": {
+          "Subscription": {
+            "additionalProperties": false,
+            "description": "Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped.",
+            "properties": {
+              "filter": {
+                "$ref": "#/components/schemas/SubscriptionFilter"
+              },
+              "rateLimit": {
+                "$ref": "#/components/schemas/RateLimit"
+              }
+            },
+            "required": [
+              "filter",
+              "rateLimit"
+            ],
+            "type": "object"
+          },
+          "SubscriptionFilter": {
+            "additionalProperties": false,
+            "description": "All given fields must match. types matches any one of its entries.",
+            "properties": {
+              "chartscope": {
+                "$ref": "#/components/schemas/ChartScope"
+              },
+              "source": {
+                "description": "Exact source, for example /emitters/auth.",
+                "maxLength": 255,
+                "type": "string"
+              },
+              "subjectPrefix": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "types": {
+                "items": {
+                  "$ref": "#/components/schemas/EventTypeFilter"
+                },
+                "maxItems": 32,
+                "minItems": 1,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "types"
+            ],
+            "type": "object"
+          },
+          "TemplateSchedule": {
             "additionalProperties": false,
             "description": "A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.",
             "properties": {
@@ -904,7 +905,7 @@
                 "type": "string"
               },
               "note": {
-                "$ref": "#/components/schemas/OneLine-2",
+                "$ref": "#/components/schemas/OneLine",
                 "description": "Text handed to the runner in the timer wake."
               },
               "timezone": {
@@ -919,23 +920,6 @@
               "name",
               "cron",
               "timezone"
-            ],
-            "type": "object"
-          },
-          "Subscription": {
-            "additionalProperties": false,
-            "description": "Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped.",
-            "properties": {
-              "filter": {
-                "$ref": "#/components/schemas/EventFilter"
-              },
-              "rateLimit": {
-                "$ref": "#/components/schemas/RateLimit"
-              }
-            },
-            "required": [
-              "filter",
-              "rateLimit"
             ],
             "type": "object"
           },
@@ -970,7 +954,7 @@
           },
           "goals": {
             "items": {
-              "$ref": "#/components/schemas/OneLine-2"
+              "$ref": "#/components/schemas/OneLine"
             },
             "maxItems": 32,
             "type": "array"
@@ -1002,11 +986,11 @@
             "uniqueItems": true
           },
           "name": {
-            "$ref": "#/components/schemas/AgentName-2",
+            "$ref": "#/components/schemas/AgentName",
             "description": "Default name for an agent hired from this template."
           },
           "oneLine": {
-            "$ref": "#/components/schemas/OneLine-2",
+            "$ref": "#/components/schemas/OneLine",
             "description": "First one-line profile, shown in the live list until the agent publishes its own."
           },
           "runner": {
@@ -1014,7 +998,7 @@
           },
           "schedules": {
             "items": {
-              "$ref": "#/components/schemas/Schedule"
+              "$ref": "#/components/schemas/TemplateSchedule"
             },
             "maxItems": 32,
             "type": "array"
@@ -1286,6 +1270,57 @@
         ],
         "type": "object"
       },
+      "AuditActor": {
+        "additionalProperties": false,
+        "description": "Who did something, as an object (used in audit records). The one-string form is ActorRef.",
+        "else": {
+          "properties": {
+            "name": {
+              "pattern": "^[a-z_][a-z0-9_-]{0,31}$",
+              "type": "string"
+            }
+          }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "plugin"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ActorKind"
+          },
+          "name": {
+            "description": "Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID).",
+            "pattern": "^([a-z_][a-z0-9_-]{0,31}|plg_[0-7][0-9A-HJKMNP-TV-Z]{25})$",
+            "type": "string"
+          },
+          "uid": {
+            "description": "Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.",
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "then": {
+          "properties": {
+            "name": {
+              "pattern": "^plg_[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+              "type": "string"
+            }
+          }
+        },
+        "type": "object"
+      },
       "AuditFrame": {
         "properties": {
           "kind": {
@@ -1362,7 +1397,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
+        "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
         "properties": {
           "action": {
             "description": "What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.",
@@ -1371,7 +1406,7 @@
             "type": "string"
           },
           "actor": {
-            "$ref": "#/components/schemas/Actor-2"
+            "$ref": "#/components/schemas/AuditActor"
           },
           "details": {
             "description": "Free-form detail about the action. Never contains secrets.",
@@ -1398,7 +1433,7 @@
             ],
             "type": "string"
           },
-          "prevHash": {
+          "prev_hash": {
             "$ref": "#/components/schemas/Sha256Hex"
           },
           "seq": {
@@ -1411,7 +1446,7 @@
             "$ref": "#/components/schemas/Target"
           },
           "time": {
-            "$ref": "#/components/schemas/Timestamp-2"
+            "$ref": "#/components/schemas/Timestamp"
           }
         },
         "required": [
@@ -1423,7 +1458,7 @@
           "outcome",
           "details",
           "origin",
-          "prevHash",
+          "prev_hash",
           "hash"
         ],
         "title": "AuditRecord",
@@ -2503,7 +2538,7 @@
           },
           "emitters": {
             "items": {
-              "$ref": "#/components/schemas/Emitter-2"
+              "$ref": "#/components/schemas/ManifestEmitter"
             },
             "maxItems": 16,
             "type": "array"
@@ -2524,7 +2559,7 @@
           },
           "runners": {
             "items": {
-              "$ref": "#/components/schemas/Runner"
+              "$ref": "#/components/schemas/ManifestRunner"
             },
             "maxItems": 16,
             "type": "array"
@@ -2816,47 +2851,6 @@
         ],
         "type": "object"
       },
-      "Emitter-2": {
-        "additionalProperties": false,
-        "description": "An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.",
-        "properties": {
-          "args": {
-            "$ref": "#/components/schemas/Args"
-          },
-          "catalog": {
-            "$ref": "#/components/schemas/PluginPath",
-            "description": "An events catalog (events-catalog.schema.json) describing the data of each event type."
-          },
-          "command": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "type": "string"
-          },
-          "env": {
-            "$ref": "#/components/schemas/EnvMap"
-          },
-          "eventTypes": {
-            "items": {
-              "$ref": "#/components/schemas/EventType"
-            },
-            "maxItems": 128,
-            "minItems": 1,
-            "type": "array",
-            "uniqueItems": true
-          },
-          "name": {
-            "$ref": "#/components/schemas/ComponentName"
-          }
-        },
-        "required": [
-          "name",
-          "command",
-          "args",
-          "env",
-          "eventTypes"
-        ],
-        "type": "object"
-      },
       "EmitterId": {
         "description": "Emitter id, `emt_` plus a ULID.",
         "pattern": "^emt_[0-9A-HJKMNP-TV-Z]{26}$",
@@ -3132,7 +3126,7 @@
             "type": "string"
           },
           "time": {
-            "$ref": "#/components/schemas/Timestamp-2",
+            "$ref": "#/components/schemas/Timestamp",
             "description": "When the occurrence happened."
           },
           "type": {
@@ -3156,38 +3150,6 @@
         "type": "object"
       },
       "EventFilter": {
-        "additionalProperties": false,
-        "description": "All given fields must match. types matches any one of its entries.",
-        "properties": {
-          "chartscope": {
-            "$ref": "#/components/schemas/ChartScope"
-          },
-          "source": {
-            "description": "Exact source, for example /emitters/auth.",
-            "maxLength": 255,
-            "type": "string"
-          },
-          "subjectPrefix": {
-            "maxLength": 1024,
-            "minLength": 1,
-            "type": "string"
-          },
-          "types": {
-            "items": {
-              "$ref": "#/components/schemas/EventTypeFilter"
-            },
-            "maxItems": 32,
-            "minItems": 1,
-            "type": "array",
-            "uniqueItems": true
-          }
-        },
-        "required": [
-          "types"
-        ],
-        "type": "object"
-      },
-      "EventFilter-2": {
         "additionalProperties": false,
         "description": "Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.",
         "properties": {
@@ -3244,11 +3206,6 @@
         "pattern": "^evt_[0-7][0-9A-HJKMNP-TV-Z]{25}$",
         "type": "string"
       },
-      "EventId-2": {
-        "description": "Event id, `evt_` plus a ULID.",
-        "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$",
-        "type": "string"
-      },
       "EventList": {
         "properties": {
           "items": {
@@ -3272,7 +3229,7 @@
         "description": "Publish an event. The daemon fills `id`, `time`, `sequence`, `actor` (the caller) and\n`source` (`/agents/<name>` unless the caller owns a registered emitter named in `source`).\n",
         "properties": {
           "causationid": {
-            "$ref": "#/components/schemas/EventId-2"
+            "$ref": "#/components/schemas/EventId"
           },
           "correlationid": {
             "maxLength": 200,
@@ -3626,6 +3583,26 @@
           "agent"
         ],
         "type": "string"
+      },
+      "GatewaySecret": {
+        "additionalProperties": false,
+        "description": "Per-boot key for signing agents' model gateway tokens. Write only.",
+        "properties": {
+          "rotated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "secret": {
+            "description": "32 random bytes, base64url without padding.",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "secret",
+          "rotated_at"
+        ],
+        "type": "object"
       },
       "Goal": {
         "properties": {
@@ -4270,7 +4247,7 @@
             "type": "string"
           },
           "title": {
-            "$ref": "#/components/schemas/OneLine-2"
+            "$ref": "#/components/schemas/OneLine"
           }
         },
         "required": [
@@ -4294,7 +4271,7 @@
           "one_line": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/OneLine"
+                "$ref": "#/components/schemas/AgentOneLine"
               },
               {
                 "type": "null"
@@ -4525,6 +4502,116 @@
         ],
         "type": "object"
       },
+      "ManifestEmitter": {
+        "additionalProperties": false,
+        "description": "An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.",
+        "properties": {
+          "args": {
+            "$ref": "#/components/schemas/Args"
+          },
+          "catalog": {
+            "$ref": "#/components/schemas/PluginPath",
+            "description": "An events catalog (events-catalog.schema.json) describing the data of each event type."
+          },
+          "command": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "env": {
+            "$ref": "#/components/schemas/EnvMap"
+          },
+          "eventTypes": {
+            "items": {
+              "$ref": "#/components/schemas/EventType"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "name": {
+            "$ref": "#/components/schemas/ComponentName"
+          }
+        },
+        "required": [
+          "name",
+          "command",
+          "args",
+          "env",
+          "eventTypes"
+        ],
+        "type": "object"
+      },
+      "ManifestRunner": {
+        "additionalProperties": false,
+        "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
+        "properties": {
+          "args": {
+            "$ref": "#/components/schemas/Args"
+          },
+          "command": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "$ref": "#/components/schemas/OneLine"
+          },
+          "env": {
+            "$ref": "#/components/schemas/EnvMap"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ComponentName"
+          },
+          "protocolVersions": {
+            "items": {
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "name",
+          "command",
+          "args",
+          "env",
+          "protocolVersions"
+        ],
+        "type": "object"
+      },
+      "ManifestSource": {
+        "additionalProperties": false,
+        "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "claude-code",
+              "agentsone",
+              "agent-skills",
+              "mcp-registry"
+            ],
+            "type": "string"
+          },
+          "ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Sha256Hex",
+            "description": "Digest of the fetched archive, when one was fetched."
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ],
+        "type": "object"
+      },
       "Markdown": {
         "description": "CommonMark text, up to 64 KiB of characters.",
         "maxLength": 65536,
@@ -4633,11 +4720,6 @@
         "pattern": "^mem_[0-7][0-9A-HJKMNP-TV-Z]{25}$",
         "type": "string"
       },
-      "MemoryId-2": {
-        "description": "Memory record id, `mem_` plus a ULID.",
-        "pattern": "^mem_[0-9A-HJKMNP-TV-Z]{26}$",
-        "type": "string"
-      },
       "MemoryList": {
         "properties": {
           "items": {
@@ -4704,7 +4786,7 @@
                 "type": "string"
               },
               "title": {
-                "$ref": "#/components/schemas/OneLine-2"
+                "$ref": "#/components/schemas/OneLine"
               }
             },
             "required": [
@@ -4713,7 +4795,7 @@
             ],
             "type": "object"
           },
-          "Source": {
+          "MemorySource": {
             "additionalProperties": false,
             "description": "Where the content came from. ref is the agent or human name, event id, import file or plugin name.",
             "properties": {
@@ -4745,8 +4827,8 @@
           "body": {
             "$ref": "#/components/schemas/Markdown"
           },
-          "createdAt": {
-            "$ref": "#/components/schemas/Timestamp-2"
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
           },
           "id": {
             "$ref": "#/components/schemas/MemoryId"
@@ -4759,7 +4841,7 @@
             "type": "array"
           },
           "owner": {
-            "$ref": "#/components/schemas/AgentName-2",
+            "$ref": "#/components/schemas/AgentName",
             "description": "Agent that wrote the memory and may change it."
           },
           "revision": {
@@ -4776,7 +4858,7 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/Source"
+            "$ref": "#/components/schemas/MemorySource"
           },
           "tags": {
             "items": {
@@ -4788,14 +4870,14 @@
             "uniqueItems": true
           },
           "team": {
-            "$ref": "#/components/schemas/AgentName-2",
+            "$ref": "#/components/schemas/AgentName",
             "description": "Root agent of the owner's chart branch when the memory was written. Decides who reads team memories."
           },
           "title": {
-            "$ref": "#/components/schemas/OneLine-2"
+            "$ref": "#/components/schemas/OneLine"
           },
-          "updatedAt": {
-            "$ref": "#/components/schemas/Timestamp-2"
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
           }
         },
         "required": [
@@ -4808,8 +4890,8 @@
           "tags",
           "links",
           "source",
-          "createdAt",
-          "updatedAt",
+          "created_at",
+          "updated_at",
           "revision"
         ],
         "title": "MemoryRecord",
@@ -4839,6 +4921,31 @@
         "required": [
           "items",
           "next_cursor"
+        ],
+        "type": "object"
+      },
+      "MemorySource": {
+        "additionalProperties": false,
+        "description": "Where the content came from. ref is the agent or human name, event id, import file or plugin name.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "agent",
+              "human",
+              "event",
+              "import",
+              "plugin"
+            ],
+            "type": "string"
+          },
+          "ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
         ],
         "type": "object"
       },
@@ -5017,22 +5124,6 @@
         "type": "string"
       },
       "OneLine": {
-        "description": "The live list entry body. Every agent turn writes one; it is what the router reads.",
-        "properties": {
-          "text": {
-            "$ref": "#/components/schemas/OneLineText"
-          },
-          "updated_at": {
-            "$ref": "#/components/schemas/Timestamp"
-          }
-        },
-        "required": [
-          "text",
-          "updated_at"
-        ],
-        "type": "object"
-      },
-      "OneLine-2": {
         "description": "One line of plain text: 1 to 255 characters, no line breaks.",
         "maxLength": 255,
         "minLength": 1,
@@ -5049,7 +5140,7 @@
             "type": "string"
           },
           "one_line": {
-            "$ref": "#/components/schemas/OneLine"
+            "$ref": "#/components/schemas/AgentOneLine"
           }
         },
         "required": [
@@ -5500,7 +5591,7 @@
               },
               "emitters": {
                 "items": {
-                  "$ref": "#/components/schemas/Emitter-2"
+                  "$ref": "#/components/schemas/ManifestEmitter"
                 },
                 "maxItems": 16,
                 "type": "array"
@@ -5521,7 +5612,7 @@
               },
               "runners": {
                 "items": {
-                  "$ref": "#/components/schemas/Runner"
+                  "$ref": "#/components/schemas/ManifestRunner"
                 },
                 "maxItems": 16,
                 "type": "array"
@@ -5552,7 +5643,20 @@
             ],
             "type": "object"
           },
-          "Emitter": {
+          "FileRef": {
+            "additionalProperties": false,
+            "description": "A file inside the plugin: an agent template (agent-template.schema.json) or a theme (theme.schema.json).",
+            "properties": {
+              "path": {
+                "$ref": "#/components/schemas/PluginPath"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "ManifestEmitter": {
             "additionalProperties": false,
             "description": "An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.",
             "properties": {
@@ -5593,16 +5697,72 @@
             ],
             "type": "object"
           },
-          "FileRef": {
+          "ManifestRunner": {
             "additionalProperties": false,
-            "description": "A file inside the plugin: an agent template (agent-template.schema.json) or a theme (theme.schema.json).",
+            "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
             "properties": {
-              "path": {
-                "$ref": "#/components/schemas/PluginPath"
+              "args": {
+                "$ref": "#/components/schemas/Args"
+              },
+              "command": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              "description": {
+                "$ref": "#/components/schemas/OneLine"
+              },
+              "env": {
+                "$ref": "#/components/schemas/EnvMap"
+              },
+              "name": {
+                "$ref": "#/components/schemas/ComponentName"
+              },
+              "protocolVersions": {
+                "items": {
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array",
+                "uniqueItems": true
               }
             },
             "required": [
-              "path"
+              "name",
+              "command",
+              "args",
+              "env",
+              "protocolVersions"
+            ],
+            "type": "object"
+          },
+          "ManifestSource": {
+            "additionalProperties": false,
+            "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "claude-code",
+                  "agentsone",
+                  "agent-skills",
+                  "mcp-registry"
+                ],
+                "type": "string"
+              },
+              "ref": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "sha256": {
+                "$ref": "#/components/schemas/Sha256Hex",
+                "description": "Digest of the fetched archive, when one was fetched."
+              }
+            },
+            "required": [
+              "kind",
+              "ref"
             ],
             "type": "object"
           },
@@ -5722,46 +5882,6 @@
             ],
             "type": "object"
           },
-          "Runner": {
-            "additionalProperties": false,
-            "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
-            "properties": {
-              "args": {
-                "$ref": "#/components/schemas/Args"
-              },
-              "command": {
-                "maxLength": 4096,
-                "minLength": 1,
-                "type": "string"
-              },
-              "description": {
-                "$ref": "#/components/schemas/OneLine-2"
-              },
-              "env": {
-                "$ref": "#/components/schemas/EnvMap"
-              },
-              "name": {
-                "$ref": "#/components/schemas/ComponentName"
-              },
-              "protocolVersions": {
-                "items": {
-                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
-                  "type": "string"
-                },
-                "minItems": 1,
-                "type": "array",
-                "uniqueItems": true
-              }
-            },
-            "required": [
-              "name",
-              "command",
-              "args",
-              "env",
-              "protocolVersions"
-            ],
-            "type": "object"
-          },
           "Skill": {
             "additionalProperties": false,
             "description": "An Agent Skills skill: a directory holding SKILL.md. name must equal the directory's last segment and the SKILL.md frontmatter name.",
@@ -5784,35 +5904,6 @@
               "description"
             ],
             "type": "object"
-          },
-          "Source": {
-            "additionalProperties": false,
-            "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
-            "properties": {
-              "kind": {
-                "enum": [
-                  "claude-code",
-                  "agentsone",
-                  "agent-skills",
-                  "mcp-registry"
-                ],
-                "type": "string"
-              },
-              "ref": {
-                "maxLength": 1024,
-                "minLength": 1,
-                "type": "string"
-              },
-              "sha256": {
-                "$ref": "#/components/schemas/Sha256Hex",
-                "description": "Digest of the fetched archive, when one was fetched."
-              }
-            },
-            "required": [
-              "kind",
-              "ref"
-            ],
-            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -5833,7 +5924,7 @@
             "$ref": "#/components/schemas/Contents"
           },
           "description": {
-            "$ref": "#/components/schemas/OneLine-2"
+            "$ref": "#/components/schemas/OneLine"
           },
           "homepage": {
             "format": "uri",
@@ -5851,7 +5942,7 @@
             "$ref": "#/components/schemas/PluginName"
           },
           "source": {
-            "$ref": "#/components/schemas/Source-2"
+            "$ref": "#/components/schemas/ManifestSource"
           },
           "version": {
             "$ref": "#/components/schemas/Semver"
@@ -6320,46 +6411,6 @@
         "type": "object"
       },
       "Runner": {
-        "additionalProperties": false,
-        "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
-        "properties": {
-          "args": {
-            "$ref": "#/components/schemas/Args"
-          },
-          "command": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "$ref": "#/components/schemas/OneLine-2"
-          },
-          "env": {
-            "$ref": "#/components/schemas/EnvMap"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ComponentName"
-          },
-          "protocolVersions": {
-            "items": {
-              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array",
-            "uniqueItems": true
-          }
-        },
-        "required": [
-          "name",
-          "command",
-          "args",
-          "env",
-          "protocolVersions"
-        ],
-        "type": "object"
-      },
-      "Runner-2": {
         "description": "A registered runner adapter. Each agent runs one runner process.",
         "properties": {
           "builtin": {
@@ -6439,7 +6490,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/Runner-2"
+              "$ref": "#/components/schemas/Runner"
             },
             "type": "array"
           },
@@ -6462,38 +6513,6 @@
         "type": "string"
       },
       "Schedule": {
-        "additionalProperties": false,
-        "description": "A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.",
-        "properties": {
-          "cron": {
-            "maxLength": 128,
-            "pattern": "^(@(hourly|daily|weekly|monthly)|[0-9*,/-]+ [0-9*,/-]+ [0-9*,/?LW-]+ [0-9A-Za-z*,/-]+ [0-9A-Za-z*,/?L#-]+)$",
-            "type": "string"
-          },
-          "name": {
-            "pattern": "^[a-z][a-z0-9-]{0,63}$",
-            "type": "string"
-          },
-          "note": {
-            "$ref": "#/components/schemas/OneLine-2",
-            "description": "Text handed to the runner in the timer wake."
-          },
-          "timezone": {
-            "description": "IANA time zone name, for example UTC or Europe/Paris.",
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+)*$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "cron",
-          "timezone"
-        ],
-        "type": "object"
-      },
-      "Schedule-2": {
         "description": "An agent's own timer. When it fires the agent wakes with `message`.",
         "properties": {
           "agent": {
@@ -6601,7 +6620,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/Schedule-2"
+              "$ref": "#/components/schemas/Schedule"
             },
             "type": "array"
           },
@@ -6914,60 +6933,6 @@
         },
         "type": "object"
       },
-      "Source": {
-        "additionalProperties": false,
-        "description": "Where the content came from. ref is the agent or human name, event id, import file or plugin name.",
-        "properties": {
-          "kind": {
-            "enum": [
-              "agent",
-              "human",
-              "event",
-              "import",
-              "plugin"
-            ],
-            "type": "string"
-          },
-          "ref": {
-            "maxLength": 1024,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind"
-        ],
-        "type": "object"
-      },
-      "Source-2": {
-        "additionalProperties": false,
-        "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
-        "properties": {
-          "kind": {
-            "enum": [
-              "claude-code",
-              "agentsone",
-              "agent-skills",
-              "mcp-registry"
-            ],
-            "type": "string"
-          },
-          "ref": {
-            "maxLength": 1024,
-            "minLength": 1,
-            "type": "string"
-          },
-          "sha256": {
-            "$ref": "#/components/schemas/Sha256Hex",
-            "description": "Digest of the fetched archive, when one was fetched."
-          }
-        },
-        "required": [
-          "kind",
-          "ref"
-        ],
-        "type": "object"
-      },
       "Spacing": {
         "additionalProperties": false,
         "properties": {
@@ -7025,7 +6990,7 @@
         "description": "Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped.",
         "properties": {
           "filter": {
-            "$ref": "#/components/schemas/EventFilter"
+            "$ref": "#/components/schemas/SubscriptionFilter"
           },
           "rateLimit": {
             "$ref": "#/components/schemas/RateLimit"
@@ -7034,6 +6999,38 @@
         "required": [
           "filter",
           "rateLimit"
+        ],
+        "type": "object"
+      },
+      "SubscriptionFilter": {
+        "additionalProperties": false,
+        "description": "All given fields must match. types matches any one of its entries.",
+        "properties": {
+          "chartscope": {
+            "$ref": "#/components/schemas/ChartScope"
+          },
+          "source": {
+            "description": "Exact source, for example /emitters/auth.",
+            "maxLength": 255,
+            "type": "string"
+          },
+          "subjectPrefix": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/EventTypeFilter"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "types"
         ],
         "type": "object"
       },
@@ -7331,6 +7328,38 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "TemplateSchedule": {
+        "additionalProperties": false,
+        "description": "A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.",
+        "properties": {
+          "cron": {
+            "maxLength": 128,
+            "pattern": "^(@(hourly|daily|weekly|monthly)|[0-9*,/-]+ [0-9*,/-]+ [0-9*,/?LW-]+ [0-9A-Za-z*,/-]+ [0-9A-Za-z*,/?L#-]+)$",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+            "type": "string"
+          },
+          "note": {
+            "$ref": "#/components/schemas/OneLine",
+            "description": "Text handed to the runner in the timer wake."
+          },
+          "timezone": {
+            "description": "IANA time zone name, for example UTC or Europe/Paris.",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+)*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "cron",
+          "timezone"
+        ],
         "type": "object"
       },
       "TextStyle": {
@@ -7818,7 +7847,7 @@
             "type": "array"
           },
           "description": {
-            "$ref": "#/components/schemas/OneLine-2"
+            "$ref": "#/components/schemas/OneLine"
           },
           "modes": {
             "additionalProperties": false,
@@ -7946,14 +7975,6 @@
         "type": "object"
       },
       "Timestamp": {
-        "description": "RFC 3339 time in UTC with a `Z` suffix.",
-        "examples": [
-          "2026-11-19T18:40:00Z"
-        ],
-        "format": "date-time",
-        "type": "string"
-      },
-      "Timestamp-2": {
         "description": "RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).",
         "format": "date-time",
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
@@ -8011,7 +8032,7 @@
             "type": "boolean"
           },
           "filter": {
-            "$ref": "#/components/schemas/EventFilter-2"
+            "$ref": "#/components/schemas/EventFilter"
           },
           "fired_count": {
             "format": "int64",
@@ -8082,7 +8103,7 @@
             "type": "boolean"
           },
           "filter": {
-            "$ref": "#/components/schemas/EventFilter-2"
+            "$ref": "#/components/schemas/EventFilter"
           },
           "name": {
             "maxLength": 80,
@@ -8135,7 +8156,7 @@
             "type": "boolean"
           },
           "filter": {
-            "$ref": "#/components/schemas/EventFilter-2"
+            "$ref": "#/components/schemas/EventFilter"
           },
           "name": {
             "maxLength": 80,
@@ -8323,7 +8344,7 @@
       "WebhookAccepted": {
         "properties": {
           "event_id": {
-            "$ref": "#/components/schemas/EventId-2"
+            "$ref": "#/components/schemas/EventId"
           }
         },
         "required": [
@@ -8783,7 +8804,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OneLine"
+                  "$ref": "#/components/schemas/AgentOneLine"
                 }
               }
             },
@@ -8824,7 +8845,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OneLine"
+                  "$ref": "#/components/schemas/AgentOneLine"
                 }
               }
             },
@@ -10556,6 +10577,51 @@
           }
         ],
         "summary": "Freeze all, a team or an agent",
+        "tags": [
+          "host"
+        ]
+      },
+      "servers": [
+        {
+          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "url": "http://agentsone-door/v1"
+        }
+      ]
+    },
+    "/host/gateway-secret": {
+      "put": {
+        "description": "The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.",
+        "operationId": "setGatewaySecret",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewaySecret"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Stored; tokens signed with the previous key stop working."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "hostDoor": []
+          }
+        ],
+        "summary": "Set the gateway secret",
         "tags": [
           "host"
         ]
@@ -12942,7 +13008,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Runner-2"
+                  "$ref": "#/components/schemas/Runner"
                 }
               }
             },
@@ -13028,7 +13094,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Schedule-2"
+                  "$ref": "#/components/schemas/Schedule"
                 }
               }
             },
@@ -13084,7 +13150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Schedule-2"
+                  "$ref": "#/components/schemas/Schedule"
                 }
               }
             },
@@ -13125,7 +13191,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Schedule-2"
+                  "$ref": "#/components/schemas/Schedule"
                 }
               }
             },

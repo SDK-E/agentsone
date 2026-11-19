@@ -15,16 +15,20 @@ import (
 
 // Fakes are the concrete fakes behind a *core.Ports, for inspection.
 type Fakes struct {
-	Clock   *Clock
-	IDs     core.IDs
-	Agents  *Agents
-	Waker   *Waker
-	Events  *Events
-	Tasks   *Tasks
-	Audit   *Audit
-	Live    *Live
-	Budget  *Budget
-	Runners *Runners
+	Clock     *Clock
+	IDs       core.IDs
+	Agents    *Agents
+	Waker     *Waker
+	Events    *Events
+	Tasks     *Tasks
+	Audit     *Audit
+	Live      *Live
+	Budget    *Budget
+	Runners   *Runners
+	Bus       *Bus
+	Freezer   *Freezer
+	Tokens    *Tokens
+	Templates *Templates
 }
 
 // NewFakes returns fresh fakes and Ports wired to them.
@@ -32,16 +36,20 @@ func NewFakes() (*Fakes, *core.Ports) {
 	clock := NewClock(Epoch)
 	ids := NewIDs()
 	f := &Fakes{
-		Clock:   clock,
-		IDs:     ids,
-		Agents:  NewAgents(),
-		Waker:   NewWaker(),
-		Events:  NewEvents(clock, ids),
-		Tasks:   NewTasks(clock, ids),
-		Audit:   NewAudit(),
-		Live:    NewLive(clock),
-		Budget:  NewBudget(),
-		Runners: NewRunners(),
+		Clock:     clock,
+		IDs:       ids,
+		Agents:    NewAgents(),
+		Waker:     NewWaker(),
+		Events:    NewEvents(clock, ids),
+		Tasks:     NewTasks(clock, ids),
+		Audit:     NewAudit(),
+		Live:      NewLive(clock),
+		Budget:    NewBudget(),
+		Runners:   NewRunners(),
+		Bus:       NewBus(clock, ids),
+		Freezer:   NewFreezer(),
+		Tokens:    NewTokens(clock, ids),
+		Templates: NewTemplates(),
 	}
 	return f, f.Ports()
 }
@@ -51,6 +59,7 @@ func (f *Fakes) Ports() *core.Ports {
 	return &core.Ports{
 		Agents: f.Agents, Waker: f.Waker, Events: f.Events, Subscribe: f.Events,
 		Tasks: f.Tasks, Audit: f.Audit, Live: f.Live, Budget: f.Budget, Runners: f.Runners,
+		Bus: f.Bus, Freezer: f.Freezer, Tokens: f.Tokens, Templates: f.Templates,
 	}
 }
 

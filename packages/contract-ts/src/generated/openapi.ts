@@ -813,6 +813,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/host/gateway-secret": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set the gateway secret
+     * @description The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.
+     */
+    put: operations["setGatewaySecret"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/host/health": {
     parameters: {
       query?: never;
@@ -2304,20 +2324,12 @@ export interface components {
      * @example agent:founder
      */
     Actor: string;
-    /** @description Who did something, as an object (used in records). */
-    "Actor-2": {
-      kind: components["schemas"]["ActorKind"];
-      /** @description Agent name, human user name, or component name such as agentsoned or emitter-auth. */
-      name: string;
-      /** @description Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart. */
-      uid?: number;
-    };
     /**
-     * @description Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.
+     * @description Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
      * @enum {string}
      */
-    ActorKind: "agent" | "human" | "system" | "host";
-    /** @description Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice. */
+    ActorKind: "agent" | "human" | "system" | "host" | "plugin";
+    /** @description Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001. */
     ActorRef: string;
     Agent: {
       created_at: components["schemas"]["Timestamp"];
@@ -2338,7 +2350,7 @@ export interface components {
       manager: string | null;
       name: components["schemas"]["AgentName"];
       /** @description Latest one-line, or null before the first turn. */
-      one_line: components["schemas"]["OneLine"] | null;
+      one_line: components["schemas"]["AgentOneLine"] | null;
       /** @description Short job title, for example "Router" or "Disk watcher". */
       role: string;
       /**
@@ -2401,13 +2413,8 @@ export interface components {
       items: components["schemas"]["Agent"][];
       next_cursor: components["schemas"]["Cursor"];
     };
-    /**
-     * @description Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-     * @example founder
-     */
-    AgentName: string;
     /** @description Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent. */
-    "AgentName-2": string;
+    AgentName: string;
     /** @description Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall. */
     AgentNetRules: {
       agent: components["schemas"]["AgentName"];
@@ -2425,6 +2432,11 @@ export interface components {
     AgentNetRulesSet: {
       allow?: string[];
       mode: components["schemas"]["NetMode"];
+    };
+    /** @description The live list entry body. Every agent turn writes one; it is what the router reads. */
+    AgentOneLine: {
+      text: components["schemas"]["OneLineText"];
+      updated_at: components["schemas"]["Timestamp"];
     };
     AgentOutputFrame:
       | components["schemas"]["OutputFrame"]
@@ -2459,7 +2471,7 @@ export interface components {
       $schema?: string;
       /** @description Starting charter. The agent may rewrite it. Empty for no charter. */
       charter: components["schemas"]["Markdown"];
-      goals: components["schemas"]["OneLine-2"][];
+      goals: components["schemas"]["OneLine"][];
       /** @description Root agents run as uid 0 with no sandbox. Only root agents may hire from a template with isRoot true. */
       isRoot: boolean;
       /**
@@ -2471,11 +2483,11 @@ export interface components {
       /** @description MCP servers the agent may use, by name, besides the machine MCP server, which every agent has. */
       mcpServers: string[];
       /** @description Default name for an agent hired from this template. */
-      name: components["schemas"]["AgentName-2"];
+      name: components["schemas"]["AgentName"];
       /** @description First one-line profile, shown in the live list until the agent publishes its own. */
-      oneLine: components["schemas"]["OneLine-2"];
+      oneLine: components["schemas"]["OneLine"];
       runner: components["schemas"]["RunnerChoice"];
-      schedules: components["schemas"]["Schedule"][];
+      schedules: components["schemas"]["TemplateSchedule"][];
       /** @description Skills the agent can use, by name, from installed plugins. */
       skills: components["schemas"]["SkillName"][];
       wake: components["schemas"]["Wake"];
@@ -2557,6 +2569,14 @@ export interface components {
       /** Format: int64 */
       acked_seq: number;
     };
+    /** @description Who did something, as an object (used in audit records). The one-string form is ActorRef. */
+    AuditActor: {
+      kind: components["schemas"]["ActorKind"];
+      /** @description Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID). */
+      name: string;
+      /** @description Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart. */
+      uid?: number;
+    };
     AuditFrame: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -2571,12 +2591,12 @@ export interface components {
     };
     /**
      * AuditRecord
-     * @description One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+     * @description One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
      */
     AuditRecord: {
       /** @description What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown. */
       action: string;
-      actor: components["schemas"]["Actor-2"];
+      actor: components["schemas"]["AuditActor"];
       /** @description Free-form detail about the action. Never contains secrets. */
       details: Record<string, never>;
       hash: components["schemas"]["Sha256Hex"];
@@ -2590,11 +2610,11 @@ export interface components {
        * @enum {string}
        */
       outcome: "success" | "failure" | "denied";
-      prevHash: components["schemas"]["Sha256Hex"];
+      prev_hash: components["schemas"]["Sha256Hex"];
       /** @description Position in the log, starting at 1. */
       seq: number;
       target: components["schemas"]["Target"];
-      time: components["schemas"]["Timestamp-2"];
+      time: components["schemas"]["Timestamp"];
     };
     AuditStreamFrame: components["schemas"]["AuditFrame"] | components["schemas"]["Heartbeat"];
     /**
@@ -2949,10 +2969,10 @@ export interface components {
     /** @description What the plugin provides. All seven lists are present; any may be empty. The plugin manager refuses a plugin whose lists are all empty (a rule the schema leaves out to stay simple for code generators). */
     Contents: {
       agentTemplates: components["schemas"]["FileRef"][];
-      emitters: components["schemas"]["Emitter-2"][];
+      emitters: components["schemas"]["ManifestEmitter"][];
       mcpServers: components["schemas"]["McpServer"][];
       panels: components["schemas"]["Panel"][];
-      runners: components["schemas"]["Runner"][];
+      runners: components["schemas"]["ManifestRunner"][];
       skills: components["schemas"]["Skill"][];
       themes: components["schemas"]["FileRef"][];
     };
@@ -3029,16 +3049,6 @@ export interface components {
       unit: string | null;
       /** @description Intake path for `webhook` emitters, for example `/v1/webhooks/emt_...`. */
       webhook_path: string | null;
-    };
-    /** @description An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types. */
-    "Emitter-2": {
-      args: components["schemas"]["Args"];
-      /** @description An events catalog (events-catalog.schema.json) describing the data of each event type. */
-      catalog?: components["schemas"]["PluginPath"];
-      command: string;
-      env: components["schemas"]["EnvMap"];
-      eventTypes: components["schemas"]["EventType"][];
-      name: components["schemas"]["ComponentName"];
     };
     /** @description Emitter id, `emt_` plus a ULID. */
     EmitterId: string;
@@ -3145,20 +3155,12 @@ export interface components {
       /** @description What the event is about inside the source, for example a unit name, a path or an agent name. */
       subject?: string;
       /** @description When the occurrence happened. */
-      time: components["schemas"]["Timestamp-2"];
+      time: components["schemas"]["Timestamp"];
       /** @description Event type, agentsone.<emitter>.<event>. */
       type: components["schemas"]["EventType"];
     };
-    /** @description All given fields must match. types matches any one of its entries. */
-    EventFilter: {
-      chartscope?: components["schemas"]["ChartScope"];
-      /** @description Exact source, for example /emitters/auth. */
-      source?: string;
-      subjectPrefix?: string;
-      types: components["schemas"]["EventTypeFilter"][];
-    };
     /** @description Matches events. All set fields must match. Type and source accept a trailing `*` wildcard. */
-    "EventFilter-2": {
+    EventFilter: {
       actors?: components["schemas"]["Actor"][];
       sources?: string[];
       subject_prefix?: string;
@@ -3179,8 +3181,6 @@ export interface components {
     };
     /** @description Event id, prefix evt_. */
     EventId: string;
-    /** @description Event id, `evt_` plus a ULID. */
-    "EventId-2": string;
     EventList: {
       items: components["schemas"]["Event"][];
       next_cursor: components["schemas"]["Cursor"];
@@ -3190,7 +3190,7 @@ export interface components {
      *     `source` (`/agents/<name>` unless the caller owns a registered emitter named in `source`).
      */
     EventPublish: {
-      causationid?: components["schemas"]["EventId-2"];
+      causationid?: components["schemas"]["EventId"];
       correlationid?: string;
       /** @description Event payload, at most 64 KiB once encoded. */
       data: Record<string, never>;
@@ -3288,6 +3288,12 @@ export interface components {
     };
     /** @enum {string} */
     FreezeScope: "all" | "team" | "agent";
+    /** @description Per-boot key for signing agents' model gateway tokens. Write only. */
+    GatewaySecret: {
+      rotated_at: components["schemas"]["Timestamp"];
+      /** @description 32 random bytes, base64url without padding. */
+      secret: string;
+    };
     Goal: {
       created_at: components["schemas"]["Timestamp"];
       detail: string;
@@ -3479,14 +3485,14 @@ export interface components {
       /** @enum {string} */
       kind: "memory" | "task" | "event" | "message" | "url" | "file";
       ref: string;
-      title?: components["schemas"]["OneLine-2"];
+      title?: components["schemas"]["OneLine"];
     };
     /** @description One row of the live list. The router rates these rows against a human request. */
     LiveEntry: {
       agent: components["schemas"]["AgentName"];
       display_name: components["schemas"]["DisplayName"];
       kind: components["schemas"]["AgentKind"];
-      one_line: components["schemas"]["OneLine"] | null;
+      one_line: components["schemas"]["AgentOneLine"] | null;
       role: string;
       state: components["schemas"]["AgentState"];
       team: components["schemas"]["AgentName"];
@@ -3548,6 +3554,33 @@ export interface components {
       items: components["schemas"]["MachineUser"][];
       next_cursor: components["schemas"]["Cursor"];
     };
+    /** @description An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types. */
+    ManifestEmitter: {
+      args: components["schemas"]["Args"];
+      /** @description An events catalog (events-catalog.schema.json) describing the data of each event type. */
+      catalog?: components["schemas"]["PluginPath"];
+      command: string;
+      env: components["schemas"]["EnvMap"];
+      eventTypes: components["schemas"]["EventType"][];
+      name: components["schemas"]["ComponentName"];
+    };
+    /** @description A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET. */
+    ManifestRunner: {
+      args: components["schemas"]["Args"];
+      command: string;
+      description?: components["schemas"]["OneLine"];
+      env: components["schemas"]["EnvMap"];
+      name: components["schemas"]["ComponentName"];
+      protocolVersions: string[];
+    };
+    /** @description Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>. */
+    ManifestSource: {
+      /** @enum {string} */
+      kind: "claude-code" | "agentsone" | "agent-skills" | "mcp-registry";
+      ref: string;
+      /** @description Digest of the fetched archive, when one was fetched. */
+      sha256?: components["schemas"]["Sha256Hex"];
+    };
     /** @description CommonMark text, up to 64 KiB of characters. */
     Markdown: string;
     McpServer: components["schemas"]["McpServerStdio"] | components["schemas"]["McpServerHttp"];
@@ -3581,8 +3614,6 @@ export interface components {
     };
     /** @description Memory record id, prefix mem_. */
     MemoryId: string;
-    /** @description Memory record id, `mem_` plus a ULID. */
-    "MemoryId-2": string;
     MemoryList: {
       items: components["schemas"]["MemoryRecord"][];
       next_cursor: components["schemas"]["Cursor"];
@@ -3601,21 +3632,21 @@ export interface components {
      */
     MemoryRecord: {
       body: components["schemas"]["Markdown"];
-      createdAt: components["schemas"]["Timestamp-2"];
+      created_at: components["schemas"]["Timestamp"];
       id: components["schemas"]["MemoryId"];
       links: components["schemas"]["Link"][];
       /** @description Agent that wrote the memory and may change it. */
-      owner: components["schemas"]["AgentName-2"];
+      owner: components["schemas"]["AgentName"];
       /** @description Starts at 1 and rises by 1 on every change. Writers send the revision they read; a mismatch is a conflict. */
       revision: number;
       /** @enum {string} */
       scope: "private" | "team" | "common";
-      source: components["schemas"]["Source"];
+      source: components["schemas"]["MemorySource"];
       tags: string[];
       /** @description Root agent of the owner's chart branch when the memory was written. Decides who reads team memories. */
-      team: components["schemas"]["AgentName-2"];
-      title: components["schemas"]["OneLine-2"];
-      updatedAt: components["schemas"]["Timestamp-2"];
+      team: components["schemas"]["AgentName"];
+      title: components["schemas"]["OneLine"];
+      updated_at: components["schemas"]["Timestamp"];
     };
     /**
      * @description `private` is the owner only; `team` is the owner's chart branch; `common` is every agent.
@@ -3626,6 +3657,12 @@ export interface components {
     MemorySearchResult: {
       items: components["schemas"]["MemoryHit"][];
       next_cursor: components["schemas"]["Cursor"];
+    };
+    /** @description Where the content came from. ref is the agent or human name, event id, import file or plugin name. */
+    MemorySource: {
+      /** @enum {string} */
+      kind: "agent" | "human" | "event" | "import" | "plugin";
+      ref?: string;
     };
     /** @description Write a memory record owned by the caller. Writing with an existing `key` in the same scope replaces it. */
     MemoryWrite: {
@@ -3677,13 +3714,8 @@ export interface components {
     };
     /** @enum {string} */
     OfficialIdeState: "not-requested" | "downloading" | "ready" | "failed";
-    /** @description The live list entry body. Every agent turn writes one; it is what the router reads. */
-    OneLine: {
-      text: components["schemas"]["OneLineText"];
-      updated_at: components["schemas"]["Timestamp"];
-    };
     /** @description One line of plain text: 1 to 255 characters, no line breaks. */
-    "OneLine-2": string;
+    OneLine: string;
     OneLineFrame: {
       agent: components["schemas"]["AgentName"];
       /**
@@ -3691,7 +3723,7 @@ export interface components {
        * @enum {string}
        */
       kind: "one_line";
-      one_line: components["schemas"]["OneLine"];
+      one_line: components["schemas"]["AgentOneLine"];
     };
     /** @description One line (no line breaks, at most 255 characters) saying the agent's goal and what it does now. */
     OneLineText: string;
@@ -3809,13 +3841,13 @@ export interface components {
       author: components["schemas"]["Author"];
       compat: components["schemas"]["Compat"];
       contents: components["schemas"]["Contents"];
-      description: components["schemas"]["OneLine-2"];
+      description: components["schemas"]["OneLine"];
       /** Format: uri */
       homepage?: string;
       /** @description SPDX license expression, for example MIT or Apache-2.0 OR MIT. */
       license: string;
       name: components["schemas"]["PluginName"];
-      source: components["schemas"]["Source-2"];
+      source: components["schemas"]["ManifestSource"];
       version: components["schemas"]["Semver"];
     };
     /** @description Plugin name in kebab-case: lowercase letter first, then lowercase letters, digits or hyphens, up to 64 characters. */
@@ -3978,17 +4010,8 @@ export interface components {
       reason: string;
       router: components["schemas"]["AgentName"];
     };
-    /** @description A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET. */
-    Runner: {
-      args: components["schemas"]["Args"];
-      command: string;
-      description?: components["schemas"]["OneLine-2"];
-      env: components["schemas"]["EnvMap"];
-      name: components["schemas"]["ComponentName"];
-      protocolVersions: string[];
-    };
     /** @description A registered runner adapter. Each agent runs one runner process. */
-    "Runner-2": {
+    Runner: {
       builtin: boolean;
       description: string;
       display_name: string;
@@ -4009,22 +4032,13 @@ export interface components {
       name: string;
     };
     RunnerList: {
-      items: components["schemas"]["Runner-2"][];
+      items: components["schemas"]["Runner"][];
       next_cursor: components["schemas"]["Cursor"];
     };
     /** @enum {string} */
     RunnerStatus: "ready" | "fetching" | "unavailable";
-    /** @description A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone. */
-    Schedule: {
-      cron: string;
-      name: string;
-      /** @description Text handed to the runner in the timer wake. */
-      note?: components["schemas"]["OneLine-2"];
-      /** @description IANA time zone name, for example UTC or Europe/Paris. */
-      timezone: string;
-    };
     /** @description An agent's own timer. When it fires the agent wakes with `message`. */
-    "Schedule-2": {
+    Schedule: {
       agent: components["schemas"]["AgentName"];
       /**
        * @description systemd `OnCalendar` expression in UTC, for example `*-*-* 09:00:00` or `hourly`.
@@ -4055,7 +4069,7 @@ export interface components {
     /** @description Schedule id, `sch_` plus a ULID. */
     ScheduleId: string;
     ScheduleList: {
-      items: components["schemas"]["Schedule-2"][];
+      items: components["schemas"]["Schedule"][];
       next_cursor: components["schemas"]["Cursor"];
     };
     ScheduleUpdate: {
@@ -4151,20 +4165,6 @@ export interface components {
        */
       compact: boolean;
     };
-    /** @description Where the content came from. ref is the agent or human name, event id, import file or plugin name. */
-    Source: {
-      /** @enum {string} */
-      kind: "agent" | "human" | "event" | "import" | "plugin";
-      ref?: string;
-    };
-    /** @description Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>. */
-    "Source-2": {
-      /** @enum {string} */
-      kind: "claude-code" | "agentsone" | "agent-skills" | "mcp-registry";
-      ref: string;
-      /** @description Digest of the fetched archive, when one was fetched. */
-      sha256?: components["schemas"]["Sha256Hex"];
-    };
     Spacing: {
       lg: components["schemas"]["Length"];
       md: components["schemas"]["Length"];
@@ -4184,8 +4184,16 @@ export interface components {
     };
     /** @description Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped. */
     Subscription: {
-      filter: components["schemas"]["EventFilter"];
+      filter: components["schemas"]["SubscriptionFilter"];
       rateLimit: components["schemas"]["RateLimit"];
+    };
+    /** @description All given fields must match. types matches any one of its entries. */
+    SubscriptionFilter: {
+      chartscope?: components["schemas"]["ChartScope"];
+      /** @description Exact source, for example /emitters/auth. */
+      source?: string;
+      subjectPrefix?: string;
+      types: components["schemas"]["EventTypeFilter"][];
     };
     /** @description What the action was done to. id is the agent name, record id, plugin name, path, host name or similar. */
     Target: {
@@ -4273,6 +4281,15 @@ export interface components {
       priority?: components["schemas"]["TaskPriority"];
       title?: string;
     };
+    /** @description A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone. */
+    TemplateSchedule: {
+      cron: string;
+      name: string;
+      /** @description Text handed to the runner in the timer wake. */
+      note?: components["schemas"]["OneLine"];
+      /** @description IANA time zone name, for example UTC or Europe/Paris. */
+      timezone: string;
+    };
     TextStyle: {
       /** @description Unitless line height. */
       lineHeight: number;
@@ -4294,7 +4311,7 @@ export interface components {
         url?: string;
       };
       contrastPairs: components["schemas"]["ContrastPair"][];
-      description?: components["schemas"]["OneLine-2"];
+      description?: components["schemas"]["OneLine"];
       modes: {
         dark: components["schemas"]["ModeTokens"];
         light: components["schemas"]["ModeTokens"];
@@ -4329,15 +4346,9 @@ export interface components {
     };
     /**
      * Format: date-time
-     * @description RFC 3339 time in UTC with a `Z` suffix.
-     * @example 2026-11-19T18:40:00Z
-     */
-    Timestamp: string;
-    /**
-     * Format: date-time
      * @description RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
      */
-    "Timestamp-2": string;
+    Timestamp: string;
     TokenCreate: {
       label: string;
       /** @description Requested scopes. Never wider than what the issuer holds. */
@@ -4356,7 +4367,7 @@ export interface components {
        */
       dropped_count: number;
       enabled: boolean;
-      filter: components["schemas"]["EventFilter-2"];
+      filter: components["schemas"]["EventFilter"];
       /** Format: int64 */
       fired_count: number;
       id: components["schemas"]["TriggerId"];
@@ -4371,7 +4382,7 @@ export interface components {
       action: components["schemas"]["TriggerAction"];
       /** @default true */
       enabled: boolean;
-      filter: components["schemas"]["EventFilter-2"];
+      filter: components["schemas"]["EventFilter"];
       name: string;
       wake_rate: components["schemas"]["WakeRate"];
     };
@@ -4384,7 +4395,7 @@ export interface components {
     TriggerUpdate: {
       action?: components["schemas"]["TriggerAction"];
       enabled?: boolean;
-      filter?: components["schemas"]["EventFilter-2"];
+      filter?: components["schemas"]["EventFilter"];
       name?: string;
       wake_rate?: components["schemas"]["WakeRate"];
     };
@@ -4440,7 +4451,7 @@ export interface components {
      */
     Wall: "hard" | "soft";
     WebhookAccepted: {
-      event_id: components["schemas"]["EventId-2"];
+      event_id: components["schemas"]["EventId"];
     };
   };
   responses: {
@@ -4556,7 +4567,7 @@ export interface components {
     McpProtocolVersion: string;
     /** @description MCP session id returned by the `initialize` response. Required after initialization. */
     McpSessionId: string;
-    MemoryId: components["schemas"]["MemoryId-2"];
+    MemoryId: components["schemas"]["MemoryId"];
     PackageName: string;
     Pid: number;
     PluginId: components["schemas"]["PluginId"];
@@ -4851,7 +4862,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OneLine"];
+          "application/json": components["schemas"]["AgentOneLine"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -4879,7 +4890,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OneLine"];
+          "application/json": components["schemas"]["AgentOneLine"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -5943,6 +5954,31 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+    };
+  };
+  setGatewaySecret: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GatewaySecret"];
+      };
+    };
+    responses: {
+      /** @description Stored; tokens signed with the previous key stop working. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
     };
   };
   getDoorHealth: {
@@ -7574,7 +7610,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Runner-2"];
+          "application/json": components["schemas"]["Runner"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -7629,7 +7665,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Schedule-2"];
+          "application/json": components["schemas"]["Schedule"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -7655,7 +7691,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Schedule-2"];
+          "application/json": components["schemas"]["Schedule"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -7706,7 +7742,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Schedule-2"];
+          "application/json": components["schemas"]["Schedule"];
         };
       };
       400: components["responses"]["BadRequest"];

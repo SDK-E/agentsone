@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 GO_FILES := $(shell find . -name '*.go' -not -path './node_modules/*' -not -path './.claude/*' 2>/dev/null)
 
-.PHONY: fmt lint test gen check-gen check
+.PHONY: fmt lint test gen check-gen check coverage
 
 ## fmt: format Go and web files in place
 fmt:
@@ -35,3 +35,10 @@ check:
 	@if [ -n "$(GO_FILES)" ]; then test -z "$$(gofmt -l $(GO_FILES))" && go vet ./...; else echo "no Go files, skipping go checks"; fi
 	pnpm format:check
 	pnpm typecheck
+	scripts/test-check-coverage.sh
+
+## coverage: race tests with the per-layer coverage floors from TESTING.md
+coverage:
+	mkdir -p coverage
+	scripts/heavy go test -race -coverprofile=coverage/cover.out ./...
+	scripts/check-coverage.sh coverage/cover.out

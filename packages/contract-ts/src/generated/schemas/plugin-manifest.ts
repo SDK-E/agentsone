@@ -45,7 +45,7 @@ export interface PluginManifest {
    */
   license: string;
   homepage?: string;
-  source: Source;
+  source: ManifestSource;
   compat: Compat;
   contents: Contents;
 }
@@ -62,9 +62,9 @@ export interface Author {
  * Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.
  *
  * This interface was referenced by `PluginManifest`'s JSON-Schema
- * via the `definition` "Source".
+ * via the `definition` "ManifestSource".
  */
-export interface Source {
+export interface ManifestSource {
   kind: "claude-code" | "agentsone" | "agent-skills" | "mcp-registry";
   ref: string;
   /**
@@ -116,96 +116,153 @@ export interface Contents {
    */
   runners:
     | []
-    | [Runner]
-    | [Runner, Runner]
-    | [Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner]
-    | [Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner, Runner]
+    | [ManifestRunner]
+    | [ManifestRunner, ManifestRunner]
+    | [ManifestRunner, ManifestRunner, ManifestRunner]
+    | [ManifestRunner, ManifestRunner, ManifestRunner, ManifestRunner]
+    | [ManifestRunner, ManifestRunner, ManifestRunner, ManifestRunner, ManifestRunner]
     | [
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
       ]
     | [
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
       ]
     | [
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
       ]
     | [
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
       ]
     | [
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
-        Runner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+      ]
+    | [
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
+        ManifestRunner,
       ];
   /**
    * @maxItems 16
@@ -389,108 +446,153 @@ export interface Contents {
    */
   emitters:
     | []
-    | [Emitter]
-    | [Emitter, Emitter]
-    | [Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter]
-    | [Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter, Emitter]
+    | [ManifestEmitter]
+    | [ManifestEmitter, ManifestEmitter]
+    | [ManifestEmitter, ManifestEmitter, ManifestEmitter]
+    | [ManifestEmitter, ManifestEmitter, ManifestEmitter, ManifestEmitter]
+    | [ManifestEmitter, ManifestEmitter, ManifestEmitter, ManifestEmitter, ManifestEmitter]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ]
     | [
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
-        Emitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+      ]
+    | [
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+      ]
+    | [
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+      ]
+    | [
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+      ]
+    | [
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+      ]
+    | [
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
+        ManifestEmitter,
       ];
 }
 /**
@@ -562,9 +664,9 @@ export interface FileRef {
  * A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.
  *
  * This interface was referenced by `PluginManifest`'s JSON-Schema
- * via the `definition` "Runner".
+ * via the `definition` "ManifestRunner".
  */
-export interface Runner {
+export interface ManifestRunner {
   name: ComponentName;
   /**
    * One line of plain text: 1 to 255 characters, no line breaks.
@@ -606,9 +708,9 @@ export interface Panel {
  * An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.
  *
  * This interface was referenced by `PluginManifest`'s JSON-Schema
- * via the `definition` "Emitter".
+ * via the `definition` "ManifestEmitter".
  */
-export interface Emitter {
+export interface ManifestEmitter {
   name: ComponentName;
   command: string;
   args: Args;

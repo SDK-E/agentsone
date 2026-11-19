@@ -295,6 +295,8 @@ paths:
     $ref: paths/host.yaml#/audit-ack
   /host/allow-list:
     $ref: paths/host.yaml#/allow-list
+  /host/gateway-secret:
+    $ref: paths/host.yaml#/gateway-secret
 components:
   securitySchemes:
     cookieAuth:

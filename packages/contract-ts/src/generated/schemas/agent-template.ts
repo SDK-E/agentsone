@@ -55,7 +55,7 @@ export interface AgentTemplate {
   /**
    * @maxItems 32
    */
-  schedules: Schedule[];
+  schedules: TemplateSchedule[];
 }
 /**
  * This interface was referenced by `AgentTemplate`'s JSON-Schema
@@ -105,16 +105,16 @@ export interface Wake {
  * via the `definition` "Subscription".
  */
 export interface Subscription {
-  filter: EventFilter;
+  filter: SubscriptionFilter;
   rateLimit: RateLimit;
 }
 /**
  * All given fields must match. types matches any one of its entries.
  *
  * This interface was referenced by `AgentTemplate`'s JSON-Schema
- * via the `definition` "EventFilter".
+ * via the `definition` "SubscriptionFilter".
  */
-export interface EventFilter {
+export interface SubscriptionFilter {
   /**
    * @minItems 1
    * @maxItems 32
@@ -144,9 +144,9 @@ export interface RateLimit {
  * A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.
  *
  * This interface was referenced by `AgentTemplate`'s JSON-Schema
- * via the `definition` "Schedule".
+ * via the `definition` "TemplateSchedule".
  */
-export interface Schedule {
+export interface TemplateSchedule {
   name: string;
   cron: string;
   /**

@@ -287,7 +287,7 @@ export interface BusMessage {
    */
   id: string;
   /**
-   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
    */
   from: string;
   /**
@@ -337,7 +337,7 @@ export interface Task {
    */
   body: string;
   /**
-   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
    */
   from: string;
   /**
@@ -409,7 +409,7 @@ export interface Event {
    */
   sequence: string;
   /**
-   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
    */
   actor: string;
   /**
@@ -473,7 +473,7 @@ export interface ChatMessage {
    */
   chatId: string;
   /**
-   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+   * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
    */
   from: string;
   /**

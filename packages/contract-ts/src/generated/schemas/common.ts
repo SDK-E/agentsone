@@ -114,14 +114,14 @@ export type SemverRange = string;
  */
 export type Sha256Hex = string;
 /**
- * Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.
+ * Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
  *
  * This interface was referenced by `Common`'s JSON-Schema
  * via the `definition` "ActorKind".
  */
-export type ActorKind = "agent" | "human" | "system" | "host";
+export type ActorKind = "agent" | "human" | "system" | "host" | "plugin";
 /**
- * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.
+ * Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
  *
  * This interface was referenced by `Common`'s JSON-Schema
  * via the `definition` "ActorRef".
@@ -177,15 +177,15 @@ export interface Common {
   [k: string]: unknown;
 }
 /**
- * Who did something, as an object (used in records).
+ * Who did something, as an object (used in audit records). The one-string form is ActorRef.
  *
  * This interface was referenced by `Common`'s JSON-Schema
- * via the `definition` "Actor".
+ * via the `definition` "AuditActor".
  */
-export interface Actor {
+export interface AuditActor {
   kind: ActorKind;
   /**
-   * Agent name, human user name, or component name such as agentsoned or emitter-auth.
+   * Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID).
    */
   name: string;
   /**

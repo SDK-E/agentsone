@@ -24,7 +24,7 @@ func toAuditRecord(r domain.Record) api.AuditRecord {
 	return api.AuditRecord{
 		Seq:      int(r.Seq),
 		Time:     r.Time.Time(),
-		Actor:    api.Actor2{Kind: api.ActorKind(r.Actor.Kind), Name: r.Actor.Name, Uid: r.Actor.UID},
+		Actor:    api.AuditActor{Kind: api.ActorKind(r.Actor.Kind), Name: r.Actor.Name, Uid: r.Actor.UID},
 		Action:   r.Action.String(),
 		Target:   api.Target{Kind: api.TargetKind(r.Target.Kind), Id: r.Target.ID},
 		Outcome:  api.AuditRecordOutcome(r.Outcome),

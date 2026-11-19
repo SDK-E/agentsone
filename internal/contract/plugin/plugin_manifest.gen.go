@@ -47,7 +47,7 @@ type Contents struct {
 	AgentTemplates []FileRef `json:"agentTemplates"`
 
 	// Emitters corresponds to the JSON schema field "emitters".
-	Emitters []Emitter `json:"emitters"`
+	Emitters []ManifestEmitter `json:"emitters"`
 
 	// McpServers corresponds to the JSON schema field "mcpServers".
 	McpServers []McpServer `json:"mcpServers"`
@@ -56,7 +56,7 @@ type Contents struct {
 	Panels []Panel `json:"panels"`
 
 	// Runners corresponds to the JSON schema field "runners".
-	Runners []Runner `json:"runners"`
+	Runners []ManifestRunner `json:"runners"`
 
 	// Skills corresponds to the JSON schema field "skills".
 	Skills []Skill `json:"skills"`
@@ -65,9 +65,16 @@ type Contents struct {
 	Themes []FileRef `json:"themes"`
 }
 
+// A file inside the plugin: an agent template (agent-template.schema.json) or a
+// theme (theme.schema.json).
+type FileRef struct {
+	// Path corresponds to the JSON schema field "path".
+	Path common.PluginPath `json:"path"`
+}
+
 // An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may
 // only publish the listed event types.
-type Emitter struct {
+type ManifestEmitter struct {
 	// Args corresponds to the JSON schema field "args".
 	Args Args `json:"args"`
 
@@ -88,12 +95,50 @@ type Emitter struct {
 	Name ComponentName `json:"name"`
 }
 
-// A file inside the plugin: an agent template (agent-template.schema.json) or a
-// theme (theme.schema.json).
-type FileRef struct {
-	// Path corresponds to the JSON schema field "path".
-	Path common.PluginPath `json:"path"`
+// A runner engine: a program that speaks the runner protocol on the socket named
+// by AGENTSONE_RUNNER_SOCKET.
+type ManifestRunner struct {
+	// Args corresponds to the JSON schema field "args".
+	Args Args `json:"args"`
+
+	// Command corresponds to the JSON schema field "command".
+	Command string `json:"command"`
+
+	// Description corresponds to the JSON schema field "description".
+	Description *common.OneLine `json:"description,omitempty,omitzero"`
+
+	// Env corresponds to the JSON schema field "env".
+	Env common.EnvMap `json:"env"`
+
+	// Name corresponds to the JSON schema field "name".
+	Name ComponentName `json:"name"`
+
+	// ProtocolVersions corresponds to the JSON schema field "protocolVersions".
+	ProtocolVersions []string `json:"protocolVersions"`
 }
+
+// Where the plugin came from. kind names the adapter that produced this manifest.
+// ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL
+// with a ref; for agentsone, a git URL, an https archive URL or a local path; for
+// agent-skills, a git URL or path to the skill directory; for mcp-registry, the
+// server name and version as <name>@<version>.
+type ManifestSource struct {
+	// Kind corresponds to the JSON schema field "kind".
+	Kind ManifestSourceKind `json:"kind"`
+
+	// Ref corresponds to the JSON schema field "ref".
+	Ref string `json:"ref"`
+
+	// Digest of the fetched archive, when one was fetched.
+	Sha256 *common.Sha256Hex `json:"sha256,omitempty,omitzero"`
+}
+
+type ManifestSourceKind string
+
+const ManifestSourceKindAgentSkills ManifestSourceKind = "agent-skills"
+const ManifestSourceKindAgentsone ManifestSourceKind = "agentsone"
+const ManifestSourceKindClaudeCode ManifestSourceKind = "claude-code"
+const ManifestSourceKindMcpRegistry ManifestSourceKind = "mcp-registry"
 
 type McpServer interface{}
 
@@ -189,32 +234,10 @@ type PluginManifest struct {
 	Name common.PluginName `json:"name"`
 
 	// Source corresponds to the JSON schema field "source".
-	Source Source `json:"source"`
+	Source ManifestSource `json:"source"`
 
 	// Version corresponds to the JSON schema field "version".
 	Version common.Semver `json:"version"`
-}
-
-// A runner engine: a program that speaks the runner protocol on the socket named
-// by AGENTSONE_RUNNER_SOCKET.
-type Runner struct {
-	// Args corresponds to the JSON schema field "args".
-	Args Args `json:"args"`
-
-	// Command corresponds to the JSON schema field "command".
-	Command string `json:"command"`
-
-	// Description corresponds to the JSON schema field "description".
-	Description *common.OneLine `json:"description,omitempty,omitzero"`
-
-	// Env corresponds to the JSON schema field "env".
-	Env common.EnvMap `json:"env"`
-
-	// Name corresponds to the JSON schema field "name".
-	Name ComponentName `json:"name"`
-
-	// ProtocolVersions corresponds to the JSON schema field "protocolVersions".
-	ProtocolVersions []string `json:"protocolVersions"`
 }
 
 // An Agent Skills skill: a directory holding SKILL.md. name must equal the
@@ -229,26 +252,3 @@ type Skill struct {
 	// Path corresponds to the JSON schema field "path".
 	Path common.PluginPath `json:"path"`
 }
-
-// Where the plugin came from. kind names the adapter that produced this manifest.
-// ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL
-// with a ref; for agentsone, a git URL, an https archive URL or a local path; for
-// agent-skills, a git URL or path to the skill directory; for mcp-registry, the
-// server name and version as <name>@<version>.
-type Source struct {
-	// Kind corresponds to the JSON schema field "kind".
-	Kind SourceKind `json:"kind"`
-
-	// Ref corresponds to the JSON schema field "ref".
-	Ref string `json:"ref"`
-
-	// Digest of the fetched archive, when one was fetched.
-	Sha256 *common.Sha256Hex `json:"sha256,omitempty,omitzero"`
-}
-
-type SourceKind string
-
-const SourceKindAgentSkills SourceKind = "agent-skills"
-const SourceKindAgentsone SourceKind = "agentsone"
-const SourceKindClaudeCode SourceKind = "claude-code"
-const SourceKindMcpRegistry SourceKind = "mcp-registry"

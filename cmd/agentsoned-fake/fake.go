@@ -19,6 +19,7 @@ import (
 const (
 	variantQuery  = "fixture"
 	variantHeader = "X-Fixture-Variant"
+	servedHeader  = "X-Fixture-Variant-Served"
 	corsMethods   = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 	corsHeaders   = "Content-Type, Authorization, " + variantHeader + ", Last-Event-ID"
 )
@@ -66,6 +67,7 @@ func (f *fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		core.WriteProblem(w, r, problem)
 		return
 	}
+	w.Header().Set(servedHeader, servedName(fx.Variant))
 	if route.Stream && fx.Status < http.StatusMultipleChoices {
 		f.stream(w, r, fx)
 		return
@@ -80,6 +82,7 @@ func (f *fake) allowOrigin(w http.ResponseWriter, r *http.Request) {
 	}
 	h := w.Header()
 	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Access-Control-Expose-Headers", servedHeader)
 	h.Add("Vary", "Origin")
 	if isPreflight(r) {
 		h.Set("Access-Control-Allow-Methods", corsMethods)
@@ -92,20 +95,39 @@ func isPreflight(r *http.Request) bool {
 	return r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != ""
 }
 
-func requestedVariant(r *http.Request) string {
-	if v := r.URL.Query().Get(variantQuery); v != "" {
-		return v
-	}
-	return r.Header.Get(variantHeader)
+// variantChoice is the requested fixture variant. A query names it for one
+// request, so it is strict. A header is set once for a whole page, so an
+// operation without that variant falls back to its default fixture.
+type variantChoice struct {
+	name   string
+	strict bool
 }
 
-func (f *fake) pick(operationID, variant string) (contracttest.APIFixture, *core.Problem) {
+func requestedVariant(r *http.Request) variantChoice {
+	if v := r.URL.Query().Get(variantQuery); v != "" {
+		return variantChoice{name: v, strict: true}
+	}
+	return variantChoice{name: r.Header.Get(variantHeader)}
+}
+
+func servedName(variant string) string {
+	if variant == "" {
+		return "default"
+	}
+	return variant
+}
+
+func (f *fake) pick(operationID string, choice variantChoice) (contracttest.APIFixture, *core.Problem) {
 	variants := f.Fixtures[operationID]
 	if len(variants) == 0 {
 		return contracttest.APIFixture{}, core.NotImplemented(operationID)
 	}
-	fx, ok := variants[variant]
+	fx, ok := variants[choice.name]
+	if !ok && !choice.strict {
+		fx, ok = variants[""]
+	}
 	if !ok {
+		variant := choice.name
 		return contracttest.APIFixture{}, core.NewProblem(http.StatusNotFound, "not-found",
 			fmt.Sprintf("no fixture variant %q for %s; available: %s", variant, operationID, variantNames(variants)))
 	}

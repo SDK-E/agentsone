@@ -36,8 +36,8 @@ type MemoryRecord struct {
 	// Body corresponds to the JSON schema field "body".
 	Body common.Markdown `json:"body"`
 
-	// CreatedAt corresponds to the JSON schema field "createdAt".
-	CreatedAt common.Timestamp `json:"createdAt"`
+	// CreatedAt corresponds to the JSON schema field "created_at".
+	CreatedAt common.Timestamp `json:"created_at"`
 
 	// ID corresponds to the JSON schema field "id".
 	ID common.MemoryID `json:"id"`
@@ -56,7 +56,7 @@ type MemoryRecord struct {
 	Scope MemoryRecordScope `json:"scope"`
 
 	// Source corresponds to the JSON schema field "source".
-	Source Source `json:"source"`
+	Source MemorySource `json:"source"`
 
 	// Tags corresponds to the JSON schema field "tags".
 	Tags []string `json:"tags"`
@@ -68,8 +68,8 @@ type MemoryRecord struct {
 	// Title corresponds to the JSON schema field "title".
 	Title common.OneLine `json:"title"`
 
-	// UpdatedAt corresponds to the JSON schema field "updatedAt".
-	UpdatedAt common.Timestamp `json:"updatedAt"`
+	// UpdatedAt corresponds to the JSON schema field "updated_at".
+	UpdatedAt common.Timestamp `json:"updated_at"`
 }
 
 type MemoryRecordScope string
@@ -80,18 +80,18 @@ const MemoryRecordScopeTeam MemoryRecordScope = "team"
 
 // Where the content came from. ref is the agent or human name, event id, import
 // file or plugin name.
-type Source struct {
+type MemorySource struct {
 	// Kind corresponds to the JSON schema field "kind".
-	Kind SourceKind `json:"kind"`
+	Kind MemorySourceKind `json:"kind"`
 
 	// Ref corresponds to the JSON schema field "ref".
 	Ref *string `json:"ref,omitempty,omitzero"`
 }
 
-type SourceKind string
+type MemorySourceKind string
 
-const SourceKindAgent SourceKind = "agent"
-const SourceKindEvent SourceKind = "event"
-const SourceKindHuman SourceKind = "human"
-const SourceKindImport SourceKind = "import"
-const SourceKindPlugin SourceKind = "plugin"
+const MemorySourceKindAgent MemorySourceKind = "agent"
+const MemorySourceKindEvent MemorySourceKind = "event"
+const MemorySourceKindHuman MemorySourceKind = "human"
+const MemorySourceKindImport MemorySourceKind = "import"
+const MemorySourceKindPlugin MemorySourceKind = "plugin"

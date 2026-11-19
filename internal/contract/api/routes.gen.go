@@ -60,6 +60,7 @@ var Routes = []Route{
 	{Method: "PUT", Path: BasePath + "/host/budget", OperationID: "pushBudgetState", Tag: "host", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/host/freezes", OperationID: "listFreezes", Tag: "host", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/host/freezes", OperationID: "applyFreeze", Tag: "host", Stream: false, WebSocket: false},
+	{Method: "PUT", Path: BasePath + "/host/gateway-secret", OperationID: "setGatewaySecret", Tag: "host", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/host/health", OperationID: "getDoorHealth", Tag: "host", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/host/release", OperationID: "releaseFreeze", Tag: "host", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/humans", OperationID: "listHumans", Tag: "humans", Stream: false, WebSocket: false},

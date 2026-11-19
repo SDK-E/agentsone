@@ -21,7 +21,7 @@ type wireRecord struct {
 	Outcome  string          `json:"outcome"`
 	Details  json.RawMessage `json:"details"`
 	Origin   string          `json:"origin"`
-	PrevHash string          `json:"prevHash,omitempty"`
+	PrevHash string          `json:"prev_hash,omitempty"`
 	Hash     string          `json:"hash,omitempty"`
 }
 

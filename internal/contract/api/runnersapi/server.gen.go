@@ -304,7 +304,7 @@ type GetRunnerResponseObject interface {
 	VisitGetRunnerResponse(w http.ResponseWriter) error
 }
 
-type GetRunner200JSONResponse Runner2
+type GetRunner200JSONResponse Runner
 
 func (response GetRunner200JSONResponse) VisitGetRunnerResponse(w http.ResponseWriter) error {
 

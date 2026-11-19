@@ -26,6 +26,7 @@ jobs:
       shell: ${{ steps.filter.outputs.shell }}
       docs: ${{ steps.filter.outputs.docs }}
       workflows: ${{ steps.filter.outputs.workflows }}
+      contract: ${{ steps.filter.outputs.contract }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +62,16 @@ jobs:
               - '**/*.md'
               - '.markdownlint-cli2.jsonc'
               - '_typos.toml'
+              - '.github/workflows/pr.yml'
+            contract:
+              - 'contract/**'
+              - 'internal/contract/**'
+              - 'packages/contract-ts/**'
+              - 'scripts/gen.sh'
+              - 'go.mod'
+              - 'go.sum'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
               - '.github/workflows/pr.yml'
             workflows:
               - '.github/workflows/**'
@@ -108,7 +119,39 @@ jobs:
           version: latest
       - name: go test
         if: steps.detect.outputs.has_go == 'true'
-        run: go test -race ./...
+        run: |
+          mkdir -p coverage
+          go test -race -coverprofile=coverage/cover.out ./...
+      - name: coverage floors
+        if: steps.detect.outputs.has_go == 'true'
+        run: scripts/check-coverage.sh coverage/cover.out
+
+  contract:
+    needs: changes
+    if: needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: redocly lint
+        run: pnpm exec redocly lint --config contract/redocly.yaml
+      - name: generated code is up to date
+        run: make check-gen
+      - name: contract tests
+        run: go test -race ./internal/contract/... ./internal/auditchain/... ./cmd/agentsoned-fake/...
 
   ts:
     needs: changes
@@ -149,6 +192,8 @@ jobs:
             git ls-files -z '*.sh'
             printf '%s\0' scripts/heavy
           } | xargs -0 shellcheck
+      - name: coverage gate self-test
+        run: scripts/test-check-coverage.sh
 
   workflows:
     needs: changes
@@ -248,6 +293,7 @@ jobs:
     needs:
       - changes
       - go
+      - contract
       - ts
       - shell
       - workflows

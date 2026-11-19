@@ -90,6 +90,20 @@ func TestPicksVariantByHeader(t *testing.T) {
 	}
 }
 
+// A page sets the header once for every request it makes, so operations
+// without that variant serve their default fixture.
+func TestHeaderVariantFallsBackToDefault(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/v1/things/7", nil)
+	req.Header.Set("X-Fixture-Variant", "empty")
+	rec := serve(t, req)
+	if rec.Code != http.StatusOK || rec.Body.String() != `{"name":"a"}` {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
+	if rec.Header().Get("X-Fixture-Variant-Served") != "default" {
+		t.Fatalf("served header %q", rec.Header().Get("X-Fixture-Variant-Served"))
+	}
+}
+
 func TestUnknownVariantNamesAvailableOnes(t *testing.T) {
 	rec := serve(t, httptest.NewRequest(http.MethodGet, "/v1/things?fixture=nope", nil))
 	if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "empty, error") {

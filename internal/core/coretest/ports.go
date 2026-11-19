@@ -13,27 +13,80 @@ import (
 
 // Tasks is an in-memory core.TaskService.
 type Tasks struct {
-	mu      sync.Mutex
-	clock   core.Clock
-	ids     core.IDs
-	created []core.Task
+	mu       sync.Mutex
+	clock    core.Clock
+	ids      core.IDs
+	created  []core.Task
+	outcomes map[string]core.TaskOutcome
 }
 
 var _ core.TaskService = (*Tasks)(nil)
 
 // NewTasks returns a TaskService that stamps tasks with clock and ids.
-func NewTasks(clock core.Clock, ids core.IDs) *Tasks { return &Tasks{clock: clock, ids: ids} }
+func NewTasks(clock core.Clock, ids core.IDs) *Tasks {
+	return &Tasks{clock: clock, ids: ids, outcomes: map[string]core.TaskOutcome{}}
+}
+
+// CompleteTask sets a final status on a created task.
+func (s *Tasks) CompleteTask(_ context.Context, id string, outcome core.TaskOutcome) (core.Task, error) {
+	if err := outcome.Validate(); err != nil {
+		return core.Task{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i, err := s.index(id)
+	if err != nil {
+		return core.Task{}, err
+	}
+	s.created[i].Status = outcome.Status
+	s.created[i].Result = outcome.Result
+	s.outcomes[id] = outcome
+	return s.created[i], nil
+}
+
+// GetTask returns the task with id.
+func (s *Tasks) GetTask(_ context.Context, id string) (core.Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i, err := s.index(id)
+	if err != nil {
+		return core.Task{}, err
+	}
+	return s.created[i], nil
+}
+
+func (s *Tasks) index(id string) (int, error) {
+	for i := range s.created {
+		if s.created[i].ID == id {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("task %q: %w", id, core.ErrNotFound)
+}
+
+// Outcome returns how the task ended, or a zero outcome while it is open.
+func (s *Tasks) Outcome(id string) core.TaskOutcome {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.outcomes[id]
+}
 
 // CreateTask stores an open task.
 func (s *Tasks) CreateTask(_ context.Context, t core.NewTask) (core.Task, error) {
+	priority, err := core.TaskPriority(t.Priority)
+	if err != nil {
+		return core.Task{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	task := core.Task{
-		ID:       s.ids.New("tsk"),
-		Title:    t.Title,
-		Assignee: t.Assignee,
-		Status:   "open",
-		Created:  s.clock.Now(),
+		ID:        s.ids.New("tsk"),
+		Title:     t.Title,
+		Assignee:  t.Assignee,
+		Status:    "open",
+		Priority:  priority,
+		CreatedBy: t.CreatedBy,
+		Created:   s.clock.Now(),
 	}
 	s.created = append(s.created, task)
 	return task, nil

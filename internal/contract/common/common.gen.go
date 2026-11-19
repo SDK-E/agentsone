@@ -6,30 +6,17 @@ package common
 
 import "time"
 
-// Who did something, as an object (used in records).
-type Actor struct {
-	// Kind corresponds to the JSON schema field "kind".
-	Kind ActorKind `json:"kind"`
-
-	// Agent name, human user name, or component name such as agentsoned or
-	// emitter-auth.
-	Name string `json:"name"`
-
-	// Linux uid seen through socket peer credentials, when known. Root agents share
-	// uid 0; their name and cgroup tell them apart.
-	Uid *int `json:"uid,omitempty,omitzero"`
-}
-
 type ActorKind string
 
 const ActorKindAgent ActorKind = "agent"
 const ActorKindHost ActorKind = "host"
 const ActorKindHuman ActorKind = "human"
+const ActorKindPlugin ActorKind = "plugin"
 const ActorKindSystem ActorKind = "system"
 
 // Who did something, as one string (used where only strings fit, such as
-// CloudEvents extension attributes): <kind>:<name>, for example agent:founder or
-// human:alice.
+// CloudEvents extension attributes): <kind>:<name>, for example agent:founder,
+// human:alice or plugin:plg_01JD7ZK3M00000000000000001.
 type ActorRef string
 
 // Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1
@@ -39,6 +26,21 @@ type AgentName string
 // Any prefixed id: a lowercase prefix of 2 to 4 letters, an underscore, and a
 // ULID.
 type AnyID string
+
+// Who did something, as an object (used in audit records). The one-string form is
+// ActorRef.
+type AuditActor struct {
+	// Kind corresponds to the JSON schema field "kind".
+	Kind ActorKind `json:"kind"`
+
+	// Agent name, human user name, component name such as agentsoned or emitter-auth,
+	// or, when kind is plugin, the plugin id (plg_ and a ULID).
+	Name string `json:"name"`
+
+	// Linux uid seen through socket peer credentials, when known. Root agents share
+	// uid 0; their name and cgroup tell them apart.
+	Uid *int `json:"uid,omitempty,omitzero"`
+}
 
 // Which part of the org chart something concerns, as one string. machine: the
 // whole machine. team:<root>: the chart branch whose root agent is <root>.

@@ -1,5 +1,18 @@
 # SPDX-License-Identifier: MIT
 # Host door: used only by the host tool on the Mac over vsock.
+GatewaySecret:
+  type: object
+  additionalProperties: false
+  description: Per-boot key for signing agents' model gateway tokens. Write only.
+  required: [secret, rotated_at]
+  properties:
+    secret:
+      description: 32 random bytes, base64url without padding.
+      type: string
+      writeOnly: true
+      pattern: "^[A-Za-z0-9_-]{43}$"
+    rotated_at:
+      $ref: "./common.yaml#/Timestamp"
 
 FreezeScope:
   type: string

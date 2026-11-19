@@ -34,7 +34,7 @@ type fixtureRecord struct {
 	Outcome  string          `json:"outcome"`
 	Details  json.RawMessage `json:"details"`
 	Origin   string          `json:"origin"`
-	PrevHash string          `json:"prevHash"`
+	PrevHash string          `json:"prev_hash"`
 	Hash     string          `json:"hash"`
 }
 

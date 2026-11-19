@@ -118,19 +118,30 @@ type Wake struct {
 
 // Waker records wakes instead of waking anyone.
 type Waker struct {
-	mu    sync.Mutex
-	wakes []Wake
+	mu     sync.Mutex
+	wakes  []Wake
+	frozen map[string]bool
 }
 
 var _ core.Waker = (*Waker)(nil)
 
 // NewWaker returns a Waker with no wakes.
-func NewWaker() *Waker { return &Waker{} }
+func NewWaker() *Waker { return &Waker{frozen: map[string]bool{}} }
 
-// Wake records the call.
+// Freeze makes later wakes of agent return core.ErrFrozen.
+func (w *Waker) Freeze(agent string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.frozen[agent] = true
+}
+
+// Wake records the call, or returns core.ErrFrozen for a frozen agent.
 func (w *Waker) Wake(_ context.Context, agent string, reason core.WakeReason, payload json.RawMessage) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.frozen[agent] {
+		return fmt.Errorf("wake %q: %w", agent, core.ErrFrozen)
+	}
 	w.wakes = append(w.wakes, Wake{Agent: agent, Reason: reason, Payload: payload})
 	return nil
 }

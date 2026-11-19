@@ -46,7 +46,7 @@ type AgentTemplate struct {
 	Runner RunnerChoice `json:"runner"`
 
 	// Schedules corresponds to the JSON schema field "schedules".
-	Schedules []Schedule `json:"schedules"`
+	Schedules []TemplateSchedule `json:"schedules"`
 
 	// Skills the agent can use, by name, from installed plugins.
 	Skills []common.SkillName `json:"skills"`
@@ -60,21 +60,6 @@ type AgentTemplateKind string
 const AgentTemplateKindAlwaysOn AgentTemplateKind = "always-on"
 const AgentTemplateKindChat AgentTemplateKind = "chat"
 const AgentTemplateKindWaker AgentTemplateKind = "waker"
-
-// All given fields must match. types matches any one of its entries.
-type EventFilter struct {
-	// Chartscope corresponds to the JSON schema field "chartscope".
-	Chartscope *common.ChartScope `json:"chartscope,omitempty,omitzero"`
-
-	// Exact source, for example /emitters/auth.
-	Source *string `json:"source,omitempty,omitzero"`
-
-	// SubjectPrefix corresponds to the JSON schema field "subjectPrefix".
-	SubjectPrefix *string `json:"subjectPrefix,omitempty,omitzero"`
-
-	// Types corresponds to the JSON schema field "types".
-	Types []common.EventTypeFilter `json:"types"`
-}
 
 // systemd resource limits for custom agents (CPUQuota, MemoryMax, TasksMax). Root
 // agents are not limited.
@@ -110,9 +95,35 @@ type RunnerChoice struct {
 // (config.runner).
 type RunnerChoiceConfig map[string]interface{}
 
+// Wake the agent when an event matches filter, at most rateLimit.maxWakes times
+// per rateLimit.perSeconds. Events over the limit are counted and handed over in
+// the next wake, not dropped.
+type Subscription struct {
+	// Filter corresponds to the JSON schema field "filter".
+	Filter SubscriptionFilter `json:"filter"`
+
+	// RateLimit corresponds to the JSON schema field "rateLimit".
+	RateLimit RateLimit `json:"rateLimit"`
+}
+
+// All given fields must match. types matches any one of its entries.
+type SubscriptionFilter struct {
+	// Chartscope corresponds to the JSON schema field "chartscope".
+	Chartscope *common.ChartScope `json:"chartscope,omitempty,omitzero"`
+
+	// Exact source, for example /emitters/auth.
+	Source *string `json:"source,omitempty,omitzero"`
+
+	// SubjectPrefix corresponds to the JSON schema field "subjectPrefix".
+	SubjectPrefix *string `json:"subjectPrefix,omitempty,omitzero"`
+
+	// Types corresponds to the JSON schema field "types".
+	Types []common.EventTypeFilter `json:"types"`
+}
+
 // A timer. cron is five fields (minute hour day-of-month month day-of-week) or
 // @hourly, @daily, @weekly, @monthly, evaluated in timezone.
-type Schedule struct {
+type TemplateSchedule struct {
 	// Cron corresponds to the JSON schema field "cron".
 	Cron string `json:"cron"`
 
@@ -124,17 +135,6 @@ type Schedule struct {
 
 	// IANA time zone name, for example UTC or Europe/Paris.
 	Timezone string `json:"timezone"`
-}
-
-// Wake the agent when an event matches filter, at most rateLimit.maxWakes times
-// per rateLimit.perSeconds. Events over the limit are counted and handed over in
-// the next wake, not dropped.
-type Subscription struct {
-	// Filter corresponds to the JSON schema field "filter".
-	Filter EventFilter `json:"filter"`
-
-	// RateLimit corresponds to the JSON schema field "rateLimit".
-	RateLimit RateLimit `json:"rateLimit"`
 }
 
 type Wake struct {

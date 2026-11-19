@@ -27,8 +27,8 @@ func load(t *testing.T) *catalog.Catalog {
 func TestBuiltinHasEveryContractType(t *testing.T) {
 	c := load(t)
 
-	if got := len(c.Types()); got != 27 {
-		t.Fatalf("Builtin() has %d types, want 27", got)
+	if got := len(c.Types()); got != 33 {
+		t.Fatalf("Builtin() has %d types, want 33", got)
 	}
 }
 

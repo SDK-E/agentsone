@@ -66,10 +66,7 @@ ValidationIssue:
       type: string
 
 AgentName:
-  type: string
-  pattern: "^[a-z][a-z0-9-]{0,30}$"
-  description: Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
-  examples: [founder]
+  $ref: "../../../schemas/common.schema.json#/$defs/AgentName"
 
 HumanName:
   type: string
@@ -84,10 +81,7 @@ DisplayName:
   description: Free display name shown in the interface.
 
 Timestamp:
-  type: string
-  format: date-time
-  description: RFC 3339 time in UTC with a `Z` suffix.
-  examples: ["2026-11-19T18:40:00Z"]
+  $ref: "../../../schemas/common.schema.json#/$defs/Timestamp"
 
 OneLineText:
   type: string
@@ -145,9 +139,7 @@ ChatMessageId:
   pattern: "^cht_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Chat message id, `cht_` plus a ULID.
 MemoryId:
-  type: string
-  pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
-  description: Memory record id, `mem_` plus a ULID.
+  $ref: "../../../schemas/common.schema.json#/$defs/MemoryId"
 PluginId:
   type: string
   pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
@@ -161,9 +153,7 @@ TriggerId:
   pattern: "^trg_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Trigger id, `trg_` plus a ULID.
 EventId:
-  type: string
-  pattern: "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
-  description: Event id, `evt_` plus a ULID.
+  $ref: "../../../schemas/common.schema.json#/$defs/EventId"
 EmitterId:
   type: string
   pattern: "^emt_[0-9A-HJKMNP-TV-Z]{26}$"

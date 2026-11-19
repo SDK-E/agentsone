@@ -94,8 +94,8 @@
       "type": "string",
       "enum": ["agent", "human", "system", "host"]
     },
-    "Actor": {
-      "description": "Who did something, as an object (used in records).",
+    "AuditActor": {
+      "description": "Who did something, as an object (used in audit records). The one-string form is ActorRef.",
       "type": "object",
       "required": ["kind", "name"],
       "properties": {

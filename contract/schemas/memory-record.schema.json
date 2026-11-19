@@ -42,7 +42,7 @@
       "maxItems": 64,
       "items": { "$ref": "#/$defs/Link" }
     },
-    "source": { "$ref": "#/$defs/Source" },
+    "source": { "$ref": "#/$defs/MemorySource" },
     "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
     "updated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
     "revision": {
@@ -64,7 +64,7 @@
       },
       "additionalProperties": false
     },
-    "Source": {
+    "MemorySource": {
       "description": "Where the content came from. ref is the agent or human name, event id, import file or plugin name.",
       "type": "object",
       "required": ["kind"],

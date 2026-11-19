@@ -32,7 +32,7 @@
       "pattern": "^[A-Za-z0-9.+:() -]+$"
     },
     "homepage": { "type": "string", "format": "uri", "maxLength": 512 },
-    "source": { "$ref": "#/$defs/Source" },
+    "source": { "$ref": "#/$defs/ManifestSource" },
     "compat": { "$ref": "#/$defs/Compat" },
     "contents": { "$ref": "#/$defs/Contents" }
   },
@@ -48,7 +48,7 @@
       },
       "additionalProperties": false
     },
-    "Source": {
+    "ManifestSource": {
       "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
       "type": "object",
       "required": ["kind", "ref"],
@@ -109,10 +109,18 @@
           "maxItems": 64,
           "items": { "$ref": "#/$defs/FileRef" }
         },
-        "runners": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Runner" } },
+        "runners": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/ManifestRunner" }
+        },
         "panels": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Panel" } },
         "themes": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/FileRef" } },
-        "emitters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Emitter" } }
+        "emitters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/ManifestEmitter" }
+        }
       },
       "additionalProperties": false
     },
@@ -179,7 +187,7 @@
       },
       "additionalProperties": false
     },
-    "Runner": {
+    "ManifestRunner": {
       "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
       "type": "object",
       "required": ["name", "command", "args", "env", "protocolVersions"],
@@ -223,7 +231,7 @@
       },
       "additionalProperties": false
     },
-    "Emitter": {
+    "ManifestEmitter": {
       "description": "An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.",
       "type": "object",
       "required": ["name", "command", "args", "env", "eventTypes"],

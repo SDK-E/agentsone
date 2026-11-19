@@ -20,7 +20,7 @@ LiveEntry:
       type: string
     one_line:
       oneOf:
-        - $ref: "./agents.yaml#/OneLine"
+        - $ref: "./agents.yaml#/AgentOneLine"
         - type: "null"
 
 LiveList:

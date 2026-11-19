@@ -50,7 +50,7 @@ AgentLimitsInput:
       type: integer
       minimum: 8
 
-OneLine:
+AgentOneLine:
   type: object
   description: The live list entry body. Every agent turn writes one; it is what the router reads.
   required: [text, updated_at]
@@ -116,7 +116,7 @@ Agent:
       $ref: "#/AgentState"
     one_line:
       oneOf:
-        - $ref: "#/OneLine"
+        - $ref: "#/AgentOneLine"
         - type: "null"
       description: Latest one-line, or null before the first turn.
     limits:
@@ -380,7 +380,7 @@ OneLineFrame:
     agent:
       $ref: "./common.yaml#/AgentName"
     one_line:
-      $ref: "#/OneLine"
+      $ref: "#/AgentOneLine"
 
 AgentOutputFrame:
   oneOf:

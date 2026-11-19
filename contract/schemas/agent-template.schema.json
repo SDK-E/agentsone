@@ -70,7 +70,7 @@
     "schedules": {
       "type": "array",
       "maxItems": 32,
-      "items": { "$ref": "#/$defs/Schedule" }
+      "items": { "$ref": "#/$defs/TemplateSchedule" }
     }
   },
   "additionalProperties": false,
@@ -129,12 +129,12 @@
       "type": "object",
       "required": ["filter", "rateLimit"],
       "properties": {
-        "filter": { "$ref": "#/$defs/EventFilter" },
+        "filter": { "$ref": "#/$defs/SubscriptionFilter" },
         "rateLimit": { "$ref": "#/$defs/RateLimit" }
       },
       "additionalProperties": false
     },
-    "EventFilter": {
+    "SubscriptionFilter": {
       "description": "All given fields must match. types matches any one of its entries.",
       "type": "object",
       "required": ["types"],
@@ -165,7 +165,7 @@
       },
       "additionalProperties": false
     },
-    "Schedule": {
+    "TemplateSchedule": {
       "description": "A timer. cron is five fields (minute hour day-of-month month day-of-week) or @hourly, @daily, @weekly, @monthly, evaluated in timezone.",
       "type": "object",
       "required": ["name", "cron", "timezone"],

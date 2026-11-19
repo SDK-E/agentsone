@@ -24,7 +24,7 @@
       "maximum": 9007199254740991
     },
     "time": { "$ref": "common.schema.json#/$defs/Timestamp" },
-    "actor": { "$ref": "common.schema.json#/$defs/Actor" },
+    "actor": { "$ref": "common.schema.json#/$defs/AuditActor" },
     "action": {
       "description": "What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.",
       "type": "string",

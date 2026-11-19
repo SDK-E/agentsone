@@ -77,6 +77,9 @@ LABEL org.opencontainers.image.title="Agents One machine" \
 # No sudo: root agents are already root; custom agents must not become root.
 # The slim base leaves out manual pages, so update-alternatives notes each
 # missing page link; those lines (and only those) are dropped from the log.
+# baseline-packages.txt lists the image's own manually installed packages.
+# The machine recipe keeps only packages agents add beyond it and reinstalls
+# them at start after a rescue (recreate).
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3008
 RUN apt-get update \
@@ -85,7 +88,10 @@ RUN apt-get update \
         ca-certificates curl git less procps \
         labwc wayvnc wlr-randr foot chromium fonts-dejavu-core \
         2>&1 | { grep -v '^update-alternatives: warning: skip creation of /usr/share/man/' || true; } \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /usr/lib/agentsone \
+    && apt-mark showmanual >/usr/lib/agentsone/baseline-packages.txt \
+    && test -s /usr/lib/agentsone/baseline-packages.txt
 
 COPY --from=fetch /out/ /
 COPY --from=go /out/ /usr/lib/agentsone/

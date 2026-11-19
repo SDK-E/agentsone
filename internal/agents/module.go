@@ -143,8 +143,17 @@ func (m *Module) Start(ctx context.Context) error {
 			return fmt.Errorf("replay freeze %s: %w", s, err)
 		}
 	}
+	m.runAlwaysOn(ctx)
 	m.startSeed(ctx)
 	return nil
+}
+
+// runAlwaysOn starts the always-on agents' runners, idle. A runner that
+// cannot start shows why on its agent; the daemon runs on.
+func (m *Module) runAlwaysOn(ctx context.Context) {
+	if err := m.society.RunAlwaysOn(ctx); err != nil {
+		m.log.Warn("agents: an always-on runner did not start", "err", err)
+	}
 }
 
 // startSeed waits in the background for the first human, then seeds the
@@ -176,6 +185,7 @@ func (m *Module) startSeed(ctx context.Context) {
 			}
 			if len(created) > 0 {
 				m.log.Info("agents: seeded the society", "created", created)
+				m.runAlwaysOn(sys)
 			}
 			return
 		}
@@ -226,5 +236,6 @@ func (noRuntime) Wake(context.Context, string, core.WakeReason, json.RawMessage)
 	return errNoRuntime
 }
 func (noRuntime) Sleep(context.Context, string, bool) error       { return errNoRuntime }
+func (noRuntime) Run(context.Context, string) error               { return errNoRuntime }
 func (noRuntime) Freeze(context.Context, core.FreezeScope) error  { return errNoRuntime }
 func (noRuntime) Release(context.Context, core.FreezeScope) error { return errNoRuntime }

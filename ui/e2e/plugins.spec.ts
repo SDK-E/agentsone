@@ -31,6 +31,15 @@ for (const state of STATES) {
   });
 }
 
+test("plugins, says why one is not working", async ({ page }, testInfo) => {
+  const clean = await useScenario(page, { only: { listPlugins: "long-text" } });
+  await openPanel(page, "Plugins");
+
+  await expect(page.getByText(/The server stopped answering at 14:02/)).toBeVisible();
+  await checkPage(page, testInfo, "plugins-health-detail");
+  clean();
+});
+
 test("plugins, turning one off fails", async ({ page }, testInfo) => {
   const clean = await useScenario(page, { only: { disablePlugin: "error" } });
   await openPanel(page, "Plugins");

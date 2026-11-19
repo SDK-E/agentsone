@@ -429,8 +429,22 @@ export class FakeApi implements Api {
       if (!(this.humans instanceof ApiError)) this.humans = [...this.humans, created];
       return created;
     });
-  updateHuman = (name: string, body: { display_name?: string; password?: string }) =>
+  /** The signed-in human's present password, for the own-password-change check. */
+  currentPassword = "old-password-12345";
+
+  updateHuman = (
+    name: string,
+    body: { display_name?: string; password?: string; current_password?: string },
+  ) =>
     this.change(`updateHuman ${name} ${Object.keys(body).join(",")}`, (): Human => {
+      if (body.password !== undefined && body.current_password !== this.currentPassword) {
+        throw new ApiError(400, {
+          type: "urn:agentsone:problem:validation",
+          title: "The request is not valid",
+          status: 400,
+          errors: [{ pointer: "/current_password", message: "Wrong password." }],
+        });
+      }
       const list = this.humans instanceof ApiError ? fixtures.humans : this.humans;
       const base = list.find((h) => h.name === name) ?? fixtures.humans[0];
       if (!base) throw new Error("no human fixture");

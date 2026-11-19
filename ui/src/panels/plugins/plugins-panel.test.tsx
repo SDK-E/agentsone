@@ -145,6 +145,33 @@ describe("Plugins panel, installed", () => {
     expect(within(seed).getByText(/Turn it off and on again/)).toBeVisible();
   });
 
+  it("shows the reason the daemon gave for a plugin that is not working", async () => {
+    const api = new FakeApi();
+    const [first] = fixtures.plugins;
+    if (!first) throw new Error("no fixture");
+    api.plugins = [
+      { ...first, health: "failed", health_detail: "The server stopped answering at 14:02." },
+    ];
+    renderWith(<PluginsPanel />, api);
+
+    const seed = await row("small-seed");
+    expect(within(seed).getByText("Not working")).toBeVisible();
+    expect(within(seed).getByText("The server stopped answering at 14:02.")).toBeVisible();
+    expect(within(seed).getByText(/Turn it off and on again/)).toBeVisible();
+  });
+
+  it("shows no reason line when the daemon gave none", async () => {
+    const api = new FakeApi();
+    const [first] = fixtures.plugins;
+    if (!first) throw new Error("no fixture");
+    api.plugins = [{ ...first, health: "degraded", health_detail: null }];
+    renderWith(<PluginsPanel />, api);
+
+    const seed = await row("small-seed");
+    expect(within(seed).getByText("Needs attention")).toBeVisible();
+    expect(seed.querySelector(".plugin__health-detail")).toBeNull();
+  });
+
   it("loads more plugins a page at a time", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();

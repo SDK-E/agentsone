@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import type { Human, InstalledTheme } from "../../api/api";
+import { ApiError, type Human, type InstalledTheme } from "../../api/api";
 import { at } from "../../test/at";
 import { expectNoAxeViolations } from "../../test/axe";
 import { FakeApi, fixtures, problem, renderWith } from "../../test/fake-api";
@@ -11,6 +11,7 @@ import SettingsPanel from ".";
 
 // Test values only. These never leave the test run.
 const GOOD_PASSWORD = "test-password-12345";
+const CURRENT_PASSWORD = "old-password-12345";
 
 const region = (name: string) => screen.findByRole("region", { name });
 
@@ -132,14 +133,104 @@ describe("Settings, your account", () => {
     const { api } = renderWith(<SettingsPanel />);
     const account = within(await region("Your account"));
 
+    await user.type(await account.findByLabelText("Current password"), CURRENT_PASSWORD);
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
+    await user.click(account.getByRole("button", { name: "Change password" }));
+
+    expect(api.calls).toContain("updateHuman ada current_password,password");
+    expect(await account.findByText(/Password changed/)).toBeVisible();
+    expect(account.getByLabelText("Current password")).toHaveValue("");
+    expect(account.getByLabelText("New password")).toHaveValue("");
+    expect(account.getByLabelText("New password again")).toHaveValue("");
+  });
+
+  it("asks for the current password before sending anything", async () => {
+    const user = userEvent.setup();
+    const { api } = renderWith(<SettingsPanel />);
+    const account = within(await region("Your account"));
+
     await user.type(await account.findByLabelText("New password"), GOOD_PASSWORD);
     await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
     await user.click(account.getByRole("button", { name: "Change password" }));
 
-    expect(api.calls).toContain("updateHuman ada password");
-    expect(await account.findByText(/Password changed/)).toBeVisible();
-    expect(account.getByLabelText("New password")).toHaveValue("");
-    expect(account.getByLabelText("New password again")).toHaveValue("");
+    expect(await account.findByRole("alert")).toHaveTextContent("Type your current password.");
+    expect(api.calls.filter((c) => c.startsWith("updateHuman"))).toEqual([]);
+  });
+
+  it("says when the current password is wrong and keeps what was typed", async () => {
+    const user = userEvent.setup();
+    renderWith(<SettingsPanel />);
+    const account = within(await region("Your account"));
+
+    await user.type(await account.findByLabelText("Current password"), "not-the-password-1");
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
+    await user.click(account.getByRole("button", { name: "Change password" }));
+
+    expect(await account.findByRole("alert")).toHaveTextContent(
+      "That is not your current password. Check it and try again.",
+    );
+    expect(account.getByLabelText("New password")).toHaveValue(GOOD_PASSWORD);
+  });
+
+  it("says how long to wait after too many wrong passwords", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    api.mutationError = new ApiError(
+      429,
+      { type: "urn:agentsone:problem:rate-limited", title: "Too many requests", status: 429 },
+      30,
+    );
+    renderWith(<SettingsPanel />, api);
+    const account = within(await region("Your account"));
+
+    await user.type(await account.findByLabelText("Current password"), CURRENT_PASSWORD);
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
+    await user.click(account.getByRole("button", { name: "Change password" }));
+
+    expect(await account.findByRole("alert")).toHaveTextContent(
+      "Too many wrong passwords. Wait 30 seconds.",
+    );
+  });
+
+  it("says to wait one second in the singular", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    api.mutationError = new ApiError(
+      429,
+      { type: "urn:agentsone:problem:rate-limited", title: "Too many requests", status: 429 },
+      1,
+    );
+    renderWith(<SettingsPanel />, api);
+    const account = within(await region("Your account"));
+
+    await user.type(await account.findByLabelText("Current password"), CURRENT_PASSWORD);
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
+    await user.click(account.getByRole("button", { name: "Change password" }));
+
+    expect(await account.findByRole("alert")).toHaveTextContent(
+      "Too many wrong passwords. Wait 1 second.",
+    );
+  });
+
+  it("asks to wait a little when the throttle gives no time", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    api.mutationError = problem(429, "Too many requests");
+    renderWith(<SettingsPanel />, api);
+    const account = within(await region("Your account"));
+
+    await user.type(await account.findByLabelText("Current password"), CURRENT_PASSWORD);
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
+    await user.click(account.getByRole("button", { name: "Change password" }));
+
+    expect(await account.findByRole("alert")).toHaveTextContent(
+      "Too many wrong passwords. Wait a little, then try again.",
+    );
   });
 
   it("asks for a longer password before sending anything", async () => {
@@ -179,7 +270,8 @@ describe("Settings, your account", () => {
     renderWith(<SettingsPanel />, api);
     const account = within(await region("Your account"));
 
-    await user.type(await account.findByLabelText("New password"), GOOD_PASSWORD);
+    await user.type(await account.findByLabelText("Current password"), CURRENT_PASSWORD);
+    await user.type(account.getByLabelText("New password"), GOOD_PASSWORD);
     await user.type(account.getByLabelText("New password again"), GOOD_PASSWORD);
     await user.click(account.getByRole("button", { name: "Change password" }));
 

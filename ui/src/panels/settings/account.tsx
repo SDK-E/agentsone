@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type SyntheticEvent } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import type { Human } from "../../api/api";
+import { ApiError, type Human } from "../../api/api";
 import { useApi } from "../../app/api-context";
 import { meKey, useMe } from "../../session/session";
 import { problemText } from "../../shell/problem-text";
@@ -62,17 +63,34 @@ function DisplayNameForm({ human }: { human: Human }) {
   );
 }
 
+/** Why a password change failed, in plain words: wrong current password, throttled, or the daemon's own reason. */
+function passwordFailure(error: unknown, t: TFunction): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) {
+      return error.retryAfter === undefined
+        ? t("tooManyUnknown")
+        : t("tooMany", { count: error.retryAfter });
+    }
+    if (error.problem?.errors?.some((issue) => issue.pointer === "/current_password") === true) {
+      return t("currentWrong");
+    }
+  }
+  return problemText(error, t("passwordFailed"));
+}
+
 function PasswordForm({ human }: { human: Human }) {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.settings.account" });
   const api = useApi();
   const hintId = useId();
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState(false);
   const [changed, setChanged] = useState(false);
   const change = useMutation({
-    mutationFn: () => api.updateHuman(human.name, { password }),
+    mutationFn: () => api.updateHuman(human.name, { current_password: current, password }),
     onSuccess: () => {
+      setCurrent("");
       setPassword("");
       setConfirm("");
       setTouched(false);
@@ -81,6 +99,7 @@ function PasswordForm({ human }: { human: Human }) {
   });
 
   const problems = [
+    current === "" && t("currentRule"),
     password.length < MIN_PASSWORD && t("passwordRule", { count: MIN_PASSWORD }),
     password !== confirm && t("confirmRule"),
   ].filter((p): p is string => typeof p === "string");
@@ -95,6 +114,18 @@ function PasswordForm({ human }: { human: Human }) {
   return (
     <form className="stack-sm" onSubmit={submit} noValidate>
       <h5>{t("passwordTitle")}</h5>
+      <label className="field">
+        <span>{t("currentPassword")}</span>
+        <input
+          name="current_password"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => {
+            setCurrent(e.target.value);
+          }}
+        />
+      </label>
       <label className="field">
         <span>{t("newPassword")}</span>
         <input
@@ -134,7 +165,7 @@ function PasswordForm({ human }: { human: Human }) {
       )}
       {change.isError && (
         <p role="alert" className="notice notice--danger">
-          {problemText(change.error, t("passwordFailed"))}
+          {passwordFailure(change.error, t)}
         </p>
       )}
       <div className="row">

@@ -52,6 +52,21 @@ test("settings, remove a person asks first", async ({ page }, testInfo) => {
   clean();
 });
 
+test("settings, password change asks for the current password", async ({ page }, testInfo) => {
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Settings");
+
+  await page.getByRole("button", { name: "Change password" }).click();
+
+  await expect(page.getByLabel("Current password")).toBeVisible();
+  await expect(page.getByText("Type your current password.")).toBeVisible();
+  await page.getByLabel("Current password").scrollIntoViewIfNeeded();
+  await checkPage(page, testInfo, "settings-password-rules");
+  // Only what the phone or desktop screen shows, for a human look at the form.
+  await page.screenshot({ path: `screenshots/${testInfo.project.name}/settings-password-viewport.png` });
+  clean();
+});
+
 test("settings, read the licence", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Settings");

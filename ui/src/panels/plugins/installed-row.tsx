@@ -91,6 +91,9 @@ export function InstalledRow({
       {plugin.health !== "ok" && (
         <div className="plugin__health stack-sm">
           <p className="plugin__health-state">{t(`health.${plugin.health}`)}</p>
+          {typeof plugin.health_detail === "string" && plugin.health_detail !== "" && (
+            <p className="plugin__health-detail">{plugin.health_detail}</p>
+          )}
           <p className="hint">{t(`health.${plugin.health}Advice`)}</p>
         </div>
       )}

@@ -1257,6 +1257,10 @@ mark {
   font-weight: var(--weight-bold);
 }
 
+.plugin__health-detail {
+  overflow-wrap: anywhere;
+}
+
 /* Settings */
 .settings {
   min-width: 0;

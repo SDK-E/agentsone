@@ -190,6 +190,47 @@ describe("settings calls", () => {
     expect(seen[2]?.body).toEqual({ password: "test-only-value-2" });
   });
 
+  it("sends the current password with an own password change", async () => {
+    const { fetch, seen } = network(() => json(200, fixtures.humans[0]));
+    const api = createHttpApi({ baseUrl: BASE, fetch });
+
+    await api.updateHuman("ada", {
+      current_password: "test-only-value-1",
+      password: "test-only-value-2",
+    });
+
+    expect(seen[0]?.body).toEqual({
+      current_password: "test-only-value-1",
+      password: "test-only-value-2",
+    });
+  });
+
+  it("keeps how long to wait when the sign-in throttle answers 429", async () => {
+    const { fetch } = network(
+      () =>
+        new Response(
+          JSON.stringify({
+            type: "urn:agentsone:problem:rate-limited",
+            title: "Too many requests",
+            status: 429,
+          }),
+          {
+            status: 429,
+            headers: { "Content-Type": "application/problem+json", "Retry-After": "30" },
+          },
+        ),
+    );
+    const api = createHttpApi({ baseUrl: BASE, fetch });
+
+    const failure: unknown = await api
+      .updateHuman("ada", { current_password: "x", password: "test-only-value-2" })
+      .catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).status).toBe(429);
+    expect((failure as ApiError).retryAfter).toBe(30);
+  });
+
   it("lists installed themes", async () => {
     const { fetch, seen } = network(() =>
       json(200, { items: [fixtures.theme], next_cursor: null }),

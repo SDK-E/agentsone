@@ -79,12 +79,15 @@ export interface Page<T> {
 export class ApiError extends Error {
   readonly status: number;
   readonly problem: Problem | undefined;
+  /** taro: seconds to wait, from the Retry-After header of a 429. */
+  readonly retryAfter: number | undefined;
 
-  constructor(status: number, problem?: Problem) {
+  constructor(status: number, problem?: Problem, retryAfter?: number) {
     super(problem?.detail ?? problem?.title ?? `Request failed with status ${String(status)}`);
     this.name = "ApiError";
     this.status = status;
     this.problem = problem;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -165,7 +168,12 @@ interface Result<T> {
 
 function unwrap<T>({ data, error, response }: Result<T>): T {
   if (error !== undefined || !response.ok) {
-    throw new ApiError(response.status, isProblem(error) ? error : undefined);
+    const wait = Number(response.headers.get("Retry-After"));
+    throw new ApiError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      Number.isInteger(wait) && wait > 0 ? wait : undefined,
+    );
   }
   return data as T;
 }

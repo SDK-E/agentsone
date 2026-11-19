@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: MIT
+
+package app
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+	"unicode/utf8"
+
+	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/core"
+)
+
+// Templates returns the installed agent templates. Every caller may read them.
+func (s *Society) Templates(ctx context.Context) ([]core.AgentTemplate, error) {
+	return s.ports.Templates.List(ctx)
+}
+
+// templateSeed is what a template gives a new agent beyond its spec.
+type templateSeed struct {
+	OneLine string   `json:"oneLine"`
+	Goals   []string `json:"goals"`
+}
+
+// applyTemplate fills spec from the named template. The template decides
+// whether the agent is root, so the root rule holds for templates too.
+func (s *Society) applyTemplate(ctx context.Context, spec domain.HireSpec) (domain.HireSpec, templateSeed, error) {
+	if spec.Template == "" {
+		return spec, templateSeed{}, nil
+	}
+	tpl, err := s.ports.Templates.Get(ctx, spec.Template)
+	if errors.Is(err, core.ErrNotFound) {
+		return domain.HireSpec{}, templateSeed{}, fmt.Errorf("%w: no installed template %q", domain.ErrInvalidAgent, spec.Template)
+	}
+	if err != nil {
+		return domain.HireSpec{}, templateSeed{}, fmt.Errorf("read template %s: %w", spec.Template, err)
+	}
+	var seed templateSeed
+	if len(tpl.Raw) > 0 {
+		if err := json.Unmarshal(tpl.Raw, &seed); err != nil {
+			return domain.HireSpec{}, templateSeed{}, fmt.Errorf("%w: template %s: %w", domain.ErrInvalidAgent, tpl.ID, err)
+		}
+	}
+	spec.IsRoot = tpl.IsRoot
+	spec.Template = tpl.ID
+	return spec, seed, nil
+}
+
+// seedFromTemplate writes the template's first one-line and goals for the
+// newly hired agent. The one-line is the agent's own, so it is set
+// directly; the goals are set by the hirer, as an agent above.
+func (s *Society) seedFromTemplate(ctx context.Context, hirer string, chart domain.Chart, a domain.Agent, seed templateSeed) error {
+	if seed.OneLine != "" {
+		if err := s.ports.Live.UpdateLine(ctx, a.Name, seed.OneLine); err != nil {
+			return fmt.Errorf("seed one-line of %s: %w", a.Name, err)
+		}
+	}
+	for _, title := range seed.Goals {
+		g, err := domain.NewGoal(chart, hirer, domain.GoalSpec{Owner: a.Name, Title: title}, nil, s.ids.New("gol"), s.clock.Now())
+		if err != nil {
+			return fmt.Errorf("seed goal of %s: %w", a.Name, err)
+		}
+		if err := s.repo.CreateGoal(ctx, g); err != nil {
+			return fmt.Errorf("store seed goal of %s: %w", a.Name, err)
+		}
+	}
+	return nil
+}
+
+// TokenRequest is the issueAgentToken input.
+type TokenRequest struct {
+	Label  string
+	Scopes []string
+	TTL    time.Duration
+}
+
+// IssuedToken is a token returned once to its issuer.
+type IssuedToken struct {
+	ID      string
+	Value   string
+	Subject string
+	Label   string
+	Scopes  []string
+	Expires time.Time
+	Created time.Time
+}
+
+const (
+	maxTokenLabel = 80
+	minTokenTTL   = time.Minute
+	maxTokenTTL   = 30 * 24 * time.Hour
+)
+
+func (r TokenRequest) validate() error {
+	switch n := utf8.RuneCountInString(r.Label); {
+	case n < 1 || n > maxTokenLabel:
+		return fmt.Errorf("token label has %d characters, want 1..%d: %w", n, maxTokenLabel, core.ErrInvalid)
+	case len(r.Scopes) == 0:
+		return fmt.Errorf("a token needs at least one scope: %w", core.ErrInvalid)
+	case r.TTL < minTokenTTL || r.TTL > maxTokenTTL:
+		return fmt.Errorf("token lifetime %s outside %s..%s: %w", r.TTL, minTokenTTL, maxTokenTTL, core.ErrInvalid)
+	}
+	return nil
+}
+
+// IssueToken issues a bearer token for agent, for tools that cannot use
+// the socket. The agent itself, an agent above it or a human may issue
+// one, and never with a scope the issuer does not hold.
+func (s *Society) IssueToken(ctx context.Context, agent string, req TokenRequest) (IssuedToken, error) {
+	c, ok := core.CallerFrom(ctx)
+	if !ok {
+		return IssuedToken{}, fmt.Errorf("no caller: %w", core.ErrUnauthorized)
+	}
+	if err := req.validate(); err != nil {
+		return IssuedToken{}, err
+	}
+	chart, err := s.chart(ctx)
+	if err != nil {
+		return IssuedToken{}, err
+	}
+	a, err := chart.Get(agent)
+	if err != nil {
+		return IssuedToken{}, err
+	}
+	if c.Kind == core.CallerAgent && c.Name != agent {
+		if err := chart.CanManage(c.Name, agent); err != nil {
+			return IssuedToken{}, err
+		}
+	} else if c.Kind != core.CallerAgent && c.Kind != core.CallerHuman {
+		return IssuedToken{}, fmt.Errorf("issue token for %s: %w", agent, core.ErrForbidden)
+	}
+	for _, scope := range req.Scopes {
+		if !c.Has(scope) {
+			return IssuedToken{}, fmt.Errorf("issuer does not hold scope %q: %w", scope, core.ErrForbidden)
+		}
+	}
+	subject := core.Caller{Kind: core.CallerAgent, Name: a.Name, UID: a.UID, IsRoot: a.IsRoot}
+	tok, err := s.ports.Tokens.Issue(ctx, subject, req.Scopes, req.TTL)
+	if err != nil {
+		return IssuedToken{}, fmt.Errorf("issue token for %s: %w", agent, err)
+	}
+	issued := IssuedToken{
+		ID: s.ids.New("tok"), Value: tok.Value, Subject: "agent:" + a.Name, Label: req.Label,
+		Scopes: append([]string(nil), req.Scopes...), Expires: tok.Expires, Created: s.clock.Now(),
+	}
+	detail, err := json.Marshal(map[string]any{"id": issued.ID, "label": req.Label, "scopes": req.Scopes, "expires_at": tok.Expires})
+	if err != nil {
+		return IssuedToken{}, fmt.Errorf("encode token detail: %w", err)
+	}
+	if err := s.ports.Audit.Append(ctx, core.AuditEntry{Actor: string(c.Kind) + ":" + c.Name, Action: "token.issue", Target: "agent:" + a.Name, Detail: detail}); err != nil {
+		return IssuedToken{}, fmt.Errorf("audit token.issue: %w", err)
+	}
+	return issued, nil
+}

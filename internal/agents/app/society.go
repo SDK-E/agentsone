@@ -162,6 +162,10 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 	if err != nil {
 		return domain.Agent{}, err
 	}
+	spec, seed, err := s.applyTemplate(ctx, spec)
+	if err != nil {
+		return domain.Agent{}, err
+	}
 	a, err := chart.Hire(name, spec, s.clock.Now())
 	if err != nil {
 		return domain.Agent{}, err
@@ -169,7 +173,11 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 	if err := s.provisionAndStore(ctx, &a); err != nil {
 		return domain.Agent{}, err
 	}
-	team := domain.NewChart(append(chart.Agents(), a)).Team(a.Name)
+	after := domain.NewChart(append(chart.Agents(), a))
+	if err := s.seedFromTemplate(ctx, name, after, a, seed); err != nil {
+		return domain.Agent{}, err
+	}
+	team := after.Team(a.Name)
 	data := hiredData{Agent: a.Name, Manager: a.Manager, Kind: string(a.Kind), IsRoot: a.IsRoot, Template: a.Template}
 	return a, s.record(ctx, "agent:"+name, "agent.hire", "agent:"+a.Name, data,
 		event{"agentsone.agents.hired", "/agents/" + name, "team:" + team, data})

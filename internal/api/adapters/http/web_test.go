@@ -41,8 +41,12 @@ func TestUI_ServesFilesAndFallsBackToIndex(t *testing.T) {
 
 func TestUI_RefusesWrites(t *testing.T) {
 	t.Parallel()
-	if rec := get(httpadapter.UI(dist), "POST", "/"); rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("got %d", rec.Code)
+	for _, method := range []string{"POST", "PUT", "PATCH", "DELETE"} {
+		rec := get(httpadapter.UI(dist), method, "/setup")
+		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" ||
+			!strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:method-not-allowed"`) {
+			t.Errorf("%s: %d Allow=%q %s", method, rec.Code, rec.Header().Get("Allow"), rec.Body)
+		}
 	}
 }
 

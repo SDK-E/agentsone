@@ -459,7 +459,9 @@ CI on `main` runs `docker compose up` on an Ubuntu runner and then the verificat
 `e2e/`: the first-visit setup page, login, a bus message, an echo chat, the allow list, the budget wall, freeze and release, and the
 rest of the list in the project specification. A change to behaviour that this script covers
 updates the script in the same pull request. Full end-to-end runs only on `main`, not on every
-pull request.
+pull request. `e2e/run.sh list` shows which stages are real checks and why the others are not
+yet; [docs/e2e-coverage.md](docs/e2e-coverage.md) maps each item on the list to its stages and
+names what CI cannot check.
 
 ## C. What not to test
 

@@ -7,11 +7,11 @@
 #   e2e/run.sh up          start the stack (only the services whose code is built)
 #   e2e/run.sh <stage>     run one stage
 #   e2e/run.sh all         run every stage in order
-#   e2e/run.sh list        list the stages
+#   e2e/run.sh list        list the stages and what they cover of the plan's Verification list
 #   e2e/run.sh down        stop the stack and delete its volumes
 #
-# Each check prints PASS, FAIL or SKIP with its reason. A stage whose feature is not on main
-# yet is SKIP, never PASS. The script exits 1 when any check fails.
+# Each check prints PASS, FAIL or SKIP with its reason. A stage that is not a real check yet is
+# SKIP with the reason, never PASS. The script exits 1 when any check fails.
 #
 # The stack comes from compose.yaml in the repository root (or COMPOSE_FILE), with
 # e2e/compose.e2e.yaml on top: the fake model provider the scenario's model calls end at, built
@@ -166,11 +166,6 @@ needs() {
       return 1
     fi
   done
-}
-
-# not_on_main <stage> <work package> <what>: a scenario stage whose feature has not landed.
-not_on_main() {
-  skip "$1" "$3 is not on main yet (work package $2); the scenario is written when it lands"
 }
 
 image_of() { compose config --format json | jq -r --arg s "$1" '.services[$s].image'; }
@@ -411,17 +406,23 @@ stage_login() {
     curl -sS -m 10 -b "agentsone_session=${session:-none}" "${DOOR}/v1/session/me"
 }
 
-# --- scenario stages ----------------------------------------------------------------------
+# --- stages that are not real checks yet ---------------------------------------------------
 
-stage_small_seed() { not_on_main small-seed 18 "the Small Seed plugin"; }
-stage_hire() { not_on_main hire 1 "hiring agents"; }
-stage_bus() { not_on_main bus 3 "the bus"; }
-stage_router() { not_on_main router 4 "the live list and router"; }
-stage_echo_chat() { not_on_main echo-chat 9 "chat with the echo runner"; }
-stage_event_to_task() { not_on_main event-to-task 3 "events and triggers"; }
-stage_memory() { not_on_main memory 5 "memory"; }
-stage_plugin_install() { not_on_main plugin-install 6 "plugin install"; }
-stage_agentctl_parity() { not_on_main agentctl-parity 8 "agentctl against the running machine"; }
+# One line per stage, "<stage>|<why it is not a real check yet>". Such a stage is SKIP with that
+# reason, and `list` shows it as not yet covered. When its check is written, delete its line
+# here and write stage_<name>.
+PENDING=(
+  "small-seed|the daemon does not install the Small Seed yet: it waits for the agent runtime wiring"
+  "hire|the founder takes no turn yet: its runner starts once the agent runtime wiring lands, and the fake provider cannot yet answer with the founder's hire call"
+  "bus|no check is written yet; the bus API is on main"
+  "router|the live list stays empty until the Small Seed installs (agent runtime wiring); the router API is on main"
+  "echo-chat|no agent runs a runner yet: it waits for the agent runtime wiring"
+  "event-to-task|no check is written yet; events, triggers and tasks are on main, the built-in emitters are not"
+  "memory|no check is written yet; the memory API is on main"
+  "plugin-install|no check is written yet; the plugin API is on main"
+  "agentctl-parity|no check is written yet; agentctl is in the machine image"
+  "defence-slice|no check is written yet; the edge has the defence slice on main"
+)
 
 # --- freeze all: a hard wall in the edge, switched only through the admin socket --------------
 
@@ -809,27 +810,147 @@ stage_budget_wall() {
   expect ok "budget back: the call reached the fake provider with the provider key only" fake_saw_only_the_key "$calls" chat
 }
 
+# --- stages and what they cover --------------------------------------------------------------
+
+# Every stage in run order, "<stage>|<what it checks>". Each one is a stage_<name> function or a
+# PENDING line, never both, and the e2e job in .github/workflows/images.yml runs each one.
 STAGES=(
-  wall-route wall-direct wall-blocked wall-allowed wall-outer gateway audit-sink rescue web-door
-  setup-page login small-seed hire bus router model-turn echo-chat event-to-task memory
-  plugin-install agentctl-parity budget-wall freeze-all control
+  "wall-route|the machine has no route out and no published port"
+  "wall-direct|the machine reaches no address directly, nor the doors from inside"
+  "wall-blocked|the allow list blocks a name that is not on it"
+  "wall-allowed|the allow list passes a name that is on it"
+  "wall-outer|the outer network cannot reach the machine or the edge's inner side"
+  "gateway|the machine reaches the model gateway with a token only"
+  "audit-sink|only the daemon may send audit records to the edge"
+  "rescue|a restart keeps the machine; a recreate resets it to the image and keeps the volumes"
+  "web-door|humans reach the daemon through the web door; a header is never an identity"
+  "setup-page|the first human is made on the setup page, only through the web door"
+  "login|the first human signs in and out through the web door"
+  "small-seed|on first boot the Small Seed installs and the founder, router and waker start"
+  "hire|the founder hires an agent below itself"
+  "bus|a message sent on the bus reaches its channel"
+  "router|the live list and the router pick an agent for a human's request"
+  "model-turn|a model call through the gateway reaches the provider with the provider key only"
+  "echo-chat|a human chats with an echo agent"
+  "event-to-task|an event fires a trigger that makes a task"
+  "memory|memory is written and found again"
+  "plugin-install|a plugin installs and its parts appear"
+  "agentctl-parity|agentctl answers as the API does"
+  "budget-wall|past the total budget no model call reaches a provider"
+  "defence-slice|with the rest of the budget spent, the defence slice still pays for defence calls"
+  "freeze-all|freeze all cuts model calls and egress, holds over an edge restart, and releases"
+  "control|the control page works on its own port with its own passphrase"
 )
 
+# The plan's Verification list, item by item, "<item>|<what covers it>": the stages that check
+# it, "ci" for CI jobs that are not stages, or "manual" for what CI cannot check (see
+# docs/e2e-coverage.md). An item is covered when each of its stages is a real check.
+VERIFICATION=(
+  "images for amd64 and arm64 on ghcr, the stack started on an Ubuntu runner|ci"
+  "setup page|setup-page"
+  "login|login"
+  "Small Seed|small-seed"
+  "founder hires|hire"
+  "bus message|bus"
+  "live list and router pick|router"
+  "echo chat|echo-chat"
+  "event to task|event-to-task"
+  "memory|memory"
+  "plugin install|plugin-install"
+  "agentctl parity|agentctl-parity"
+  "allow list blocks and passes|wall-blocked wall-allowed"
+  "budget wall and defence slice|budget-wall defence-slice"
+  "freeze all and release|freeze-all"
+  "the Mac walk-through|manual"
+  "the Coolify deploy|manual"
+  "the real-model run|manual"
+)
+
+# pending_reason <stage>: print why the stage is not a real check yet; false for a real one.
+pending_reason() {
+  local p
+  for p in "${PENDING[@]}"; do
+    if [ "${p%%|*}" = "$1" ]; then
+      printf '%s' "${p#*|}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# is_stage <stage>: the stage is in STAGES.
+is_stage() {
+  local s
+  for s in "${STAGES[@]}"; do [ "${s%%|*}" = "$1" ] && return 0; done
+  return 1
+}
+
 run_stage() {
-  local fn="stage_${1//-/_}"
-  if ! declare -F "$fn" >/dev/null; then
+  local fn="stage_${1//-/_}" why
+  if ! is_stage "$1"; then
     echo "unknown stage: $1 (see: e2e/run.sh list)" >&2
     exit 2
   fi
   echo "== $1"
-  "$fn"
+  if why="$(pending_reason "$1")"; then
+    skip "$1" "not yet covered: $why"
+  else
+    "$fn"
+  fi
+}
+
+# cmd_list: each stage with what it checks and whether it is a real check, then each item of the
+# plan's Verification list with what covers it. A stage that is neither a function nor a PENDING
+# line, is both, or is not run by the e2e job fails.
+cmd_list() {
+  local s name what why item covers stage pending total n
+  echo "Stages, in run order:"
+  for s in "${STAGES[@]}"; do
+    name="${s%%|*}" what="${s#*|}"
+    if why="$(pending_reason "$name")"; then
+      printf '  %-16s not yet  %s\n  %-16s          why: %s\n' "$name" "$what" "" "$why"
+      declare -F "stage_${name//-/_}" >/dev/null && fail "list: $name has a PENDING line and a stage_${name//-/_} function"
+    elif declare -F "stage_${name//-/_}" >/dev/null; then
+      printf '  %-16s real     %s\n' "$name" "$what"
+    else
+      fail "list: $name has no stage_${name//-/_} function and no PENDING line"
+    fi
+    grep -Eq "^ +run: e2e/run\\.sh ${name}\$" .github/workflows/images.yml ||
+      fail "list: the e2e job in .github/workflows/images.yml does not run $name"
+  done
+  echo
+  echo "The plan's Verification list:"
+  for item in "${VERIFICATION[@]}"; do
+    covers="${item#*|}" item="${item%%|*}"
+    case "$covers" in
+      ci) printf '  covered      %s (CI jobs in .github/workflows/images.yml)\n' "$item" ;;
+      manual) printf '  manual       %s (not covered by CI: manual; docs/e2e-coverage.md)\n' "$item" ;;
+      *)
+        pending="" total=0 n=0
+        for stage in $covers; do
+          total=$((total + 1))
+          is_stage "$stage" || fail "list: \"$item\" names $stage, which is not a stage"
+          if pending_reason "$stage" >/dev/null; then
+            n=$((n + 1)) pending="${pending:+$pending }$stage"
+          fi
+        done
+        if [ "$n" -eq 0 ]; then
+          printf '  covered      %s (%s)\n' "$item" "$covers"
+        elif [ "$n" -eq "$total" ]; then
+          printf '  not yet      %s (%s)\n' "$item" "$covers"
+        else
+          printf '  not yet      %s (%s; not yet: %s)\n' "$item" "$covers" "$pending"
+        fi
+        ;;
+    esac
+  done
 }
 
 case "${1:-}" in
   up) cmd_up || exit 1 ;;
   down) cmd_down ;;
-  list) printf '%s\n' "${STAGES[@]}" ;;
-  all) for s in "${STAGES[@]}"; do run_stage "$s"; done ;;
+  list) cmd_list ;;
+  all) for s in "${STAGES[@]}"; do run_stage "${s%%|*}"; done ;;
   '' | -h | --help) sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) for s in "$@"; do run_stage "$s"; done ;;
 esac

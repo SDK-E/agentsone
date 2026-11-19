@@ -174,7 +174,7 @@ test("panel tabs, a cue shows where more tabs hide and the chosen tab comes into
   clean();
 });
 
-test("panels sheet, it reaches the screen bottom and the page behind holds still", async ({
+test("panels sheet, it reaches the screen bottom, keeps its header in view and holds the page still", async ({
   page,
 }) => {
   test.skip((page.viewportSize()?.width ?? 0) >= 768, "the sheet is for phones");
@@ -190,12 +190,19 @@ test("panels sheet, it reaches the screen bottom and the page behind holds still
   expect((box?.y ?? 0) + (box?.height ?? 0)).toBeCloseTo(viewport?.height ?? 0, 0);
 
   const before = await page.evaluate(() => window.scrollY);
-  await page.mouse.move(100, 500);
+  const panel = sheet.getByRole("tabpanel", { name: "Monitor" });
+  await panel.hover();
   await page.mouse.wheel(0, 4000);
   await expect
-    .poll(() => sheet.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1))
+    .poll(() => panel.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1))
     .toBe(true);
   expect(await page.evaluate(() => window.scrollY)).toBe(before);
+
+  await expect(sheet.getByRole("heading", { name: "Panels" })).toBeInViewport({ ratio: 1 });
+  await expect(sheet.getByRole("tab", { name: "Monitor" })).toBeInViewport({ ratio: 1 });
+  await expect(sheet.getByRole("button", { name: "Close" })).toBeInViewport({ ratio: 1 });
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toBeHidden();
   clean();
 });
 

@@ -799,8 +799,28 @@ ul.notice {
   box-shadow: var(--shadow-lg);
 }
 
-/* The sheet scrolls on its own; the page behind it holds still. */
+/*
+ * The sheet keeps its title, Close and tab row in view. Only the open panel scrolls, under them,
+ * and the page behind holds still.
+ */
 .sheet {
+  overscroll-behavior: contain;
+}
+
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet .tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.sheet .tabs__panel {
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 

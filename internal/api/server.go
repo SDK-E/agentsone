@@ -49,7 +49,7 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 	if err := deps.Config.Section("edge", &edge); err != nil {
 		return nil, fmt.Errorf("edge settings: %w", err)
 	}
-	trusted, err := parsePrefixes(edge.TrustedProxies)
+	edgeIPs, err := parseIPs(edge.TrustedProxies)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 		composed: composed,
 		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(web)),
 		tcp: httpadapter.RequestLog(deps.Log, "tcp", deps.Clock,
-			httpadapter.TCPIdentity{Verify: verify, TrustedProxies: trusted}.Wrap(web)),
+			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress}.Wrap(web)),
 		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, HumanByUID: peer.NoHumans},
 		log:      deps.Log,
 		cfg:      *deps.Config,
@@ -80,20 +80,33 @@ func (s *Server) SocketHandler() http.Handler { return s.socket }
 // TCPHandler is the TCP chain, for tests.
 func (s *Server) TCPHandler() http.Handler { return s.tcp }
 
-func parsePrefixes(in []string) ([]netip.Prefix, error) {
-	out := make([]netip.Prefix, 0, len(in))
+// parseIPs reads exact edge addresses. Ranges are refused: the edge is one
+// known peer, not a network.
+func parseIPs(in []string) ([]netip.Addr, error) {
+	out := make([]netip.Addr, 0, len(in))
 	for _, s := range in {
-		if p, err := netip.ParsePrefix(s); err == nil {
-			out = append(out, p.Masked())
-			continue
-		}
 		a, err := netip.ParseAddr(s)
 		if err != nil {
-			return nil, fmt.Errorf("edge trusted proxy %q: %w", s, err)
+			return nil, fmt.Errorf("edge trusted proxy %q must be one IP address: %w", s, err)
 		}
-		out = append(out, netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen()))
+		out = append(out, a.Unmap())
 	}
 	return out, nil
+}
+
+// ownAddress reports whether a is one of this machine's interface
+// addresses, looked up per request so address changes are seen.
+func ownAddress(a netip.Addr) bool {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, x := range addrs {
+		if p, err := netip.ParsePrefix(x.String()); err == nil && p.Addr().Unmap() == a {
+			return true
+		}
+	}
+	return false
 }
 
 // Running is a server with open listeners.

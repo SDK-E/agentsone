@@ -17,8 +17,9 @@ import (
 // CookieName is the human session cookie (cookieAuth in the contract).
 const CookieName = "agentsone_session"
 
-// ViaHeader tells modules a request came through the edge proxy. Only this
-// layer sets it; any copy a client sends is deleted first.
+// ViaHeader is "edge" when the browser reached the edge proxy over TLS, so
+// cookies must be Secure. Only this layer sets it; any copy a client sends
+// is deleted first.
 const ViaHeader = "X-Agentsone-Via"
 
 // publicOperations need no caller: their contract security is empty or a
@@ -48,6 +49,9 @@ func WithPeerCaller(ctx context.Context, c core.Caller) context.Context {
 func SocketIdentity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del(ViaHeader)
+		r.Header.Del("X-Forwarded-For")
+		r.Header.Del("X-Forwarded-Proto")
+		dropIdentityHeaders(r.Header)
 		c, ok := r.Context().Value(peerKey{}).(core.Caller)
 		if !ok {
 			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthorized", "peer credentials unavailable"))
@@ -61,15 +65,32 @@ func SocketIdentity(next http.Handler) http.Handler {
 // the edge proxy, from the network.
 type TCPIdentity struct {
 	Verify Verifier
-	// TrustedProxies are the edge proxy addresses. X-Forwarded-* headers
-	// are read only from them; other non-loopback peers are refused.
-	TrustedProxies []netip.Prefix
+	// EdgeIPs are the edge proxy's exact addresses. X-Forwarded-For and
+	// X-Forwarded-Proto are read only from them; other peers that are not
+	// local are refused.
+	EdgeIPs []netip.Addr
+	// IsOwn reports the machine's own addresses. They count as local and
+	// are never trusted as the edge, even if configured.
+	IsOwn func(netip.Addr) bool
+}
+
+// identityHeaders are dropped from every request: a human is known only by
+// a daemon session, never by a header a proxy or client could set.
+func dropIdentityHeaders(h http.Header) {
+	for name := range h {
+		switch {
+		case name == "X-Forwarded-User", name == "X-Forwarded-Email", name == "X-Forwarded-Preferred-Username",
+			name == "X-Remote-User", name == "Remote-User", strings.HasPrefix(name, "X-Auth-"):
+			h.Del(name)
+		}
+	}
 }
 
 // Wrap returns next behind the TCP identity rules.
 func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del(ViaHeader)
+		dropIdentityHeaders(r.Header)
 		r, err := t.place(r)
 		if err != nil {
 			core.WriteError(w, r, err)
@@ -105,35 +126,37 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-// place checks where the request came from. Loopback is local. A trusted
-// edge proxy is believed about the client address and host, and the
-// request is marked as coming through the edge.
+// place checks where the request came from. Loopback and the machine's own
+// addresses are local: forwarded headers from them are dropped. The edge
+// proxy, matched by exact address, is believed about two things only: the
+// client address and the scheme. Anyone else is refused.
 func (t TCPIdentity) place(r *http.Request) (*http.Request, error) {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
 		return r, fmt.Errorf("peer address %q: %w", r.RemoteAddr, core.ErrForbidden)
 	}
 	addr := ap.Addr().Unmap()
-	if addr.IsLoopback() && r.Header.Get("X-Forwarded-For") == "" {
+	local := addr.IsLoopback() || (t.IsOwn != nil && t.IsOwn(addr))
+	if local || !t.isEdge(addr) {
+		r.Header.Del("X-Forwarded-For")
+		r.Header.Del("X-Forwarded-Proto")
+		if !local {
+			return r, fmt.Errorf("requests must come through the edge: %w", core.ErrForbidden)
+		}
 		return r, nil
 	}
-	if !t.trusted(addr) {
-		return r, fmt.Errorf("requests must come through the edge: %w", core.ErrForbidden)
-	}
-	r = r.Clone(r.Context())
-	r.Header.Set(ViaHeader, "edge")
 	if client := lastForwarded(r.Header.Get("X-Forwarded-For")); client.IsValid() {
 		r.RemoteAddr = netip.AddrPortFrom(client, 0).String()
 	}
-	if host := r.Header.Get("X-Forwarded-Host"); host != "" {
-		r.Host = host
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		r.Header.Set(ViaHeader, "edge")
 	}
 	return r, nil
 }
 
-func (t TCPIdentity) trusted(a netip.Addr) bool {
-	for _, p := range t.TrustedProxies {
-		if p.Contains(a) {
+func (t TCPIdentity) isEdge(a netip.Addr) bool {
+	for _, e := range t.EdgeIPs {
+		if e == a {
 			return true
 		}
 	}

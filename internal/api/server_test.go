@@ -57,7 +57,7 @@ func listening(t *testing.T, edge string) (*api.Running, core.Deps) {
 
 func TestServer_SocketIsOpenToEveryLocalUser(t *testing.T) {
 	t.Parallel()
-	_, deps := listening(t, `"10.0.0.0/8"`)
+	_, deps := listening(t, `"10.0.0.1"`)
 	st, err := os.Stat(deps.Config.SocketPath())
 	if err != nil || st.Mode().Perm() != 0o666 {
 		t.Fatalf("socket mode %v err %v", st.Mode(), err)
@@ -98,16 +98,18 @@ func TestServer_ServesOnTheSocketAndOnTCP(t *testing.T) {
 	}
 }
 
-func TestNewServer_RejectsABadTrustedProxy(t *testing.T) {
+func TestNewServer_RejectsAnEdgeThatIsNotOneAddress(t *testing.T) {
 	t.Parallel()
-	deps, _ := coretest.NewDeps(t)
-	cfg, err := core.ParseConfig([]byte("[edge]\ntrusted_proxies = [\"not-an-ip\"]\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	deps.Config = &cfg
-	if _, err := api.NewServer(nil, deps); err == nil {
-		t.Fatal("bad proxy accepted")
+	for _, bad := range []string{"not-an-ip", "172.18.0.0/16"} {
+		deps, _ := coretest.NewDeps(t)
+		cfg, err := core.ParseConfig([]byte("[edge]\ntrusted_proxies = [\"" + bad + "\"]\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		deps.Config = &cfg
+		if _, err := api.NewServer(nil, deps); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
 	}
 }
 

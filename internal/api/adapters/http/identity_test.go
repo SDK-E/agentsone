@@ -36,8 +36,12 @@ var echo = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 })
 
+// machineIP is one of the machine's own addresses in these tests.
+const machineIP = "172.18.0.3"
+
 var tcp = httpadapter.TCPIdentity{
-	Verify: verify, TrustedProxies: []netip.Prefix{netip.MustParsePrefix("172.18.0.2/32")},
+	Verify: verify, EdgeIPs: []netip.Addr{netip.MustParseAddr("172.18.0.2")},
+	IsOwn: func(a netip.Addr) bool { return a == netip.MustParseAddr(machineIP) },
 }.Wrap(echo)
 
 type req struct {
@@ -128,19 +132,65 @@ func TestTCPIdentity_RefusesCrossOriginUnsafeRequests(t *testing.T) {
 	}
 }
 
-func TestTCPIdentity_TrustsForwardedHeadersOnlyFromTheEdge(t *testing.T) {
+var forged = map[string]string{"X-Forwarded-For": "6.6.6.6, 203.0.113.9", "X-Forwarded-Proto": "https"}
+
+func TestTCPIdentity_HonoursForwardedHeadersFromTheEdgeIP(t *testing.T) {
 	t.Parallel()
-	fwd := map[string]string{"X-Forwarded-For": "6.6.6.6, 203.0.113.9", "X-Forwarded-Host": "box.example"}
-	rec := send(req{method: "GET", path: "/v1/setup", remote: "172.18.0.2:4000", headers: fwd})
+	rec := send(req{method: "GET", path: "/v1/setup", remote: "172.18.0.2:4000", headers: forged})
 	if rec.Code != 200 || rec.Header().Get("X-Via") != "edge" || rec.Header().Get("X-Remote") != "203.0.113.9:0" {
 		t.Fatalf("edge request: %d via %q remote %q", rec.Code, rec.Header().Get("X-Via"), rec.Header().Get("X-Remote"))
 	}
-	if rec := send(req{method: "GET", path: "/v1/setup", remote: "172.18.0.9:4000"}); rec.Code != http.StatusForbidden {
+}
+
+func TestTCPIdentity_IgnoresForgedForwardedHeadersFromLoopback(t *testing.T) {
+	t.Parallel()
+	rec := send(req{method: "GET", path: "/v1/setup", remote: "127.0.0.1:4000", headers: forged})
+	if rec.Code != 200 || rec.Header().Get("X-Via") != "" || rec.Header().Get("X-Remote") != "127.0.0.1:4000" {
+		t.Fatalf("loopback: %d via %q remote %q", rec.Code, rec.Header().Get("X-Via"), rec.Header().Get("X-Remote"))
+	}
+}
+
+func TestTCPIdentity_IgnoresForgedForwardedHeadersFromTheMachinesOwnIP(t *testing.T) {
+	t.Parallel()
+	rec := send(req{method: "GET", path: "/v1/setup", remote: machineIP + ":4000", headers: forged})
+	if rec.Code != 200 || rec.Header().Get("X-Via") != "" || rec.Header().Get("X-Remote") != machineIP+":4000" {
+		t.Fatalf("own address: %d via %q remote %q", rec.Code, rec.Header().Get("X-Via"), rec.Header().Get("X-Remote"))
+	}
+}
+
+func TestTCPIdentity_RefusesPeersThatAreNeitherLocalNorTheEdge(t *testing.T) {
+	t.Parallel()
+	if rec := send(req{method: "GET", path: "/v1/setup", remote: "172.18.0.9:4000", headers: forged}); rec.Code != http.StatusForbidden {
 		t.Fatalf("untrusted peer: %d", rec.Code)
 	}
-	if rec := send(req{method: "GET", path: "/v1/setup", headers: map[string]string{"X-Forwarded-For": "1.2.3.4"}}); rec.Code != http.StatusForbidden {
-		t.Fatalf("forwarded header on loopback: %d", rec.Code)
+}
+
+func TestTCPIdentity_IdentityHeadersFromTheEdgeGiveNoSession(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{
+		"X-Forwarded-For": "203.0.113.9", "X-Forwarded-User": "ada", "X-Remote-User": "ada", "Remote-User": "ada", "X-Auth-Request-User": "ada",
 	}
+	rec := send(req{method: "GET", path: "/v1/agents", remote: "172.18.0.2:4000", headers: h})
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d %q, want 401", rec.Code, rec.Header().Get("X-Caller"))
+	}
+}
+
+func TestSocketIdentity_IgnoresForwardedAndIdentityHeaders(t *testing.T) {
+	t.Parallel()
+	h := httpadapter.SocketIdentity(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-User", "X-Auth-User"} {
+			if r.Header.Get(name) != "" {
+				t.Errorf("%s reached the module", name)
+			}
+		}
+	}))
+	r := httptest.NewRequest("GET", "/v1/agents", nil)
+	for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-User", "X-Auth-User"} {
+		r.Header.Set(name, "x")
+	}
+	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerSystem, Name: "uid:0"}))
+	h.ServeHTTP(httptest.NewRecorder(), r)
 }
 
 func TestTCPIdentity_DropsAClientSuppliedViaHeader(t *testing.T) {
@@ -151,10 +201,9 @@ func TestTCPIdentity_DropsAClientSuppliedViaHeader(t *testing.T) {
 	}
 }
 
-func TestTCPIdentity_SameOriginThroughTheEdgeUsesTheForwardedHost(t *testing.T) {
+func TestTCPIdentity_SameOriginThroughTheEdgeUsesTheHostTheEdgeSends(t *testing.T) {
 	t.Parallel()
-	fwd := map[string]string{"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Host": "box.example"}
-	rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", cookie: "aos_good", origin: "https://box.example", headers: fwd})
+	rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", cookie: "aos_good", origin: "https://example.com", headers: forged})
 	if rec.Code != 200 {
 		t.Fatalf("got %d: %s", rec.Code, rec.Body)
 	}

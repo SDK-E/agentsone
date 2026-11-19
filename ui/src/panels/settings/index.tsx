@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 import { useTranslation } from "react-i18next";
 
-import { ModeSwitch } from "../../theme/mode-switch";
-import { useThemeSelection } from "../../theme/theme-provider";
+import { AccountSection } from "./account";
+import { EngineSection } from "./engine";
+import { LookSection } from "./look";
+import { PeopleSection } from "./people";
 
-/** Settings. Appearance works today; the rest of the page arrives with the panels work. */
+/** Settings: how the interface looks, your account, the people, and the Claude engine. */
 export default function SettingsPanel() {
-  const { t } = useTranslation();
-  const { mode, choose } = useThemeSelection();
+  const { t } = useTranslation(undefined, { keyPrefix: "panels.settings" });
   return (
-    <div className="stack">
-      <ModeSwitch mode={mode} onChange={choose} />
-      <div className="placeholder">
-        <p>{t("panels.settings.about")}</p>
-        <p className="hint">{t("panels.coming")}</p>
-      </div>
+    <div className="settings stack">
+      <LookSection />
+      <AccountSection />
+      <PeopleSection />
+      <EngineSection />
+      <p className="hint settings__control">{t("control")}</p>
     </div>
   );
 }

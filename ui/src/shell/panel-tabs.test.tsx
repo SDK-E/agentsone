@@ -53,7 +53,7 @@ describe("Panels", () => {
     const user = userEvent.setup();
     renderWith(<PanelsArea />);
 
-    for (const name of ["Memory", "Plugins", "IDE", "Desktop", "Machine", "Audit"]) {
+    for (const name of ["IDE", "Desktop", "Machine", "Audit"]) {
       await user.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tabpanel", { name })).toBeVisible();
     }

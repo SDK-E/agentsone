@@ -204,9 +204,11 @@ func (s *session) onCancel(id int, params json.RawMessage) {
 	_ = s.conn.respond(id, empty{}) // also for a turn that already ended (C1)
 	s.mu.Lock()
 	cur := s.current
+	dropped := false
 	for i, q := range s.queue {
 		if q.wake.TurnID == c.turnID {
 			s.queue = append(s.queue[:i], s.queue[i+1:]...)
+			dropped = true
 			break
 		}
 	}
@@ -219,6 +221,10 @@ func (s *session) onCancel(id int, params json.RawMessage) {
 	s.mu.Unlock()
 	if cur != nil && cur.id == c.turnID {
 		cur.markCancelled()
+	}
+	if dropped {
+		// A turn that never started still ends with status idle (C2).
+		s.status(statusParams{State: "idle", TurnID: c.turnID, Detail: "Cancelled"})
 	}
 }
 

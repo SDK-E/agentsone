@@ -48,7 +48,8 @@ func Options() sdk.Options {
 // Runner is the echo handler.
 type Runner struct {
 	mu      sync.Mutex
-	summary string // session summary from the welcome, until the first turn used it
+	summary string // session summary from the welcome
+	repeat  bool   // the first reply still has to repeat the summary
 	last    string // last text echoed, for the sleep summary
 	turns   int
 	paused  map[string]struct{}
@@ -70,7 +71,7 @@ func (r *Runner) Start(_ context.Context, w sdk.Welcome) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if w.Session.Summary != nil {
-		r.summary = *w.Session.Summary
+		r.summary, r.repeat = *w.Session.Summary, true
 	}
 	return nil
 }
@@ -147,11 +148,11 @@ func (r *Runner) pause(turnID string) {
 // begins with that summary.
 func (r *Runner) reply(w sdk.Wake, text string) string {
 	r.mu.Lock()
-	summary := r.summary
-	r.summary = ""
+	repeat, summary := r.repeat, r.summary
+	r.repeat = false
 	r.mu.Unlock()
 	var b strings.Builder
-	if summary != "" {
+	if repeat {
 		b.WriteString("Session summary: " + summary + "\n")
 	}
 	switch w.Reason {
@@ -177,19 +178,16 @@ func (r *Runner) hold(ctx context.Context, t *sdk.Turn) error {
 	if err := t.Output("echo: holding"); err != nil {
 		return err
 	}
-	done := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-t.Delivered():
-			all := t.Deliveries()
-			for _, d := range all[done:] {
+			for _, d := range t.Deliveries() { // Deliveries empties the inbox
 				if err := t.Output("\necho: " + d.Text()); err != nil {
 					return err
 				}
 			}
-			done = len(all)
 		}
 	}
 }

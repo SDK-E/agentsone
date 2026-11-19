@@ -125,11 +125,22 @@ func ruleF2(t T, s Subject) {
 		t.Skipf("Subject.Prompts.Long is not set")
 	}
 	h := ready(t, s, func(w *WelcomeSpec) { w.MaxLineBytes = 65536 })
-	h.RunTurn(s.Prompts.Long(200_000))
-	for _, m := range h.Log {
+	const want = 200_000
+	_, msgs := h.RunTurn(s.Prompts.Long(want))
+	total := 0
+	for _, m := range msgs {
 		if len(m.Raw) > 65536 {
 			t.Fatalf("F2: a line is %d bytes, over maxLineBytes 65536", len(m.Raw))
 		}
+		switch m.Method {
+		case "output":
+			total += len(m.Field("text"))
+		case "error":
+			t.Fatalf("F2: long output must not fail the turn: %s", m)
+		}
+	}
+	if total < want {
+		t.Fatalf("F2: the runner sent %d bytes of output, want at least %d (split into lines under maxLineBytes)", total, want)
 	}
 }
 
@@ -407,6 +418,10 @@ func ruleC1(t T, s Subject) {
 func ruleC2(t T, s Subject) {
 	h := ready(t, s, nil)
 	a := holdTurn(h)
+	queued, ack := h.WakeChat(plain(t, s)) // waits behind a (T7)
+	h.AwaitResponse(ack)
+	h.AwaitResponse(h.Cancel(queued))
+	h.Until(TurnEnded(queued)) // a turn that never started still ends with status idle
 	h.AwaitResponse(h.Cancel(a))
 	msgs := h.Until(TurnEnded(a)) // Until fails the test if no idle arrives within the guard
 	last := msgs[len(msgs)-1]

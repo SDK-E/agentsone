@@ -226,6 +226,13 @@ func (c *conn) setMaxLine(max int) {
 	c.lines.setMax(max)
 }
 
+// lineLimit is the longest line this connection may write.
+func (c *conn) lineLimit() int {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	return c.maxLine
+}
+
 // close closes the socket and fails every waiting call.
 func (c *conn) close() {
 	c.once.Do(func() {
@@ -285,6 +292,9 @@ func (c *conn) call(ctx context.Context, method string, params any) (json.RawMes
 	c.pending[id] = ch
 	c.pmu.Unlock()
 	err := c.writeLocked(outRequest{JSONRPC: "2.0", ID: id, Method: method, Params: params})
+	if errors.Is(err, ErrLineTooLarge) {
+		c.nextID-- // nothing was sent, so the next request reuses the id (F5)
+	}
 	c.wmu.Unlock()
 	if err != nil {
 		c.forget(id)

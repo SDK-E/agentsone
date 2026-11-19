@@ -14,9 +14,12 @@ import (
 	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
-// maxChunkBytes is the largest text one output chunk carries. A chunk of this
-// size is far below the line limit even when JSON escaping grows it six times.
-const maxChunkBytes = 64 * 1024
+// chunkLimit is the largest text one output chunk carries for a line limit.
+// JSON escaping can grow text six times (a control character becomes \u00XX),
+// and the envelope needs about 1 KiB, so a chunk of this size always fits.
+func chunkLimit(maxLine int) int {
+	return max(1024, (maxLine-1024)/6)
+}
 
 // CodedError is an error with a protocol error code. A handler returns one to
 // choose the code of the error notification the SDK sends when a turn fails,
@@ -189,7 +192,7 @@ func (t *Turn) output(text string, final bool) error {
 	if t.outputDone {
 		return ErrOutputClosed
 	}
-	parts := splitText(text, maxChunkBytes)
+	parts := splitText(text, chunkLimit(t.s.conn.lineLimit()))
 	for i, part := range parts {
 		last := i == len(parts)-1
 		p := outputParams{TurnID: t.id, ChatID: t.chatID, Chunk: t.chunk, Text: part, Final: final && last}

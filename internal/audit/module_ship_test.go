@@ -17,21 +17,27 @@ import (
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
-func withConfig(t *testing.T, toml string) core.Deps {
+func withConfig(t *testing.T, toml string) (core.Deps, *coretest.Fakes) {
 	t.Helper()
-	deps, _ := coretest.NewDeps(t)
+	deps, fakes := coretest.NewDeps(t)
 	cfg, err := core.ParseConfig([]byte(toml))
 	if err != nil {
 		t.Fatalf("ParseConfig: %v", err)
 	}
 	deps.Config = &cfg
-	return deps
+	return deps, fakes
 }
 
+// The shipper proves it is the daemon with an audit token from the one minting place: a short
+// system token for the audit sink, minted when it ships, not at start.
 func TestModule_ShipsRecordsToTheEdgeSinkWhenSet(t *testing.T) {
 	got := make(chan string, 1)
 	var once sync.Once
 	edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer fake-gateway-token-system:audit" {
+			http.Error(w, "no audit token", http.StatusUnauthorized)
+			return
+		}
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"seq":0,"hash":"0"}`))
 			return
@@ -41,7 +47,8 @@ func TestModule_ShipsRecordsToTheEdgeSinkWhenSet(t *testing.T) {
 		_, _ = w.Write([]byte(`{"head":{"seq":1}}`))
 	}))
 	t.Cleanup(edge.Close)
-	m := audit.New(withConfig(t, "[audit]\nedge_sink = \""+edge.URL+"\"\n"))
+	deps, fakes := withConfig(t, "[audit]\nedge_sink = \""+edge.URL+"\"\n")
+	m := audit.New(deps)
 	ports := core.NewPorts()
 	m.Provide(ports)
 	ctx := context.Background()
@@ -63,12 +70,23 @@ func TestModule_ShipsRecordsToTheEdgeSinkWhenSet(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("nothing shipped to the edge")
 	}
+	want := core.GatewayGrant{Subject: "system:audit", Audience: core.AudienceAudit, TTL: 5 * time.Minute}
+	grants := fakes.GatewayTokens.Grants()
+	if len(grants) == 0 {
+		t.Fatal("no audit token minted")
+	}
+	for _, g := range grants {
+		if g != want {
+			t.Fatalf("minted %+v, want %+v", g, want)
+		}
+	}
 }
 
 func TestModule_RefusesABadEdgeSink(t *testing.T) {
 	t.Parallel()
 	for _, toml := range []string{"[audit]\nedge_sink = \"gopher://x\"\n", "[audit]\nbogus = 1\n"} {
-		m := audit.New(withConfig(t, toml))
+		deps, _ := withConfig(t, toml)
+		m := audit.New(deps)
 		if err := m.Start(context.Background()); err == nil {
 			t.Errorf("Start with %q succeeded", toml)
 		}

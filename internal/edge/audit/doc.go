@@ -4,11 +4,14 @@
 // folder, both append only:
 //
 //   - inside: the machine's records, shipped by the daemon as written to the inner address (port
-//     7710). Each one is checked with internal/auditchain: its hash must match its content and it
-//     must continue the chain. A gap or a fork is kept as an alert for the control page and the
-//     record is refused, so the copy the edge holds never contains a break. This is testimony:
-//     real root inside the machine could have written anything, but it cannot change what the
-//     edge already holds.
+//     7710). Only the daemon may send them: each call carries a short-lived token for the audit
+//     sink (aud "audit", kind system) signed with the gateway key, which only root can read inside
+//     the machine. A custom agent's own token is for model calls and is refused, so it cannot slip
+//     in a forged record and pause shipping. Each record is checked with internal/auditchain: its
+//     hash must match its content and it must continue the chain. A gap or a fork is kept as an
+//     alert for the control page and the record is refused, so the copy the edge holds never
+//     contains a break. This is testimony: root inside the machine (root agents included) can read
+//     the key and could have written anything, but it cannot change what the edge already holds.
 //   - proof: what the edge itself saw (origin host): freeze changes, refused egress, model calls.
 //     Every part records it through env.Proof, which this component shares.
 //

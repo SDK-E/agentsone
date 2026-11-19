@@ -8,6 +8,10 @@
 // nothing is lost while the edge is down or the daemon restarts, and an agent's turn never waits
 // on the edge: Append writes to audit.db as before and the shipper catches up in the background,
 // backing off while the edge does not answer.
+//
+// The sink takes records only from the daemon: every call carries a short-lived audit token
+// (aud "audit", kind system) minted from the gateway key, which only root can read inside the
+// machine. Without the key nothing is shipped and the records wait in audit.db.
 package edgeship
 
 import (
@@ -36,6 +40,9 @@ type Options struct {
 	Sink   string
 	Source Source
 	Encode func(domain.Record) ([]byte, error)
+	// Token mints the daemon's audit token, which the sink requires on every call. The shipper
+	// mints one for each round, so it never holds a stale one.
+	Token func(ctx context.Context) (string, error)
 	// Client defaults to one with a short timeout.
 	Client *http.Client
 	Log    *slog.Logger
@@ -71,12 +78,18 @@ func New(o Options) *Shipper {
 	if o.Wait == nil {
 		o.Wait = sleep
 	}
+	if o.Token == nil {
+		o.Token = func(context.Context) (string, error) { return "", errNoToken }
+	}
 	if o.Batch <= 0 {
 		o.Batch = DefaultBatch
 	}
 	o.Sink = strings.TrimRight(o.Sink, "/")
 	return &Shipper{o: o}
 }
+
+// errNoToken is what a shipper built without a Token gets: it ships nothing.
+var errNoToken = errors.New("no audit token source")
 
 func sleep(ctx context.Context, d time.Duration) bool {
 	t := time.NewTimer(d)
@@ -99,8 +112,12 @@ type head struct {
 
 // ShipOnce ships the next batch after the edge's head and returns how many records went.
 func (s *Shipper) ShipOnce(ctx context.Context) (int, error) {
+	token, err := s.o.Token(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("edgeship: mint the audit token: %w", err)
+	}
 	var h head
-	if err := s.call(ctx, http.MethodGet, "/v1/audit/head", nil, &h); err != nil {
+	if err := s.call(ctx, token, http.MethodGet, "/v1/audit/head", nil, &h); err != nil {
 		return 0, err
 	}
 	recs, err := s.o.Source.List(ctx, h.Seq, s.o.Batch)
@@ -122,17 +139,18 @@ func (s *Shipper) ShipOnce(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("edgeship: encode batch: %w", err)
 	}
-	if err := s.call(ctx, http.MethodPost, "/v1/audit/records", body, nil); err != nil {
+	if err := s.call(ctx, token, http.MethodPost, "/v1/audit/records", body, nil); err != nil {
 		return 0, err
 	}
 	return len(recs), nil
 }
 
-func (s *Shipper) call(ctx context.Context, method, path string, body []byte, out any) error {
+func (s *Shipper) call(ctx context.Context, token, method, path string, body []byte, out any) error {
 	req, err := http.NewRequestWithContext(ctx, method, s.o.Sink+path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("edgeship: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

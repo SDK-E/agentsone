@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/audit/adapters/edgeship"
 	httpadapter "github.com/SDK-E/agentsone/internal/audit/adapters/http"
@@ -50,13 +51,19 @@ func New(deps core.Deps) *Module {
 		if u, err := url.Parse(cfg.EdgeSink); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			m.cfgErr = fmt.Errorf("[audit] edge_sink %q must be an http URL with a host", cfg.EdgeSink)
 		} else {
+			ports := deps.Ports
 			m.shipper = edgeship.New(edgeship.Options{
 				Sink: cfg.EdgeSink, Source: m.log, Encode: app.EncodeRecord, Log: deps.Log,
+				Token: func(ctx context.Context) (string, error) { return ports.GatewayTokens.Mint(ctx, auditGrant) },
 			})
 		}
 	}
 	return m
 }
+
+// auditGrant is the daemon's grant for the edge audit sink: a system caller, so no agent can be
+// given one, minted for each shipping round and short-lived.
+var auditGrant = core.GatewayGrant{Subject: "system:audit", Audience: core.AudienceAudit, TTL: 5 * time.Minute}
 
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "audit" }

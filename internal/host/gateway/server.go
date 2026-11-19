@@ -32,6 +32,22 @@ const BudgetFileName = budgetstore.FileName
 // InternalName is the gateway's name inside the VM.
 const InternalName = "gateway.agentsone.internal"
 
+// VMAddr is where the gateway listens inside the virtual network.
+const VMAddr = "192.168.127.1:4000"
+
+// ListenFunc opens a listener, as the host network stack's Network.Listen does.
+type ListenFunc func(network, addr string) (net.Listener, error)
+
+// ListenVM opens the gateway's listener inside the virtual network through
+// the host network stack. Pass the result to Server.Run.
+func ListenVM(listen ListenFunc) (net.Listener, error) {
+	ln, err := listen("tcp", VMAddr)
+	if err != nil {
+		return nil, fmt.Errorf("gateway: listen on %s: %w", VMAddr, err)
+	}
+	return ln, nil
+}
+
 // shutdownGrace is how long running calls may finish when the gateway stops.
 const shutdownGrace = 10 * time.Second
 

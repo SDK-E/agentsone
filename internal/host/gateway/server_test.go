@@ -233,6 +233,21 @@ func TestAnthropicStreamIsChargedFromItsUsageEvents(t *testing.T) {
 	}
 }
 
+func TestListenVMUsesTheGatewayAddress(t *testing.T) {
+	var gotNet, gotAddr string
+	ln, err := gateway.ListenVM(func(network, addr string) (net.Listener, error) {
+		gotNet, gotAddr = network, addr
+		return net.Listen("tcp", "127.0.0.1:0")
+	})
+	if err != nil {
+		t.Fatalf("ListenVM: %v", err)
+	}
+	defer func() { _ = ln.Close() }()
+	if gotNet != "tcp" || gotAddr != "192.168.127.1:4000" {
+		t.Fatalf("listened on %s %s", gotNet, gotAddr)
+	}
+}
+
 func TestBudgetWallAndAllocations(t *testing.T) {
 	srv, _, now := setup(t, 0)
 	base, stop := serve(t, srv)

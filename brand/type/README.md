@@ -17,16 +17,16 @@ Both families are under the SIL Open Font License 1.1. The full text sits beside
 
 ## Scale
 
-Base size is 16 px. Line height is 1.5 for body text and 1.25 for headings.
+Base size is 16 px. The token names match `typography.scale` in the theme file `plugins/agents-one-theme/theme.json`.
 
-| Token | Size | Weight | Use |
-| --- | --- | --- | --- |
-| `display` | 32 px | 700 | One per screen at most |
-| `title` | 24 px | 700 | Page titles |
-| `heading` | 20 px | 600 | Panel titles |
-| `body` | 16 px | 400 | Everything else |
-| `label` | 14 px | 500 | Labels, captions, the live list |
-| `mono` | 14 px | 400 | Code, logs, ids |
+| Token | Size | Line height | Weight | Use |
+| --- | --- | --- | --- | --- |
+| `xxl` | 32 px | 1.2 | bold (700) | One per screen at most |
+| `xl` | 24 px | 1.25 | bold (700) | Page titles |
+| `lg` | 20 px | 1.35 | medium (500) | Panel titles |
+| `md` | 16 px | 1.5 | regular (400) | Body text, the default |
+| `sm` | 15 px | 1.45 | regular (400) | Secondary text |
+| `xs` | 14 px | 1.4 | medium (500) | Labels, captions, the live list, code and logs in mono |
 
 Nothing in the interface is smaller than 14 px.
 
@@ -39,7 +39,7 @@ font-family: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
 
 ## Do and don't
 
-- Use weight to show order: 400 for reading, 500 to 600 for labels and headings, 700 for titles.
+- Use weight to show order: regular (400) for reading, medium (500) for labels and headings, bold (700) for titles.
 - Use tabular figures (`font-variant-numeric: tabular-nums`) for numbers that change, such as budgets and counts.
 - Do not set long text in mono. Mono is for things a person might copy.
 - Do not use letter spacing on body text.

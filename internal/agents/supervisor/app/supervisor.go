@@ -243,23 +243,8 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		_ = r.session.Start(s.d.Clock.Now())
 		r.pending = append(r.pending, req)
 		s.mu.Unlock()
-		// A runner without the model gateway cannot work: do not start it.
-		if _, err := s.gatewayToken(ctx, name); err != nil {
-			s.mu.Lock()
-			r.session.Fail()
-			r.pending = nil
-			s.mu.Unlock()
-			s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
-			s.runnerFailed(ctx, name, gatewayReason(err))
+		if err := s.launch(ctx, name, r); err != nil {
 			return fmt.Errorf("wake %s: %w", name, err)
-		}
-		if err := s.d.Launcher.Start(ctx, name); err != nil {
-			s.mu.Lock()
-			r.session.Fail()
-			r.pending = nil
-			s.mu.Unlock()
-			s.runnerFailed(ctx, name, ReasonStartFailed)
-			return fmt.Errorf("wake %s: start: %w", name, err)
 		}
 		return nil
 	case domain.WakeHold:
@@ -274,6 +259,56 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		s.wakeSent(ctx, name, req, err)
 		return err
 	}
+}
+
+// Run starts agent name's runner without a turn, for always-on agents: the
+// runner finishes its handshake and idles, so it makes no model call until
+// a wake. A runner that is starting or running is left alone, and a frozen
+// agent is not started.
+func (s *Supervisor) Run(ctx context.Context, name string) error {
+	if err := domain.ValidateName(name); err != nil {
+		return fmt.Errorf("run: %w: %w", core.ErrInvalid, err)
+	}
+	frozen, err := s.Frozen(ctx, name)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	r := s.runnerLocked(name)
+	if domain.PlanWake(frozen, r.session.State()) != domain.WakeStart {
+		s.mu.Unlock()
+		return nil
+	}
+	_ = r.session.Start(s.d.Clock.Now())
+	s.mu.Unlock()
+	if err := s.launch(ctx, name, r); err != nil {
+		return fmt.Errorf("run %s: %w", name, err)
+	}
+	return nil
+}
+
+// launch starts the runner of a session that was just marked starting. A
+// runner without the model gateway cannot work, so it is not started. On
+// failure the session fails, held wakes are dropped and the society hears
+// why.
+func (s *Supervisor) launch(ctx context.Context, name string, r *runner) error {
+	fail := func(reason string) {
+		s.mu.Lock()
+		r.session.Fail()
+		r.pending = nil
+		s.mu.Unlock()
+		s.runnerFailed(ctx, name, reason)
+	}
+	if _, err := s.gatewayToken(ctx, name); err != nil {
+		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+		fail(gatewayReason(err))
+		return err
+	}
+	if err := s.d.Launcher.Start(ctx, name); err != nil {
+		fail(ReasonStartFailed)
+		return fmt.Errorf("start: %w", err)
+	}
+	return nil
 }
 
 // turnFor picks the turn id: the paused turn for a budget resume (rule R2),

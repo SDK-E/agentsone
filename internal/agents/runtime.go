@@ -72,6 +72,7 @@ func (r *supervised) Freeze(ctx context.Context, s core.FreezeScope) error {
 func (r *supervised) Release(ctx context.Context, s core.FreezeScope) error {
 	return r.sup.Release(ctx, s)
 }
+func (r *supervised) Run(ctx context.Context, name string) error { return r.sup.Run(ctx, name) }
 
 // unitLimits turns the society's limits into the runner unit's. Nil stays
 // nil: the supervisor picks the defaults for custom agents.

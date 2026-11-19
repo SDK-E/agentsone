@@ -35,6 +35,10 @@ type Runtime interface {
 	// until Release.
 	Freeze(ctx context.Context, scope core.FreezeScope) error
 	Release(ctx context.Context, scope core.FreezeScope) error
+	// Run starts an always-on agent's runner with no turn, so it waits idle
+	// and makes no model call until a wake. A running runner or a frozen
+	// agent is left alone.
+	Run(ctx context.Context, name string) error
 }
 
 // Society runs the society use cases. Changes are serialised, so every rule
@@ -146,13 +150,23 @@ func (s *Society) Found(ctx context.Context, spec domain.HireSpec) (domain.Agent
 		event{"/daemon", "team:" + founder.Name, data})
 }
 
-// Hire hires an agent below the calling agent.
+// Hire hires an agent below the calling agent. An always-on agent's runner
+// starts at once, idle.
 func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent, error) {
 	name, err := actor(ctx)
 	if err != nil {
 		return domain.Agent{}, err
 	}
-	return s.hire(ctx, name, "agent:"+name, spec)
+	a, err := s.hire(ctx, name, "agent:"+name, spec)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+	if a.Kind == domain.KindAlwaysOn {
+		// A runner that cannot start does not undo the hire: the
+		// supervisor puts the reason on the agent's status.
+		_ = s.rt.Run(ctx, a.Name)
+	}
+	return a, nil
 }
 
 // hire hires below hirer. by is who acts, as audited: the hirer itself, or

@@ -27,6 +27,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       workflows: ${{ steps.filter.outputs.workflows }}
       contract: ${{ steps.filter.outputs.contract }}
+      image: ${{ steps.filter.outputs.image }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,6 +77,9 @@ jobs:
             workflows:
               - '.github/workflows/**'
               - '.github/dependabot.yml'
+            image:
+              - 'image/**'
+              - '.github/workflows/pr.yml'
 
   go:
     needs: changes
@@ -212,6 +216,39 @@ jobs:
         with:
           advanced-security: false
 
+  image:
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      HADOLINT_IMAGE: hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+      GO_IMAGE: golang:1.27.4-trixie@sha256:f18c3d73a184fb0582828510722e723b63a93f7188d11dd223d9be6f6880e65d
+      MACHINE_IMAGE: agentsone-machine:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: hadolint
+        run: docker run --rm -v "$PWD/image/machine:/work:ro" --workdir /work "$HADOLINT_IMAGE" hadolint Dockerfile
+      - name: build script tests
+        run: docker run --rm -v "$PWD/image/machine:/src:ro" "$GO_IMAGE" /src/test/build-go.test.sh
+      - name: build the machine image (linux/amd64, not pushed)
+        run: docker buildx build -f image/machine/Dockerfile --platform linux/amd64 --load -t "$MACHINE_IMAGE" .
+      - name: image size
+        run: |
+          bytes="$(docker image inspect --format '{{.Size}}' "$MACHINE_IMAGE")"
+          echo "machine image (linux/amd64): $((bytes / 1000000)) MB"
+      - name: entrypoint, fetch and health check tests in the image
+        run: |
+          for t in entrypoint fetch-pinned healthcheck; do
+            docker run --rm -v "$PWD/image/machine:/src:ro" --entrypoint "/src/test/$t.test.sh" "$MACHINE_IMAGE"
+          done
+      - name: smoke test (healthy, clean log, clean stop, key kept)
+        run: image/ci/smoke.sh "$MACHINE_IMAGE"
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -297,6 +334,7 @@ jobs:
       - ts
       - shell
       - workflows
+      - image
       - docs
       - spdx
       - secrets

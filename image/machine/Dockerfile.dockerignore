@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+#
+# Build context filter for image/machine/Dockerfile (the context is the
+# repository root). Keep what the build stages read; drop history, local
+# installs, build output and editor state.
+.git
+.github
+.claude
+**/node_modules
+**/coverage
+**/.DS_Store
+ui/dist
+e2e
+docs

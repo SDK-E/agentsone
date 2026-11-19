@@ -16,11 +16,19 @@ set -euo pipefail
 entrypoint="${1:-/usr/lib/agentsone/entrypoint}"
 state=/var/lib/agentsone
 key=$state/secrets/machine.key
+config=/etc/agentsone/config.toml
+template=/usr/lib/agentsone/config.toml
 
 in_container() { [ -f /.dockerenv ] || [ -f /run/.containerenv ]; }
 if [ "$(id -u)" -ne 0 ] || ! in_container; then
   echo "run these tests as root inside a container (they change /var/lib and /home)" >&2
   exit 2
+fi
+
+# Outside the image (plain Debian) there is no config template; use a small one.
+if [ ! -f "$template" ]; then
+  mkdir -p "$(dirname "$template")"
+  printf '[api]\naddr = "0.0.0.0:7700"\n' >"$template"
 fi
 
 failures=0
@@ -126,6 +134,56 @@ chown 1000:1000 /home/agents/ada
 chmod 0700 /home/agents/ada
 run true
 expect_stat "agent homes inside the volume are left alone" /home/agents/ada "700 1000:1000"
+
+# --- daemon config -------------------------------------------------------------
+reset
+rm -f "$config"
+unset AGENTSONE_EDGE_IP
+run true
+if cmp -s "$config" "$template"; then pass "without an edge address the config is the image template"; else
+  fail "without an edge address the config is the image template: $(diff "$template" "$config" 2>&1)"
+fi
+expect_stat "config is readable by all and written by root" "$config" "644 0:0"
+
+reset
+code=0
+out="$(AGENTSONE_EDGE_IP=10.77.42.2 "$entrypoint" true 2>&1)" || code=$?
+expect_code "accepts an IPv4 edge address" 0
+if grep -qx 'trusted_proxies = \["10.77.42.2"\]' "$config" && grep -qx '\[edge\]' "$config"; then
+  pass "trusts the edge address as the daemon's proxy"
+else
+  fail "trusts the edge address as the daemon's proxy: config is $(cat "$config")"
+fi
+if [ "$(head -c "$(stat -c %s "$template")" "$config")" = "$(cat "$template")" ]; then
+  pass "keeps the image template above the edge table"
+else
+  fail "keeps the image template above the edge table: config is $(cat "$config")"
+fi
+
+code=0
+out="$(AGENTSONE_EDGE_IP=10.77.42.2 "$entrypoint" true 2>&1)" || code=$?
+if [ "$(grep -cx '\[edge\]' "$config")" -eq 1 ]; then pass "a restart writes the edge table once"; else
+  fail "a restart writes the edge table once: config is $(cat "$config")"
+fi
+
+reset
+code=0
+out="$(AGENTSONE_EDGE_IP=fd00:77::2 "$entrypoint" true 2>&1)" || code=$?
+expect_code "accepts an IPv6 edge address" 0
+if grep -qx 'trusted_proxies = \["fd00:77::2"\]' "$config"; then pass "writes the IPv6 edge address"; else
+  fail "writes the IPv6 edge address: config is $(cat "$config")"
+fi
+
+for bad in '10.77.42.0/24' 'edge' 'beef' '10.77.42.256' '1.2.3.4"] [x' ''\''1.2.3.4'; do
+  reset
+  code=0
+  out="$(AGENTSONE_EDGE_IP="$bad" "$entrypoint" sh -c 'echo started' 2>&1)" || code=$?
+  expect_code "refuses edge address '$bad'" 1
+  if echo "$out" | grep -q started; then fail "does not start the daemon with edge address '$bad'"; else
+    pass "does not start the daemon with edge address '$bad'"
+  fi
+done
+expect_out "names the setting it refuses" "AGENTSONE_EDGE_IP"
 
 # --- handing over to the command -----------------------------------------------
 reset

@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	// Registers the "sqlite" database/sql driver.
 	_ "modernc.org/sqlite"
@@ -35,6 +36,15 @@ CREATE TABLE IF NOT EXISTS agent_spend (
 );
 `
 
+// migrations upgrade the schema; PRAGMA user_version counts those applied. Each runs once, in
+// one transaction with the version bump.
+var migrations = []string{
+	// 1: budget periods. Spending stored before has no period start; the service keeps it as the
+	// current period's spending.
+	`ALTER TABLE settings ADD COLUMN period TEXT NOT NULL DEFAULT 'month' CHECK (period IN ('month', 'week', 'day'));
+	 ALTER TABLE spend ADD COLUMN period_start TEXT NOT NULL DEFAULT '';`,
+}
+
 // FileName is the database's name inside the host data folder.
 const FileName = "budget.db"
 
@@ -56,7 +66,33 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return nil, errors.Join(fmt.Errorf("budgetstore: create schema in %s: %w", path, err), db.Close())
 	}
+	if err := migrate(ctx, db); err != nil {
+		return nil, errors.Join(fmt.Errorf("budgetstore: upgrade %s: %w", path, err), db.Close())
+	}
 	return &Store{db: db}, nil
+}
+
+func migrate(ctx context.Context, db *sql.DB) error {
+	var version int
+	if err := db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
+		return err
+	}
+	for i := version; i < len(migrations); i++ {
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, migrations[i]); err != nil {
+			return errors.Join(fmt.Errorf("migration %d: %w", i+1, err), tx.Rollback())
+		}
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf(`PRAGMA user_version = %d`, i+1)); err != nil {
+			return errors.Join(fmt.Errorf("migration %d: %w", i+1, err), tx.Rollback())
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("migration %d: %w", i+1, err)
+		}
+	}
+	return nil
 }
 
 // Close closes the database.
@@ -64,28 +100,34 @@ func (s *Store) Close() error { return s.db.Close() }
 
 // LoadSettings returns the stored settings, or zero settings when none exist.
 func (s *Store) LoadSettings(ctx context.Context) (budgetapp.Settings, error) {
-	var set budgetapp.Settings
+	set := budgetapp.Settings{Period: budget.PeriodMonth}
 	var total int64
+	var period string
 	err := s.db.QueryRowContext(ctx,
-		`SELECT total_micros, defence_on, defence_share_pct FROM settings WHERE id = 1`).
-		Scan(&total, &set.DefenceOn, &set.DefenceSharePct)
+		`SELECT total_micros, defence_on, defence_share_pct, period FROM settings WHERE id = 1`).
+		Scan(&total, &set.DefenceOn, &set.DefenceSharePct, &period)
 	if errors.Is(err, sql.ErrNoRows) {
-		return budgetapp.Settings{}, nil
+		return set, nil
 	}
 	if err != nil {
 		return budgetapp.Settings{}, fmt.Errorf("budgetstore: load settings: %w", err)
 	}
-	set.Total = budget.Micros(total)
+	set.Total, set.Period = budget.Micros(total), budget.Period(period)
 	return set, nil
 }
 
 // SaveSettings replaces the stored settings.
 func (s *Store) SaveSettings(ctx context.Context, set budgetapp.Settings) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO settings (id, total_micros, defence_on, defence_share_pct) VALUES (1, ?, ?, ?)
+	period, err := budget.ParsePeriod(string(set.Period))
+	if err != nil {
+		return fmt.Errorf("budgetstore: save settings: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO settings (id, total_micros, defence_on, defence_share_pct, period) VALUES (1, ?, ?, ?, ?)
 		 ON CONFLICT (id) DO UPDATE SET total_micros = excluded.total_micros,
-		   defence_on = excluded.defence_on, defence_share_pct = excluded.defence_share_pct`,
-		int64(set.Total), set.DefenceOn, set.DefenceSharePct)
+		   defence_on = excluded.defence_on, defence_share_pct = excluded.defence_share_pct,
+		   period = excluded.period`,
+		int64(set.Total), set.DefenceOn, set.DefenceSharePct, string(period))
 	if err != nil {
 		return fmt.Errorf("budgetstore: save settings: %w", err)
 	}
@@ -96,12 +138,18 @@ func (s *Store) SaveSettings(ctx context.Context, set budgetapp.Settings) error 
 func (s *Store) LoadSpend(ctx context.Context) (budgetapp.Spend, error) {
 	sp := budgetapp.Spend{Agents: map[string]budget.Micros{}}
 	var general, defence int64
-	err := s.db.QueryRowContext(ctx, `SELECT general_micros, defence_micros FROM spend WHERE id = 1`).
-		Scan(&general, &defence)
+	var periodStart string
+	err := s.db.QueryRowContext(ctx, `SELECT general_micros, defence_micros, period_start FROM spend WHERE id = 1`).
+		Scan(&general, &defence, &periodStart)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return budgetapp.Spend{}, fmt.Errorf("budgetstore: load spending: %w", err)
 	}
 	sp.General, sp.Defence = budget.Micros(general), budget.Micros(defence)
+	if periodStart != "" {
+		if sp.PeriodStart, err = time.Parse(time.RFC3339, periodStart); err != nil {
+			return budgetapp.Spend{}, fmt.Errorf("budgetstore: load spending: period start %q: %w", periodStart, err)
+		}
+	}
 
 	rows, err := s.db.QueryContext(ctx, `SELECT agent, micros FROM agent_spend`)
 	if err != nil {
@@ -133,11 +181,15 @@ func (s *Store) SaveSpend(ctx context.Context, sp budgetapp.Spend) (err error) {
 			err = errors.Join(err, tx.Rollback())
 		}
 	}()
+	periodStart := ""
+	if !sp.PeriodStart.IsZero() {
+		periodStart = sp.PeriodStart.UTC().Format(time.RFC3339)
+	}
 	if _, err = tx.ExecContext(ctx,
-		`INSERT INTO spend (id, general_micros, defence_micros) VALUES (1, ?, ?)
+		`INSERT INTO spend (id, general_micros, defence_micros, period_start) VALUES (1, ?, ?, ?)
 		 ON CONFLICT (id) DO UPDATE SET general_micros = excluded.general_micros,
-		   defence_micros = excluded.defence_micros`,
-		int64(sp.General), int64(sp.Defence)); err != nil {
+		   defence_micros = excluded.defence_micros, period_start = excluded.period_start`,
+		int64(sp.General), int64(sp.Defence), periodStart); err != nil {
 		return fmt.Errorf("budgetstore: save spending: %w", err)
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM agent_spend`); err != nil {

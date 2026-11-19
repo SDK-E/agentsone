@@ -191,6 +191,18 @@ type CallResult struct {
 	Status int
 	Header http.Header
 	Body   io.ReadCloser
+	// Spend is what the call cost, filled in when Body is closed. It is nil for a token count,
+	// which is free.
+	Spend *Spend
+}
+
+// Spend is what one call cost.
+type Spend struct {
+	// Usage is the tokens the provider reported; Reported is false when it reported none.
+	Usage    routing.Usage
+	Reported bool
+	// Cost is what was charged to the budget: the price of Usage, or the estimate.
+	Cost ledger.Micros
 }
 
 // Call routes one model call.
@@ -264,11 +276,13 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 			continue
 		}
 		r.d.Breaker.Success(m.Provider)
+		spend := &Spend{}
 		return &CallResult{
 			Model:  m,
 			Status: resp.Status,
 			Header: resp.Header,
-			Body:   &settlingBody{rc: resp.Body, settle: r.settler(id, m, estimate, resp.Usage)},
+			Body:   &settlingBody{rc: resp.Body, settle: r.settler(id, m, estimate, resp.Usage, spend)},
+			Spend:  spend,
 		}, nil
 	}
 	if attempts == 0 && budgetErr != nil {
@@ -294,16 +308,16 @@ func (r *Router) release(id ledger.ReservationID) {
 }
 
 func (r *Router) settler(id ledger.ReservationID, m routing.Model, estimate ledger.Micros,
-	usage func() (routing.Usage, bool),
+	usage func() (routing.Usage, bool), spend *Spend,
 ) func() error {
 	return func() error {
-		cost := estimate
+		spend.Cost = estimate
 		if usage != nil {
 			if u, ok := usage(); ok {
-				cost = m.Cost(u)
+				spend.Usage, spend.Reported, spend.Cost = u, true, m.Cost(u)
 			}
 		}
-		return r.d.Budget.Settle(id, cost)
+		return r.d.Budget.Settle(id, spend.Cost)
 	}
 }
 

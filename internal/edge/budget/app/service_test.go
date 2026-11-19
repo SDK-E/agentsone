@@ -66,13 +66,119 @@ func (f *fakeStore) setTotalOutside(m budget.Micros) {
 	f.settings.Total = m
 }
 
+// clock is a settable fake clock.
+type clock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *clock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *clock) set(s string) {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	c.mu.Lock()
+	c.now = t
+	c.mu.Unlock()
+}
+
+func newClock(s string) *clock {
+	c := &clock{}
+	c.set(s)
+	return c
+}
+
 func open(t *testing.T, st *fakeStore) *budgetapp.Service {
 	t.Helper()
-	svc, err := budgetapp.Open(context.Background(), st)
+	return openAt(t, st, newClock("2026-11-19T10:00:00Z"))
+}
+
+func openAt(t *testing.T, st *fakeStore, c *clock) *budgetapp.Service {
+	t.Helper()
+	svc, err := budgetapp.Open(context.Background(), st, c)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	return svc
+}
+
+func TestOpenStartsThePeriodAndKeepsSpendingFromIt(t *testing.T) {
+	start, _ := budget.PeriodMonth.Bounds(time.Date(2026, 11, 19, 0, 0, 0, 0, time.UTC))
+	st := &fakeStore{
+		settings: budgetapp.Settings{Total: 10 * usd},
+		spend:    budgetapp.Spend{General: 3 * usd, PeriodStart: start},
+	}
+
+	got := openAt(t, st, newClock("2026-11-25T10:00:00Z")).State()
+
+	if got.Spent != 3*usd || !got.PeriodStart.Equal(start) {
+		t.Fatalf("state = spent %v from %s, want 3 USD from %s", got.Spent, got.PeriodStart, start)
+	}
+}
+
+func TestOpenAfterThePeriodEndedStartsFromZero(t *testing.T) {
+	start, _ := budget.PeriodMonth.Bounds(time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC))
+	st := &fakeStore{
+		settings: budgetapp.Settings{Total: 10 * usd},
+		spend:    budgetapp.Spend{General: 9 * usd, PeriodStart: start},
+	}
+
+	svc := openAt(t, st, newClock("2026-11-02T10:00:00Z"))
+
+	if got := svc.State(); got.Spent != 0 || got.Remaining != 10*usd {
+		t.Fatalf("state = spent %v remaining %v, want a fresh month", got.Spent, got.Remaining)
+	}
+	if err := svc.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if st.spend.General != 0 || !st.spend.PeriodStart.Equal(time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("saved spend = %+v, want the new month from zero", st.spend)
+	}
+}
+
+func TestANewPeriodFreesTheBudgetForNewCalls(t *testing.T) {
+	st := &fakeStore{settings: budgetapp.Settings{Total: 10 * usd, Period: budget.PeriodDay}}
+	c := newClock("2026-11-19T10:00:00Z")
+	svc := openAt(t, st, c)
+	id, err := svc.Reserve(budget.Caller{Agent: "worker"}, 10*usd)
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	_ = svc.Settle(id, 10*usd)
+	if _, err := svc.Reserve(budget.Caller{Agent: "worker"}, 1); !errors.Is(err, budget.ErrBudgetExhausted) {
+		t.Fatalf("Reserve on a spent day error = %v", err)
+	}
+
+	c.set("2026-11-20T00:00:01Z")
+
+	if _, err := svc.Reserve(budget.Caller{Agent: "worker"}, 1*usd); err != nil {
+		t.Fatalf("Reserve on the next day: %v", err)
+	}
+}
+
+func TestSetPeriodSavesItAndStartsTheNewKind(t *testing.T) {
+	st := &fakeStore{settings: budgetapp.Settings{Total: 10 * usd}}
+	svc := open(t, st)
+
+	if err := svc.SetPeriod(context.Background(), budget.PeriodWeek); err != nil {
+		t.Fatalf("SetPeriod: %v", err)
+	}
+
+	if st.settings.Period != budget.PeriodWeek {
+		t.Errorf("saved period = %q", st.settings.Period)
+	}
+	if got := svc.State(); got.Period != budget.PeriodWeek || !got.PeriodStart.Equal(time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("state period = %s from %s", got.Period, got.PeriodStart)
+	}
+	if err := svc.SetPeriod(context.Background(), "year"); !errors.Is(err, budget.ErrInvalidPeriod) {
+		t.Errorf("SetPeriod(year) error = %v", err)
+	}
 }
 
 func TestOpenRestoresSettingsAndSpend(t *testing.T) {
@@ -88,7 +194,7 @@ func TestOpenRestoresSettingsAndSpend(t *testing.T) {
 
 func TestOpenFailsWhenStoreFails(t *testing.T) {
 	st := &fakeStore{failLoad: errors.New("disk gone")}
-	if _, err := budgetapp.Open(context.Background(), st); err == nil {
+	if _, err := budgetapp.Open(context.Background(), st, nil); err == nil {
 		t.Fatal("Open succeeded with a failing store")
 	}
 }
@@ -106,7 +212,7 @@ func TestHumanSettingsAreSavedAtOnce(t *testing.T) {
 	if err := svc.SetDefence(ctx, true); err != nil {
 		t.Fatalf("SetDefence: %v", err)
 	}
-	want := budgetapp.Settings{Total: 25 * usd, DefenceOn: true, DefenceSharePct: 30}
+	want := budgetapp.Settings{Total: 25 * usd, DefenceOn: true, DefenceSharePct: 30, Period: budget.PeriodMonth}
 	if st.settings != want {
 		t.Fatalf("saved settings = %+v, want %+v", st.settings, want)
 	}

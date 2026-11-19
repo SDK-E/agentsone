@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"net/netip"
 	"time"
+
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
 )
 
 // Freezer is the freeze-all switch: Freeze cuts all egress of the edge until Release. The
@@ -51,6 +53,10 @@ type Env struct {
 	Proof ProofRecorder
 	// Freezer is set by the internet filter when it starts.
 	Freezer Freezer
+	// TokenKey is the gateway key, which checks the tokens the daemon signs. Run loads it (or
+	// makes it on first start) from the data folder before any part starts. Parts must not change
+	// it.
+	TokenKey []byte
 }
 
 // ProofRecorder writes edge proof records.
@@ -94,6 +100,14 @@ func Run(ctx context.Context, env *Env, components []Component, admin net.Listen
 	if env.Log == nil {
 		env.Log = slog.New(slog.DiscardHandler)
 	}
+	if env.DataDir == "" {
+		return errors.New("start edge: the data folder is not set")
+	}
+	key, err := tokenkey.LoadOrCreate(tokenkey.Path(env.DataDir))
+	if err != nil {
+		return fmt.Errorf("start edge: %w", err)
+	}
+	env.TokenKey = key
 	env.Admin = http.NewServeMux()
 	var started []Stopper
 	var names []string

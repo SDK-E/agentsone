@@ -10,12 +10,14 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"path/filepath"
 	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/SDK-E/agentsone/internal/edge/component"
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
 )
 
 // journal records what fake components do, in order.
@@ -69,11 +71,44 @@ type stopFunc func() error
 
 func (s stopFunc) Stop() error { return s() }
 
-func env() *component.Env {
+func env(t *testing.T) *component.Env {
+	t.Helper()
 	return &component.Env{
 		InnerAddr: netip.MustParseAddr("10.77.42.2"),
-		DataDir:   "/data",
+		DataDir:   t.TempDir(),
 		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+}
+
+func TestRun_GivesEveryPartTheGatewayKeyBeforeAnyStarts(t *testing.T) {
+	t.Parallel()
+	e := env(t)
+	var seen [][]byte
+	look := func(env *component.Env) { seen = append(seen, env.TokenKey) }
+	comps := []component.Component{&fake{name: "a", j: &journal{}, onStart: look, startErr: errors.New("stop here")}}
+
+	_ = component.Run(t.Context(), e, comps, listen(t))
+
+	want, err := tokenkey.LoadOrCreate(tokenkey.Path(e.DataDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || len(seen[0]) != tokenkey.Size || string(seen[0]) != string(want) {
+		t.Fatalf("parts saw keys %x, want the key in the data folder %x", seen, want)
+	}
+}
+
+func TestRun_StopsWhenTheGatewayKeyCannotBeMade(t *testing.T) {
+	t.Parallel()
+	e := env(t)
+	e.DataDir = filepath.Join(e.DataDir, "missing", string([]byte{0}))
+	j := &journal{}
+
+	if err := component.Run(t.Context(), e, []component.Component{&fake{name: "a", j: j}}, listen(t)); err == nil {
+		t.Fatal("Run() without a gateway key succeeded")
+	}
+	if len(j.get()) != 0 {
+		t.Errorf("parts started without a gateway key: %v", j.get())
 	}
 }
 
@@ -85,7 +120,7 @@ func TestRun_StartsInOrderAndStopsInReverseWhenTheContextEnds(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 
-	go func() { done <- component.Run(ctx, env(), comps, listen(t)) }()
+	go func() { done <- component.Run(ctx, env(t), comps, listen(t)) }()
 	<-last
 	cancel()
 
@@ -103,7 +138,7 @@ func TestRun_StopsWhatStartedWhenAComponentFails(t *testing.T) {
 	boom := errors.New("boom")
 	comps := []component.Component{&fake{name: "a", j: j}, &fake{name: "b", j: j, startErr: boom}, &fake{name: "c", j: j}}
 
-	err := component.Run(t.Context(), env(), comps, listen(t))
+	err := component.Run(t.Context(), env(t), comps, listen(t))
 
 	if !errors.Is(err, boom) {
 		t.Fatalf("Run() error = %v, want boom", err)
@@ -122,7 +157,7 @@ func TestRun_ReportsStopErrors(t *testing.T) {
 	done := make(chan error, 1)
 
 	go func() {
-		done <- component.Run(ctx, env(), []component.Component{&fake{name: "a", j: j, stopErr: boom, started: ready}}, listen(t))
+		done <- component.Run(ctx, env(t), []component.Component{&fake{name: "a", j: j, stopErr: boom, started: ready}}, listen(t))
 	}()
 	<-ready
 	cancel()
@@ -144,7 +179,7 @@ func TestRun_LaterComponentsSeeWhatEarlierOnesShare(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 
-	go func() { done <- component.Run(ctx, env(), comps, listen(t)) }()
+	go func() { done <- component.Run(ctx, env(t), comps, listen(t)) }()
 	<-ready
 	cancel()
 	if err := <-done; err != nil {
@@ -158,7 +193,7 @@ func TestRun_LaterComponentsSeeWhatEarlierOnesShare(t *testing.T) {
 
 func TestRun_RefusesAnEnvWithoutInnerAddress(t *testing.T) {
 	t.Parallel()
-	e := env()
+	e := env(t)
 	e.InnerAddr = netip.Addr{}
 	ln := listen(t)
 	if err := component.Run(t.Context(), e, nil, ln); err == nil {
@@ -179,7 +214,7 @@ func TestRun_ServesTheRoutesComponentsAdd(t *testing.T) {
 	}}}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- component.Run(ctx, env(), comps, ln) }()
+	go func() { done <- component.Run(ctx, env(t), comps, ln) }()
 	<-ready
 
 	resp, err := http.Get("http://" + ln.Addr().String() + "/v1/a/ping") // #nosec G107 -- test listener
@@ -208,7 +243,7 @@ func TestRun_StopsWhenTheAdminSocketFails(t *testing.T) {
 	ln := listen(t)
 	comps := []component.Component{&fake{name: "a", j: j, onStart: func(*component.Env) { _ = ln.Close() }}}
 
-	if err := component.Run(t.Context(), env(), comps, ln); err == nil {
+	if err := component.Run(t.Context(), env(t), comps, ln); err == nil {
 		t.Fatal("Run() with a broken admin socket returned no error")
 	}
 	if diff := cmp.Diff([]string{"start a", "stop a"}, j.get()); diff != "" {

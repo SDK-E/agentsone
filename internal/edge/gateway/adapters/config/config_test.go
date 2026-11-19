@@ -162,42 +162,62 @@ func TestBadFilesAreRefused(t *testing.T) {
 	}
 }
 
-func TestServerSection(t *testing.T) {
-	d := gatewayconfig.Default().Server
-	// No default address: ":4000" would bind every interface, the outer
-	// network too. The stack sets <inner-addr>:4000.
-	if d.Listen != "" || d.AdminSocket != "" || d.AdminGID != -1 {
-		t.Fatalf("default server = %+v", d)
-	}
-	if got := d.AdminSocketPath("/var/lib/agentsone-edge"); got != "/var/lib/agentsone-edge/admin.sock" {
-		t.Fatalf("default admin socket = %q", got)
-	}
+func TestServerSectionIsGone(t *testing.T) {
+	// The edge serve command sets where the gateway and the admin socket listen; a [server]
+	// section from an older file is refused rather than silently ignored.
 	path := filepath.Join(t.TempDir(), "gateway.toml")
-	text := "[server]\nlisten = \"10.88.0.2:4000\"\nadmin_socket = \"/run/edge/admin.sock\"\nadmin_gid = 1500\n"
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("[server]\nlisten = \"10.88.0.2:4000\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := gatewayconfig.Load(path); err == nil {
+		t.Fatal("Load accepted a [server] section")
+	}
+}
+
+func TestStore_ListsTheDefaultsWithoutAFile(t *testing.T) {
+	s := gatewayconfig.NewStore(filepath.Join(t.TempDir(), "gateway.toml"))
+
+	list, err := s.List()
+
+	if err != nil || len(list) != len(gatewayconfig.Default().Providers) || list[0].Enabled {
+		t.Fatalf("List() = %d providers, %v; want the disabled defaults", len(list), err)
+	}
+}
+
+func TestStore_SetEnabledWritesTheFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gateway.toml")
+	s := gatewayconfig.NewStore(path)
+
+	if err := s.SetEnabled("openai", true); err != nil {
+		t.Fatalf("SetEnabled() error = %v", err)
+	}
+
 	f, err := gatewayconfig.Load(path)
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
-	if f.Server.Listen != "10.88.0.2:4000" || f.Server.AdminSocketPath("/x") != "/run/edge/admin.sock" || f.Server.AdminGID != 1500 {
-		t.Fatalf("server = %+v", f.Server)
+	for _, p := range f.Providers {
+		if (p.ID == "openai") != p.Enabled {
+			t.Errorf("provider %s enabled = %v", p.ID, p.Enabled)
+		}
 	}
-	// A file without [server] keeps the defaults.
-	if err := os.WriteFile(path, []byte("[limits]\nmax_attempts = 2\n"), 0o600); err != nil {
+	if err := s.SetEnabled("nope", true); !errors.Is(err, gatewayconfig.ErrUnknownProvider) {
+		t.Errorf("SetEnabled(nope) error = %v", err)
+	}
+}
+
+func TestStore_ReportsABrokenFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gateway.toml")
+	if err := os.WriteFile(path, []byte("[limits\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if f, err := gatewayconfig.Load(path); err != nil || f.Server.Listen != "" {
-		t.Fatalf("server without section = %+v, %v", f.Server, err)
+	s := gatewayconfig.NewStore(path)
+
+	if _, err := s.List(); err == nil {
+		t.Error("List() on a broken file succeeded")
 	}
-	for _, bad := range []string{"listen = \"nope\"", "listen = \"host:99999\"", "admin_socket = \"relative.sock\"", "admin_gid = -2"} {
-		if err := os.WriteFile(path, []byte("[server]\n"+bad+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := gatewayconfig.Load(path); err == nil {
-			t.Fatalf("Load accepted %q", bad)
-		}
+	if err := s.SetEnabled("openai", true); err == nil {
+		t.Error("SetEnabled() on a broken file succeeded")
 	}
 }
 

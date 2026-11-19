@@ -77,6 +77,7 @@ The interface labels every limit as hard or soft, so humans know what to trust.
 | Wall | Held by | Why it is soft |
 | --- | --- | --- |
 | Budget split per agent | The daemon | A root agent can pose as another agent. The total is still hard. |
+| Defence share | `edge` | Gateway tokens are signed with the gateway key, which root agents can read in `machine`. A root agent can sign a token that spends the defence slice. The total is still hard. |
 | Freeze of one agent or one team | The daemon | A root agent can ignore it. Freeze all is still hard. |
 | Human accounts and sessions | The daemon (`core.db`) | They live inside `machine`. |
 | Gateway identity | The daemon and `edge` | `edge` trusts the agent identity the daemon vouches for. A root agent can pose as another agent. It cannot spend more than the total. |

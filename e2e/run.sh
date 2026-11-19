@@ -199,6 +199,22 @@ stage_wall_outer() {
   fi
 }
 
+# --- model gateway: the machine reaches it on the inner address, with a token only ----------
+
+stage_gateway() {
+  needs gateway machine edge || return 0
+  local base="http://${EDGE_IP}:4000"
+  expect_out "machine reaches the model gateway; no token is refused (401)" '^401$' \
+    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' "${base}/v1/models"
+  expect_out "a forged token is refused (401)" '^401$' \
+    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Bearer forged' \
+    -H 'Content-Type: application/json' -d '{"model":"autoagents/one"}' "${base}/v1/chat/completions"
+  expect_out "the gateway serves no admin route to the machine (404)" '^404$' \
+    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' "${base}/v1/gateway/budget"
+  expect_out "the machine cannot change the budget through the gateway (404 or 405)" '^40[45]$' \
+    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' -X PATCH -d '{}' "${base}/v1/budget"
+}
+
 # --- rescue: a restart keeps the container layer, a recreate resets it to the image ----------
 
 stage_rescue() {
@@ -239,7 +255,7 @@ stage_budget_wall() { not_on_main budget-wall 16 "the budget wall and defence sl
 stage_freeze_all() { not_on_main freeze-all 15 "freeze all and release"; }
 
 STAGES=(
-  wall-route wall-direct wall-blocked wall-allowed wall-outer rescue web-door
+  wall-route wall-direct wall-blocked wall-allowed wall-outer gateway rescue web-door
   setup-page login small-seed hire bus router echo-chat event-to-task memory
   plugin-install agentctl-parity budget-wall freeze-all
 )

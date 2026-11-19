@@ -56,6 +56,10 @@ type Launcher struct {
 	procs map[string]*proc
 	modes map[string]domain.LimitMode
 	want  map[string]bool // Start was called and Stop was not since
+
+	// exitedHook, when set by a test, runs in a runner's wait goroutine
+	// right after Stop has been told that the runner exited.
+	exitedHook func(name string)
 }
 
 var _ app.Launcher = (*Launcher)(nil)
@@ -190,13 +194,18 @@ func environment(spec domain.UnitSpec) []string {
 func (l *Launcher) wait(name string, p *proc, sys *sysState) {
 	err := p.cmd.Wait()
 	sys.cleanup()
-	close(p.exited)
 	l.mu.Lock()
 	if l.procs[name] == p {
 		delete(l.procs, name)
 	}
 	restart := !p.stopping && err != nil
 	l.mu.Unlock()
+	// Tell Stop only once the runner is out of procs: Restart calls Start
+	// right after Stop, and Start must not find the old runner there.
+	close(p.exited)
+	if l.exitedHook != nil {
+		l.exitedHook(name)
+	}
 	if !restart {
 		return
 	}

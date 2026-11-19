@@ -3,6 +3,7 @@
 package process_test
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -190,6 +191,38 @@ func TestLauncher_RefusesUnsafeSpecAndRemovingRunningRunner(t *testing.T) {
 		t.Fatalf("Restart error = %v running = %v", err, l.Running("founder"))
 	}
 	started(t, out)
+}
+
+// Restart is Stop then Start. The hook holds the old runner's wait goroutine
+// at the moment Stop returns, so the Start always comes before the rest of
+// that goroutine: the launcher must already have let go of the old runner,
+// or Start finds it, does nothing and no new runner starts.
+func TestLauncher_RestartStartsANewRunnerWhileTheOldOneIsStillBeingReaped(t *testing.T) {
+	t.Parallel()
+	out := fifo(t)
+	l := &process.Launcher{Log: quiet}
+	first, release := make(chan struct{}, 1), make(chan struct{})
+	first <- struct{}{}
+	process.SetExitedHook(l, func(string) {
+		select {
+		case <-first: // hold only the first runner's goroutine
+			<-release
+		default:
+		}
+	})
+	if err := l.Install(t.Context(), spec(t, "serve", out)); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Start(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Stop(context.Background(), "founder") })
+	t.Cleanup(func() { close(release) })
+	started(t, out)
+	if err := l.Restart(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	started(t, out) // the new runner
 }
 
 func TestLauncher_ReportsSoftLimitsWithoutCgroup(t *testing.T) {

@@ -89,7 +89,12 @@ func (l *lifecycle) stop(ctx context.Context) {
 
 // serve runs the daemon until ctx ends.
 func serve(ctx context.Context, deps core.Deps) error {
-	l := &lifecycle{mods: modules(deps), log: deps.Log}
+	return serveModules(ctx, deps, modules(deps))
+}
+
+// serveModules serves mods until ctx ends. Tests pass modules built on fakes.
+func serveModules(ctx context.Context, deps core.Deps, mods []core.Module) error {
+	l := &lifecycle{mods: mods, log: deps.Log}
 	defer l.stop(context.WithoutCancel(ctx))
 	if err := l.start(ctx, deps.Ports); err != nil {
 		return err

@@ -648,6 +648,24 @@ expect_proof() {
   fi
 }
 
+# wait_for <seconds> <command...>: run the command once a second until it succeeds; fail with its
+# last output when the deadline passes. For state the stack reaches on its own, never to hide a
+# flaky answer.
+wait_for() {
+  local deadline=$((SECONDS + $1)) out
+  shift
+  until out="$("$@" 2>&1)"; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      printf '%s\n' "$out"
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+# seed_installed: GET /v1/setup through the web door says the Small Seed is installed.
+seed_installed() { curl -sS -m 10 "${DOOR}/v1/setup" | jq -ce '.seed_installed == true'; }
+
 # key_never_shown: the admin socket's provider list does not hold the provider key. Prints nothing
 # that could hold it.
 key_never_shown() {
@@ -715,14 +733,17 @@ stage_model_turn() {
   # The router leg: a human request through the web door, rated by the router's own model call
   # with the token the daemon mints for system:router.
   door || return 0
-  local seeded
-  seeded="$(curl -sS -m 10 "${DOOR}/v1/setup" | jq -r '.seed_installed')"
-  if [ "$seeded" != true ]; then
-    skip "model-turn: router leg" "no router agent: GET /v1/setup says seed_installed ${seeded:-unreadable}; the daemon does not wire the runner supervisor yet, so the Small Seed never installs"
-    return 0
-  fi
   if [ ! -s "$WORK/login.json" ]; then
     fail "model-turn: no first human; run the setup-page stage first"
+    return 0
+  fi
+  # The first human (the setup-page stage) makes the daemon install the Small Seed, router
+  # included, in the background. Wait for setup to say so.
+  local seed
+  if seed="$(wait_for 60 seed_installed)"; then
+    pass "the Small Seed is installed: the society has a router"
+  else
+    fail "the Small Seed is installed: the society has a router" "$seed"
     return 0
   fi
   if ! { calls="$(fake_calls)" && spent="$(budget_field spent_micros)" && proofs="$(proof_count system:router)"; }; then

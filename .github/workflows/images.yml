@@ -215,8 +215,10 @@ jobs:
         run: e2e/run.sh plugin-install
       - name: agentctl parity
         run: e2e/run.sh agentctl-parity
-      - name: Budget wall and defence slice
+      - name: Budget wall
         run: e2e/run.sh budget-wall
+      - name: Defence slice
+        run: e2e/run.sh defence-slice
       - name: Freeze all and release
         run: e2e/run.sh freeze-all
       - name: Control page

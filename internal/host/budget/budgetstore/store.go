@@ -13,8 +13,8 @@ import (
 	// Registers the "sqlite" database/sql driver.
 	_ "modernc.org/sqlite"
 
-	"github.com/SDK-E/agentsone/internal/host/budget"
 	"github.com/SDK-E/agentsone/internal/host/budget/budgetapp"
+	budget "github.com/SDK-E/agentsone/internal/host/budget/ledger"
 )
 
 const schema = `

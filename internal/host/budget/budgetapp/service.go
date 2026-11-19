@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SDK-E/agentsone/internal/host/budget"
+	budget "github.com/SDK-E/agentsone/internal/host/budget/ledger"
 )
 
 // DefaultFlushInterval is how often spending is written to the store.

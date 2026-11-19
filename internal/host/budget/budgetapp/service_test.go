@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SDK-E/agentsone/internal/host/budget"
 	"github.com/SDK-E/agentsone/internal/host/budget/budgetapp"
+	budget "github.com/SDK-E/agentsone/internal/host/budget/ledger"
 )
 
 const usd = budget.MicrosPerUSD

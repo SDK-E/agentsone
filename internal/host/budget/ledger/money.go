@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-package budget
+package ledger
 
 import (
 	"errors"

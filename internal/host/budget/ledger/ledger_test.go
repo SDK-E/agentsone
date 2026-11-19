@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-package budget_test
+package ledger_test
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/SDK-E/agentsone/internal/host/budget"
+	budget "github.com/SDK-E/agentsone/internal/host/budget/ledger"
 )
 
 const usd = budget.Micros(1_000_000)

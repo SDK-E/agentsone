@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/SDK-E/agentsone/internal/host/budget"
 	"github.com/SDK-E/agentsone/internal/host/budget/budgetapp"
 	"github.com/SDK-E/agentsone/internal/host/budget/budgetstore"
+	budget "github.com/SDK-E/agentsone/internal/host/budget/ledger"
 )
 
 func openStore(t *testing.T, path string) *budgetstore.Store {

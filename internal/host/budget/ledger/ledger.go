@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// Package budget is the host's money ledger for model calls.
+// Package ledger is the host's money ledger for model calls: the budget domain.
 //
 // Rules:
 //
@@ -17,7 +17,7 @@
 //
 // The Ledger is pure and not safe for concurrent use; the application layer
 // serialises access.
-package budget
+package ledger
 
 import (
 	"errors"

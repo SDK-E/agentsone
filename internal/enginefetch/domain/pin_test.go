@@ -106,8 +106,8 @@ func TestPinURL_PointsAtTheVersionAndPlatform(t *testing.T) {
 
 func TestBinaryPath_IsUnderTheEngineAndVersion(t *testing.T) {
 	t.Parallel()
-	want := "/var/lib/agentsone/engines/claude-code/2.1.328/claude"
-	if got := domain.BinaryPath("/var/lib/agentsone/engines", validPin()); got != want {
+	want := "/srv/engines/claude-code/2.1.328/claude"
+	if got := domain.BinaryPath("/srv/engines", validPin()); got != want {
 		t.Fatalf("BinaryPath() = %q, want %q", got, want)
 	}
 }

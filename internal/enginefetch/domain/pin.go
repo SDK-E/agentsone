@@ -99,7 +99,7 @@ func (p Pin) URL(a Artifact) string {
 }
 
 // BinaryPath is where the verified engine is installed under root, for
-// example /var/lib/agentsone/engines/claude-code/2.1.328/claude. The runner
+// example <root>/claude-code/2.1.328/claude. The runner
 // starts the engine from this path.
 func BinaryPath(root string, p Pin) string {
 	return filepath.Join(root, p.Engine, p.Version, "claude")

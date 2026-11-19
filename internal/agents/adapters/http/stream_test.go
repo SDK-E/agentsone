@@ -17,11 +17,12 @@ import (
 )
 
 type frame struct {
-	Kind      string `json:"kind"`
-	MessageID string `json:"message_id"`
-	Text      string `json:"text"`
-	State     string `json:"state"`
-	Message   struct {
+	Kind        string  `json:"kind"`
+	MessageID   string  `json:"message_id"`
+	Text        string  `json:"text"`
+	State       string  `json:"state"`
+	StateReason *string `json:"state_reason"`
+	Message     struct {
 		Text string `json:"text"`
 	} `json:"message"`
 }
@@ -131,6 +132,26 @@ func TestStreamAgentOutput_StreamsOutputAndStateChanges(t *testing.T) {
 	}
 	if f := next(); f.Kind != "state" || f.State != "frozen" {
 		t.Fatalf("frame %+v, want state frozen", f)
+	}
+}
+
+func TestStreamAgentOutput_StateFrameSaysWhyTheAgentFailed(t *testing.T) {
+	t.Parallel()
+	s := newServer(t)
+	next := s.openStream("/v1/agents/dev/output")
+	s.waitSubscribed(next)
+
+	if err := s.society.RunnerFailed(context.Background(), "dev", "The model gateway is not reachable."); err != nil {
+		t.Fatal(err)
+	}
+	if f := next(); f.Kind != "state" || f.State != "failed" || f.StateReason == nil || *f.StateReason != "The model gateway is not reachable." {
+		t.Fatalf("frame %+v, want state failed with the reason", f)
+	}
+	if err := s.society.RunnerRunning(context.Background(), "dev"); err != nil {
+		t.Fatal(err)
+	}
+	if f := next(); f.Kind != "state" || f.State != "awake" || f.StateReason != nil {
+		t.Fatalf("frame %+v, want state awake without a reason", f)
 	}
 }
 

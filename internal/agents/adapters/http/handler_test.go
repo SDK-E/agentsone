@@ -140,7 +140,8 @@ type agentDTO struct {
 	OneLine *struct {
 		Text string `json:"text"`
 	} `json:"one_line"`
-	State string `json:"state"`
+	State       string  `json:"state"`
+	StateReason *string `json:"state_reason"`
 }
 
 type page[T any] struct {
@@ -200,6 +201,33 @@ func TestGetAgent_ShowsTeamUnitLimitsAndOneLine(t *testing.T) {
 	}
 	if founder.Manager != nil || founder.Limits != nil || founder.OneLine != nil || founder.Team != "founder" {
 		t.Errorf("founder = %+v, want no manager, no limits, no one-line", founder)
+	}
+}
+
+// A runner without the model gateway shows on the agent as failed, with
+// the reason in plain words, until it runs again.
+func TestGetAgent_ShowsWhyTheAgentFailedUntilItRunsAgain(t *testing.T) {
+	t.Parallel()
+	s := newServer(t)
+	if err := s.society.RunnerFailed(context.Background(), "dev", "The model gateway is not reachable."); err != nil {
+		t.Fatal(err)
+	}
+
+	dev := decode[agentDTO](t, s.do("human:ada", http.MethodGet, "/v1/agents/dev", ""))
+	if dev.State != "failed" || dev.StateReason == nil || *dev.StateReason != "The model gateway is not reachable." {
+		t.Fatalf("dev = %+v, want failed because the model gateway is not reachable", dev)
+	}
+	list := decode[page[agentDTO]](t, s.do("human:ada", http.MethodGet, "/v1/agents?state=failed", ""))
+	if len(list.Items) != 1 || list.Items[0].StateReason == nil {
+		t.Fatalf("failed agents = %+v", list.Items)
+	}
+
+	if err := s.society.RunnerRunning(context.Background(), "dev"); err != nil {
+		t.Fatal(err)
+	}
+	dev = decode[agentDTO](t, s.do("human:ada", http.MethodGet, "/v1/agents/dev", ""))
+	if dev.State == "failed" || dev.StateReason != nil {
+		t.Fatalf("dev after the runner runs again = %+v, want no failure", dev)
 	}
 }
 

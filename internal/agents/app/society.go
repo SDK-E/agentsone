@@ -49,12 +49,14 @@ type Society struct {
 	mu sync.Mutex
 	// replies holds agent replies being written, by turn id.
 	replies map[string]*reply
+	// failed holds why each agent's runner cannot run, by agent name.
+	failed map[string]string
 }
 
 // New returns the society over repo. Ports is read when used, so modules
 // may fill it after New.
 func New(repo domain.Repository, rt Runtime, ports *core.Ports, clock core.Clock, ids core.IDs) *Society {
-	return &Society{repo: repo, rt: rt, ports: ports, clock: clock, ids: ids, hub: NewHub(), replies: map[string]*reply{}}
+	return &Society{repo: repo, rt: rt, ports: ports, clock: clock, ids: ids, hub: NewHub(), replies: map[string]*reply{}, failed: map[string]string{}}
 }
 
 // Hub returns the society's stream hub.
@@ -346,11 +348,21 @@ func (s *Society) Move(ctx context.Context, target, newManager string) error {
 
 // Get returns one agent. Every caller may read the society.
 func (s *Society) Get(ctx context.Context, name string) (domain.Agent, error) {
-	return s.repo.GetAgent(ctx, name)
+	a, err := s.repo.GetAgent(ctx, name)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+	return s.withRunState(a), nil
 }
 
 // Chart returns the org chart. Every caller may read it.
-func (s *Society) Chart(ctx context.Context) (domain.Chart, error) { return s.chart(ctx) }
+func (s *Society) Chart(ctx context.Context) (domain.Chart, error) {
+	c, err := s.chart(ctx)
+	if err != nil {
+		return domain.Chart{}, err
+	}
+	return s.withRunStates(c), nil
+}
 
 // ListFilter selects agents. Empty fields match everything; retired agents
 // are left out unless State asks for them.
@@ -380,7 +392,7 @@ func (f ListFilter) match(chart domain.Chart, a domain.Agent) bool {
 
 // List returns matching agents sorted by name.
 func (s *Society) List(ctx context.Context, f ListFilter) ([]domain.Agent, error) {
-	chart, err := s.chart(ctx)
+	chart, err := s.Chart(ctx)
 	if err != nil {
 		return nil, err
 	}

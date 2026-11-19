@@ -32,6 +32,9 @@ func toAgent(a domain.Agent, team string, line *core.LiveLine) api.Agent {
 		State: api.AgentState(a.State), Uid: max(0, a.UID), Home: a.Home, Unit: a.Unit(),
 		Template: optional(a.Template), CreatedAt: api.Timestamp(a.CreatedAt), CreatedBy: a.CreatedBy, LastTurnAt: optionalTime(a.LastTurnAt),
 	}
+	if a.State == domain.StateFailed {
+		out.StateReason = optional(a.StateReason)
+	}
 	if a.Limits != nil {
 		out.Limits = &api.AgentLimits{CpuPercent: a.Limits.CPUPercent, MemoryMb: a.Limits.MemoryMB, Tasks: a.Limits.Tasks, Wall: api.WallSoft}
 	}
@@ -188,7 +191,7 @@ func outputFrame(f app.OutputFrame) api.OutputFrame {
 }
 
 func stateFrame(f app.StateFrame) api.StateFrame {
-	return api.StateFrame{Kind: api.StateFrameKindState, Agent: f.Agent, State: api.AgentState(f.State), Time: api.Timestamp(f.Time)}
+	return api.StateFrame{Kind: api.StateFrameKindState, Agent: f.Agent, State: api.AgentState(f.State), Time: api.Timestamp(f.Time), StateReason: optional(f.Reason)}
 }
 
 func heartbeat(t time.Time) api.Heartbeat {

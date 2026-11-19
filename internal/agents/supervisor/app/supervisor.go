@@ -230,6 +230,7 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 			r.pending = nil
 			s.mu.Unlock()
 			s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+			s.runnerFailed(ctx, name, gatewayReason(err))
 			return fmt.Errorf("wake %s: %w", name, err)
 		}
 		if err := s.d.Launcher.Start(ctx, name); err != nil {
@@ -237,6 +238,7 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 			r.session.Fail()
 			r.pending = nil
 			s.mu.Unlock()
+			s.runnerFailed(ctx, name, ReasonStartFailed)
 			return fmt.Errorf("wake %s: start: %w", name, err)
 		}
 		return nil

@@ -292,6 +292,90 @@ func TestWake_GatewayNotReachableDoesNotStartTheRunner(t *testing.T) {
 	}
 }
 
+// The society hears why a runner cannot run, in plain words without the
+// error's detail, and hears when it runs again.
+func TestWake_TellsTheSocietyWhyTheRunnerCannotRunAndWhenItRunsAgain(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: the gateway key file is missing (/var/lib/agentsone/gateway.key): %w", core.ErrUnavailable)
+	_ = w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`))
+
+	if diff := cmp.Diff([]string{"failed mira: The model gateway is not reachable."}, w.sink.heard()); diff != "" {
+		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+
+	w.fakes.GatewayTokens.Err = nil
+	if err := w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	w.connect(t, "mira")
+	if diff := cmp.Diff([]string{"failed mira: The model gateway is not reachable.", "running mira"}, w.sink.heard()); diff != "" {
+		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+}
+
+func TestWake_ReasonForEachWayARunnerCannotRun(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		setup func(w *world)
+		want  string
+	}{
+		"start fails": {func(w *world) {
+			w.launcher.startErr = errors.New("exec /usr/lib/agentsone/runners/echo: permission denied")
+		}, "The runner could not be started."},
+		"chart loops": {func(w *world) {
+			w.fakes.Agents.Add(core.Agent{Name: "mira", Kind: core.AgentChat, Manager: "mira", Runner: "echo", UID: 200001})
+		}, "The chart loops above this agent, so it cannot reach the model gateway."},
+		"gateway answers oddly": {func(w *world) {
+			w.fakes.GatewayTokens.Err = errors.New("sign: bad curve")
+		}, "The model gateway token could not be issued."},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			w := newWorld(t)
+			tt.setup(w)
+			_ = w.sup.Wake(t.Context(), "mira", core.WakeChat, nil)
+			if diff := cmp.Diff([]string{"failed mira: " + tt.want}, w.sink.heard()); diff != "" {
+				t.Fatalf("society heard (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// A runner that restarted on its own while the gateway went away gets no
+// welcome, and the society hears why.
+func TestHello_GatewayNotReachableTellsTheSociety(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	_ = w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`))
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: %w", core.ErrUnavailable)
+	h := w.sup.Connect("mira")
+	h.Attach(newFakeConn())
+
+	if _, err := h.Hello(t.Context(), "1.0", helloParams); !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("Hello() error = %v, want ErrUnavailable", err)
+	}
+	if diff := cmp.Diff([]string{"failed mira: The model gateway is not reachable."}, w.sink.heard()); diff != "" {
+		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+}
+
+// A runner that reports state error has stopped with an error.
+func TestStatus_ErrorStateTellsTheSociety(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	h, _, turn := startTurn(t, w, "founder")
+	// The end of a turn is not the runner running again.
+	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle", TurnID: &turn}); err != nil {
+		t.Fatal(err)
+	}
+	_ = h.Status(t.Context(), protocol.StatusParams{State: "error"})
+	if diff := cmp.Diff([]string{"running founder", "failed founder: The runner stopped with an error."}, w.sink.heard()); diff != "" {
+		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+}
+
 // A chart with a manager loop gets no token instead of a hang.
 func TestWake_ChartLoopGetsNoGatewayToken(t *testing.T) {
 	t.Parallel()

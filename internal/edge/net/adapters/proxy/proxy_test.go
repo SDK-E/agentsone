@@ -138,8 +138,8 @@ func (d *fakeDialer) Dial(ctx context.Context, network, addr string) (net.Conn, 
 	if !ok {
 		return nil, errors.New("fake internet: no such host")
 	}
-	var nd net.Dialer
-	return nd.DialContext(ctx, network, target)
+	var dialer net.Dialer
+	return dialer.DialContext(ctx, network, target)
 }
 
 func (d *fakeDialer) Dialed() []string {

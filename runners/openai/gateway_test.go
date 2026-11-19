@@ -22,7 +22,7 @@ func discard(string) error { return nil }
 // TestGatewayStreamsText checks the request headers and body, the streamed
 // deltas and the usage block (TESTING.md C1).
 func TestGatewayStreamsText(t *testing.T) {
-	gw := newGateway(t, func(gwRequest) reply { return reply{Text: []string{"Hel", "lo"}, Cached: 3} })
+	gw := newGateway(t, func(gwRequest) reply { return reply{Text: []string{"Good", " day"}, Cached: 3} })
 	var deltas []string
 	comp, err := newClient(gw.URL()).Complete(context.Background(),
 		openai.ChatRequest{Weight: "deep", Messages: []openai.Message{{Role: "user", Content: "hi"}}},
@@ -30,7 +30,7 @@ func TestGatewayStreamsText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Complete: %v", err)
 	}
-	if got := strings.Join(deltas, "|"); got != "Hel|lo" || comp.Content != "Hello" {
+	if got := strings.Join(deltas, "|"); got != "Good| day" || comp.Content != "Good day" {
 		t.Fatalf("deltas %q content %q", got, comp.Content)
 	}
 	if comp.Usage.PromptTokens != 11 || comp.Usage.CompletionTokens != 7 || comp.Usage.PromptTokensDetails.CachedTokens != 3 || comp.Model != "autoagents/one-actual" {

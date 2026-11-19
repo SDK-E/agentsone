@@ -16,6 +16,9 @@ mkosi = "mkosi"
 vfkit = "vfkit"
 # Theme id prefix in the API contract (`thm_` plus a ULID).
 thm = "thm"
+# EDE is Extended DNS Errors (RFC 8914), the DNS option that carries the
+# "blocked" reason; the miekg/dns type is named dns.EDNS0_EDE.
+ede = "ede"
 
 [files]
 extend-exclude = ["pnpm-lock.yaml", "go.sum", "contract/fixtures/**", ".claude/**"]

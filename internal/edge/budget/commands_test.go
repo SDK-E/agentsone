@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/edge/budget"
-	"github.com/SDK-E/agentsone/internal/host/hostenv"
+	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 )
 
 func run(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	env := &hostenv.Env{Out: &out, Err: &errOut, Log: slog.New(slog.DiscardHandler), DataDir: dir}
+	env := &edgeenv.Env{Out: &out, Err: &errOut, Log: slog.New(slog.DiscardHandler), DataDir: dir}
 	cmds := budget.Commands(env)
 	if len(cmds) != 1 || cmds[0].Name() != "budget" {
 		t.Fatalf("commands = %v", cmds)

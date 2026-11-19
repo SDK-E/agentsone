@@ -164,7 +164,9 @@ func TestBadFilesAreRefused(t *testing.T) {
 
 func TestServerSection(t *testing.T) {
 	d := gatewayconfig.Default().Server
-	if d.Listen != ":4000" || d.AdminSocket != "" || d.AdminGID != -1 {
+	// No default address: ":4000" would bind every interface, the outer
+	// network too. The stack sets <inner-addr>:4000.
+	if d.Listen != "" || d.AdminSocket != "" || d.AdminGID != -1 {
 		t.Fatalf("default server = %+v", d)
 	}
 	if got := d.AdminSocketPath("/var/lib/agentsone-edge"); got != "/var/lib/agentsone-edge/admin.sock" {
@@ -186,7 +188,7 @@ func TestServerSection(t *testing.T) {
 	if err := os.WriteFile(path, []byte("[limits]\nmax_attempts = 2\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if f, err := gatewayconfig.Load(path); err != nil || f.Server.Listen != ":4000" {
+	if f, err := gatewayconfig.Load(path); err != nil || f.Server.Listen != "" {
 		t.Fatalf("server without section = %+v, %v", f.Server, err)
 	}
 	for _, bad := range []string{"listen = \"nope\"", "listen = \"host:99999\"", "admin_socket = \"relative.sock\"", "admin_gid = -2"} {

@@ -16,11 +16,11 @@ import (
 	budgetstore "github.com/SDK-E/agentsone/internal/edge/budget/adapters/sqlite"
 	budgetapp "github.com/SDK-E/agentsone/internal/edge/budget/app"
 	ledger "github.com/SDK-E/agentsone/internal/edge/budget/domain"
-	"github.com/SDK-E/agentsone/internal/host/hostenv"
+	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 )
 
 // Commands returns the budget commands.
-func Commands(env *hostenv.Env) []*cobra.Command {
+func Commands(env *edgeenv.Env) []*cobra.Command {
 	root := &cobra.Command{
 		Use:   "budget",
 		Short: "Show and set the total budget and the defence slice",
@@ -66,7 +66,7 @@ func Commands(env *hostenv.Env) []*cobra.Command {
 	return []*cobra.Command{root}
 }
 
-func defenceCommand(env *hostenv.Env) *cobra.Command {
+func defenceCommand(env *edgeenv.Env) *cobra.Command {
 	d := &cobra.Command{
 		Use:   "defence on|off|share <pct>",
 		Short: "Switch the defence slice on or off, or set its share of the total",
@@ -106,7 +106,7 @@ func defenceCommand(env *hostenv.Env) *cobra.Command {
 	return d
 }
 
-func withService(ctx context.Context, env *hostenv.Env, fn func(*budgetapp.Service) error) (err error) {
+func withService(ctx context.Context, env *edgeenv.Env, fn func(*budgetapp.Service) error) (err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 	gatewayconfig "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/config"
-	"github.com/SDK-E/agentsone/internal/host/hostenv"
 )
 
 // fakeAdmin stands in for the admin socket client.
@@ -68,7 +68,7 @@ func newFake(keys map[string]string) *fakeAdmin {
 func runCmd(t *testing.T, dir string, a *fakeAdmin, stdin string, args ...string) (string, error) {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	env := &hostenv.Env{Out: &out, Err: &errOut, Log: slog.New(slog.DiscardHandler), DataDir: dir}
+	env := &edgeenv.Env{Out: &out, Err: &errOut, Log: slog.New(slog.DiscardHandler), DataDir: dir}
 	d := deps{
 		admin:    func(sock string) keyClient { a.socket = sock; return a },
 		stdin:    strings.NewReader(stdin),
@@ -178,6 +178,10 @@ func TestServeRefusesBadListen(t *testing.T) {
 	if _, err := runCmd(t, t.TempDir(), newFake(nil), "", "serve", "--listen", "nonsense"); err == nil {
 		t.Fatal("serve --listen nonsense succeeded")
 	}
+	// No address configured: refuse instead of binding every interface.
+	if _, err := runCmd(t, t.TempDir(), newFake(nil), "", "serve"); err == nil || !strings.Contains(err.Error(), "inner-addr") {
+		t.Fatalf("serve without an address error = %v", err)
+	}
 }
 
 func TestServeStopsWithItsContext(t *testing.T) {
@@ -188,7 +192,7 @@ func TestServeStopsWithItsContext(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	var out bytes.Buffer
-	env := &hostenv.Env{Out: &out, Err: &out, Log: slog.New(slog.DiscardHandler), DataDir: dir}
+	env := &edgeenv.Env{Out: &out, Err: &out, Log: slog.New(slog.DiscardHandler), DataDir: dir}
 	c := Commands(env)[0]
 	c.SetArgs([]string{"serve", "--listen", "127.0.0.1:0"})
 	ctx, cancel := context.WithCancel(context.Background())

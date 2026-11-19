@@ -19,9 +19,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/admin"
 	gatewayconfig "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/config"
-	"github.com/SDK-E/agentsone/internal/host/hostenv"
 )
 
 // keyClient is what the commands need from the admin socket.
@@ -39,7 +39,7 @@ type deps struct {
 }
 
 // Commands returns the gateway commands.
-func Commands(env *hostenv.Env) []*cobra.Command {
+func Commands(env *edgeenv.Env) []*cobra.Command {
 	return commands(env, deps{
 		admin:    func(socket string) keyClient { return admin.NewClient(socket) },
 		stdin:    os.Stdin,
@@ -47,7 +47,7 @@ func Commands(env *hostenv.Env) []*cobra.Command {
 	})
 }
 
-func commands(env *hostenv.Env, d deps) []*cobra.Command {
+func commands(env *edgeenv.Env, d deps) []*cobra.Command {
 	root := &cobra.Command{
 		Use:   "gateway",
 		Short: "Manage model providers and the model gateway",
@@ -126,7 +126,7 @@ func commands(env *hostenv.Env, d deps) []*cobra.Command {
 	return []*cobra.Command{root}
 }
 
-func configPath(env *hostenv.Env) string { return filepath.Join(env.DataDir, gatewayconfig.FileName) }
+func configPath(env *edgeenv.Env) string { return filepath.Join(env.DataDir, gatewayconfig.FileName) }
 
 func ctxOf(cmd *cobra.Command) context.Context {
 	if ctx := cmd.Context(); ctx != nil {
@@ -149,7 +149,7 @@ func keysOf(cmd *cobra.Command, d deps, socketOf func() (string, error)) map[str
 	return keys
 }
 
-func listProviders(cmd *cobra.Command, env *hostenv.Env, keys map[string]bool) error {
+func listProviders(cmd *cobra.Command, env *edgeenv.Env, keys map[string]bool) error {
 	f, err := gatewayconfig.Load(configPath(env))
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func yesNo(b bool) string {
 	return "no"
 }
 
-func enableCommand(env *hostenv.Env, d deps, socketOf func() (string, error), on bool) *cobra.Command {
+func enableCommand(env *edgeenv.Env, d deps, socketOf func() (string, error), on bool) *cobra.Command {
 	verb, done := "enable", "enabled"
 	if !on {
 		verb, done = "disable", "disabled"
@@ -258,7 +258,7 @@ func setKey(cmd *cobra.Command, d deps, socketOf func() (string, error), provide
 	return err
 }
 
-func serveCommand(env *hostenv.Env) *cobra.Command {
+func serveCommand(env *edgeenv.Env) *cobra.Command {
 	var listen string
 	c := &cobra.Command{
 		Use:   "serve",
@@ -278,6 +278,10 @@ func serveCommand(env *hostenv.Env) *cobra.Command {
 			addr := listen
 			if addr == "" {
 				addr = srv.ListenAddr()
+			}
+			if addr == "" {
+				return errors.Join(errors.New("gateway: no listen address: set [server] listen in gateway.toml "+
+					"or --listen to <inner-addr>:4000"), srv.Close())
 			}
 			if _, _, err := net.SplitHostPort(addr); err != nil {
 				return errors.Join(fmt.Errorf("gateway: --listen: %w", err), srv.Close())

@@ -290,7 +290,7 @@ func TestCountTokensWorksWithNoBudget(t *testing.T) {
 
 func TestKeySetThroughAdminSocketIsUsedByCalls(t *testing.T) {
 	srv, _, now := setup(t, 10*ledger.MicrosPerUSD)
-	if srv.ListenAddr() != ":4000" {
+	if srv.ListenAddr() != "" {
 		t.Fatalf("listen addr = %q", srv.ListenAddr())
 	}
 	sockDir, err := os.MkdirTemp("", "ao-gw")

@@ -72,7 +72,7 @@ const AdminSocketName = "admin.sock"
 
 // Server says where the gateway and its admin socket listen.
 type Server struct {
-	Listen      string `toml:"listen,omitempty" comment:"Gateway address on the machine-side inner network, host:port."`
+	Listen      string `toml:"listen,omitempty" comment:"Gateway address on the machine-side inner network only, <inner-addr>:4000. Required."`
 	AdminSocket string `toml:"admin_socket,omitempty" comment:"Absolute path of the admin socket; empty means admin.sock in the data folder."`
 	AdminGID    int    `toml:"admin_gid" comment:"Group id shared by the edge and control containers; the socket is mode 0660 in it. -1 keeps the edge's own group."`
 }
@@ -86,6 +86,9 @@ func (s Server) AdminSocketPath(dataDir string) string {
 }
 
 func (s Server) validate() error {
+	if s.Listen == "" {
+		return s.validateAdmin()
+	}
 	_, port, err := net.SplitHostPort(s.Listen)
 	if err != nil {
 		return fmt.Errorf("server: listen %q must be host:port: %w", s.Listen, err)
@@ -93,6 +96,10 @@ func (s Server) validate() error {
 	if n, err := strconv.Atoi(port); err != nil || n < 0 || n > 65535 {
 		return fmt.Errorf("server: listen %q has a bad port", s.Listen)
 	}
+	return s.validateAdmin()
+}
+
+func (s Server) validateAdmin() error {
 	if s.AdminSocket != "" && !filepath.IsAbs(s.AdminSocket) {
 		return fmt.Errorf("server: admin_socket %q must be an absolute path", s.AdminSocket)
 	}
@@ -112,7 +119,7 @@ type File struct {
 // Default returns the built-in config.
 func Default() File {
 	return File{
-		Server: Server{Listen: ":4000", AdminGID: -1},
+		Server: Server{AdminGID: -1},
 		Limits: Limits{
 			DefaultMaxOutputTokens: 4096,
 			MaxOutputTokensCap:     32768,

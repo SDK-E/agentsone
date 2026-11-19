@@ -1,0 +1,50 @@
+{
+  "status": 200,
+  "body": [
+    {
+      "kind": "state",
+      "agent": "builder",
+      "state": "working",
+      "time": "2026-11-19T18:41:00Z"
+    },
+    {
+      "kind": "output",
+      "agent": "builder",
+      "stream": "tool",
+      "text": "write_file docs/budget-walls.md",
+      "time": "2026-11-19T18:41:04Z"
+    },
+    {
+      "kind": "output",
+      "agent": "builder",
+      "stream": "text",
+      "text": "Drafted the layout for the budget walls page.",
+      "time": "2026-11-19T18:41:09Z"
+    },
+    {
+      "kind": "one_line",
+      "agent": "builder",
+      "one_line": {
+        "text": "Goal: ship the docs site. Now: drafted the budget walls page, asking scribe for copy.",
+        "updated_at": "2026-11-19T18:41:10Z"
+      }
+    },
+    {
+      "kind": "heartbeat",
+      "time": "2026-11-19T18:41:15Z"
+    },
+    {
+      "kind": "output",
+      "agent": "builder",
+      "stream": "error",
+      "text": "scribe did not answer within 30 seconds; retrying",
+      "time": "2026-11-19T18:41:40Z"
+    },
+    {
+      "kind": "state",
+      "agent": "builder",
+      "state": "sleeping",
+      "time": "2026-11-19T18:42:05Z"
+    }
+  ]
+}

@@ -48,7 +48,7 @@ func Mount(m core.Module) *http.ServeMux {
 }
 
 func writeBadRequest(w http.ResponseWriter, r *http.Request, err error) {
-	core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "invalid", err.Error()))
+	core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
 }
 
 // AssertEveryTagAnswersNotImplemented fails t unless, for every tag m owns,

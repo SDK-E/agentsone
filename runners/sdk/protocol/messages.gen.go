@@ -6,7 +6,6 @@ package protocol
 
 import common "github.com/SDK-E/agentsone/internal/contract/common"
 import event "github.com/SDK-E/agentsone/internal/contract/event"
-import "time"
 
 // Empty result that only confirms the request was accepted.
 type Ack map[string]interface{}
@@ -534,7 +533,7 @@ type ScopedToken string
 
 type SessionState struct {
 	// CompactedAt corresponds to the JSON schema field "compactedAt".
-	CompactedAt *time.Time `json:"compactedAt"`
+	CompactedAt *common.Timestamp `json:"compactedAt"`
 
 	// Turn paused for budget before this runner process started, or null. A runner
 	// without resume capability treats it as finished.

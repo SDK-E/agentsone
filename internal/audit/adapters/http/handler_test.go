@@ -33,7 +33,7 @@ func serve(t *testing.T, entries int) http.Handler {
 	mux := http.NewServeMux()
 	auditapi.Group(httpadapter.New(log)).Register(mux, core.APIOptions{
 		RequestError: func(w http.ResponseWriter, r *http.Request, err error) {
-			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "invalid", err.Error()))
+			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
 		},
 		ResponseError: core.WriteError,
 	})

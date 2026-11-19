@@ -8,7 +8,7 @@ Thank you for helping. This page is the short version. Fuller guides will live i
 contract/                 schemas, OpenAPI, fixtures
 cmd/                      agentsoned, agentctl, agentsone
 internal/                 daemon packages (api, auth, core, store, agents, bus, ...)
-internal/host/            host packages (vm, net, gateway, budget, audit, door, control)
+internal/edge/            edge packages (net, gateway, budget, audit, door, control)
 runners/                  sdk, echo, openai, claude
 packages/contract-ts/     generated TypeScript types
 ui/                       shell, theme system, home, panels, panel plugin host

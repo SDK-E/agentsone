@@ -19,12 +19,20 @@ const (
 	PhaseReady          = "ready"
 )
 
-// Engine fetch states used here, with the contract's values.
+// Engine fetch states, with the contract's values.
 const (
 	FetchWaitingLicence = "waiting-licence"
 	FetchQueued         = "queued"
+	FetchDownloading    = "downloading"
+	FetchVerifying      = "verifying"
 	FetchReady          = "ready"
+	FetchFailed         = "failed"
 )
+
+var fetchStates = map[string]bool{
+	FetchWaitingLicence: true, FetchQueued: true, FetchDownloading: true,
+	FetchVerifying: true, FetchReady: true, FetchFailed: true,
+}
 
 // SetupStatus is where first boot stands.
 type SetupStatus struct {

@@ -32,6 +32,8 @@ type Ports struct {
 	Seed      SeedStatus      // owned by internal/agents
 	// GatewayTokens is owned by internal/gatewaymint.
 	GatewayTokens GatewayTokens
+	// EngineSetup is owned by internal/auth.
+	EngineSetup EngineSetup
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -42,6 +44,7 @@ func NewPorts() *Ports {
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
 		Profiles: u, Chat: u, Startup: u, Seed: u, GatewayTokens: u,
+		EngineSetup: u,
 	}
 }
 
@@ -250,6 +253,32 @@ type TokenIssuer interface {
 	Verify(ctx context.Context, value string) (Caller, error)
 }
 
+// EngineFetchStatus is where the engine download stands, as the fetcher
+// reports it.
+type EngineFetchStatus struct {
+	// State is a contract EngineFetchState value, for example "downloading".
+	State      string
+	BytesDone  int64
+	BytesTotal int64 // 0 when unknown
+	Version    string
+	// Error is plain words for a human, set only when State is "failed".
+	Error     string
+	UpdatedAt time.Time
+}
+
+// EngineSetup is the first-boot engine step: the licence a human must
+// accept before the engine is downloaded, and the download status shown
+// during setup.
+type EngineSetup interface {
+	// LicenceAccepted reports whether a human accepted the current
+	// version of the engine licence. Acceptance of an older version does
+	// not count.
+	LicenceAccepted(ctx context.Context) (bool, error)
+	// SaveFetchStatus records the download status. An unknown State is
+	// ErrInvalid.
+	SaveFetchStatus(ctx context.Context, s EngineFetchStatus) error
+}
+
 // TemplateCatalog lists installed agent templates.
 type TemplateCatalog interface {
 	List(ctx context.Context) ([]AgentTemplate, error)
@@ -407,3 +436,6 @@ func (unavailable) PostChat(context.Context, string, string, string) (string, er
 	return "", ErrUnavailable
 }
 func (unavailable) SeedInstalled(context.Context) (bool, error) { return false, ErrUnavailable }
+
+func (unavailable) LicenceAccepted(context.Context) (bool, error)            { return false, ErrUnavailable }
+func (unavailable) SaveFetchStatus(context.Context, EngineFetchStatus) error { return ErrUnavailable }

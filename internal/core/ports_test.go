@@ -99,6 +99,8 @@ func TestNewPortsUnavailable(t *testing.T) {
 			_, err := p.GatewayTokens.Mint(ctx, core.GatewayGrant{Subject: "system:router"})
 			return err
 		},
+		"LicenceAccepted": func() error { _, err := p.EngineSetup.LicenceAccepted(ctx); return err },
+		"SaveFetchStatus": func() error { return p.EngineSetup.SaveFetchStatus(ctx, core.EngineFetchStatus{}) },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

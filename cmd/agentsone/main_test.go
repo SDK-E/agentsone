@@ -17,11 +17,19 @@ func testEnv(errOut *bytes.Buffer) *edgeenv.Env {
 
 func TestRootRegistersEveryEdgeCommand(t *testing.T) {
 	root := newRoot(testEnv(&bytes.Buffer{}))
-	for _, name := range []string{"edge", "control", "net", "gateway", "budget", "audit", "door"} {
+	for _, name := range []string{"edge", "control", "net", "gateway", "budget", "audit"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil || cmd.Name() != name {
 			t.Errorf("%s not registered: %v", name, err)
 		}
+	}
+}
+
+// The web door is a part of `agentsone edge`, opened by --door-addr; there is nothing to run apart.
+func TestRootHasNoDoorCommand(t *testing.T) {
+	root := newRoot(testEnv(&bytes.Buffer{}))
+	if cmd, _, err := root.Find([]string{"door"}); err == nil && cmd.Name() == "door" {
+		t.Fatal("door is registered as a command")
 	}
 }
 
@@ -42,8 +50,8 @@ func TestEdgeRefusesToStartWithoutItsInnerAddress(t *testing.T) {
 	}
 }
 
-func TestControlAndDoorAreNotBuiltYet(t *testing.T) {
-	for _, name := range []string{"control", "door"} {
+func TestControlIsNotBuiltYet(t *testing.T) {
+	for _, name := range []string{"control"} {
 		var errOut bytes.Buffer
 		root := newRoot(testEnv(&errOut))
 		root.SetArgs([]string{name})

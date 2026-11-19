@@ -4,9 +4,10 @@
 # Entrypoint of the Agents One machine container. Runs on every start, under
 # tini, before the daemon:
 #
-#   1. writes /etc/agentsone/config.toml: the image template, plus the edge
-#      address as the daemon's only trusted proxy when compose sets
-#      AGENTSONE_EDGE_IP (one IPv4 or IPv6 address);
+#   1. writes /etc/agentsone/config.toml: the image template, plus, when
+#      compose sets AGENTSONE_EDGE_IP (one IPv4 or IPv6 address), the edge
+#      address as the daemon's only trusted proxy and the edge audit sink
+#      (port 7710) every audit record is shipped to;
 #   2. makes sure the volume folders exist and belong to root, and that
 #      /home/shared (where agents hand files to each other) is open to all,
 #      with the sticky bit so nobody removes another agent's files;
@@ -73,6 +74,9 @@ mkdir -p "$(dirname "$config")"
 cp "$template" "$config.new"
 if [ -n "$edge_ip" ]; then
     printf '\n[edge]\n# The web door in edge, from AGENTSONE_EDGE_IP.\ntrusted_proxies = ["%s"]\n' "$edge_ip" >>"$config.new"
+    sink_host=$edge_ip
+    case "$edge_ip" in *:*) sink_host="[$edge_ip]" ;; esac
+    printf '\n[audit]\n# The edge audit sink, from AGENTSONE_EDGE_IP: every record is shipped there as written.\nedge_sink = "http://%s:7710"\n' "$sink_host" >>"$config.new"
 fi
 chown root:root "$config.new"
 chmod 0644 "$config.new"

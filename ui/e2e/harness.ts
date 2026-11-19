@@ -63,9 +63,16 @@ export async function useScenario(page: Page, scenario: Scenario): Promise<() =>
     const url = new URL(request.url());
     const operation = operationOf(request.method(), url.pathname);
     const wanted = operation ? (scenario.only?.[operation] ?? scenario.all ?? "") : "";
-    if (operation && wanted === "error" && scenario.only?.[operation] === "error") {
-      // The query form is strict: with no error fixture the fake daemon answers 404.
-      url.searchParams.set("fixture", "error");
+    const forcedError = wanted === "error" && scenario.only?.[operation ?? ""] === "error";
+    // A stream with no fixture for this scenario (say "empty") must not replay the default
+    // frames into it; refuse it so the interface falls back to polling the scenario's list.
+    // An error scenario turns streams off too, so live frames do not paper over the error.
+    const anyError = Object.values(scenario.only ?? {}).includes("error");
+    const isStream = operation?.startsWith("stream") === true;
+    const streamOff = isStream && (anyError || (wanted !== "" && !hasFixture(operation, wanted)));
+    if (operation && (forcedError || streamOff)) {
+      // The query form is strict: with no such fixture the fake daemon answers 404.
+      url.searchParams.set("fixture", wanted === "" ? "error" : wanted);
       expectedFailures.add(url.pathname);
       await route.continue({ url: url.href });
       return;

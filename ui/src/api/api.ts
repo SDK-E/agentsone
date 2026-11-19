@@ -17,6 +17,7 @@ export type Human = S["Human"];
 export type Principal = S["Principal"];
 export type EngineLicence = S["EngineLicence"];
 export type EngineFetchStatus = S["EngineFetchStatus"];
+export type Agent = S["Agent"];
 export type LiveEntry = S["LiveEntry"];
 export type LiveStreamFrame = S["LiveStreamFrame"];
 export type Assignment = S["Assignment"];
@@ -110,6 +111,7 @@ export interface Api {
   getMe(): Promise<Principal>;
   listLiveList(): Promise<LiveEntry[]>;
   streamLiveList(handlers: StreamHandlers<LiveStreamFrame>): Unsubscribe;
+  getAgent(agent: string): Promise<Agent>;
   getChart(): Promise<ChartNode[]>;
   routeRequest(text: string): Promise<Assignment>;
   listChatMessages(agent: string): Promise<ChatMessage[]>;
@@ -228,6 +230,8 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
     getMe: async () => unwrap(await client.GET("/session/me")),
     listLiveList: async () => unwrap(await client.GET("/router/live", {})).items,
     streamLiveList: (handlers) => stream("/router/live/stream", handlers),
+    getAgent: async (agent) =>
+      unwrap(await client.GET("/agents/{agent_name}", { params: { path: { agent_name: agent } } })),
     getChart: async () => unwrap(await client.GET("/chart", {})).roots,
     routeRequest: async (text) => unwrap(await client.POST("/router/route", { body: { text } })),
     listChatMessages: async (agent) =>

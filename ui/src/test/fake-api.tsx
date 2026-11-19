@@ -21,6 +21,8 @@ import schedulesList from "../../../contract/fixtures/api/listSchedules.json";
 import tasksList from "../../../contract/fixtures/api/listTasks.json";
 import verification from "../../../contract/fixtures/api/verifyAuditChain.json";
 import theme from "../../../contract/fixtures/api/getTheme.json";
+import failedAgent from "../../../contract/fixtures/api/getAgent.failed.json";
+import failedAgentLong from "../../../contract/fixtures/api/getAgent.failed-long-text.json";
 import chat from "../../../contract/fixtures/api/listChatMessages.json";
 import humans from "../../../contract/fixtures/api/listHumans.json";
 import live from "../../../contract/fixtures/api/listLiveList.json";
@@ -35,6 +37,7 @@ import route from "../../../contract/fixtures/api/routeRequest.json";
 import routeError from "../../../contract/fixtures/api/routeRequest.error.json";
 import {
   ApiError,
+  type Agent,
   type AgentOutputFrame,
   type Api,
   type Assignment,
@@ -75,6 +78,8 @@ export const fixtures = {
   setup: setup.body as SetupStatus,
   me: me.body as Principal,
   live: live.body.items as LiveEntry[],
+  failedAgent: failedAgent.body as Agent,
+  failedAgentLong: failedAgentLong.body as Agent,
   chart: chart.body.roots as ChartNode[],
   chat: chat.body.items as ChatMessage[],
   route: route.body as Assignment,
@@ -206,6 +211,13 @@ export class FakeApi implements Api {
   getMe = () => this.settle(this.me);
   listLiveList = () => this.settle(this.live);
   streamLiveList = (h: StreamHandlers<LiveStreamFrame>) => this.liveStream.open(h);
+  /** Agents by name, for the reads that need more than the live list carries. */
+  agents: Record<string, Agent> = {};
+  getAgent = (agent: string) => {
+    this.calls.push(`getAgent ${agent}`);
+    const found = this.agents[agent];
+    return found ? Promise.resolve(found) : Promise.reject(problem(404, "Agent not found"));
+  };
   getChart = () => this.settle(this.chart);
   routeRequest = (text: string) => {
     this.calls.push(`routeRequest ${text}`);

@@ -25,6 +25,7 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["GET", /^\/v1\/session\/me$/, "getMe"],
   ["GET", /^\/v1\/router\/live$/, "listLiveList"],
   ["GET", /^\/v1\/router\/live\/stream$/, "streamLiveList"],
+  ["GET", /^\/v1\/agents\/[^/]+$/, "getAgent"],
   ["POST", /^\/v1\/router\/route$/, "routeRequest"],
   ["GET", /^\/v1\/chart$/, "getChart"],
   ["GET", /^\/v1\/agents\/[^/]+\/chat$/, "listChatMessages"],

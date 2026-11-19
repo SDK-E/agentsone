@@ -8,7 +8,9 @@ import { LoadError, Loading } from "../shell/status";
 import { isAlive, Presence } from "./agent-presence";
 import { OrgChart } from "./org-chart";
 import { relativeTime, useNow } from "./relative-time";
+import { StateReason } from "./state-reason";
 import { useLiveList } from "./use-live-list";
+import { useStateReasons } from "./use-state-reasons";
 
 type View = "list" | "chart";
 
@@ -20,6 +22,7 @@ export function LiveSociety() {
   const now = useNow();
   const entries = live.data ?? [];
   const working = entries.filter((e) => isAlive(e.state)).length;
+  const reasons = useStateReasons(entries, live.mode);
 
   return (
     <section aria-labelledby="society-title" className="panel society">
@@ -69,6 +72,7 @@ export function LiveSociety() {
             <Resident
               key={entry.agent}
               entry={entry}
+              reason={reasons.get(entry.agent)}
               now={now}
               changed={live.changed === entry.agent}
             />
@@ -80,7 +84,17 @@ export function LiveSociety() {
   );
 }
 
-function Resident({ entry, now, changed }: { entry: LiveEntry; now: number; changed: boolean }) {
+function Resident({
+  entry,
+  reason,
+  now,
+  changed,
+}: {
+  entry: LiveEntry;
+  reason: string | undefined;
+  now: number;
+  changed: boolean;
+}) {
   const { t } = useTranslation();
   const line = entry.one_line;
   return (
@@ -100,6 +114,7 @@ function Resident({ entry, now, changed }: { entry: LiveEntry; now: number; chan
           </span>
         </p>
         <p className="resident__line">{line ? line.text : t("society.noLine")}</p>
+        <StateReason reason={reason} />
         <p className="resident__meta">
           <span className={`state state--${entry.state}`}>{t(`agent.state.${entry.state}`)}</span>
           <span>{t(`agent.kind.${entry.kind}`)}</span>

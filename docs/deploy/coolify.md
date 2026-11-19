@@ -39,6 +39,8 @@ If the machine reaches the internet without the edge, the deployment is not in R
 4. Set the environment variables:
    - `AGENTSONE_DOMAIN`: the web door domain, for example `agents.example.org`.
    - `AGENTSONE_CONTROL_DOMAIN`: the control page domain.
+   - `AGENTSONE_IMAGE_TAG`: leave it unset to run the release pinned in the file. Until `v0.1.0`
+     is released, set it to `main`. See [Versions](compose.md#versions).
    - Any setting from [compose.md](compose.md#settings) you want to change.
 5. Deploy. Coolify's Traefik serves both domains over HTTPS with certificates from Let's Encrypt
    (resolver `letsencrypt`, entry points `http` and `https`).

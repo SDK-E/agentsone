@@ -68,6 +68,8 @@ jobs:
               - '.github/workflows/pr.yml'
             stack:
               - 'compose*.yaml'
+              - 'VERSION'
+              - 'scripts/check-version.sh'
               - 'image/edge/**'
               - 'e2e/**'
               - '.github/workflows/pr.yml'
@@ -225,6 +227,8 @@ jobs:
           persist-credentials: false
       - name: compose config
         run: docker compose config -q
+      - name: Default image tag is v<VERSION>
+        run: scripts/check-version.sh
       - name: Coolify file matches compose.yaml with the overlay
         env:
           AGENTSONE_DOMAIN: door.example.test
@@ -296,6 +300,8 @@ jobs:
           } | xargs -0 shellcheck
       - name: coverage gate self-test
         run: scripts/test-check-coverage.sh
+      - name: version check self-test
+        run: scripts/test-check-version.sh
 
   workflows:
     needs: changes

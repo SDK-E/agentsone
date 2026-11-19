@@ -1,0 +1,269 @@
+# SPDX-License-Identifier: MIT
+#
+# Release: a pushed tag vX.Y.Z turns an already tested build into a release. Nothing is rebuilt.
+#
+#   verify   the tag is v<VERSION>, the commit is on main, and images.yml passed for it
+#            (build, merge, end-to-end, promote), so the images were tested as they are
+#   retag    sha-<commit> becomes vX.Y.Z and vX.Y for both images (the same manifest, no rebuild,
+#            never `latest`); an existing vX.Y.Z that points elsewhere stops the release
+#   assets   compose files, the image SBOMs (from the builds), SHA256SUMS and the changelog
+#   attest   build provenance for the assets
+#   publish  the GitHub release
+#
+# Releasing: set VERSION in a pull request, merge it, wait for images.yml to go green on that
+# commit, then push the tag vX.Y.Z on it (CONTRIBUTING.md, "Releasing").
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/sdk-e
+  GIT_CLIFF_VERSION: 2.14.2
+  GIT_CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
+
+jobs:
+  verify:
+    name: verify the tag and the tested build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # read the images.yml run and its jobs for this commit
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      minor: ${{ steps.version.outputs.minor }}
+    env:
+      TAG: ${{ github.ref_name }}
+      SHA: ${{ github.sha }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag is v<VERSION> and the compose files use it
+        id: version
+        run: |
+          scripts/check-version.sh "$TAG"
+          version="${TAG#v}"
+          {
+            echo "version=${version}"
+            echo "minor=${version%.*}"
+          } >> "$GITHUB_OUTPUT"
+      - name: The commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error title=not on main::${TAG} points at ${SHA}, which is not on main"
+            exit 1
+          fi
+      - name: Images and end-to-end passed for this commit
+        run: |
+          run_id="$(gh api "repos/${REPO}/actions/workflows/images.yml/runs?head_sha=${SHA}&branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          if [ -z "$run_id" ]; then
+            echo "::error title=no tested build::images.yml has no successful run on main for ${SHA}. Wait for it, re-run it, or tag a commit it passed for."
+            exit 1
+          fi
+          jobs="$(gh api "repos/${REPO}/actions/runs/${run_id}/jobs?per_page=100")"
+          if ! jq -e '(.jobs | length) > 0 and all(.jobs[]; .conclusion == "success") and any(.jobs[]; .name == "e2e")' <<< "$jobs" > /dev/null; then
+            echo "::error title=build not fully green::images.yml run ${run_id} for ${SHA} did not pass every job, end-to-end included"
+            jq -r '.jobs[] | "\(.name): \(.conclusion)"' <<< "$jobs" >&2
+            exit 1
+          fi
+          echo "images.yml run ${run_id} passed every job for ${SHA}"
+
+  retag:
+    name: retag the tested images
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write # add the release tags to the two existing image packages
+    outputs:
+      machine_digest: ${{ steps.retag.outputs.machine_digest }}
+      edge_digest: ${{ steps.retag.outputs.edge_digest }}
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      MINOR: ${{ needs.verify.outputs.minor }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Give sha-<commit> the release tags
+        id: retag
+        run: |
+          for image in machine edge; do
+            repo="${REGISTRY}/agentsone-${image}"
+            if ! digest="$(docker buildx imagetools inspect "${repo}:sha-${SHA}" --format '{{.Manifest.Digest}}')"; then
+              echo "::error title=image missing::${repo}:sha-${SHA} does not exist, so there is nothing tested to release"
+              exit 1
+            fi
+            # A released version never changes: when v<VERSION> exists it must be this build.
+            if existing="$(docker buildx imagetools inspect "${repo}:v${VERSION}" --format '{{.Manifest.Digest}}' 2> /dev/null)"; then
+              if [ "$existing" != "$digest" ]; then
+                echo "::error title=version already released::${repo}:v${VERSION} is ${existing}, not the tested build ${digest}"
+                exit 1
+              fi
+            fi
+            docker buildx imagetools create -t "${repo}:v${VERSION}" -t "${repo}:v${MINOR}" "${repo}:sha-${SHA}"
+            for tag in "v${VERSION}" "v${MINOR}"; do
+              now="$(docker buildx imagetools inspect "${repo}:${tag}" --format '{{.Manifest.Digest}}')"
+              if [ "$now" != "$digest" ]; then
+                echo "::error title=retag mismatch::${repo}:${tag} is ${now}, expected ${digest}"
+                exit 1
+              fi
+            done
+            echo "${image}_digest=${digest}" >> "$GITHUB_OUTPUT"
+            echo "${repo}: sha-${SHA}, v${VERSION} and v${MINOR} are ${digest}" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+  assets:
+    name: collect the release assets
+    needs: [verify, retag]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read # read the SBOMs attached to the images
+    env:
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.verify.outputs.version }}
+      MINOR: ${{ needs.verify.outputs.minor }}
+      MACHINE_DIGEST: ${{ needs.retag.outputs.machine_digest }}
+      EDGE_DIGEST: ${{ needs.retag.outputs.edge_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Compose files
+        run: |
+          mkdir -p "$RUNNER_TEMP/release/assets"
+          cp compose.yaml compose.coolify.yaml "$RUNNER_TEMP/release/assets/"
+      - name: SBOMs of the images, one per platform
+        run: |
+          for image in machine edge; do
+            ref="${REGISTRY}/agentsone-${image}:v${VERSION}"
+            docker buildx imagetools inspect "$ref" --format '{{json .SBOM}}' > "$RUNNER_TEMP/sbom-${image}.json"
+            platforms="$(jq -r 'keys[]' "$RUNNER_TEMP/sbom-${image}.json")"
+            count=0
+            for platform in $platforms; do
+              out="$RUNNER_TEMP/release/assets/agentsone-${image}-${platform//\//-}.spdx.json"
+              jq '.[$platform].SPDX' --arg platform "$platform" "$RUNNER_TEMP/sbom-${image}.json" > "$out"
+              if ! jq -e '.spdxVersion != null and (.packages | length) > 0' "$out" > /dev/null; then
+                echo "::error title=no SBOM::${ref} has no SPDX SBOM for ${platform}"
+                exit 1
+              fi
+              count=$((count + 1))
+            done
+            if [ "$count" -ne 2 ]; then
+              echo "::error title=SBOM count::${ref} has SBOMs for ${count} platforms, expected 2"
+              exit 1
+            fi
+          done
+      - name: Install git-cliff (pinned, checksum verified)
+        run: |
+          archive="git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/${archive}" "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/${archive}"
+          echo "${GIT_CLIFF_SHA256}  $RUNNER_TEMP/${archive}" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP" "git-cliff-${GIT_CLIFF_VERSION}/git-cliff"
+      - name: Changelog from conventional commits
+        run: |
+          "$RUNNER_TEMP/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --config cliff.toml --current --output "$RUNNER_TEMP/changes.md"
+          if [ ! -s "$RUNNER_TEMP/changes.md" ]; then
+            echo "No user-facing changes in this release." > "$RUNNER_TEMP/changes.md"
+          fi
+      - name: Release notes
+        run: |
+          {
+            echo "## Images"
+            echo
+            echo "| Image | Pull | Digest |"
+            echo "| --- | --- | --- |"
+            echo "| machine | \`${REGISTRY}/agentsone-machine:${TAG}\` | \`${MACHINE_DIGEST}\` |"
+            echo "| edge | \`${REGISTRY}/agentsone-edge:${TAG}\` | \`${EDGE_DIGEST}\` |"
+            echo
+            echo "\`compose.yaml\` in this release starts exactly these images. Both are also tagged \`v${MINOR}\`, which moves to the newest patch release. There is no \`latest\` tag."
+            echo
+            echo "## Verify"
+            echo
+            echo "\`SHA256SUMS\` lists the files below, and each has a build provenance attestation:"
+            echo
+            echo "\`\`\`sh"
+            echo "sha256sum --check SHA256SUMS"
+            echo "gh attestation verify compose.yaml --repo ${GITHUB_REPOSITORY}"
+            echo "\`\`\`"
+            echo
+            echo "The \`.spdx.json\` files are the software bills of materials of the two images, one per platform."
+            echo
+            echo "## Changes"
+            echo
+            cat "$RUNNER_TEMP/changes.md"
+          } > "$RUNNER_TEMP/release/notes.md"
+      - name: SHA256SUMS
+        working-directory: ${{ runner.temp }}/release/assets
+        run: |
+          LC_ALL=C sha256sum -- * > ../SHA256SUMS
+          mv ../SHA256SUMS SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+          retention-days: 7
+
+  attest:
+    name: attest build provenance
+    needs: assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write # sign the attestation with a short-lived Sigstore certificate
+      attestations: write # store the attestation for the repository
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/release/assets/*
+
+  publish:
+    name: publish the release
+    needs: [verify, attest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the GitHub release and upload its assets
+    env:
+      TAG: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - name: GitHub release
+        working-directory: ${{ runner.temp }}/release
+        run: |
+          gh release create "$TAG" assets/* --repo "$REPO" --verify-tag --title "$TAG" --notes-file notes.md

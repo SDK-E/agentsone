@@ -3,7 +3,9 @@
 # Images: build the machine and edge images for linux/amd64 and linux/arm64 on native runners,
 # push them to ghcr.io by digest with a parts list (SBOM) and build provenance, join each pair
 # into one multi-arch tag sha-<commit>, run the compose end-to-end scenario on that tag, and
-# only then move the `edge` tag to it.
+# only then move the `main` tag to it (the newest tested build of main, for the development
+# stack: AGENTSONE_IMAGE_TAG=main). Releases are made by release.yml, which gives the same
+# tested sha-<commit> images their version tags.
 name: images
 
 on:
@@ -223,9 +225,12 @@ jobs:
   promote:
     name: promote ${{ matrix.image }}
     needs: e2e
+    # Only a run on main moves the tag; a manual run of another branch never does.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      contents: read
       packages: write
     strategy:
       matrix:
@@ -233,6 +238,8 @@ jobs:
     env:
       IMAGE: ${{ matrix.image }}
       SHA: ${{ github.sha }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -240,11 +247,17 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Move the edge tag to the tested build
+      - name: Move the main tag to the tested build
         run: |
           repo="${REGISTRY}/agentsone-${IMAGE}"
           if ! docker buildx imagetools inspect "${repo}:sha-${SHA}" > /dev/null 2>&1; then
             echo "::notice title=not promoted::agentsone-${IMAGE} was not built on main yet"
             exit 0
           fi
-          docker buildx imagetools create -t "${repo}:edge" "${repo}:sha-${SHA}"
+          # A re-run of an older run must not move the tag backwards.
+          tip="$(gh api "repos/${REPO}/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$tip" != "$SHA" ]; then
+            echo "::notice title=not promoted::main has moved on to ${tip}; the main tag stays with the newer build"
+            exit 0
+          fi
+          docker buildx imagetools create -t "${repo}:main" "${repo}:sha-${SHA}"

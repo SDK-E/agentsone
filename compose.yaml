@@ -24,7 +24,9 @@ name: agentsone
 
 services:
   machine:
-    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-edge}
+    # The default tag is the release in the VERSION file (CI checks they match). Until that
+    # release exists, or to run the newest build of main, set AGENTSONE_IMAGE_TAG=main.
+    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-v0.1.0}
     restart: unless-stopped
     # Wall: only the inner network. Never add another network here: any network with a gateway
     # gives agents direct internet and walks around every filter in edge.
@@ -75,7 +77,7 @@ services:
         condition: service_healthy
 
   edge:
-    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-edge}
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-v0.1.0}
     command:
       - edge
       # Listeners for the machine (DNS 53, ports 80 and 443, proxy 3128, model gateway 4000) bind
@@ -127,7 +129,7 @@ services:
     memswap_limit: ${AGENTSONE_EDGE_MEMORY:-1g}
 
   control:
-    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-edge}
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-v0.1.0}
     command:
       - control
     restart: unless-stopped

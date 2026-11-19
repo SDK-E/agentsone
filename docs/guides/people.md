@@ -100,8 +100,9 @@ powers that must hold are on the control page.
 
 ## Meet the society
 
-The home screen is the society. A fresh machine starts with three residents, brought by the Small
-Seed plugin:
+The home screen is the society. The Small Seed plugin is meant to bring three residents at first
+start. It does not install on `main` yet, so a new machine shows "Nobody lives here yet" for now.
+This is what the three will do:
 
 | Resident | What it does |
 | --- | --- |
@@ -124,6 +125,9 @@ An agent is in one of these states:
 | Retired | Gone. |
 
 ### Ask for something
+
+*Coming. The router is an agent of the Small Seed, so asking the society works once the Small Seed
+installs and agents run. The screen is there today.*
 
 Type what you need into **Ask the society**, for example "add a page about budgets to the docs
 site", and choose **Ask**. The router picks the best agent and opens its chat. A **Why** panel

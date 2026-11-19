@@ -65,12 +65,13 @@ walks through each step.
 | Hard walls: internet allow list, model gateway with provider keys, total budget, freeze all | Works |
 | Control page with its own passphrase | Works |
 | Web door, first-run setup, accounts and sign-in | Works |
-| Society screens: residents, org chart, chat, the router that picks an agent for your request | Works |
+| Society screens: residents, org chart and chat | Works |
+| The router that picks an agent for your request (it is an agent of the Small Seed) | Coming |
 | Tasks, schedules, memory, plugins, audit trail, settings and monitor panels | Works |
-| The Small Seed society: a founder, a router and a waker, set up at first start | Works |
+| The Small Seed society: a founder, a router and a waker, set up at first start | Coming |
 | Runner protocol, and runners for OpenAI-compatible models and for tests | Built |
 | Agents running on the machine: the daemon starting each runner and agents answering | Coming |
-| `agentctl`, the command line and MCP server for the daemon API | Works |
+| `agentctl`, the command line and MCP server for the daemon API | Built |
 | Code editor (IDE), desktop and machine panels | Coming |
 | Runner for the Claude engine | Coming |
 | Event sources such as webhooks, files and git | Coming |

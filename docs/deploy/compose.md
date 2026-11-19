@@ -84,6 +84,35 @@ Docker reports `Pool overlaps with other one on this address space`, pick anothe
 each network and move the edge addresses with it. Two Agents One stacks on one host need two
 different sets of subnets.
 
+## Rescue
+
+The machine goes back to its image whenever its container is recreated. That is the rescue: if
+something inside the machine is broken, for example by a root agent, recreate it:
+
+```sh
+docker compose up -d --force-recreate machine
+```
+
+What survives: the five volumes the machine mounts.
+
+| Volume | Path in the machine | Holds |
+| --- | --- | --- |
+| `machine-state` | `/var/lib/agentsone` | The daemon's databases and the machine recipe |
+| `machine-plugins` | `/var/lib/agentsone/plugins` | Installed plugins |
+| `machine-audit` | `/var/lib/agentsone/audit` | Audit records |
+| `machine-home` | `/home` | The agents' home folders |
+| `gateway-key` | `/run/agentsone/gateway-key` | The token signing key, read-only, owned by the edge |
+
+What resets: everything else in the machine goes back to the image, such as packages added with
+`apt`, files in `/etc`, `/opt`, `/usr`, `/root` and `/tmp`, and users added by hand. At start the
+daemon re-creates the agents' users and reapplies the machine recipe. Recreating the machine does
+not touch `edge` or `control`.
+
+A plain restart does not reset anything: when the machine crashes and Docker restarts it
+(`restart: unless-stopped`), or after `docker restart` or `docker compose restart`, the container
+layer is kept. That is harmless: the machine's start-up and its recipe reapply idempotently at
+every start. Only a recreate resets. The end-to-end check `e2e/run.sh rescue` proves both.
+
 ## Deploy on Coolify
 
 See [coolify.md](coolify.md). Coolify must use Raw mode.

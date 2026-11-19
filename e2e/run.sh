@@ -199,6 +199,24 @@ stage_wall_outer() {
   fi
 }
 
+# --- rescue: a restart keeps the container layer, a recreate resets it to the image ----------
+
+stage_rescue() {
+  needs rescue machine || return 0
+  local mark="agentsone-e2e-rescue-$$"
+  expect ok "write a marker in /home (a volume) and in /opt (the container layer)" \
+    in_machine sh -c "echo $mark > /home/.$mark && echo $mark > /opt/$mark"
+  expect ok "restart the machine, as after a crash" \
+    sh -c 'docker compose restart machine && docker compose up -d --no-deps --wait --wait-timeout 300 machine'
+  expect ok "after a restart both markers are still there" \
+    in_machine sh -c "[ -f /home/.$mark ] && [ -f /opt/$mark ]"
+  expect ok "rescue: recreate the machine" \
+    compose up -d --no-deps --force-recreate --wait --wait-timeout 300 machine
+  expect ok "after the rescue the /home marker is kept" in_machine test -f "/home/.$mark"
+  expect fail "after the rescue the /opt marker is gone" in_machine test -e "/opt/$mark"
+  in_machine rm -f "/home/.$mark"
+}
+
 stage_web_door() {
   needs web-door machine edge || return 0
   not_on_main web-door 16 "the edge web door"
@@ -221,7 +239,7 @@ stage_budget_wall() { not_on_main budget-wall 16 "the budget wall and defence sl
 stage_freeze_all() { not_on_main freeze-all 15 "freeze all and release"; }
 
 STAGES=(
-  wall-route wall-direct wall-blocked wall-allowed wall-outer web-door
+  wall-route wall-direct wall-blocked wall-allowed wall-outer rescue web-door
   setup-page login small-seed hire bus router echo-chat event-to-task memory
   plugin-install agentctl-parity budget-wall freeze-all
 )

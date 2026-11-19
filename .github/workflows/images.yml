@@ -179,6 +179,8 @@ jobs:
         run: e2e/run.sh wall-allowed
       - name: "Wall: outer network cannot reach inside"
         run: e2e/run.sh wall-outer
+      - name: "Rescue: recreate resets the machine, volumes stay"
+        run: e2e/run.sh rescue
       - name: Web door
         run: e2e/run.sh web-door
       - name: Setup page

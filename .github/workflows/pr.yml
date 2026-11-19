@@ -202,11 +202,18 @@ jobs:
           persist-credentials: false
       - name: compose config
         run: docker compose config -q
-      - name: compose config with the Coolify overlay
+      - name: Coolify file matches compose.yaml with the overlay
         env:
           AGENTSONE_DOMAIN: door.example.test
           AGENTSONE_CONTROL_DOMAIN: control.example.test
-        run: docker compose -f compose.yaml -f compose.coolify.yaml config -q
+        run: |
+          docker compose -f compose.coolify.yaml config -q
+          if ! diff -u \
+            <(docker compose -f compose.yaml -f compose.coolify-overlay.yaml config --format json) \
+            <(docker compose -f compose.coolify.yaml config --format json); then
+            echo "compose.coolify.yaml is out of date; remake it as its header says" >&2
+            exit 1
+          fi
       - name: hadolint
         run: docker run --rm -v "$PWD/image/edge:/work:ro" --workdir /work "$HADOLINT_IMAGE" hadolint Dockerfile
       - name: e2e stage list

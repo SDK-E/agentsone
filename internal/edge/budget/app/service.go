@@ -29,14 +29,27 @@ type Settings struct {
 	Total           budget.Micros
 	DefenceOn       bool
 	DefenceSharePct int
+	// Period is how long the total lasts; empty means a month.
+	Period budget.Period
 }
 
-// Spend is the spending recorded so far, open reservations included.
+// Spend is the spending recorded so far in the period, open reservations included.
 type Spend struct {
 	General budget.Micros
 	Defence budget.Micros
 	Agents  map[string]budget.Micros
+	// PeriodStart is when this spending began; zero for spending stored before periods existed.
+	PeriodStart time.Time
 }
+
+// Clock tells the time.
+type Clock interface {
+	Now() time.Time
+}
+
+type systemClock struct{}
+
+func (systemClock) Now() time.Time { return time.Now() }
 
 // Store keeps settings and spending across restarts.
 type Store interface {
@@ -49,14 +62,19 @@ type Store interface {
 // Service is safe for concurrent use.
 type Service struct {
 	store Store
+	clock Clock
 
 	mu     sync.Mutex
 	ledger *budget.Ledger
 	dirty  bool
 }
 
-// Open loads settings and spending from the store.
-func Open(ctx context.Context, store Store) (*Service, error) {
+// Open loads settings and spending from the store and moves to the current period. A nil clock
+// is the system clock.
+func Open(ctx context.Context, store Store, clock Clock) (*Service, error) {
+	if clock == nil {
+		clock = systemClock{}
+	}
 	set, err := store.LoadSettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("budget: load settings: %w", err)
@@ -72,14 +90,26 @@ func Open(ctx context.Context, store Store) (*Service, error) {
 		GeneralSpent:    sp.General,
 		DefenceSpent:    sp.Defence,
 		AgentSpent:      sp.Agents,
+		Period:          set.Period,
+		PeriodStart:     sp.PeriodStart,
 	})
-	return &Service{store: store, ledger: l}, nil
+	s := &Service{store: store, clock: clock, ledger: l}
+	s.roll()
+	return s, nil
+}
+
+// roll moves the ledger to the current period. Callers hold s.mu, except Open.
+func (s *Service) roll() {
+	if s.ledger.Roll(s.clock.Now()) {
+		s.dirty = true
+	}
 }
 
 // Reserve holds an estimated cost before a call.
 func (s *Service) Reserve(c budget.Caller, estimate budget.Micros) (budget.ReservationID, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.roll()
 	id, err := s.ledger.Reserve(c, estimate)
 	if err == nil {
 		s.dirty = true
@@ -105,6 +135,7 @@ func (s *Service) Release(id budget.ReservationID) error { return s.Settle(id, 0
 func (s *Service) State() budget.State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.roll()
 	return s.ledger.State()
 }
 
@@ -112,6 +143,7 @@ func (s *Service) State() budget.State {
 func (s *Service) RemainingFor(c budget.Caller) budget.Micros {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.roll()
 	return s.ledger.RemainingFor(c)
 }
 
@@ -138,11 +170,17 @@ func (s *Service) SetDefenceShare(ctx context.Context, pct int) error {
 	return s.changeSettings(ctx, func(set *Settings) { set.DefenceSharePct = pct })
 }
 
+// SetPeriod sets how long the total lasts and saves it. Spending so far stays counted until the
+// next period of the new kind begins.
+func (s *Service) SetPeriod(ctx context.Context, p budget.Period) error {
+	return s.changeSettings(ctx, func(set *Settings) { set.Period = p })
+}
+
 func (s *Service) changeSettings(ctx context.Context, change func(*Settings)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := s.ledger.State()
-	set := Settings{Total: st.Total, DefenceOn: st.DefenceOn, DefenceSharePct: st.DefenceSharePct}
+	set := Settings{Total: st.Total, DefenceOn: st.DefenceOn, DefenceSharePct: st.DefenceSharePct, Period: st.Period}
 	change(&set)
 	// Validate on a scratch ledger so a refused value changes nothing.
 	if err := ApplySettings(budget.NewLedger(budget.Snapshot{}), set); err != nil {
@@ -151,7 +189,11 @@ func (s *Service) changeSettings(ctx context.Context, change func(*Settings)) er
 	if err := s.store.SaveSettings(ctx, set); err != nil {
 		return fmt.Errorf("budget: save settings: %w", err)
 	}
-	return ApplySettings(s.ledger, set)
+	if err := ApplySettings(s.ledger, set); err != nil {
+		return err
+	}
+	s.roll()
+	return nil
 }
 
 // ApplySettings puts settings on a ledger.
@@ -162,7 +204,12 @@ func ApplySettings(l *budget.Ledger, set Settings) error {
 	if err := l.SetDefenceShare(set.DefenceSharePct); err != nil {
 		return err
 	}
+	period, err := budget.ParsePeriod(string(set.Period))
+	if err != nil {
+		return err
+	}
 	l.SetDefence(set.DefenceOn)
+	l.SetPeriod(period)
 	return nil
 }
 
@@ -177,11 +224,12 @@ func (s *Service) Flush(ctx context.Context) error {
 	if err := ApplySettings(s.ledger, set); err != nil {
 		return fmt.Errorf("budget: stored settings: %w", err)
 	}
+	s.roll()
 	if !s.dirty {
 		return nil
 	}
 	snap := s.ledger.Snapshot()
-	sp := Spend{General: snap.GeneralSpent, Defence: snap.DefenceSpent, Agents: snap.AgentSpent}
+	sp := Spend{General: snap.GeneralSpent, Defence: snap.DefenceSpent, Agents: snap.AgentSpent, PeriodStart: snap.PeriodStart}
 	if err := s.store.SaveSpend(ctx, sp); err != nil {
 		return fmt.Errorf("budget: save spending: %w", err)
 	}

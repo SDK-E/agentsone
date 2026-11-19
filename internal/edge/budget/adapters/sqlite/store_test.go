@@ -4,8 +4,10 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
+	"time"
 
 	budgetstore "github.com/SDK-E/agentsone/internal/edge/budget/adapters/sqlite"
 	budgetapp "github.com/SDK-E/agentsone/internal/edge/budget/app"
@@ -30,7 +32,7 @@ func TestFreshStoreIsEmpty(t *testing.T) {
 	s := openStore(t, filepath.Join(t.TempDir(), "budget.db"))
 	ctx := context.Background()
 	set, err := s.LoadSettings(ctx)
-	if err != nil || set != (budgetapp.Settings{}) {
+	if err != nil || set != (budgetapp.Settings{Period: budget.PeriodMonth}) {
 		t.Fatalf("LoadSettings = %+v, %v", set, err)
 	}
 	sp, err := s.LoadSpend(ctx)
@@ -47,7 +49,7 @@ func TestSettingsAndSpendSurviveReopen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	wantSet := budgetapp.Settings{Total: 42 * budget.MicrosPerUSD, DefenceOn: true, DefenceSharePct: 15}
+	wantSet := budgetapp.Settings{Total: 42 * budget.MicrosPerUSD, DefenceOn: true, DefenceSharePct: 15, Period: budget.PeriodWeek}
 	if err := first.SaveSettings(ctx, wantSet); err != nil {
 		t.Fatalf("SaveSettings: %v", err)
 	}
@@ -55,7 +57,8 @@ func TestSettingsAndSpendSurviveReopen(t *testing.T) {
 		t.Fatalf("SaveSpend: %v", err)
 	}
 	// A second save replaces the first, agents dropped from the map included.
-	if err := first.SaveSpend(ctx, budgetapp.Spend{General: 9, Defence: 7, Agents: map[string]budget.Micros{"a": 9}}); err != nil {
+	periodStart := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	if err := first.SaveSpend(ctx, budgetapp.Spend{General: 9, Defence: 7, Agents: map[string]budget.Micros{"a": 9}, PeriodStart: periodStart}); err != nil {
 		t.Fatalf("SaveSpend: %v", err)
 	}
 	if err := first.Close(); err != nil {
@@ -71,9 +74,47 @@ func TestSettingsAndSpendSurviveReopen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadSpend: %v", err)
 	}
-	if sp.General != 9 || sp.Defence != 7 || len(sp.Agents) != 1 || sp.Agents["a"] != 9 {
+	if sp.General != 9 || sp.Defence != 7 || len(sp.Agents) != 1 || sp.Agents["a"] != 9 || !sp.PeriodStart.Equal(periodStart) {
 		t.Fatalf("LoadSpend = %+v", sp)
 	}
+}
+
+func TestOpenUpgradesADatabaseFromBeforePeriods(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "budget.db")
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	for _, stmt := range []string{
+		`CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), total_micros INTEGER NOT NULL,
+			defence_on INTEGER NOT NULL, defence_share_pct INTEGER NOT NULL)`,
+		`CREATE TABLE spend (id INTEGER PRIMARY KEY CHECK (id = 1), general_micros INTEGER NOT NULL, defence_micros INTEGER NOT NULL)`,
+		`CREATE TABLE agent_spend (agent TEXT PRIMARY KEY, micros INTEGER NOT NULL)`,
+		`INSERT INTO settings VALUES (1, 7000000, 0, 0)`,
+		`INSERT INTO spend VALUES (1, 2000000, 0)`,
+	} {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			t.Fatalf("%s: %v", stmt, err)
+		}
+	}
+	_ = db.Close()
+
+	s := openStore(t, path)
+
+	set, err := s.LoadSettings(ctx)
+	if err != nil || set.Total != 7*budget.MicrosPerUSD || set.Period != budget.PeriodMonth {
+		t.Fatalf("LoadSettings = %+v, %v; want the old total and a month", set, err)
+	}
+	sp, err := s.LoadSpend(ctx)
+	if err != nil || sp.General != 2*budget.MicrosPerUSD || !sp.PeriodStart.IsZero() {
+		t.Fatalf("LoadSpend = %+v, %v; want the old spending with no period yet", sp, err)
+	}
+	// Opening again finds the database already upgraded.
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	openStore(t, path)
 }
 
 func TestTwoHandlesShareOneFile(t *testing.T) {

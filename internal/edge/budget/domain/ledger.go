@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 )
 
 // Errors returned by the ledger. Callers match them with errors.Is.
@@ -61,6 +62,10 @@ type Snapshot struct {
 	DefenceSpent Micros
 	AgentSpent   map[string]Micros
 	Allocations  map[string]Micros
+	// Period is the period kind; empty means a month.
+	Period Period
+	// PeriodStart is when the counted spending began; zero means no period has started.
+	PeriodStart time.Time
 }
 
 // AgentView is one agent's line in State.
@@ -87,6 +92,10 @@ type State struct {
 	Exhausted        bool
 	DefenceExhausted bool
 	Agents           map[string]AgentView
+	// Period and its bounds. The bounds are zero until the first Roll.
+	Period      Period
+	PeriodStart time.Time
+	PeriodEnd   time.Time
 }
 
 // Ledger holds the budget and its spending.
@@ -103,6 +112,9 @@ type Ledger struct {
 	agentUsed   map[string]Micros
 	allocations map[string]Micros
 
+	period      Period
+	periodStart time.Time
+
 	next         ReservationID
 	reservations map[ReservationID]reservation
 }
@@ -118,7 +130,12 @@ func NewLedger(s Snapshot) *Ledger {
 		defenceUsed:  s.DefenceSpent,
 		agentUsed:    maps.Clone(s.AgentSpent),
 		allocations:  maps.Clone(s.Allocations),
+		period:       s.Period,
+		periodStart:  s.PeriodStart.UTC(),
 		reservations: map[ReservationID]reservation{},
+	}
+	if l.period == "" {
+		l.period = PeriodMonth
 	}
 	if l.agentUsed == nil {
 		l.agentUsed = map[string]Micros{}
@@ -264,7 +281,14 @@ func (l *Ledger) State() State {
 		agents[a] = v
 	}
 	spent := l.generalUsed + l.defenceUsed - l.reserved
+	var periodEnd time.Time
+	if !l.periodStart.IsZero() {
+		_, periodEnd = l.period.Bounds(l.periodStart)
+	}
 	return State{
+		Period:           l.period,
+		PeriodStart:      l.periodStart,
+		PeriodEnd:        periodEnd,
 		Total:            l.total,
 		Spent:            spent,
 		Reserved:         l.reserved,
@@ -289,5 +313,7 @@ func (l *Ledger) Snapshot() Snapshot {
 		DefenceSpent:    l.defenceUsed,
 		AgentSpent:      maps.Clone(l.agentUsed),
 		Allocations:     maps.Clone(l.allocations),
+		Period:          l.period,
+		PeriodStart:     l.periodStart,
 	}
 }

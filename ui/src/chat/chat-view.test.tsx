@@ -53,7 +53,30 @@ describe("ChatView", () => {
     expect(alert).toHaveTextContent("This is a hard wall, held by the control page.");
   });
 
-  it("says a frozen agent is released from the control page", async () => {
+  it("says freezing everything is a hard wall released from the control page", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    api.sendError = problem(423, "Frozen");
+    api.freezes = [
+      {
+        id: "frz_01JD7ZK3M00000000000000002",
+        scope: "all",
+        target: null,
+        reason: "Looking at a runaway loop.",
+        wall: "hard",
+        created_at: "2026-11-19T12:35:00Z",
+      },
+    ];
+    renderApp("/agents/builder/chat", api);
+
+    await user.type(await screen.findByRole("textbox", { name: "Message Builder" }), "Hi{Enter}");
+
+    expect(await screen.findByText(/Everything is frozen/)).toHaveTextContent(
+      "Release it from the control page. This is a hard wall.",
+    );
+  });
+
+  it("says a frozen agent is a soft wall a person can release here", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();
     api.sendError = problem(423, "Frozen");
@@ -61,7 +84,9 @@ describe("ChatView", () => {
 
     await user.type(await screen.findByRole("textbox", { name: "Message Builder" }), "Hi{Enter}");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Release it from the control page");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This agent is frozen. A person can release it here. This is a soft wall.",
+    );
   });
 
   it("shows a reply as the agent writes it, then the finished message", async () => {

@@ -189,11 +189,27 @@ function Message({
   );
 }
 
-function wallText(error: unknown, t: (key: string) => string): string | undefined {
+/**
+ * Which wall stopped the message, said honestly. The budget is a hard wall. Freezing everything
+ * is a hard wall held by the control page; freezing one agent or team is a soft wall in the
+ * machine. A 423 does not say which, so the active freezes tell.
+ */
+function useWallText(error: unknown): string | undefined {
+  const { t } = useTranslation();
+  const api = useApi();
+  const locked = error instanceof ApiError && error.status === 423;
+  const freezes = useQuery({
+    queryKey: ["freezes"],
+    queryFn: () => api.listFreezes(),
+    enabled: locked,
+    retry: false,
+  });
   if (!(error instanceof ApiError)) return undefined;
   if (error.status === 402) return t("walls.budget");
-  if (error.status === 423) return t("walls.frozen");
-  return undefined;
+  if (!locked) return undefined;
+  return freezes.data?.some((f) => f.scope === "all") === true
+    ? t("walls.frozenAll")
+    : t("walls.frozen");
 }
 
 function Composer({
@@ -230,7 +246,7 @@ function Composer({
       submit();
     }
   };
-  const wall = wallText(error, t);
+  const wall = useWallText(error);
 
   return (
     <form className="panel composer stack-sm" onSubmit={submit}>

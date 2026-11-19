@@ -158,7 +158,8 @@
   },
   "walls": {
     "budget": "The budget is used up. Agents pause until you add more from the control page. This is a hard wall, held by the control page.",
-    "frozen": "This agent is frozen. Release it from the control page, which holds this power."
+    "frozen": "This agent is frozen. A person can release it here. This is a soft wall.",
+    "frozenAll": "Everything is frozen. Release it from the control page. This is a hard wall."
   },
   "panels": {
     "label": "Panels",
@@ -192,7 +193,7 @@
     },
     "audit": {
       "label": "Audit",
-      "about": "The record of what happened. What the control page saw is proof; records from inside are testimony."
+      "about": "The record of what happened. What edge saw (internet traffic and model calls) is proof; records from inside the machine are testimony."
     },
     "settings": {
       "label": "Settings",

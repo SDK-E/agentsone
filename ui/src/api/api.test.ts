@@ -46,6 +46,7 @@ describe("createHttpApi", () => {
       if (path === "/setup/first-human") return json(201, { name: "ada" });
       if (path === "/settings/theme") return json(200, { theme_id: "thm_1", mode: "dark" });
       if (path.startsWith("/themes/")) return json(200, fixtures.theme);
+      if (path === "/host/freezes") return json(200, { items: [], next_cursor: null });
       return json(404, { title: "Not found", status: 404 });
     });
     const api = createHttpApi({ baseUrl: BASE, fetch });
@@ -68,6 +69,7 @@ describe("createHttpApi", () => {
     expect((await api.getThemeSelection()).mode).toBe("dark");
     expect((await api.setThemeSelection({ mode: "dark" })).mode).toBe("dark");
     expect((await api.getTheme("thm_1")).builtin).toBe(true);
+    expect(await api.listFreezes()).toEqual([]);
     expect(seen).toContain("POST /router/route");
     expect(seen).toContain("GET /agents/builder/chat");
     expect(seen).toContain("DELETE /session");

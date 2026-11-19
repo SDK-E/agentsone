@@ -26,6 +26,7 @@ import {
   type ChatStreamFrame,
   type EngineFetchStatus,
   type EngineLicence,
+  type Freeze,
   type InstalledTheme,
   type LiveEntry,
   type LiveStreamFrame,
@@ -157,6 +158,8 @@ export class FakeApi implements Api {
     return Promise.resolve({ theme_id: fixtures.theme.id, mode: update.mode ?? "system" });
   };
   getTheme = () => Promise.resolve(fixtures.theme);
+  freezes: Freeze[] = [];
+  listFreezes = () => Promise.resolve(this.freezes);
 }
 
 function meHuman() {

@@ -27,6 +27,7 @@ export type ChartNode = S["ChartNode"];
 export type ThemeSelection = S["ThemeSelection"];
 export type InstalledTheme = S["InstalledTheme"];
 export type FirstHumanCreate = S["FirstHumanCreate"];
+export type Freeze = S["Freeze"];
 
 /** A failed API call. Carries the RFC 9457 problem when the daemon sent one. */
 export class ApiError extends Error {
@@ -69,6 +70,7 @@ export interface Api {
   getThemeSelection(): Promise<ThemeSelection>;
   setThemeSelection(update: Partial<ThemeSelection>): Promise<ThemeSelection>;
   getTheme(id: string): Promise<InstalledTheme>;
+  listFreezes(): Promise<Freeze[]>;
 }
 
 interface Result<T> {
@@ -156,5 +158,6 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
       unwrap(await client.PUT("/settings/theme", { body: update })),
     getTheme: async (id) =>
       unwrap(await client.GET("/themes/{theme_id}", { params: { path: { theme_id: id } } })),
+    listFreezes: async () => unwrap(await client.GET("/host/freezes")).items,
   };
 }

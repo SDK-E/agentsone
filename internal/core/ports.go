@@ -28,6 +28,7 @@ type Ports struct {
 	Templates TemplateCatalog // owned by internal/plugins
 	Profiles  AgentProfiles   // owned by internal/agents
 	Chat      ChatPoster      // owned by internal/agents
+	Startup   StartupGate     // owned by internal/machine
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -37,7 +38,7 @@ func NewPorts() *Ports {
 		Agents: u, Waker: u, Events: u, Subscribe: u, Tasks: u,
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
-		Profiles: u, Chat: u,
+		Profiles: u, Chat: u, Startup: u,
 	}
 }
 
@@ -62,6 +63,14 @@ type Agent struct {
 	Runner  string // runner adapter name, for example "echo"
 	UID     int
 	Home    string
+}
+
+// StartupGate holds agent wakes until the machine is ready after a start:
+// the machine recipe reapplied, or failed. After a failure agents wake too,
+// and the failure shows on the machine-recipe service.
+type StartupGate interface {
+	// Wait blocks until the machine is ready or ctx ends.
+	Wait(ctx context.Context) error
 }
 
 // AgentDirectory reads agents and the org chart.
@@ -349,6 +358,7 @@ func (unavailable) Get(context.Context, string) (AgentTemplate, error) {
 func (unavailable) Issue(context.Context, Caller, []string, time.Duration) (Token, error) {
 	return Token{}, ErrUnavailable
 }
+func (unavailable) Wait(context.Context) error                       { return ErrUnavailable }
 func (unavailable) Profiles(context.Context) ([]AgentProfile, error) { return nil, ErrUnavailable }
 func (unavailable) PostChat(context.Context, string, string, string) (string, error) {
 	return "", ErrUnavailable

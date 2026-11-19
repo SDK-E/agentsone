@@ -171,6 +171,21 @@ func TestHub_ClosesTheChannelWhenTheSubscriberLeaves(t *testing.T) {
 	}
 }
 
+func TestWaker_WaitsForTheMachineStartup(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.fakes.Startup.Hold()
+	held, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := e.society.Waker().Wake(held, "dev", core.WakeEvent, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("wake before the machine is ready: %v", err)
+	}
+	e.fakes.Startup.Open()
+	if err := e.society.Waker().Wake(context.Background(), "dev", core.WakeEvent, nil); err != nil {
+		t.Fatalf("wake after the machine is ready: %v", err)
+	}
+}
+
 func TestWaker_Refusals(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

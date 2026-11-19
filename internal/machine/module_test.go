@@ -27,8 +27,13 @@ func TestModuleOwnsItsTags(t *testing.T) {
 func TestStartReappliesTheRecipeAndNeverBlocks(t *testing.T) {
 	deps, fakes := coretest.NewDeps(t)
 	m := machine.New(deps)
+	m.Provide(deps.Ports)
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatalf("start must not fail on a recipe problem: %v", err)
+	}
+	// The gate opens once the reapply ends, applied or failed.
+	if err := deps.Ports.Startup.Wait(context.Background()); err != nil {
+		t.Fatalf("startup gate: %v", err)
 	}
 	if err := m.Stop(context.Background()); err != nil {
 		t.Fatal(err)

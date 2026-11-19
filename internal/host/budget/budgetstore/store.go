@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS agent_spend (
 );
 `
 
+// FileName is the database's name inside the host data folder.
+const FileName = "budget.db"
+
 // Store implements budgetapp.Store.
 type Store struct {
 	db *sql.DB

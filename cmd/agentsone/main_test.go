@@ -34,8 +34,16 @@ func TestRootHasNoVMCommands(t *testing.T) {
 	}
 }
 
-func TestEdgeAndControlAreNotBuiltYet(t *testing.T) {
-	for _, name := range []string{"edge", "control", "door"} {
+func TestEdgeRefusesToStartWithoutItsInnerAddress(t *testing.T) {
+	root := newRoot(testEnv(&bytes.Buffer{}))
+	root.SetArgs([]string{"edge"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "--inner-addr") {
+		t.Fatalf("edge: got %v, want an error naming --inner-addr", err)
+	}
+}
+
+func TestControlAndDoorAreNotBuiltYet(t *testing.T) {
+	for _, name := range []string{"control", "door"} {
 		var errOut bytes.Buffer
 		root := newRoot(testEnv(&errOut))
 		root.SetArgs([]string{name})

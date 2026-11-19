@@ -8,9 +8,8 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 )
 
-// Commands returns the network commands.
-func Commands(_ *edgeenv.Env) []*cobra.Command {
-	return []*cobra.Command{
-		{Use: "net", Short: "Show and change the internet allow list", RunE: edgeenv.NotBuilt("15")},
-	}
+// Commands returns the network commands: `net allowlist list|add|remove`, working on the allow
+// list in the edge data folder.
+func Commands(env *edgeenv.Env) []*cobra.Command {
+	return []*cobra.Command{NewNetCommand(env.DataDir, env.Out)}
 }

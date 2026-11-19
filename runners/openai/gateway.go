@@ -84,9 +84,12 @@ type Completion struct {
 // Gateway is a client of an OpenAI-compatible chat-completions endpoint.
 type Gateway struct {
 	BaseURL string
-	Token   sdk.Secret
-	Model   string
-	HTTP    *http.Client
+	// Token returns the token for the next call. Complete reads it once per
+	// call, so a renewed token serves the next call and a call in flight
+	// finishes with its own. The runner passes Credentials.GatewayToken.
+	Token func() sdk.Secret
+	Model string
+	HTTP  *http.Client
 }
 
 type streamChunk struct {
@@ -132,9 +135,10 @@ func (g *Gateway) Complete(ctx context.Context, req ChatRequest, onDelta func(st
 	if err != nil {
 		return Completion{}, fmt.Errorf("build model request: %w", err)
 	}
+	token := g.Token()
 	hreq.Header.Set("Content-Type", "application/json")
 	hreq.Header.Set("Accept", "text/event-stream")
-	hreq.Header.Set("Authorization", "Bearer "+g.Token.Reveal())
+	hreq.Header.Set("Authorization", "Bearer "+token.Reveal())
 	if req.Weight != "" {
 		hreq.Header.Set(WeightHeader, req.Weight)
 	}
@@ -146,7 +150,7 @@ func (g *Gateway) Complete(ctx context.Context, req ChatRequest, onDelta func(st
 		return Completion{}, modelError("model gateway unreachable: " + err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if err := statusError(resp); err != nil {
+	if err := statusError(resp, token); err != nil {
 		return Completion{}, err
 	}
 	return readStream(ctx, resp.Body, g.Model, onDelta)
@@ -156,7 +160,10 @@ func modelError(msg string) error {
 	return &sdk.CodedError{Code: sdk.CodeModelUnavailable, Message: msg}
 }
 
-func statusError(resp *http.Response) error {
+// statusError maps a refusal to an error. The error quotes the start of the
+// answer, with the call's token cut out in case the server echoed it: the
+// message goes to the daemon's journal.
+func statusError(resp *http.Response, token sdk.Secret) error {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return nil
@@ -166,7 +173,11 @@ func statusError(resp *http.Response) error {
 		return &sdk.CodedError{Code: sdk.CodeRateLimited, Message: "model gateway rate limit"}
 	}
 	snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-	return modelError(fmt.Sprintf("model gateway answered %d: %s", resp.StatusCode, strings.TrimSpace(string(snippet))))
+	text := strings.TrimSpace(string(snippet))
+	if t := token.Reveal(); t != "" {
+		text = strings.ReplaceAll(text, t, token.String())
+	}
+	return modelError(fmt.Sprintf("model gateway answered %d: %s", resp.StatusCode, text))
 }
 
 func readStream(ctx context.Context, r io.Reader, model string, onDelta func(string) error) (Completion, error) {

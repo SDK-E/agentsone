@@ -30,6 +30,14 @@ type session struct {
 	welcome Welcome
 	started time.Time
 
+	// creds are the tokens handed to the runner in Welcome.Credentials.
+	creds *Credentials
+	// handshook is closed once the welcome is read and creds hold its tokens;
+	// renews is set before that and says whether the connection negotiated
+	// credentials.update (1.1 or later).
+	handshook chan struct{}
+	renews    bool
+
 	mu       sync.Mutex
 	ready    bool
 	current  *Turn
@@ -68,6 +76,7 @@ func (s *session) isReady() bool {
 
 // readLoop reads and dispatches lines until the connection ends.
 func (s *session) readLoop() error {
+	welcomed := false // the hello answer, the first response, has been read
 	for {
 		line, err := s.conn.lines.next()
 		if errors.Is(err, errLineTooLong) {
@@ -85,12 +94,41 @@ func (s *session) readLoop() error {
 		switch in.kind {
 		case kindResponse:
 			s.conn.deliverResponse(in.id, response{result: in.result, err: in.err})
+			welcomed = true
 		case kindRequest:
 			s.handleRequest(in)
 		case kindNotification:
-			// The daemon defines no notifications; JSON-RPC says to ignore them.
+			// credentials.update is the daemon's only notification. Before
+			// the welcome it is out of order; JSON-RPC says to ignore
+			// notifications a receiver does not handle.
+			if in.method == protocol.MethodCredentialsUpdate && welcomed {
+				s.onCredentials(in.params)
+			}
 		}
 	}
+}
+
+// onCredentials swaps the tokens on a valid credentials.update (rule K2). It
+// sends no response. A connection that negotiated 1.0 ignores it, as in 1.0
+// (K3). A bad update keeps the current tokens and is reported in one log line
+// that holds no token text.
+func (s *session) onCredentials(params json.RawMessage) {
+	// The update may be read while the handshake still reads the welcome;
+	// wait for it, so the welcome's tokens never overwrite a newer update.
+	select {
+	case <-s.handshook:
+	case <-s.conn.done:
+		return
+	}
+	if !s.renews {
+		return
+	}
+	gateway, mcp, err := parseCredentials(params, s.clock.Now())
+	if err != nil {
+		_ = s.conn.notify(protocol.MethodLog, logParams{Level: string(LogWarn), Message: "credentials.update ignored: " + err.Error()})
+		return
+	}
+	s.creds.set(gateway, mcp)
 }
 
 func (s *session) reply(id int, result any, err error) {

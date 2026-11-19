@@ -50,12 +50,12 @@ func BuiltinRunners(libDir string) []BuiltinRunner {
 	bin := func(name string) string { return filepath.Join(libDir, "runners", name) }
 	return []BuiltinRunner{
 		{
-			Runner:      Runner{Name: "echo", Description: "Answers with what it was told. For tests and demos.", Command: bin("echo"), ProtocolVersions: []string{"1.0"}},
-			DisplayName: "Echo", Version: "1.0.0",
+			Runner:      Runner{Name: "echo", Description: "Answers with what it was told. For tests and demos.", Command: bin("echo"), ProtocolVersions: []string{"1.1", "1.0"}},
+			DisplayName: "Echo", Version: "1.1.0",
 		},
 		{
-			Runner:      Runner{Name: "openai", Description: "Calls the model through the host gateway.", Command: bin("openai"), ProtocolVersions: []string{"1.0"}},
-			DisplayName: "OpenAI compatible", Model: "autoagents/one", Version: "1.0.0",
+			Runner:      Runner{Name: "openai", Description: "Calls the model through the host gateway.", Command: bin("openai"), ProtocolVersions: []string{"1.1", "1.0"}},
+			DisplayName: "OpenAI compatible", Model: "autoagents/one", Version: "1.1.0",
 		},
 	}
 }

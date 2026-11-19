@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 // DefaultMaxLineBytes is the line limit before the welcome says otherwise.
@@ -22,15 +23,19 @@ var errLineTooLong = errors.New("sdk: line too long")
 // included. A longer line is discarded up to its newline and reported as
 // errLineTooLong, so the connection stays usable (rule F3).
 type lineReader struct {
-	r   *bufio.Reader
-	max int
+	r *bufio.Reader
+	// max is atomic: the handshake sets the welcome's limit while the read
+	// loop may already read the next line.
+	max atomic.Int64
 }
 
 func newLineReader(r io.Reader, limit int) *lineReader {
-	return &lineReader{r: bufio.NewReaderSize(r, 64*1024), max: limit}
+	l := &lineReader{r: bufio.NewReaderSize(r, 64*1024)}
+	l.setMax(limit)
+	return l
 }
 
-func (l *lineReader) setMax(limit int) { l.max = limit }
+func (l *lineReader) setMax(limit int) { l.max.Store(int64(limit)) }
 
 // next returns the next line without its newline. A partial line at end of
 // input is dropped and the read error is returned.
@@ -40,7 +45,9 @@ func (l *lineReader) next() ([]byte, error) {
 	for {
 		chunk, err := l.r.ReadSlice('\n')
 		if !tooLong {
-			if len(buf)+len(chunk) > l.max {
+			// Load the limit per chunk: the welcome's limit applies to the
+			// line the loop was already waiting for.
+			if len(buf)+len(chunk) > int(l.max.Load()) {
 				tooLong = true
 				buf = nil
 			} else {

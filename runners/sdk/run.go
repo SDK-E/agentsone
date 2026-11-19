@@ -28,7 +28,8 @@ type Options struct {
 	// Capabilities are sent in hello.
 	Capabilities Capabilities
 	// Versions are the protocol versions the runner speaks, highest first.
-	// The default is just ProtocolVersion.
+	// The default is every version the SDK speaks: 1.1, then 1.0. A runner
+	// that lists 1.1 must take its tokens from Welcome.Credentials.
 	Versions []string
 	// Socket is the daemon socket path. The default is $AGENTSONE_RUNNER_SOCKET.
 	Socket string
@@ -38,7 +39,7 @@ type Options struct {
 
 func (o Options) withDefaults() Options {
 	if len(o.Versions) == 0 {
-		o.Versions = []string{ProtocolVersion}
+		o.Versions = slices.Clone(protocolVersions)
 	}
 	if o.Clock == nil {
 		o.Clock = SystemClock{}
@@ -110,7 +111,7 @@ func RunConn(ctx context.Context, rwc io.ReadWriteCloser, opts Options, h Handle
 	s := &session{
 		conn: c, handler: h, opts: opts, clock: opts.Clock, started: opts.Clock.Now(),
 		wakeSignal: make(chan struct{}, 1), shutdown: make(chan shutdownRequest, 1), workerDone: make(chan struct{}),
-		turnCtx: ctx,
+		turnCtx: ctx, creds: &Credentials{}, handshook: make(chan struct{}),
 	}
 	readErr := make(chan error, 1)
 	go func() { readErr <- s.readLoop() }()
@@ -185,5 +186,13 @@ func (s *session) handshake(ctx context.Context) error {
 	if limit := s.welcome.Config.MaxLineBytes; limit > 0 {
 		s.conn.setMaxLine(limit)
 	}
+	mcpToken := s.welcome.MCP.Token
+	if mcpToken == "" {
+		mcpToken = Secret(s.welcome.MCP.Env[EnvMCPToken])
+	}
+	s.creds.set(s.welcome.Model.Token, mcpToken)
+	s.welcome.Credentials = s.creds
+	s.renews = renewsCredentials(s.welcome.ProtocolVersion)
+	close(s.handshook)
 	return nil
 }

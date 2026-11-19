@@ -35,7 +35,12 @@ test("plugins, says why one is not working", async ({ page }, testInfo) => {
   const clean = await useScenario(page, { only: { listPlugins: "long-text" } });
   await openPanel(page, "Plugins");
 
-  await expect(page.getByText(/The server stopped answering at 14:02/)).toBeVisible();
+  const detail = page.getByText(/The server stopped answering at 14:02/);
+  await expect(detail).toBeVisible();
+  await detail.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/plugins-health-viewport.png`,
+  });
   await checkPage(page, testInfo, "plugins-health-detail");
   clean();
 });

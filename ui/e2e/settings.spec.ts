@@ -63,7 +63,9 @@ test("settings, password change asks for the current password", async ({ page },
   await page.getByLabel("Current password").scrollIntoViewIfNeeded();
   await checkPage(page, testInfo, "settings-password-rules");
   // Only what the phone or desktop screen shows, for a human look at the form.
-  await page.screenshot({ path: `screenshots/${testInfo.project.name}/settings-password-viewport.png` });
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/settings-password-viewport.png`,
+  });
   clean();
 });
 

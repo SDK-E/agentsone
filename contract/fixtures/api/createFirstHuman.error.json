@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:setup-complete",
+    "title": "Setup already complete",
+    "status": 409,
+    "detail": "The first human already exists. Ask a human to add more accounts from Settings.",
+    "instance": "/v1/setup/first-human"
+  }
+}

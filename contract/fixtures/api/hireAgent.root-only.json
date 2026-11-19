@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:root-only",
+    "title": "Only root agents create root agents",
+    "status": 403,
+    "detail": "builder is a custom agent and cannot hire an agent with is_root set to true.",
+    "instance": "/v1/agents"
+  }
+}

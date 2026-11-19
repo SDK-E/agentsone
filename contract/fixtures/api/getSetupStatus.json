@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "body": {
+    "phase": "ready",
+    "first_human_created": true,
+    "licence_accepted": true,
+    "engine": {
+      "state": "ready",
+      "progress": 1,
+      "bytes_done": 214958080,
+      "bytes_total": 214958080,
+      "version": "2.1.40",
+      "error": null,
+      "updated_at": "2026-11-19T08:03:41Z"
+    },
+    "seed_installed": true,
+    "contract_version": "1.0.0"
+  }
+}

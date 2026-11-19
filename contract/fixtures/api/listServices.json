@@ -1,0 +1,62 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "unit": "agentsoned.service",
+        "description": "Agents One daemon",
+        "load_state": "loaded",
+        "active_state": "active",
+        "sub_state": "running",
+        "enabled": true,
+        "agent": null
+      },
+      {
+        "unit": "agentsone-kiosk.service",
+        "description": "Agents One kiosk (cage + Chromium)",
+        "load_state": "loaded",
+        "active_state": "active",
+        "sub_state": "running",
+        "enabled": true,
+        "agent": null
+      },
+      {
+        "unit": "agentsone-ide@ada.service",
+        "description": "Agents One IDE server for ada",
+        "load_state": "loaded",
+        "active_state": "active",
+        "sub_state": "running",
+        "enabled": false,
+        "agent": null
+      },
+      {
+        "unit": "agent@founder.service",
+        "description": "Agents One agent founder",
+        "load_state": "loaded",
+        "active_state": "active",
+        "sub_state": "running",
+        "enabled": true,
+        "agent": "founder"
+      },
+      {
+        "unit": "agent@keeper.service",
+        "description": "Agents One agent keeper",
+        "load_state": "loaded",
+        "active_state": "inactive",
+        "sub_state": "dead",
+        "enabled": true,
+        "agent": "keeper"
+      },
+      {
+        "unit": "emitter@emt_01JD7ZK3M00000000000000010.service",
+        "description": "Agents One emitter ci-hooks",
+        "load_state": "loaded",
+        "active_state": "failed",
+        "sub_state": "failed",
+        "enabled": true,
+        "agent": null
+      }
+    ],
+    "next_cursor": null
+  }
+}

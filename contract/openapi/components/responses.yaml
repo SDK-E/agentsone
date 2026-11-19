@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: MIT
+# Shared error responses. Every body is RFC 9457 problem details.
+
+BadRequest:
+  description: The request is invalid (`urn:agentsone:problem:validation`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+Unauthorized:
+  description: No valid session, token or peer identity (`urn:agentsone:problem:unauthenticated`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+PaymentRequired:
+  description: Budget spent (`urn:agentsone:problem:budget-exhausted`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+Forbidden:
+  description: |
+    The caller may not do this. Types: `forbidden`, `not-below-you`, `root-only`, `human-only`, `host-only`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+NotFound:
+  description: Not found or not visible to the caller (`urn:agentsone:problem:not-found`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+Conflict:
+  description: State conflict. Types `conflict`, `setup-required`, `setup-complete`, `licence-required`.
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+PayloadTooLarge:
+  description: Body or file over the limit (`urn:agentsone:problem:payload-too-large`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+Locked:
+  description: Frozen by the host (`urn:agentsone:problem:frozen`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+TooManyRequests:
+  description: Rate limited (`urn:agentsone:problem:rate-limited`).
+  headers:
+    Retry-After:
+      description: Seconds to wait.
+      schema:
+        type: integer
+        minimum: 1
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'
+Unavailable:
+  description: Not ready (`engine-unavailable`, `unavailable`).
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/common.yaml#/Problem'

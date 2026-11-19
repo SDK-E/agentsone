@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:not-below-you",
+    "title": "Agent is not below you",
+    "status": 403,
+    "detail": "builder cannot move keeper: both the agent and the new manager must be below the caller.",
+    "instance": "/v1/chart/move"
+  }
+}

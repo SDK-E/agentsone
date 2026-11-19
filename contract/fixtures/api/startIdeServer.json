@@ -1,0 +1,10 @@
+{
+  "status": 202,
+  "body": {
+    "human": "ada",
+    "state": "starting",
+    "url": null,
+    "started_at": null,
+    "error": null
+  }
+}

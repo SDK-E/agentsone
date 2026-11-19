@@ -1,0 +1,261 @@
+# SPDX-License-Identifier: MIT
+# Plugins, catalog, sources and panel tokens. The manifest is Ben's plugin-manifest.schema.json.
+
+PluginKind:
+  type: string
+  enum: [mcp-server, skill, agent-template, runner, panel, theme, emitter]
+
+PluginSourceId:
+  type: string
+  enum: [claude-code, agentsone, agent-skills, mcp-registry]
+  description: |
+    `claude-code` is the Claude Code plugin marketplace format; `agentsone` is our own
+    `agentsone.plugin.json`; `agent-skills` is the Agent Skills format; `mcp-registry` is the MCP registry.
+
+PluginSource:
+  type: object
+  required: [id, name, url, enabled]
+  properties:
+    id:
+      $ref: '#/PluginSourceId'
+    name:
+      type: string
+    url:
+      type: string
+      format: uri
+      description: Where the catalog is read from. The host must be on the allow list.
+    enabled:
+      type: boolean
+
+PluginSourceList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PluginSource'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+PluginHealth:
+  type: string
+  enum: [ok, degraded, failed]
+
+Plugin:
+  type: object
+  required: [id, name, version, kinds, source, ref, enabled, health, installed_by, installed_at, manifest]
+  properties:
+    id:
+      $ref: './common.yaml#/PluginId'
+    name:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
+    version:
+      type: string
+      description: Semantic version.
+    kinds:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/PluginKind'
+    source:
+      $ref: '#/PluginSourceId'
+    ref:
+      type: string
+      description: Source-specific reference the plugin was installed from.
+    enabled:
+      type: boolean
+    health:
+      $ref: '#/PluginHealth'
+    installed_by:
+      $ref: './common.yaml#/Actor'
+    installed_at:
+      $ref: './common.yaml#/Timestamp'
+    manifest:
+      $ref: '../../../schemas/plugin-manifest.schema.json'
+
+PluginList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Plugin'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+CatalogEntry:
+  type: object
+  required: [source, ref, name, version, summary, kinds, publisher, homepage, installed]
+  properties:
+    source:
+      $ref: '#/PluginSourceId'
+    ref:
+      type: string
+      description: Pass this to `installPlugin`.
+    name:
+      type: string
+    version:
+      type: string
+    summary:
+      type: string
+      maxLength: 500
+    kinds:
+      type: array
+      items:
+        $ref: '#/PluginKind'
+    publisher:
+      type: string
+    homepage:
+      type: [string, 'null']
+      format: uri
+    installed:
+      type: boolean
+
+CatalogList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/CatalogEntry'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+PluginInstall:
+  type: object
+  additionalProperties: false
+  required: [source, ref]
+  properties:
+    source:
+      $ref: '#/PluginSourceId'
+    ref:
+      type: string
+      minLength: 1
+      maxLength: 500
+    version:
+      type: string
+      description: Exact version; latest when omitted.
+    enable:
+      type: boolean
+      default: true
+
+PanelTokenCreate:
+  type: object
+  additionalProperties: false
+  description: Issue a short-lived token for a panel plugin frame. Scopes come from the plugin manifest.
+  properties:
+    ttl_seconds:
+      type: integer
+      minimum: 60
+      maximum: 86400
+      default: 3600
+
+RunnerStatus:
+  type: string
+  enum: [ready, fetching, unavailable]
+
+Runner:
+  type: object
+  description: A registered runner adapter. Each agent runs one runner process.
+  required: [name, display_name, version, protocol_version, builtin, plugin_id, model, status, description]
+  properties:
+    name:
+      type: string
+      pattern: '^[a-z][a-z0-9-]{0,62}$'
+      examples: [echo]
+    display_name:
+      type: string
+    version:
+      type: string
+    protocol_version:
+      type: string
+      description: Runner protocol version it speaks.
+    builtin:
+      type: boolean
+    plugin_id:
+      type: [string, 'null']
+      pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+    model:
+      type: [string, 'null']
+      description: Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`.
+    status:
+      $ref: '#/RunnerStatus'
+    description:
+      type: string
+
+RunnerList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Runner'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+InstalledTheme:
+  type: object
+  required: [id, name, builtin, plugin_id, installed_at, theme]
+  properties:
+    id:
+      $ref: './common.yaml#/ThemeId'
+    name:
+      type: string
+    builtin:
+      type: boolean
+      description: True for the default "Agents One Theme".
+    plugin_id:
+      type: [string, 'null']
+      pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+    installed_at:
+      $ref: './common.yaml#/Timestamp'
+    theme:
+      $ref: '../../../schemas/theme.schema.json'
+
+ThemeList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/InstalledTheme'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+ThemeImport:
+  type: object
+  additionalProperties: false
+  required: [theme]
+  properties:
+    theme:
+      $ref: '../../../schemas/theme.schema.json'
+
+ThemeMode:
+  type: string
+  enum: [system, light, dark]
+
+ThemeSelection:
+  type: object
+  description: The calling human's theme and mode. Every theme carries both light and dark.
+  required: [theme_id, mode]
+  properties:
+    theme_id:
+      $ref: './common.yaml#/ThemeId'
+    mode:
+      $ref: '#/ThemeMode'
+
+ThemeSelectionUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    theme_id:
+      $ref: './common.yaml#/ThemeId'
+    mode:
+      $ref: '#/ThemeMode'

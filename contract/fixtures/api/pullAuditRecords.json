@@ -1,0 +1,28 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "seq": 5,
+        "time": "2026-11-19T10:00:00Z",
+        "actor": {
+          "kind": "host",
+          "name": "agentsone"
+        },
+        "action": "budget.push",
+        "target": {
+          "kind": "budget",
+          "id": "total"
+        },
+        "outcome": "success",
+        "details": {
+          "remaining_micros": 37160000
+        },
+        "origin": "host",
+        "prevHash": "0d8e6f4a2b1c3e5d7f9a8b6c4e2d0f1a3c5b7e9d6a8f0c2b4d6e8a1c3f5b7d9e",
+        "hash": "7e1f3a2c9b4d6e8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f"
+      }
+    ],
+    "next_cursor": null
+  }
+}

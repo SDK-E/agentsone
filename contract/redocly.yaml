@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Lint and bundle configuration for the machine API description.
+apis:
+  agentsone@v1:
+    root: openapi/openapi.yaml
+extends:
+  - recommended-strict
+rules:
+  operation-description: error
+  operation-summary: error
+  operation-operationId: error
+  operation-tag-defined: error
+  operation-singular-tag: error
+  tag-description: error
+  no-unused-components: error
+  info-license-strict: error

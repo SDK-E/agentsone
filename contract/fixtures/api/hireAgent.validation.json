@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "The agent name must be a Linux username.",
+    "instance": "/v1/agents",
+    "errors": [
+      { "pointer": "/name", "message": "must match ^[a-z][a-z0-9-]{0,30}$ (got \"Docs_Writer\")" }
+    ]
+  }
+}

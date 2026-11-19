@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "body": {
+    "build": "code-oss",
+    "version": "1.106.0",
+    "active_build": "open",
+    "official": {
+      "state": "not-requested",
+      "progress": 0,
+      "version": null,
+      "error": null
+    },
+    "servers": [
+      {
+        "human": "ada",
+        "state": "running",
+        "url": "/ide/ada/",
+        "started_at": "2026-11-19T08:15:00Z",
+        "error": null
+      }
+    ]
+  }
+}

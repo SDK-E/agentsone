@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Charter changed since you read it",
+    "status": 409,
+    "detail": "expected_version is 2 but the charter is at version 3. Read it again and reapply your change.",
+    "instance": "/v1/charter"
+  }
+}

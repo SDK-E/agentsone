@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: MIT
+themes:
+  get:
+    operationId: listThemes
+    tags: [themes]
+    summary: List themes
+    description: Lists installed themes. The default is "Agents One Theme".
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of themes.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/ThemeList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: importTheme
+    tags: [themes]
+    summary: Import a theme
+    description: Imports a theme file. A theme carries both light and dark modes.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/plugins.yaml#/ThemeImport'
+    responses:
+      '201':
+        description: The installed theme.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/InstalledTheme'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+theme:
+  parameters:
+    - $ref: '../components/parameters.yaml#/ThemeId'
+  get:
+    operationId: getTheme
+    tags: [themes]
+    summary: Get a theme
+    description: Returns one installed theme.
+    responses:
+      '200':
+        description: The theme.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/InstalledTheme'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    operationId: deleteTheme
+    tags: [themes]
+    summary: Delete a theme
+    description: Removes an imported theme. The built-in theme and a theme in use cannot be removed (409).
+    responses:
+      '204':
+        description: Deleted.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+selection:
+  get:
+    operationId: getThemeSelection
+    tags: [themes]
+    summary: Get my theme and mode
+    description: Returns the calling human's theme and mode (system, light or dark).
+    security:
+      - cookieAuth: []
+    responses:
+      '200':
+        description: The selection.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/ThemeSelection'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  put:
+    operationId: setThemeSelection
+    tags: [themes]
+    summary: Set my theme and mode
+    description: Changes the calling human's theme, mode or both.
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/plugins.yaml#/ThemeSelectionUpdate'
+    responses:
+      '200':
+        description: The new selection.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/ThemeSelection'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

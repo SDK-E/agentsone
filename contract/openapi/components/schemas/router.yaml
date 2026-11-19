@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: MIT
+# Router and live list.
+
+LiveEntry:
+  type: object
+  description: One row of the live list. The router rates these rows against a human request.
+  required: [agent, display_name, kind, state, team, role, one_line]
+  properties:
+    agent:
+      $ref: './common.yaml#/AgentName'
+    display_name:
+      $ref: './common.yaml#/DisplayName'
+    kind:
+      $ref: './agents.yaml#/AgentKind'
+    state:
+      $ref: './agents.yaml#/AgentState'
+    team:
+      $ref: './common.yaml#/AgentName'
+    role:
+      type: string
+    one_line:
+      oneOf:
+        - $ref: './agents.yaml#/OneLine'
+        - type: 'null'
+
+LiveList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/LiveEntry'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+LiveEntryFrame:
+  type: object
+  description: An entry was added or changed.
+  required: [kind, entry]
+  properties:
+    kind:
+      type: string
+      const: entry
+    entry:
+      $ref: '#/LiveEntry'
+
+LiveRemovedFrame:
+  type: object
+  description: An agent left the live list (retired).
+  required: [kind, agent]
+  properties:
+    kind:
+      type: string
+      const: removed
+    agent:
+      $ref: './common.yaml#/AgentName'
+
+LiveStreamFrame:
+  oneOf:
+    - $ref: '#/LiveEntryFrame'
+    - $ref: '#/LiveRemovedFrame'
+    - $ref: './common.yaml#/Heartbeat'
+  discriminator:
+    propertyName: kind
+    mapping:
+      entry: '#/LiveEntryFrame'
+      removed: '#/LiveRemovedFrame'
+      heartbeat: './common.yaml#/Heartbeat'
+
+RouteRequest:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 4000
+      description: The human's request in their own words.
+    router:
+      $ref: './common.yaml#/AgentName'
+      description: Router agent to start with. Defaults to the society's main router.
+
+ShortlistEntry:
+  type: object
+  required: [agent, score, reason, one_line]
+  properties:
+    agent:
+      $ref: './common.yaml#/AgentName'
+    score:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: Rating from the router's quick model call; higher is a better fit.
+    reason:
+      type: string
+      maxLength: 255
+      description: One sentence on why this agent fits or not.
+    one_line:
+      $ref: './common.yaml#/OneLineText'
+
+RouterHop:
+  type: object
+  description: One router in the chain. A router may hand the request to a more specialised router.
+  required: [router, handed_to, reason]
+  properties:
+    router:
+      $ref: './common.yaml#/AgentName'
+    handed_to:
+      $ref: './common.yaml#/AgentName'
+    reason:
+      type: string
+      maxLength: 255
+
+Assignment:
+  type: object
+  description: |
+    Result of routing. The request is posted into the chosen agent's chat as the first human
+    message; the interface opens `chat_path`.
+  required: [id, text, chosen, router, hops, shortlist, chat_path, chat_message_id, created_by, created_at]
+  properties:
+    id:
+      $ref: './common.yaml#/AssignmentId'
+    text:
+      type: string
+    chosen:
+      $ref: './common.yaml#/AgentName'
+    router:
+      $ref: './common.yaml#/AgentName'
+      description: Router that made the final pick.
+    hops:
+      type: array
+      description: Hand-offs between routers, in order. Empty when the first router picked.
+      items:
+        $ref: '#/RouterHop'
+    shortlist:
+      type: array
+      maxItems: 10
+      description: Rated candidates, best first. The chosen agent is the first entry.
+      items:
+        $ref: '#/ShortlistEntry'
+    chat_path:
+      type: string
+      description: API path of the chosen agent's chat, for example `/v1/agents/helper/chat`.
+      examples: [/v1/agents/helper/chat]
+    chat_message_id:
+      $ref: './common.yaml#/ChatMessageId'
+    created_by:
+      $ref: './common.yaml#/Actor'
+    created_at:
+      $ref: './common.yaml#/Timestamp'

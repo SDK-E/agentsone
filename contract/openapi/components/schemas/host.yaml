@@ -1,0 +1,176 @@
+# SPDX-License-Identifier: MIT
+# Host door: used only by the host tool on the Mac over vsock.
+
+FreezeScope:
+  type: string
+  enum: [all, team, agent]
+
+Freeze:
+  type: object
+  description: |
+    An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.
+    `team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.
+  required: [id, scope, target, reason, wall, created_at]
+  properties:
+    id:
+      $ref: './common.yaml#/FreezeId'
+    scope:
+      $ref: '#/FreezeScope'
+    target:
+      type: [string, 'null']
+      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      description: Agent (or head of team) for `team` and `agent`; null for `all`.
+    reason:
+      type: string
+    wall:
+      $ref: './common.yaml#/Wall'
+    created_at:
+      $ref: './common.yaml#/Timestamp'
+
+FreezeList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Freeze'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+FreezeRequest:
+  type: object
+  additionalProperties: false
+  required: [scope, reason]
+  properties:
+    scope:
+      $ref: '#/FreezeScope'
+    target:
+      $ref: './common.yaml#/AgentName'
+      description: Required for `team` and `agent`.
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+
+ReleaseRequest:
+  type: object
+  additionalProperties: false
+  required: [freeze_id]
+  properties:
+    freeze_id:
+      $ref: './common.yaml#/FreezeId'
+
+HostBudgetPush:
+  type: object
+  additionalProperties: false
+  description: Budget state from the gateway. The daemon shows it and splits it; it cannot raise it.
+  required: [currency, total_micros, spent_micros, remaining_micros, state, defence, period_start, period_end, check_interval_seconds, as_of]
+  properties:
+    currency:
+      type: string
+      pattern: '^[A-Z]{3}$'
+    total_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    spent_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    remaining_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    state:
+      $ref: './budget.yaml#/BudgetState'
+    defence:
+      $ref: '#/HostDefencePush'
+    period_start:
+      $ref: './common.yaml#/Timestamp'
+    period_end:
+      $ref: './common.yaml#/Timestamp'
+    check_interval_seconds:
+      type: integer
+      minimum: 1
+    as_of:
+      $ref: './common.yaml#/Timestamp'
+
+HostDefencePush:
+  type: object
+  additionalProperties: false
+  required: [enabled, reserved_micros, spent_micros]
+  properties:
+    enabled:
+      type: boolean
+    reserved_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    spent_micros:
+      type: integer
+      format: int64
+      minimum: 0
+
+AuditAck:
+  type: object
+  additionalProperties: false
+  required: [up_to_seq, head_hash]
+  properties:
+    up_to_seq:
+      type: integer
+      format: int64
+      minimum: 1
+    head_hash:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+      description: Hash of record `up_to_seq` as the host computed it. A mismatch returns 409.
+
+AuditAckResult:
+  type: object
+  required: [acked_seq]
+  properties:
+    acked_seq:
+      type: integer
+      format: int64
+      minimum: 0
+
+AllowListSync:
+  type: object
+  additionalProperties: false
+  required: [version, entries]
+  properties:
+    version:
+      type: integer
+      minimum: 0
+    entries:
+      type: array
+      items:
+        $ref: './budget.yaml#/AllowEntry'
+
+DoorHealth:
+  type: object
+  required: [ok, daemon_version, contract_version, uptime_seconds, agents, frozen, audit_head_seq, time]
+  properties:
+    ok:
+      type: boolean
+    daemon_version:
+      type: string
+    contract_version:
+      type: string
+    uptime_seconds:
+      type: integer
+      format: int64
+      minimum: 0
+    agents:
+      type: integer
+      minimum: 0
+    frozen:
+      type: boolean
+      description: True when a freeze of scope `all` is active.
+    audit_head_seq:
+      type: integer
+      format: int64
+      minimum: 0
+    time:
+      $ref: './common.yaml#/Timestamp'

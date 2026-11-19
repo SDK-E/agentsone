@@ -1,0 +1,38 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "gol_01JD7ZK3M00000000000000001",
+        "owner": "founder",
+        "title": "Keep the society healthy and useful to its humans",
+        "detail": "Every request answered, every disk under 70 percent, budget spent carefully.",
+        "status": "open",
+        "parent_id": null,
+        "created_at": "2026-11-19T08:00:05Z",
+        "updated_at": "2026-11-19T08:00:05Z"
+      },
+      {
+        "id": "gol_01JD7ZK3M00000000000000002",
+        "owner": "builder",
+        "title": "Ship the docs site",
+        "detail": "A small static site with the four guide sets, built and served on the machine.",
+        "status": "open",
+        "parent_id": "gol_01JD7ZK3M00000000000000001",
+        "created_at": "2026-11-19T08:25:00Z",
+        "updated_at": "2026-11-19T15:10:00Z"
+      },
+      {
+        "id": "gol_01JD7ZK3M00000000000000003",
+        "owner": "keeper",
+        "title": "Clean the package cache",
+        "detail": "Remove old apt archives after each upgrade.",
+        "status": "achieved",
+        "parent_id": "gol_01JD7ZK3M00000000000000001",
+        "created_at": "2026-11-19T08:45:00Z",
+        "updated_at": "2026-11-19T11:30:00Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

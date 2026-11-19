@@ -1,0 +1,20 @@
+{
+  "status": 201,
+  "body": {
+    "emitter": {
+      "id": "emt_01JD7ZK3M00000000000000010",
+      "name": "ci-hooks",
+      "kind": "webhook",
+      "description": "Build results from the continuous integration service.",
+      "event_types": ["agentsone.ci-hooks.*"],
+      "enabled": true,
+      "unit": null,
+      "owner": "agent:builder",
+      "plugin_id": null,
+      "webhook_path": "/v1/webhooks/emt_01JD7ZK3M00000000000000010",
+      "created_at": "2026-11-19T10:40:00Z",
+      "last_event_at": null
+    },
+    "webhook_secret": "fixture-webhook-secret-not-real"
+  }
+}

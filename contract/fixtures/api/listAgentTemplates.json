@@ -1,0 +1,35 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "docs-writer",
+        "kind": "chat",
+        "isRoot": false,
+        "runner": {
+          "name": "claude",
+          "config": {}
+        },
+        "oneLine": "Goal: clear docs for humans. Now: waiting for a writing task.",
+        "charter": "Write plain, short guides for humans and keep them current.",
+        "goals": [
+          "Keep every guide current with the newest release."
+        ],
+        "skills": [
+          "plain-writing"
+        ],
+        "mcpServers": [],
+        "limits": {
+          "cpuPercent": 100,
+          "memoryMiB": 1024,
+          "tasks": 256
+        },
+        "wake": {
+          "subscriptions": []
+        },
+        "schedules": []
+      }
+    ],
+    "next_cursor": null
+  }
+}

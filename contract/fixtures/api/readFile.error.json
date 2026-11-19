@@ -1,0 +1,10 @@
+{
+  "status": 413,
+  "body": {
+    "type": "urn:agentsone:problem:payload-too-large",
+    "title": "Payload too large",
+    "status": 413,
+    "detail": "/var/lib/agentsone/core.db is 96 MiB; reads stop at 8 MiB. Use a terminal to inspect it.",
+    "instance": "/v1/machine/files/content?path=/var/lib/agentsone/core.db"
+  }
+}

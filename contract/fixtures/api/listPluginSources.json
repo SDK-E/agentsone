@@ -1,0 +1,32 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "claude-code",
+        "name": "Claude Code marketplace",
+        "url": "https://github.com/anthropics/claude-plugins-official",
+        "enabled": true
+      },
+      {
+        "id": "agentsone",
+        "name": "Agents One plugins",
+        "url": "https://github.com/SDK-E/agentsone",
+        "enabled": true
+      },
+      {
+        "id": "agent-skills",
+        "name": "Agent Skills",
+        "url": "https://github.com/anthropics/skills",
+        "enabled": true
+      },
+      {
+        "id": "mcp-registry",
+        "name": "MCP registry",
+        "url": "https://registry.modelcontextprotocol.io",
+        "enabled": true
+      }
+    ],
+    "next_cursor": null
+  }
+}

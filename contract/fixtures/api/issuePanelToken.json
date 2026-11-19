@@ -1,0 +1,12 @@
+{
+  "status": 201,
+  "body": {
+    "id": "tok_01JD7ZK3M00000000000000002",
+    "token": "fixture-panel-token-not-real",
+    "subject": "plugin:plg_01JD7ZK3M00000000000000005",
+    "label": "disk-watch-panel frame",
+    "scopes": ["machine:read", "events:read"],
+    "expires_at": "2026-11-19T13:40:00Z",
+    "created_at": "2026-11-19T12:40:00Z"
+  }
+}

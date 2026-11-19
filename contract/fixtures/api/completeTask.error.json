@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Task already closed",
+    "status": 409,
+    "detail": "The task is already done; a closed task cannot be completed again.",
+    "instance": "/v1/tasks/tsk_01JD7ZK3M00000000000000001/complete"
+  }
+}

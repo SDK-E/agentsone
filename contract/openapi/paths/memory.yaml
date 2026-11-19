@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: MIT
+memory:
+  get:
+    operationId: listMemory
+    tags: [memory]
+    summary: List memory records
+    description: |
+      Lists memory records the caller may read, newest first. Agents read their private records,
+      their team's and common ones; root agents and humans read all.
+    parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/memory.yaml#/MemoryScope'
+      - name: owner
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/AgentName'
+      - name: tag
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-]{0,39}$'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of memory records.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/memory.yaml#/MemoryList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: writeMemory
+    tags: [memory]
+    summary: Write a memory record
+    description: Writes a record owned by the caller. A record with the same `key` in the same scope is replaced.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/memory.yaml#/MemoryWrite'
+    responses:
+      '201':
+        description: The stored record.
+        content:
+          application/json:
+            schema:
+              $ref: '../../schemas/memory-record.schema.json'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+search:
+  get:
+    operationId: searchMemory
+    tags: [memory]
+    summary: Search memory
+    description: Full-text search over the records the caller may read, best match first.
+    parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 500
+      - name: scope
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/memory.yaml#/MemoryScope'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: Ranked hits.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/memory.yaml#/MemorySearchResult'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+record:
+  parameters:
+    - $ref: '../components/parameters.yaml#/MemoryId'
+  get:
+    operationId: getMemory
+    tags: [memory]
+    summary: Get a memory record
+    description: Returns one record if the caller may read its scope.
+    responses:
+      '200':
+        description: The record.
+        content:
+          application/json:
+            schema:
+              $ref: '../../schemas/memory-record.schema.json'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    operationId: deleteMemory
+    tags: [memory]
+    summary: Delete a memory record
+    description: Deletes a record. Agents delete their own records; root agents delete any.
+    responses:
+      '204':
+        description: Deleted.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

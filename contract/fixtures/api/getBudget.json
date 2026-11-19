@@ -1,0 +1,21 @@
+{
+  "status": 200,
+  "body": {
+    "currency": "USD",
+    "total_micros": 50000000,
+    "spent_micros": 12840000,
+    "remaining_micros": 37160000,
+    "state": "ok",
+    "wall": "hard",
+    "defence": {
+      "enabled": true,
+      "reserved_micros": 5000000,
+      "spent_micros": 410000,
+      "wall": "hard"
+    },
+    "period_start": "2026-11-01T00:00:00Z",
+    "period_end": "2026-12-01T00:00:00Z",
+    "check_interval_seconds": 60,
+    "as_of": "2026-11-19T12:44:00Z"
+  }
+}

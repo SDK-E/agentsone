@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Licence version changed",
+    "status": 409,
+    "detail": "You accepted licence version 2026-10-01 but the current version is 2026-11-01. Read the new text and accept again.",
+    "instance": "/v1/setup/engine-licence"
+  }
+}

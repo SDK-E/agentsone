@@ -1,0 +1,166 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "plg_01JD7ZK3M00000000000000001",
+        "name": "small-seed",
+        "version": "1.0.0",
+        "kinds": ["agent-template"],
+        "source": "agentsone",
+        "ref": "SDK-E/agentsone/plugins/small-seed",
+        "enabled": true,
+        "health": "ok",
+        "installed_by": "system:daemon",
+        "installed_at": "2026-11-19T08:00:30Z",
+        "manifest": {
+          "name": "small-seed",
+          "version": "1.0.0",
+          "description": "The default society: a founder (root), one router and one waker.",
+          "author": {
+            "name": "Agents One"
+          },
+          "license": "MIT",
+          "source": {
+            "kind": "agentsone",
+            "ref": "SDK-E/agentsone/plugins/small-seed"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [],
+            "skills": [],
+            "agentTemplates": [
+              { "path": "./agents/founder.json" },
+              { "path": "./agents/router.json" },
+              { "path": "./agents/waker.json" }
+            ],
+            "runners": [],
+            "panels": [],
+            "themes": [],
+            "emitters": []
+          }
+        }
+      },
+      {
+        "id": "plg_01JD7ZK3M00000000000000002",
+        "name": "agents-one-theme",
+        "version": "1.0.0",
+        "kinds": ["theme"],
+        "source": "agentsone",
+        "ref": "SDK-E/agentsone/plugins/agents-one-theme",
+        "enabled": true,
+        "health": "ok",
+        "installed_by": "system:daemon",
+        "installed_at": "2026-11-19T08:00:30Z",
+        "manifest": {
+          "name": "agents-one-theme",
+          "version": "1.0.0",
+          "description": "The default Agents One Theme with light and dark modes.",
+          "author": {
+            "name": "Agents One"
+          },
+          "license": "MIT",
+          "source": {
+            "kind": "agentsone",
+            "ref": "SDK-E/agentsone/plugins/agents-one-theme"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [],
+            "skills": [],
+            "agentTemplates": [],
+            "runners": [],
+            "panels": [],
+            "themes": [
+              { "path": "./themes/agents-one-theme.json" }
+            ],
+            "emitters": []
+          }
+        }
+      },
+      {
+        "id": "plg_01JD7ZK3M00000000000000003",
+        "name": "sample-mcp",
+        "version": "0.3.1",
+        "kinds": ["mcp-server"],
+        "source": "mcp-registry",
+        "ref": "io.github.sdk-e/sample-mcp",
+        "enabled": true,
+        "health": "ok",
+        "installed_by": "agent:builder",
+        "installed_at": "2026-11-19T10:12:00Z",
+        "manifest": {
+          "name": "sample-mcp",
+          "version": "0.3.1",
+          "description": "Sample MCP server with a clock and a dice tool.",
+          "author": {
+            "name": "SDK-E"
+          },
+          "license": "MIT",
+          "source": {
+            "kind": "mcp-registry",
+            "ref": "io.github.sdk-e/sample-mcp"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [
+              { "name": "sample-mcp", "transport": "stdio", "command": "${PLUGIN_ROOT}/bin/sample-mcp", "args": [], "env": {} }
+            ],
+            "skills": [],
+            "agentTemplates": [],
+            "runners": [],
+            "panels": [],
+            "themes": [],
+            "emitters": []
+          }
+        }
+      },
+      {
+        "id": "plg_01JD7ZK3M00000000000000004",
+        "name": "pdf",
+        "version": "1.2.0",
+        "kinds": ["skill"],
+        "source": "agent-skills",
+        "ref": "anthropics/skills/pdf",
+        "enabled": false,
+        "health": "ok",
+        "installed_by": "agent:scribe",
+        "installed_at": "2026-11-19T11:00:00Z",
+        "manifest": {
+          "name": "pdf",
+          "version": "1.2.0",
+          "description": "Read, fill and create PDF files.",
+          "author": {
+            "name": "Anthropic"
+          },
+          "license": "Apache-2.0",
+          "source": {
+            "kind": "agent-skills",
+            "ref": "anthropics/skills/pdf"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [],
+            "skills": [
+              { "name": "pdf", "path": "${PLUGIN_ROOT}/skills/pdf", "description": "Read, fill and create PDF files. Use when a task involves PDF documents." }
+            ],
+            "agentTemplates": [],
+            "runners": [],
+            "panels": [],
+            "themes": [],
+            "emitters": []
+          }
+        }
+      }
+    ],
+    "next_cursor": null
+  }
+}

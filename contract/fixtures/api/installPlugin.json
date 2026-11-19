@@ -1,0 +1,44 @@
+{
+  "status": 201,
+  "body": {
+    "id": "plg_01JD7ZK3M00000000000000005",
+    "name": "disk-watch-panel",
+    "version": "0.1.0",
+    "kinds": ["panel", "emitter"],
+    "source": "agentsone",
+    "ref": "SDK-E/agentsone/plugins/disk-watch-panel",
+    "enabled": true,
+    "health": "ok",
+    "installed_by": "agent:keeper",
+    "installed_at": "2026-11-19T12:40:00Z",
+    "manifest": {
+      "name": "disk-watch-panel",
+      "version": "0.1.0",
+      "description": "Interface panel that charts disk usage per mount.",
+      "author": {
+        "name": "SDK-E"
+      },
+      "license": "MIT",
+      "source": {
+        "kind": "agentsone",
+        "ref": "SDK-E/agentsone/plugins/disk-watch-panel"
+      },
+      "compat": {
+        "agentsone": "^1.0.0"
+      },
+      "contents": {
+        "mcpServers": [],
+        "skills": [],
+        "agentTemplates": [],
+        "runners": [],
+        "panels": [
+          { "name": "disk-watch", "title": "Disk watch", "icon": "./panel/icon.svg", "entry": "./panel/index.html", "scopes": ["machine:read", "events:read"] }
+        ],
+        "themes": [],
+        "emitters": [
+          { "name": "disk-watch", "command": "${PLUGIN_ROOT}/bin/disk-watch", "args": ["--interval", "60"], "env": {}, "eventTypes": ["agentsone.disk-watch.usage"] }
+        ]
+      }
+    }
+  }
+}

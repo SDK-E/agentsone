@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:forbidden",
+    "title": "Forbidden",
+    "status": 403,
+    "detail": "Linux permissions deny user scribe write access to /etc/agentsone/config.toml.",
+    "instance": "/v1/machine/files/content"
+  }
+}

@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: MIT
+ide:
+  get:
+    operationId: getIdeStatus
+    tags: [ide]
+    summary: Get IDE status
+    description: Returns the baked-in open VS Code build, the optional official download and every human's server.
+    responses:
+      '200':
+        description: The IDE status.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ide.yaml#/IdeStatus'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+server:
+  parameters:
+    - $ref: '../components/parameters.yaml#/HumanName'
+  get:
+    operationId: getIdeServer
+    tags: [ide]
+    summary: Get a human's IDE server
+    description: Returns the state and URL of one human's VS Code server.
+    responses:
+      '200':
+        description: The server.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ide.yaml#/IdeServer'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  put:
+    operationId: startIdeServer
+    tags: [ide]
+    summary: Start a human's IDE server
+    description: Starts `agentsone-ide@<human>.service`. A human may start only their own server; poll or read the URL when running.
+    responses:
+      '202':
+        description: Starting.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ide.yaml#/IdeServer'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    operationId: stopIdeServer
+    tags: [ide]
+    summary: Stop a human's IDE server
+    description: Stops the human's VS Code server.
+    responses:
+      '204':
+        description: Stopped.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+official:
+  get:
+    operationId: getOfficialIdeDownload
+    tags: [ide]
+    summary: Get the official build download state
+    description: Returns the state of the optional official VS Code download.
+    responses:
+      '200':
+        description: The download state.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ide.yaml#/OfficialIdeDownload'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: startOfficialIdeDownload
+    tags: [ide]
+    summary: Download the official build
+    description: Starts downloading the official VS Code build after the human accepts its licence. Humans only.
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ide.yaml#/OfficialIdeRequest'
+    responses:
+      '202':
+        description: Download started.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ide.yaml#/OfficialIdeDownload'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

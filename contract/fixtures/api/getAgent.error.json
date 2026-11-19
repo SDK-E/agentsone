@@ -1,0 +1,10 @@
+{
+  "status": 404,
+  "body": {
+    "type": "urn:agentsone:problem:not-found",
+    "title": "Not found",
+    "status": 404,
+    "detail": "No agent named \"helper\" exists, or it is not visible to you.",
+    "instance": "/v1/agents/helper"
+  }
+}

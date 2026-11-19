@@ -1,0 +1,48 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "root",
+        "uid": 0,
+        "gid": 0,
+        "home": "/root",
+        "shell": "/bin/bash",
+        "kind": "system"
+      },
+      {
+        "name": "ada",
+        "uid": 1000,
+        "gid": 1000,
+        "home": "/home/ada",
+        "shell": "/bin/bash",
+        "kind": "human"
+      },
+      {
+        "name": "builder",
+        "uid": 2001,
+        "gid": 2001,
+        "home": "/home/agents/builder",
+        "shell": "/bin/bash",
+        "kind": "agent"
+      },
+      {
+        "name": "scribe",
+        "uid": 2003,
+        "gid": 2003,
+        "home": "/home/agents/scribe",
+        "shell": "/bin/bash",
+        "kind": "agent"
+      },
+      {
+        "name": "keeper",
+        "uid": 2004,
+        "gid": 2004,
+        "home": "/home/agents/keeper",
+        "shell": "/bin/bash",
+        "kind": "agent"
+      }
+    ],
+    "next_cursor": null
+  }
+}

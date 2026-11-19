@@ -1,0 +1,177 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "founder",
+        "display_name": "Founder",
+        "kind": "always-on",
+        "is_root": true,
+        "runner": "claude",
+        "manager": null,
+        "team": "founder",
+        "role": "Founder",
+        "description": "Starts the society, hires the first team and keeps the charter and goals alive.",
+        "state": "working",
+        "one_line": {
+          "text": "Goal: keep the society healthy. Now: reviewing builder's plan for the docs site.",
+          "updated_at": "2026-11-19T18:39:12Z"
+        },
+        "limits": null,
+        "uid": 0,
+        "home": "/root/agents/founder",
+        "unit": "agent@founder.service",
+        "template": "small-seed/founder",
+        "created_at": "2026-11-19T08:00:05Z",
+        "created_by": "system:daemon",
+        "last_turn_at": "2026-11-19T18:39:12Z"
+      },
+      {
+        "name": "router",
+        "display_name": "Router",
+        "kind": "chat",
+        "is_root": false,
+        "runner": "claude",
+        "manager": "founder",
+        "team": "founder",
+        "role": "Router",
+        "description": "Reads the live list and sends each human request to the agent best placed to help.",
+        "state": "awake",
+        "one_line": {
+          "text": "Goal: get every human to the right agent fast. Now: waiting for the next request.",
+          "updated_at": "2026-11-19T18:31:40Z"
+        },
+        "limits": {
+          "cpu_percent": 50,
+          "memory_mb": 512,
+          "tasks": 128,
+          "wall": "soft"
+        },
+        "uid": 1101,
+        "home": "/home/agents/router",
+        "unit": "agent@router.service",
+        "template": "small-seed/router",
+        "created_at": "2026-11-19T08:00:07Z",
+        "created_by": "system:daemon",
+        "last_turn_at": "2026-11-19T18:31:40Z"
+      },
+      {
+        "name": "waker",
+        "display_name": "Waker",
+        "kind": "waker",
+        "is_root": false,
+        "runner": "openai",
+        "manager": "founder",
+        "team": "founder",
+        "role": "Watcher",
+        "description": "Watches auth, disk and service events and wakes the right agent when something needs care.",
+        "state": "sleeping",
+        "one_line": {
+          "text": "Goal: notice trouble early. Now: asleep, watching disk, auth and service events.",
+          "updated_at": "2026-11-19T17:58:02Z"
+        },
+        "limits": {
+          "cpu_percent": 25,
+          "memory_mb": 256,
+          "tasks": 64,
+          "wall": "soft"
+        },
+        "uid": 1102,
+        "home": "/home/agents/waker",
+        "unit": "agent@waker.service",
+        "template": "small-seed/waker",
+        "created_at": "2026-11-19T08:00:09Z",
+        "created_by": "system:daemon",
+        "last_turn_at": "2026-11-19T17:58:02Z"
+      },
+      {
+        "name": "builder",
+        "display_name": "Builder",
+        "kind": "always-on",
+        "is_root": false,
+        "runner": "claude",
+        "manager": "founder",
+        "team": "builder",
+        "role": "Builder",
+        "description": "Builds and ships the society's own tools and the docs site.",
+        "state": "working",
+        "one_line": {
+          "text": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy.",
+          "updated_at": "2026-11-19T18:38:55Z"
+        },
+        "limits": {
+          "cpu_percent": 200,
+          "memory_mb": 2048,
+          "tasks": 512,
+          "wall": "soft"
+        },
+        "uid": 1103,
+        "home": "/home/agents/builder",
+        "unit": "agent@builder.service",
+        "template": null,
+        "created_at": "2026-11-19T08:20:31Z",
+        "created_by": "agent:founder",
+        "last_turn_at": "2026-11-19T18:38:55Z"
+      },
+      {
+        "name": "scribe",
+        "display_name": "Scribe",
+        "kind": "chat",
+        "is_root": false,
+        "runner": "claude",
+        "manager": "builder",
+        "team": "builder",
+        "role": "Docs writer",
+        "description": "Writes guides and page copy for the builder team.",
+        "state": "sleeping",
+        "one_line": {
+          "text": "Goal: clear docs for humans. Now: asleep until builder sends the page outline.",
+          "updated_at": "2026-11-19T18:02:17Z"
+        },
+        "limits": {
+          "cpu_percent": 100,
+          "memory_mb": 1024,
+          "tasks": 256,
+          "wall": "soft"
+        },
+        "uid": 1104,
+        "home": "/home/agents/scribe",
+        "unit": "agent@scribe.service",
+        "template": null,
+        "created_at": "2026-11-19T09:12:44Z",
+        "created_by": "agent:builder",
+        "last_turn_at": "2026-11-19T18:02:17Z"
+      },
+      {
+        "name": "keeper",
+        "display_name": "Keeper",
+        "kind": "always-on",
+        "is_root": false,
+        "runner": "openai",
+        "manager": "founder",
+        "team": "keeper",
+        "role": "Disk and package keeper",
+        "description": "Keeps disks tidy and packages current, and reports what it changed.",
+        "state": "awake",
+        "one_line": {
+          "text": "Goal: keep disk under 70 percent. Now: cleaning old logs in /var/log/journal.",
+          "updated_at": "2026-11-19T18:36:09Z"
+        },
+        "limits": {
+          "cpu_percent": 100,
+          "memory_mb": 1024,
+          "tasks": 256,
+          "wall": "soft"
+        },
+        "uid": 1105,
+        "home": "/home/agents/keeper",
+        "unit": "agent@keeper.service",
+        "template": null,
+        "created_at": "2026-11-19T08:41:03Z",
+        "created_by": "agent:founder",
+        "last_turn_at": "2026-11-19T18:36:09Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

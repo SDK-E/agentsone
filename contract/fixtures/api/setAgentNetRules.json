@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "body": {
+    "agent": "scribe",
+    "mode": "allow-only",
+    "allow": ["github.com"],
+    "wall": "soft",
+    "updated_at": "2026-11-19T12:50:00Z",
+    "updated_by": "agent:builder"
+  }
+}

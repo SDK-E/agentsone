@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT
+runners:
+  get:
+    operationId: listRunners
+    tags: [runners]
+    summary: List runners
+    description: Lists registered runner adapters. Echo and OpenAI-compatible ship in the image; Claude arrives after first boot; others come as plugins.
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of runners.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/RunnerList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+runner:
+  parameters:
+    - $ref: '../components/parameters.yaml#/RunnerName'
+  get:
+    operationId: getRunner
+    tags: [runners]
+    summary: Get a runner
+    description: Returns one runner adapter.
+    responses:
+      '200':
+        description: The runner.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/plugins.yaml#/Runner'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

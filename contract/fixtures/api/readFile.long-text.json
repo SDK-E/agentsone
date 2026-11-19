@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/var/log/agentsone/a-rather-long-log-file-name-for-layout-testing-in-the-machine-files-panel.log",
+    "encoding": "utf-8",
+    "content": "2026-11-19T12:30:00Z builder build started with a very long line that does not wrap on its own and keeps going past the edge of the viewer so the file panel must offer horizontal scroll or soft wrap without breaking the page layout on phone width or desktop width, which is the whole point of this long-text fixture line number one\n2026-11-19T12:30:01Z builder resolved 412 packages\n2026-11-19T12:30:09Z builder transformed 1824 modules\n2026-11-19T12:31:10Z builder build finished in 70.2 s\n",
+    "size_bytes": 9437184,
+    "truncated": true
+  }
+}

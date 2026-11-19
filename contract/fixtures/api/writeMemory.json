@@ -1,0 +1,26 @@
+{
+  "status": 201,
+  "body": {
+    "id": "mem_01JD7ZK3M00000000000000004",
+    "scope": "team",
+    "owner": "scribe",
+    "team": "builder",
+    "title": "Disk clean-up summary",
+    "body": "Keeper freed 1.2 GiB on `/var` by vacuuming the journal.",
+    "tags": ["disk", "report"],
+    "links": [
+      {
+        "kind": "memory",
+        "ref": "mem_01JD7ZK3M00000000000000005",
+        "title": "Journal vacuum notes"
+      }
+    ],
+    "source": {
+      "kind": "agent",
+      "ref": "scribe"
+    },
+    "createdAt": "2026-11-19T11:30:00Z",
+    "updatedAt": "2026-11-19T11:30:00Z",
+    "revision": 1
+  }
+}

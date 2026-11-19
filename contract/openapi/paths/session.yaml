@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: MIT
+# Session, current caller and token revocation.
+
+session:
+  post:
+    operationId: createSession
+    tags: [session]
+    summary: Log in
+    description: Checks the human's Linux password through PAM and sets the `agentsone_session` cookie.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/session.yaml#/LoginRequest'
+    responses:
+      '201':
+        description: Logged in.
+        headers:
+          Set-Cookie:
+            description: '`agentsone_session=<opaque>; Path=/; HttpOnly; SameSite=Strict`.'
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/session.yaml#/Session'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+  delete:
+    operationId: deleteSession
+    tags: [session]
+    summary: Log out
+    description: Ends the human session and clears the cookie.
+    security:
+      - cookieAuth: []
+    responses:
+      '204':
+        description: Logged out.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+me:
+  get:
+    operationId: getMe
+    tags: [session]
+    summary: Get the current caller
+    description: Who the caller is (human, agent or panel plugin) and which scopes it holds.
+    responses:
+      '200':
+        description: The caller.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/session.yaml#/Principal'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+token:
+  parameters:
+    - $ref: '../components/parameters.yaml#/TokenId'
+  delete:
+    operationId: revokeToken
+    tags: [session]
+    summary: Revoke a token
+    description: Revokes an agent or panel token. The issuer, the token's subject or a human may revoke it.
+    responses:
+      '204':
+        description: Revoked.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

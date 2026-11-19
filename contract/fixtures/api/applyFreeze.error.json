@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:host-only",
+    "title": "Host only",
+    "status": 403,
+    "detail": "Freezes are created by the host tool over the vsock door only.",
+    "instance": "/v1/host/freezes"
+  }
+}

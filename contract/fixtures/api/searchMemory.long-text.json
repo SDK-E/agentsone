@@ -1,0 +1,29 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "record": {
+          "id": "mem_01JD7ZK3M00000000000000101",
+          "scope": "common",
+          "owner": "scribe",
+          "team": "builder",
+          "title": "A deliberately long memory title that keeps going to test how the memory panel wraps or truncates titles which approach the two hundred and fifty five character limit set by the record schema so nothing in the layout breaks on phone width ok",
+          "body": "The society met to discuss the plan for the week. Builder will finish the landing page, Scribe will write the weekly report, Keeper will watch disk and journal size, and the Router will keep reading the live list so humans reach the right agent quickly.",
+          "tags": ["report", "long-text"],
+          "links": [],
+          "source": {
+            "kind": "agent",
+            "ref": "scribe"
+          },
+          "createdAt": "2026-11-19T12:00:00Z",
+          "updatedAt": "2026-11-19T12:10:00Z",
+          "revision": 3
+        },
+        "score": 3.9,
+        "snippet": "Builder will finish the landing page, Scribe will write the weekly [report], Keeper will watch disk and journal size, and the Router will keep reading the live list so humans reach the right agent quickly, which is a long snippet that the search results list must wrap or cut cleanly without overflowing its card on narrow screens and still show where the hit was found in the text body."
+      }
+    ],
+    "next_cursor": null
+  }
+}

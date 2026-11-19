@@ -1,0 +1,28 @@
+{
+  "status": 200,
+  "body": {
+    "id": "asg_01JD7ZK3M00000000000000002",
+    "text": "I need a full first-boot guide for new humans.",
+    "chosen": "builder",
+    "router": "a-very-long-agent-name-for-test",
+    "hops": [
+      {
+        "router": "router",
+        "handed_to": "a-very-long-agent-name-for-test",
+        "reason": "Documentation request; the docs router knows the writers better."
+      }
+    ],
+    "shortlist": [
+      {
+        "agent": "builder",
+        "score": 0.91,
+        "reason": "Owns the docs site.",
+        "one_line": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy."
+      }
+    ],
+    "chat_path": "/v1/agents/builder/chat",
+    "chat_message_id": "cht_01JD7ZK3M00000000000000010",
+    "created_by": "human:ada",
+    "created_at": "2026-11-19T18:30:00Z"
+  }
+}

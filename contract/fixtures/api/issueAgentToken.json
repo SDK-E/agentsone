@@ -1,0 +1,15 @@
+{
+  "status": 201,
+  "body": {
+    "id": "tok_01JD7ZK3M00000000000000001",
+    "token": "ao1_fixture_not_a_real_token_00000000000000000000",
+    "subject": "agent:builder",
+    "label": "docs site build tool",
+    "scopes": [
+      "tasks:write",
+      "memory:read"
+    ],
+    "expires_at": "2026-11-20T18:40:00Z",
+    "created_at": "2026-11-19T18:40:00Z"
+  }
+}

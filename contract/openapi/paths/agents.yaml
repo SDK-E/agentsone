@@ -1,0 +1,422 @@
+# SPDX-License-Identifier: MIT
+# Agents: hire, edit, retire, wake, sleep, one-line, output, chat, tokens, templates.
+
+agents:
+  get:
+    operationId: listAgents
+    tags: [agents]
+    summary: List agents
+    description: Every agent in the society, filtered by the query. Retired agents are left out unless `state=retired`.
+    parameters:
+      - name: kind
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/agents.yaml#/AgentKind'
+      - name: state
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/agents.yaml#/AgentState'
+      - name: manager
+        in: query
+        required: false
+        description: Only direct reports of this agent.
+        schema:
+          $ref: '../components/schemas/common.yaml#/AgentName'
+      - name: team
+        in: query
+        required: false
+        description: Only agents in this chart branch.
+        schema:
+          $ref: '../components/schemas/common.yaml#/AgentName'
+      - name: is_root
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of agents.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/AgentList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: hireAgent
+    tags: [agents]
+    summary: Hire an agent
+    description: |
+      Creates the agent's Linux user, home and `agent@<name>.service`, below the caller. Only
+      root agents may create root agents. No approval gate; the hire is audited.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/AgentCreate'
+    responses:
+      '201':
+        description: Hired.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/Agent'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+
+agent:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  get:
+    operationId: getAgent
+    tags: [agents]
+    summary: Get an agent
+    description: One agent with its state, one-line and limits.
+    responses:
+      '200':
+        description: The agent.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/Agent'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  patch:
+    operationId: updateAgent
+    tags: [agents]
+    summary: Edit an agent
+    description: Edits an agent below the caller. Limits are a soft wall (cgroups inside the VM).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/AgentUpdate'
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/Agent'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+  delete:
+    operationId: retireAgent
+    tags: [agents]
+    summary: Retire an agent
+    description: |
+      Retires an agent below the caller. Its unit stops, its reports move up to the caller and its
+      private memory is kept read-only for root agents. Audited.
+    responses:
+      '204':
+        description: Retired.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+wake:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  post:
+    operationId: wakeAgent
+    tags: [agents]
+    summary: Wake an agent
+    description: Starts a turn with the given reason. Wakes are rate limited; a frozen agent returns 423.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/WakeRequest'
+    responses:
+      '202':
+        description: Wake queued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/Agent'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '402':
+        $ref: '../components/responses.yaml#/PaymentRequired'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+
+sleep:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  post:
+    operationId: sleepAgent
+    tags: [agents]
+    summary: Put an agent to sleep
+    description: Ends the current turn, optionally compacts the session to a summary and stops the runner. Sleeping costs nothing.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/SleepRequest'
+    responses:
+      '202':
+        description: Sleep queued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/Agent'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+one-line:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  get:
+    operationId: getAgentOneLine
+    tags: [agents]
+    summary: Get an agent's one-line
+    description: The agent's latest one-line (its live list entry).
+    responses:
+      '200':
+        description: The one-line.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/OneLine'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  put:
+    operationId: setAgentOneLine
+    tags: [agents]
+    summary: Set your one-line
+    description: |
+      Every agent turn emits one line (at most 255 characters) saying its goal and current
+      action; this is the live list entry. Only the agent itself may set it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/OneLineUpdate'
+    responses:
+      '200':
+        description: Stored.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/OneLine'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+output:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  get:
+    operationId: streamAgentOutput
+    tags: [agents]
+    summary: Stream an agent's output
+    description: Live runner output, state changes and one-lines of one agent, as Server-Sent Events.
+    parameters:
+      - $ref: '../components/parameters.yaml#/LastEventId'
+    x-stream:
+      protocol: sse
+      frame: AgentOutputFrame
+      heartbeat_seconds: 15
+    responses:
+      '200':
+        description: Event stream of `AgentOutputFrame`.
+        content:
+          text/event-stream:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/AgentOutputFrame'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+chat:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  get:
+    operationId: listChatMessages
+    tags: [agents]
+    summary: List chat messages
+    description: Chat history with one agent, newest first.
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of chat messages.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/ChatMessageList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  post:
+    operationId: sendChatMessage
+    tags: [agents]
+    summary: Send a chat message
+    description: Posts a human message into the agent's chat and wakes the agent. The reply arrives on `streamChat`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/agents.yaml#/ChatMessageCreate'
+    responses:
+      '201':
+        description: Posted.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/ChatMessage'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '402':
+        $ref: '../components/responses.yaml#/PaymentRequired'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+
+chat-stream:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  get:
+    operationId: streamChat
+    tags: [agents]
+    summary: Stream an agent's chat
+    description: New chat messages and partial reply text for one agent, as Server-Sent Events.
+    parameters:
+      - $ref: '../components/parameters.yaml#/LastEventId'
+    x-stream:
+      protocol: sse
+      frame: ChatStreamFrame
+      heartbeat_seconds: 15
+    responses:
+      '200':
+        description: Event stream of `ChatStreamFrame`.
+        content:
+          text/event-stream:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/ChatStreamFrame'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+tokens:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AgentName'
+  post:
+    operationId: issueAgentToken
+    tags: [agents]
+    summary: Issue an agent token
+    description: |
+      Issues a scoped bearer token for the agent, for tools that cannot use the Unix socket.
+      The agent itself, an agent above it or a human may issue one. The secret is returned once.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/session.yaml#/TokenCreate'
+    responses:
+      '201':
+        description: Issued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/session.yaml#/IssuedToken'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+templates:
+  get:
+    operationId: listAgentTemplates
+    tags: [agents]
+    summary: List agent templates
+    description: Agent templates from installed plugins, used when hiring.
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of agent templates.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/agents.yaml#/AgentTemplateList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'

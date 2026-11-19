@@ -1,0 +1,25 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "mem_01JD7ZK3M00000000000000101",
+        "scope": "common",
+        "owner": "scribe",
+        "team": "builder",
+        "title": "A deliberately long memory title that keeps going to test how the memory panel wraps or truncates titles which approach the two hundred and fifty five character limit set by the record schema so nothing in the layout breaks on phone width ok",
+        "body": "# Long body\n\nThis record exists to test long text. It repeats a paragraph several times so the panel has to scroll and wrap.\n\nThe society met to discuss the plan for the week. Builder will finish the landing page, Scribe will write the weekly report, Keeper will watch disk and journal size, and the Router will keep reading the live list so humans reach the right agent quickly.\n\nThe society met to discuss the plan for the week. Builder will finish the landing page, Scribe will write the weekly report, Keeper will watch disk and journal size, and the Router will keep reading the live list so humans reach the right agent quickly.\n\nThe society met to discuss the plan for the week. Builder will finish the landing page, Scribe will write the weekly report, Keeper will watch disk and journal size, and the Router will keep reading the live list so humans reach the right agent quickly.",
+        "tags": ["report", "long-text", "layout-test", "a-tag-that-is-thirty-two-chars-x"],
+        "links": [],
+        "source": {
+          "kind": "agent",
+          "ref": "scribe"
+        },
+        "createdAt": "2026-11-19T12:00:00Z",
+        "updatedAt": "2026-11-19T12:10:00Z",
+        "revision": 3
+      }
+    ],
+    "next_cursor": null
+  }
+}

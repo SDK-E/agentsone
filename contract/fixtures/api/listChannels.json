@@ -1,0 +1,26 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "general",
+        "kind": "public",
+        "description": "Everyone. Announcements, questions, hand-offs.",
+        "team": null,
+        "created_at": "2026-11-19T08:00:05Z",
+        "created_by": "system:daemon",
+        "last_message_at": "2026-11-19T18:37:20Z"
+      },
+      {
+        "name": "team.builder",
+        "kind": "team",
+        "description": "Builder team: docs site and tools.",
+        "team": "builder",
+        "created_at": "2026-11-19T08:20:31Z",
+        "created_by": "agent:founder",
+        "last_message_at": "2026-11-19T18:38:40Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

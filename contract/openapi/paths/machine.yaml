@@ -1,0 +1,515 @@
+# SPDX-License-Identifier: MIT
+# Every machine call runs as the caller's Linux user. Root agents can do anything; custom
+# agents are held by Linux permissions and their cgroup (a soft wall against root agents).
+metrics:
+  get:
+    operationId: getMachineMetrics
+    tags: [machine]
+    summary: Get machine metrics
+    description: Returns a snapshot of CPU, memory, disk, network and load inside the VM.
+    responses:
+      '200':
+        description: The metrics.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/MachineMetrics'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+processes:
+  get:
+    operationId: listProcesses
+    tags: [machine]
+    summary: List processes
+    description: Lists processes, highest CPU first, with the unit and agent that own each.
+    parameters:
+      - name: user
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 32
+      - name: agent
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/AgentName'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of processes.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/ProcessList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+process-signal:
+  parameters:
+    - $ref: '../components/parameters.yaml#/Pid'
+  post:
+    operationId: signalProcess
+    tags: [machine]
+    summary: Signal a process
+    description: Sends a signal to a process. Linux permissions decide; custom agents may signal only their own processes.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/machine.yaml#/SignalRequest'
+    responses:
+      '204':
+        description: Signal sent.
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+services:
+  get:
+    operationId: listServices
+    tags: [machine]
+    summary: List services
+    description: Lists systemd units, including `agent@<name>.service` and `emitter@<id>.service`.
+    parameters:
+      - name: state
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/machine.yaml#/ServiceActiveState'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of services.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/ServiceList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+service-start:
+  parameters:
+    - $ref: '../components/parameters.yaml#/Unit'
+  post:
+    operationId: startService
+    tags: [machine]
+    summary: Start a service
+    description: Starts a systemd unit and returns its new state.
+    responses:
+      '200':
+        description: The service.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/Service'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+service-stop:
+  parameters:
+    - $ref: '../components/parameters.yaml#/Unit'
+  post:
+    operationId: stopService
+    tags: [machine]
+    summary: Stop a service
+    description: Stops a systemd unit and returns its new state.
+    responses:
+      '200':
+        description: The service.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/Service'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+service-restart:
+  parameters:
+    - $ref: '../components/parameters.yaml#/Unit'
+  post:
+    operationId: restartService
+    tags: [machine]
+    summary: Restart a service
+    description: Restarts a systemd unit and returns its new state.
+    responses:
+      '200':
+        description: The service.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/Service'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+packages:
+  get:
+    operationId: listPackages
+    tags: [machine]
+    summary: List installed packages
+    description: Lists installed Debian packages.
+    parameters:
+      - name: q
+        in: query
+        required: false
+        description: Name substring.
+        schema:
+          type: string
+          maxLength: 100
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of packages.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PackageList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: installPackage
+    tags: [machine]
+    summary: Install a package
+    description: Queues an apt install. Root agents and humans only. The mirror must be on the allow list.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/machine.yaml#/PackageInstall'
+    responses:
+      '202':
+        description: Queued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PackageJob'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+package:
+  parameters:
+    - $ref: '../components/parameters.yaml#/PackageName'
+  delete:
+    operationId: removePackage
+    tags: [machine]
+    summary: Remove a package
+    description: Queues an apt remove. Root agents and humans only.
+    responses:
+      '202':
+        description: Queued.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PackageJob'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+users:
+  get:
+    operationId: listMachineUsers
+    tags: [machine]
+    summary: List Linux users
+    description: Lists Linux accounts with their kind (human, agent or system).
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of users.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/MachineUserList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+files:
+  get:
+    operationId: listFiles
+    tags: [machine]
+    summary: List a folder
+    description: Lists entries of a folder, folders first, then by name.
+    parameters:
+      - $ref: '../components/parameters.yaml#/FilePath'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of entries.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/FileList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+file-content:
+  get:
+    operationId: readFile
+    tags: [machine]
+    summary: Read a file
+    description: Reads a file as UTF-8 text or base64. Reads stop at 8 MiB and set `truncated`.
+    parameters:
+      - $ref: '../components/parameters.yaml#/FilePath'
+    responses:
+      '200':
+        description: The file content.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/FileContent'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+  put:
+    operationId: writeFile
+    tags: [machine]
+    summary: Write a file
+    description: Writes a whole file (at most 8 MiB decoded) as the caller's Linux user.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/machine.yaml#/FileWrite'
+    responses:
+      '200':
+        description: The written file.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/FileEntry'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '413':
+        $ref: '../components/responses.yaml#/PayloadTooLarge'
+  delete:
+    operationId: deleteFile
+    tags: [machine]
+    summary: Delete a file or folder
+    description: Deletes a file, or a folder when `recursive` is true. This cannot be undone.
+    parameters:
+      - $ref: '../components/parameters.yaml#/FilePath'
+      - name: recursive
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+    responses:
+      '204':
+        description: Deleted.
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+reboot:
+  post:
+    operationId: rebootMachine
+    tags: [machine]
+    summary: Reboot the VM
+    description: |
+      Schedules a reboot of the VM. Agents may reboot. Shutdown and start are human-only powers
+      held by the host tool on the Mac and are not part of this API.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/machine.yaml#/RebootRequest'
+    responses:
+      '202':
+        description: Reboot scheduled.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PowerAction'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '423':
+        $ref: '../components/responses.yaml#/Locked'
+ptys:
+  get:
+    operationId: listPtySessions
+    tags: [machine]
+    summary: List terminal sessions
+    description: Lists the caller's terminal sessions. Root agents and humans see all.
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of terminal sessions.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PtySessionList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: createPtySession
+    tags: [machine]
+    summary: Open a terminal session
+    description: Starts a terminal running as the caller's Linux user. Connect to `socket_path` to use it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/machine.yaml#/PtyCreate'
+    responses:
+      '201':
+        description: The terminal session.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PtySession'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+pty:
+  parameters:
+    - $ref: '../components/parameters.yaml#/PtyId'
+  get:
+    operationId: getPtySession
+    tags: [machine]
+    summary: Get a terminal session
+    description: Returns one terminal session.
+    responses:
+      '200':
+        description: The terminal session.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/machine.yaml#/PtySession'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    operationId: closePtySession
+    tags: [machine]
+    summary: Close a terminal session
+    description: Hangs up the terminal and ends its process group.
+    responses:
+      '204':
+        description: Closed.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+pty-socket:
+  parameters:
+    - $ref: '../components/parameters.yaml#/PtyId'
+  get:
+    operationId: connectPty
+    tags: [machine]
+    summary: Connect to a terminal
+    description: |
+      WebSocket upgrade. Send `Upgrade: websocket` with subprotocol `agentsone.pty.v1`.
+      Binary frames carry raw terminal bytes both ways. Text frames carry JSON control
+      messages: `{"type":"resize","cols":120,"rows":32}` from client to server and
+      `{"type":"exit","code":0}` from server to client. The server pings every 15 seconds.
+      One client at a time; a second connection returns 409.
+    x-websocket:
+      subprotocol: agentsone.pty.v1
+    responses:
+      '200':
+        description: |
+          WebSocket open over HTTP/2 or HTTP/3 extended CONNECT (RFC 8441, RFC 9220). No body;
+          frames follow as described above.
+      '101':
+        description: Switching Protocols (HTTP/1.1 upgrade, RFC 6455).
+        headers:
+          Upgrade:
+            description: Always `websocket`.
+            schema:
+              type: string
+          Connection:
+            description: Always `Upgrade`.
+            schema:
+              type: string
+          Sec-WebSocket-Accept:
+            description: RFC 6455 accept key.
+            schema:
+              type: string
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

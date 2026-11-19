@@ -1,0 +1,10 @@
+{
+  "status": 423,
+  "body": {
+    "type": "urn:agentsone:problem:frozen",
+    "title": "Frozen",
+    "status": 423,
+    "detail": "Team builder is frozen by the host. Ask a human to release it on the Mac.",
+    "instance": "/v1/agents/scribe/wake"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "Set exactly one of channel or to.",
+    "instance": "/v1/bus/messages",
+    "errors": [
+      { "pointer": "/channel", "message": "must not be set together with /to" },
+      { "pointer": "/to", "message": "must not be set together with /channel" }
+    ]
+  }
+}

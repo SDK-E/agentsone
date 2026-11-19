@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MIT
+# Memory. The record shape itself is Ben's memory-record.schema.json.
+
+MemoryScope:
+  type: string
+  enum: [private, team, common]
+  description: |
+    `private` is the owner only; `team` is the owner's chart branch; `common` is every agent.
+    Root agents read every scope. Humans read every scope through the interface.
+
+MemoryList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '../../../schemas/memory-record.schema.json'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+MemoryWrite:
+  type: object
+  additionalProperties: false
+  description: Write a memory record owned by the caller. Writing with an existing `key` in the same scope replaces it.
+  required: [scope, title, body]
+  properties:
+    scope:
+      $ref: '#/MemoryScope'
+    key:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._/-]{0,127}$'
+      description: Optional stable key for upserts.
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    body:
+      type: string
+      maxLength: 65536
+    tags:
+      type: array
+      maxItems: 32
+      items:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]{0,39}$'
+
+MemoryHit:
+  type: object
+  required: [record, score, snippet]
+  properties:
+    record:
+      $ref: '../../../schemas/memory-record.schema.json'
+    score:
+      type: number
+      description: Full-text rank; higher is better. Only comparable within one response.
+    snippet:
+      type: string
+      maxLength: 500
+      description: Matching text with hits wrapped in `[` and `]`.
+
+MemorySearchResult:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/MemoryHit'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'

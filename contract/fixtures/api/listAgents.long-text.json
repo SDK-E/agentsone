@@ -1,0 +1,37 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "a-very-long-agent-name-for-test",
+        "display_name": "An Exceptionally Long Display Name Used To Test Wrapping In Every Panel Of The U",
+        "kind": "chat",
+        "is_root": false,
+        "runner": "claude",
+        "manager": "founder",
+        "team": "founder",
+        "role": "Specialised documentation router for long and complicated requests from humans",
+        "description": "Exists to test long text. It routes documentation requests that the main router hands over, and it writes very long one-lines so every panel can be checked for wrapping, truncation and overflow at phone and desktop widths in both light and dark mode.",
+        "state": "working",
+        "one_line": {
+          "text": "Goal: keep every human request answered within one minute, every disk under seventy percent and every guide current for the newest release. Now: reading the live list, rating four candidates and writing a handover note for the specialised docs router bot.",
+          "updated_at": "2026-11-19T18:39:59Z"
+        },
+        "limits": {
+          "cpu_percent": 6400,
+          "memory_mb": 65536,
+          "tasks": 4096,
+          "wall": "soft"
+        },
+        "uid": 1199,
+        "home": "/home/agents/a-very-long-agent-name-for-test",
+        "unit": "agent@a-very-long-agent-name-for-test.service",
+        "template": null,
+        "created_at": "2026-11-19T10:00:00Z",
+        "created_by": "agent:founder",
+        "last_turn_at": "2026-11-19T18:39:59Z"
+      }
+    ],
+    "next_cursor": "c2VxPTUw"
+  }
+}

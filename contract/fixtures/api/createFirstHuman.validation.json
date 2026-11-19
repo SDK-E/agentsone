@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "The password is too short.",
+    "instance": "/v1/setup/first-human",
+    "errors": [
+      { "pointer": "/password", "message": "must have at least 12 characters" }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "cht_01JD7ZK3M00000000000000010",
+        "agent": "a-very-long-agent-name-for-test",
+        "role": "human",
+        "author": "human:ada",
+        "text": "I need a full guide for first boot. It should walk a new human through the licence screen, the engine download, creating the first account, meeting the Small Seed society, how the router hands requests to agents, what the hard and soft budget walls mean, how the defence slice works, how to freeze one agent or the whole machine from the Mac, and how to restore the last good boot copy when something goes wrong. Please keep the language plain and the steps short, and add a short checklist at the end so I can tick each step off as I go. Averyveryverylongwordwithoutanyspacesthatmustwrapcorrectlyinthechatbubbleonaphonescreen.",
+        "assignment_id": "asg_01JD7ZK3M00000000000000002",
+        "created_at": "2026-11-19T18:30:00Z"
+      }
+    ],
+    "next_cursor": "c2VxPTUw"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "seq": 6,
+        "time": "2026-11-19T12:30:00Z",
+        "actor": {
+          "kind": "agent",
+          "name": "a-very-long-agent-name-thirty1",
+          "uid": 2010
+        },
+        "action": "machine.file.write.with.a.long.dotted.action.name",
+        "target": {
+          "kind": "file",
+          "id": "/home/agents/a-very-long-agent-name-thirty1/projects/landing-page/src/components/really/deeply/nested/folder/structure/HeroSectionWithAnimatedBackground.tsx"
+        },
+        "outcome": "failure",
+        "details": {
+          "error": "Permission denied while writing the file because the parent folder belongs to another agent and custom agents are held to Linux file permissions; the agent should ask its manager or the owner of the folder to share it through team memory or move the work into its own home folder instead."
+        },
+        "origin": "inside",
+        "prevHash": "7e1f3a2c9b4d6e8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f",
+        "hash": "5b8d0f2a4c6e8b1d3f5a7c9e0b2d4f6a8c1e3b5d7f9a0c2e4b6d8f1a3c5e7b9d"
+      }
+    ],
+    "next_cursor": null
+  }
+}

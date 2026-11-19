@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/home/agents/builder/site/README.md",
+    "name": "README.md",
+    "type": "file",
+    "size_bytes": 845,
+    "mode": "0644",
+    "owner": "builder",
+    "group": "builder",
+    "modified_at": "2026-11-19T12:47:00Z"
+  }
+}

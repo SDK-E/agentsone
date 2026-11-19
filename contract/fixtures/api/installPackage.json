@@ -1,0 +1,10 @@
+{
+  "status": 202,
+  "body": {
+    "id": "job_01JD7ZK3M00000000000000001",
+    "action": "install",
+    "package": "ripgrep",
+    "state": "queued",
+    "created_at": "2026-11-19T12:46:00Z"
+  }
+}

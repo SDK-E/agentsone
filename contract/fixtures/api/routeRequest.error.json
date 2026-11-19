@@ -1,0 +1,10 @@
+{
+  "status": 503,
+  "body": {
+    "type": "urn:agentsone:problem:unavailable",
+    "title": "Router unavailable",
+    "status": 503,
+    "detail": "The router agent is restarting. Open an agent's chat directly or try again in a moment.",
+    "instance": "/v1/router/route"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/home/agents/builder/site",
+    "items": [
+      {
+        "path": "/home/agents/builder/site/dist",
+        "name": "dist",
+        "type": "directory",
+        "size_bytes": 4096,
+        "mode": "0755",
+        "owner": "builder",
+        "group": "builder",
+        "modified_at": "2026-11-19T12:31:10Z"
+      },
+      {
+        "path": "/home/agents/builder/site/src",
+        "name": "src",
+        "type": "directory",
+        "size_bytes": 4096,
+        "mode": "0755",
+        "owner": "builder",
+        "group": "builder",
+        "modified_at": "2026-11-19T10:20:00Z"
+      },
+      {
+        "path": "/home/agents/builder/site/README.md",
+        "name": "README.md",
+        "type": "file",
+        "size_bytes": 812,
+        "mode": "0644",
+        "owner": "builder",
+        "group": "builder",
+        "modified_at": "2026-11-19T10:21:30Z"
+      },
+      {
+        "path": "/home/agents/builder/site/package.json",
+        "name": "package.json",
+        "type": "file",
+        "size_bytes": 1043,
+        "mode": "0644",
+        "owner": "builder",
+        "group": "builder",
+        "modified_at": "2026-11-19T10:05:00Z"
+      },
+      {
+        "path": "/home/agents/builder/site/current",
+        "name": "current",
+        "type": "symlink",
+        "size_bytes": 4,
+        "mode": "0777",
+        "owner": "builder",
+        "group": "builder",
+        "modified_at": "2026-11-19T12:31:12Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

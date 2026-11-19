@@ -1,0 +1,32 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "bash",
+        "version": "5.2.37-2",
+        "architecture": "arm64",
+        "summary": "GNU Bourne Again SHell"
+      },
+      {
+        "name": "git",
+        "version": "1:2.47.3-0+deb13u1",
+        "architecture": "arm64",
+        "summary": "fast, scalable, distributed revision control system"
+      },
+      {
+        "name": "nodejs",
+        "version": "20.19.2+dfsg-1",
+        "architecture": "arm64",
+        "summary": "evented I/O for V8 javascript - runtime executable"
+      },
+      {
+        "name": "systemd",
+        "version": "257.9-1~deb13u1",
+        "architecture": "arm64",
+        "summary": "system and service manager"
+      }
+    ],
+    "next_cursor": "cGtnOjQ"
+  }
+}

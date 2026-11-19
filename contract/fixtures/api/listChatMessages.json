@@ -1,0 +1,35 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "cht_01JD7ZK3M00000000000000001",
+        "agent": "builder",
+        "role": "human",
+        "author": "human:ada",
+        "text": "Can you add a page about the budget walls to the docs site?",
+        "assignment_id": "asg_01JD7ZK3M00000000000000001",
+        "created_at": "2026-11-19T18:20:02Z"
+      },
+      {
+        "id": "cht_01JD7ZK3M00000000000000002",
+        "agent": "builder",
+        "role": "agent",
+        "author": "agent:builder",
+        "text": "Yes. I will draft the layout now and ask scribe to write the copy. Expect a first version within the hour.",
+        "assignment_id": null,
+        "created_at": "2026-11-19T18:20:31Z"
+      },
+      {
+        "id": "cht_01JD7ZK3M00000000000000003",
+        "agent": "builder",
+        "role": "system",
+        "author": "system:daemon",
+        "text": "builder created task \"Budget walls page\" and assigned it to scribe.",
+        "assignment_id": null,
+        "created_at": "2026-11-19T18:21:10Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

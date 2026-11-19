@@ -1,0 +1,447 @@
+# SPDX-License-Identifier: MIT
+# Machine control: metrics, processes, services, packages, users, files, power, terminals.
+
+CpuMetrics:
+  type: object
+  required: [cores, used_percent]
+  properties:
+    cores:
+      type: integer
+      minimum: 1
+    used_percent:
+      type: number
+      minimum: 0
+      maximum: 100
+
+MemoryMetrics:
+  type: object
+  required: [total_bytes, used_bytes, available_bytes]
+  properties:
+    total_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    used_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    available_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+
+DiskMetrics:
+  type: object
+  required: [mount, total_bytes, used_bytes]
+  properties:
+    mount:
+      type: string
+    total_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    used_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+
+NetMetrics:
+  type: object
+  required: [rx_bytes, tx_bytes]
+  properties:
+    rx_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    tx_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+
+MachineMetrics:
+  type: object
+  required: [time, hostname, uptime_seconds, load, cpu, memory, disks, net]
+  properties:
+    time:
+      $ref: './common.yaml#/Timestamp'
+    hostname:
+      type: string
+    uptime_seconds:
+      type: integer
+      format: int64
+      minimum: 0
+    load:
+      type: array
+      description: 1, 5 and 15 minute load averages.
+      minItems: 3
+      maxItems: 3
+      items:
+        type: number
+        minimum: 0
+    cpu:
+      $ref: '#/CpuMetrics'
+    memory:
+      $ref: '#/MemoryMetrics'
+    disks:
+      type: array
+      items:
+        $ref: '#/DiskMetrics'
+    net:
+      $ref: '#/NetMetrics'
+
+Process:
+  type: object
+  required: [pid, ppid, user, command, cpu_percent, rss_bytes, started_at, unit, agent]
+  properties:
+    pid:
+      type: integer
+      minimum: 1
+    ppid:
+      type: integer
+      minimum: 0
+    user:
+      type: string
+    command:
+      type: string
+      description: Full command line.
+    cpu_percent:
+      type: number
+      minimum: 0
+    rss_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    started_at:
+      $ref: './common.yaml#/Timestamp'
+    unit:
+      type: [string, 'null']
+      description: systemd unit owning the process.
+    agent:
+      type: [string, 'null']
+      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      description: Agent whose cgroup holds the process.
+
+ProcessList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Process'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+SignalRequest:
+  type: object
+  additionalProperties: false
+  required: [signal]
+  properties:
+    signal:
+      type: string
+      enum: [TERM, KILL, HUP, INT, STOP, CONT, USR1, USR2]
+
+ServiceActiveState:
+  type: string
+  enum: [active, reloading, inactive, failed, activating, deactivating]
+
+Service:
+  type: object
+  required: [unit, description, load_state, active_state, sub_state, enabled, agent]
+  properties:
+    unit:
+      type: string
+      examples: [agentsoned.service]
+    description:
+      type: string
+    load_state:
+      type: string
+      examples: [loaded]
+    active_state:
+      $ref: '#/ServiceActiveState'
+    sub_state:
+      type: string
+      examples: [running]
+    enabled:
+      type: boolean
+    agent:
+      type: [string, 'null']
+      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      description: Agent for `agent@<name>.service` units.
+
+ServiceList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Service'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+Package:
+  type: object
+  required: [name, version, architecture, summary]
+  properties:
+    name:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9+.-]+$'
+    version:
+      type: string
+    architecture:
+      type: string
+      examples: [arm64]
+    summary:
+      type: string
+
+PackageList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Package'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+PackageInstall:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9+.-]+$'
+    version:
+      type: string
+
+JobState:
+  type: string
+  enum: [queued, running, done, failed]
+
+PackageJob:
+  type: object
+  description: A queued apt operation. Progress arrives as `agentsone.services.package` events.
+  required: [id, action, package, state, created_at]
+  properties:
+    id:
+      $ref: './common.yaml#/JobId'
+    action:
+      type: string
+      enum: [install, remove]
+    package:
+      type: string
+    state:
+      $ref: '#/JobState'
+    created_at:
+      $ref: './common.yaml#/Timestamp'
+
+MachineUserKind:
+  type: string
+  enum: [human, agent, system]
+
+MachineUser:
+  type: object
+  required: [name, uid, gid, home, shell, kind]
+  properties:
+    name:
+      type: string
+    uid:
+      type: integer
+      minimum: 0
+    gid:
+      type: integer
+      minimum: 0
+    home:
+      type: string
+    shell:
+      type: string
+    kind:
+      $ref: '#/MachineUserKind'
+
+MachineUserList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/MachineUser'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+FileType:
+  type: string
+  enum: [file, directory, symlink, other]
+
+FileEntry:
+  type: object
+  required: [path, name, type, size_bytes, mode, owner, group, modified_at]
+  properties:
+    path:
+      type: string
+      description: Absolute path.
+    name:
+      type: string
+    type:
+      $ref: '#/FileType'
+    size_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    mode:
+      type: string
+      pattern: '^[0-7]{4}$'
+      examples: ['0644']
+    owner:
+      type: string
+    group:
+      type: string
+    modified_at:
+      $ref: './common.yaml#/Timestamp'
+
+FileList:
+  type: object
+  required: [path, items, next_cursor]
+  properties:
+    path:
+      type: string
+    items:
+      type: array
+      items:
+        $ref: '#/FileEntry'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+FileEncoding:
+  type: string
+  enum: [utf-8, base64]
+
+FileContent:
+  type: object
+  description: File body. Text files use `utf-8`; others use `base64`. Reads stop at 8 MiB.
+  required: [path, encoding, content, size_bytes, truncated]
+  properties:
+    path:
+      type: string
+    encoding:
+      $ref: '#/FileEncoding'
+    content:
+      type: string
+    size_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+    truncated:
+      type: boolean
+
+FileWrite:
+  type: object
+  additionalProperties: false
+  description: Write a whole file (at most 8 MiB decoded). Runs as the caller's Linux user.
+  required: [path, encoding, content]
+  properties:
+    path:
+      type: string
+      pattern: '^/'
+    encoding:
+      $ref: '#/FileEncoding'
+    content:
+      type: string
+    mode:
+      type: string
+      pattern: '^[0-7]{4}$'
+    create_parents:
+      type: boolean
+      default: false
+
+RebootRequest:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+    delay_seconds:
+      type: integer
+      minimum: 0
+      maximum: 3600
+      default: 10
+
+PowerAction:
+  type: object
+  required: [action, reason, requested_by, at]
+  properties:
+    action:
+      type: string
+      const: reboot
+    reason:
+      type: string
+    requested_by:
+      $ref: './common.yaml#/Actor'
+    at:
+      $ref: './common.yaml#/Timestamp'
+      description: When the reboot will start.
+
+PtyCreate:
+  type: object
+  additionalProperties: false
+  properties:
+    command:
+      type: array
+      description: Program and arguments. The caller's login shell when omitted.
+      items:
+        type: string
+    cols:
+      type: integer
+      minimum: 10
+      maximum: 1000
+      default: 120
+    rows:
+      type: integer
+      minimum: 5
+      maximum: 500
+      default: 32
+
+PtySession:
+  type: object
+  required: [id, user, command, cols, rows, socket_path, created_at, exited, exit_code]
+  properties:
+    id:
+      $ref: './common.yaml#/PtyId'
+    user:
+      type: string
+      description: Linux user the terminal runs as (the caller's own).
+    command:
+      type: array
+      items:
+        type: string
+    cols:
+      type: integer
+    rows:
+      type: integer
+    socket_path:
+      type: string
+      description: WebSocket path for `connectPty`.
+      examples: [/v1/machine/pty/pty_01JD7ZK3M00000000000000001/socket]
+    created_at:
+      $ref: './common.yaml#/Timestamp'
+    exited:
+      type: boolean
+    exit_code:
+      type: [integer, 'null']
+
+PtySessionList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PtySession'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'

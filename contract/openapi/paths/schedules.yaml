@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: MIT
+schedules:
+  get:
+    operationId: listSchedules
+    tags: [schedules]
+    summary: List schedules
+    description: Lists agent timers visible to the caller. Filter by agent to see one agent's timers.
+    parameters:
+      - name: agent
+        in: query
+        required: false
+        description: Only timers of this agent.
+        schema:
+          $ref: '../components/schemas/common.yaml#/AgentName'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+    responses:
+      '200':
+        description: A page of schedules.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks.yaml#/ScheduleList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+  post:
+    operationId: createSchedule
+    tags: [schedules]
+    summary: Create a schedule
+    description: Creates a timer for the caller or for an agent below the caller. When it fires the agent wakes with the message.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/tasks.yaml#/ScheduleCreate'
+    responses:
+      '201':
+        description: The new schedule.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks.yaml#/Schedule'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+schedule:
+  parameters:
+    - $ref: '../components/parameters.yaml#/ScheduleId'
+  get:
+    operationId: getSchedule
+    tags: [schedules]
+    summary: Get a schedule
+    description: Returns one schedule.
+    responses:
+      '200':
+        description: The schedule.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks.yaml#/Schedule'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  patch:
+    operationId: updateSchedule
+    tags: [schedules]
+    summary: Update a schedule
+    description: Changes a schedule owned by the caller or by an agent below the caller.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/tasks.yaml#/ScheduleUpdate'
+    responses:
+      '200':
+        description: The updated schedule.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks.yaml#/Schedule'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    operationId: deleteSchedule
+    tags: [schedules]
+    summary: Delete a schedule
+    description: Removes a schedule owned by the caller or by an agent below the caller.
+    responses:
+      '204':
+        description: Deleted.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

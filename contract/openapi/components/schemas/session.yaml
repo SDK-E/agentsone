@@ -1,0 +1,197 @@
+# SPDX-License-Identifier: MIT
+# Session, principals, tokens and human accounts.
+
+LoginRequest:
+  type: object
+  additionalProperties: false
+  required: [name, password]
+  properties:
+    name:
+      $ref: './common.yaml#/HumanName'
+    password:
+      type: string
+      format: password
+      writeOnly: true
+      minLength: 1
+      maxLength: 256
+
+Session:
+  type: object
+  required: [human, expires_at]
+  properties:
+    human:
+      $ref: '#/Human'
+    expires_at:
+      $ref: './common.yaml#/Timestamp'
+
+Scope:
+  type: string
+  pattern: '^[a-z]+(\.[a-z-]+)*:(read|write|admin)$'
+  description: Token scope, `<group>:<read|write|admin>`, for example `tasks:write` or `memory:read`.
+  examples: ['tasks:write']
+
+HumanPrincipal:
+  type: object
+  required: [kind, human, scopes]
+  properties:
+    kind:
+      type: string
+      const: human
+    human:
+      $ref: '#/Human'
+    scopes:
+      type: array
+      items:
+        $ref: '#/Scope'
+
+AgentPrincipal:
+  type: object
+  required: [kind, agent, via, scopes]
+  properties:
+    kind:
+      type: string
+      const: agent
+    agent:
+      $ref: './agents.yaml#/Agent'
+    via:
+      type: string
+      enum: [peer-credentials, token]
+      description: '`peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token.'
+    scopes:
+      type: array
+      items:
+        $ref: '#/Scope'
+
+PanelPrincipal:
+  type: object
+  required: [kind, plugin_id, human, scopes]
+  properties:
+    kind:
+      type: string
+      const: panel
+    plugin_id:
+      $ref: './common.yaml#/PluginId'
+    human:
+      $ref: './common.yaml#/HumanName'
+      description: Human whose interface opened the panel.
+    scopes:
+      type: array
+      items:
+        $ref: '#/Scope'
+
+Principal:
+  description: Who the caller is.
+  oneOf:
+    - $ref: '#/HumanPrincipal'
+    - $ref: '#/AgentPrincipal'
+    - $ref: '#/PanelPrincipal'
+  discriminator:
+    propertyName: kind
+    mapping:
+      human: '#/HumanPrincipal'
+      agent: '#/AgentPrincipal'
+      panel: '#/PanelPrincipal'
+
+TokenCreate:
+  type: object
+  additionalProperties: false
+  required: [label, scopes]
+  properties:
+    label:
+      type: string
+      minLength: 1
+      maxLength: 80
+    scopes:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/Scope'
+      description: Requested scopes. Never wider than what the issuer holds.
+    ttl_seconds:
+      type: integer
+      minimum: 60
+      maximum: 2592000
+      default: 86400
+
+IssuedToken:
+  type: object
+  required: [id, token, subject, label, scopes, expires_at, created_at]
+  properties:
+    id:
+      $ref: './common.yaml#/TokenId'
+    token:
+      type: string
+      description: The secret bearer value. Returned once, never again.
+    subject:
+      $ref: './common.yaml#/Actor'
+    label:
+      type: string
+    scopes:
+      type: array
+      items:
+        $ref: '#/Scope'
+    expires_at:
+      $ref: './common.yaml#/Timestamp'
+    created_at:
+      $ref: './common.yaml#/Timestamp'
+
+Human:
+  type: object
+  required: [name, display_name, uid, created_at, last_login_at]
+  description: |
+    A human account. Human accounts are Linux users checked through PAM. The wall is soft:
+    a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+  properties:
+    name:
+      $ref: './common.yaml#/HumanName'
+    display_name:
+      $ref: './common.yaml#/DisplayName'
+    uid:
+      type: integer
+      minimum: 1000
+    created_at:
+      $ref: './common.yaml#/Timestamp'
+    last_login_at:
+      type: [string, 'null']
+      format: date-time
+
+HumanList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Human'
+    next_cursor:
+      $ref: './common.yaml#/Cursor'
+
+HumanCreate:
+  type: object
+  additionalProperties: false
+  required: [name, display_name, password]
+  properties:
+    name:
+      $ref: './common.yaml#/HumanName'
+    display_name:
+      $ref: './common.yaml#/DisplayName'
+    password:
+      type: string
+      format: password
+      writeOnly: true
+      minLength: 12
+      maxLength: 256
+
+HumanUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    display_name:
+      $ref: './common.yaml#/DisplayName'
+    password:
+      type: string
+      format: password
+      writeOnly: true
+      minLength: 12
+      maxLength: 256

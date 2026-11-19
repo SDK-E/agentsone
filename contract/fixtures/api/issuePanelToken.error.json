@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Not a panel plugin",
+    "status": 409,
+    "detail": "sample-mcp has no panel, so no panel token can be issued for it.",
+    "instance": "/v1/plugins/plg_01JD7ZK3M00000000000000003/panel-token"
+  }
+}

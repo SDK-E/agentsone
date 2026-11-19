@@ -1,0 +1,11 @@
+{
+  "status": 201,
+  "body": {
+    "id": "frz_01JD7ZK3M00000000000000002",
+    "scope": "all",
+    "target": null,
+    "reason": "Leaving the machine overnight; freeze everything until morning.",
+    "wall": "hard",
+    "created_at": "2026-11-19T22:00:00Z"
+  }
+}

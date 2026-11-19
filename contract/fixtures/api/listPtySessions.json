@@ -1,0 +1,30 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "pty_01JD7ZK3M00000000000000001",
+        "user": "ada",
+        "command": ["/bin/bash", "-l"],
+        "cols": 120,
+        "rows": 32,
+        "socket_path": "/v1/machine/pty/pty_01JD7ZK3M00000000000000001/socket",
+        "created_at": "2026-11-19T12:20:00Z",
+        "exited": false,
+        "exit_code": null
+      },
+      {
+        "id": "pty_01JD7ZK3M00000000000000002",
+        "user": "root",
+        "command": ["/usr/bin/htop"],
+        "cols": 160,
+        "rows": 48,
+        "socket_path": "/v1/machine/pty/pty_01JD7ZK3M00000000000000002/socket",
+        "created_at": "2026-11-19T11:00:00Z",
+        "exited": true,
+        "exit_code": 0
+      }
+    ],
+    "next_cursor": null
+  }
+}

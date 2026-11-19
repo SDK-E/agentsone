@@ -1,0 +1,111 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000001",
+        "source": "/emitters/auth",
+        "type": "agentsone.auth.login",
+        "time": "2026-11-19T08:02:11Z",
+        "datacontenttype": "application/json",
+        "subject": "human:ada",
+        "data": {
+          "human": "ada",
+          "method": "pam",
+          "remote": "127.0.0.1"
+        },
+        "sequence": "00000000000000000001",
+        "actor": "human:ada",
+        "chartscope": "machine"
+      },
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000002",
+        "source": "/emitters/agents",
+        "type": "agentsone.agents.hired",
+        "time": "2026-11-19T08:10:42Z",
+        "datacontenttype": "application/json",
+        "subject": "agent:builder",
+        "data": {
+          "agent": "builder",
+          "manager": "founder",
+          "kind": "always-on",
+          "runner": "claude"
+        },
+        "sequence": "00000000000000000002",
+        "actor": "agent:founder",
+        "chartscope": "team:founder"
+      },
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000003",
+        "source": "/emitters/disk",
+        "type": "agentsone.disk.usage-high",
+        "time": "2026-11-19T09:15:00Z",
+        "datacontenttype": "application/json",
+        "subject": "/var",
+        "data": {
+          "mount": "/var",
+          "used_percent": 86.4,
+          "threshold_percent": 85
+        },
+        "sequence": "00000000000000000003",
+        "actor": "system:disk",
+        "chartscope": "machine"
+      },
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000004",
+        "source": "/emitters/clock",
+        "type": "agentsone.clock.tick",
+        "time": "2026-11-19T10:00:00Z",
+        "datacontenttype": "application/json",
+        "data": {
+          "schedule_id": "sch_01JD7ZK3M00000000000000001",
+          "agent": "keeper"
+        },
+        "sequence": "00000000000000000004",
+        "actor": "system:clock",
+        "chartscope": "agent:keeper"
+      },
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000005",
+        "source": "/emitters/git",
+        "type": "agentsone.git.commit",
+        "time": "2026-11-19T10:21:37Z",
+        "datacontenttype": "application/json",
+        "subject": "/home/agents/builder/site",
+        "data": {
+          "repo": "/home/agents/builder/site",
+          "branch": "main",
+          "commit": "4f6a8c0e2b4d6f8a0c2e4b6d9f2c4e1a7b3d5f60",
+          "message": "Add landing page draft"
+        },
+        "sequence": "00000000000000000005",
+        "actor": "agent:builder",
+        "chartscope": "team:builder",
+        "causationid": "tsk_01JD7ZK3M00000000000000002",
+        "correlationid": "asg_01JD7ZK3M00000000000000001"
+      },
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000006",
+        "source": "/agents/scribe",
+        "type": "agentsone.agents.report-ready",
+        "time": "2026-11-19T11:04:09Z",
+        "datacontenttype": "application/json",
+        "subject": "mem_01JD7ZK3M00000000000000003",
+        "data": {
+          "title": "Weekly machine health report",
+          "memory_id": "mem_01JD7ZK3M00000000000000003"
+        },
+        "sequence": "00000000000000000006",
+        "actor": "agent:scribe",
+        "chartscope": "team:builder"
+      }
+    ],
+    "next_cursor": "c2VxOjY"
+  }
+}

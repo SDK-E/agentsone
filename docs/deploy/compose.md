@@ -93,7 +93,7 @@ something inside the machine is broken, for example by a root agent, recreate it
 docker compose up -d --force-recreate machine
 ```
 
-What survives: the five volumes the machine mounts.
+What survives: the six volumes the machine mounts.
 
 | Volume | Path in the machine | Holds |
 | --- | --- | --- |
@@ -101,6 +101,7 @@ What survives: the five volumes the machine mounts.
 | `machine-plugins` | `/var/lib/agentsone/plugins` | Installed plugins |
 | `machine-audit` | `/var/lib/agentsone/audit` | Audit records |
 | `machine-home` | `/home` | The agents' home folders |
+| `machine-engines` | `/var/lib/agentsone-engines` | The Claude engine, downloaded once after a human accepts its licence; every agent can run it, none can change it |
 | `gateway-key` | `/run/agentsone/gateway-key` | The token signing key, read-only, owned by the edge |
 
 What resets: everything else in the machine goes back to the image, such as packages added with

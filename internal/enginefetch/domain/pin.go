@@ -98,8 +98,14 @@ func (p Pin) URL(a Artifact) string {
 	return p.BaseURL + "/" + p.Version + "/" + a.Platform + "/" + a.Binary
 }
 
+// DefaultRoot is the engines folder in the machine container: the
+// machine-engines volume, owned by root with folders and files 0755, so every
+// agent user can run the engine and none can change it. It sits outside the
+// state folder /var/lib/agentsone, which stays private (0700).
+const DefaultRoot = "/var/lib/agentsone-engines"
+
 // BinaryPath is where the verified engine is installed under root, for
-// example <root>/claude-code/2.1.328/claude. The runner
+// example /var/lib/agentsone-engines/claude-code/2.1.328/claude. The runner
 // starts the engine from this path.
 func BinaryPath(root string, p Pin) string {
 	return filepath.Join(root, p.Engine, p.Version, "claude")

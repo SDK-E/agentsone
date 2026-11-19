@@ -63,6 +63,10 @@ services:
       - machine-plugins:/var/lib/agentsone/plugins
       - machine-audit:/var/lib/agentsone/audit
       - machine-home:/home
+      # The Claude engine, downloaded at first start after a human accepts its licence. Its own
+      # volume so agent users can run it (folders and files 0755, owned by root) while the state
+      # folder stays private (0700).
+      - machine-engines:/var/lib/agentsone-engines
       # The key the daemon signs agents' model tokens with, so edge knows which agent called.
       # Edge writes it; the machine may only read it (file 0600, so custom agents cannot).
       - gateway-key:/run/agentsone/gateway-key:ro
@@ -183,6 +187,7 @@ volumes:
   machine-plugins:
   machine-audit:
   machine-home:
+  machine-engines:
   edge-data:
   edge-admin:
   gateway-key:

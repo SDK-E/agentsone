@@ -31,9 +31,8 @@ type Disk struct{ root string }
 
 var _ app.Disk = (*Disk)(nil)
 
-// New returns a disk under root, the engines folder the daemon wiring picks.
-// Agent users must be able to reach it, so it is not inside the private
-// state folder.
+// New returns a disk under root, normally domain.DefaultRoot. Agent users
+// must be able to reach it, so it is not inside the private state folder.
 func New(root string) *Disk { return &Disk{root: root} }
 
 func (d *Disk) dir(p domain.Pin) string  { return filepath.Dir(domain.BinaryPath(d.root, p)) }

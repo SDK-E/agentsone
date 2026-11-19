@@ -26,7 +26,7 @@ func modules(deps core.Deps) []core.Module {
 	return []core.Module{
 		audit.New(deps),
 		gatewaymint.New(deps),
-		agents.New(deps),
+		agents.New(deps, agents.WithSupervisor(agents.SupervisorOptions{})),
 		auth.New(deps),
 		api.New(deps),
 		bus.New(deps),

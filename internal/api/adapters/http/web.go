@@ -55,6 +55,7 @@ func UI(dir fs.FS) http.Handler {
 	files := http.FileServerFS(dir)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
 			core.WriteProblem(w, r, core.NewProblem(http.StatusMethodNotAllowed, "method-not-allowed", "the interface is read only"))
 			return
 		}

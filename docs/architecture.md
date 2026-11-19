@@ -81,6 +81,7 @@ The interface labels every limit as hard or soft, so humans know what to trust.
 | Freeze of one agent or one team | The daemon | A root agent can ignore it. Freeze all is still hard. |
 | Human accounts and sessions | The daemon (`core.db`) | They live inside `machine`. |
 | Gateway identity | The daemon and `edge` | `edge` trusts the agent identity the daemon vouches for. A root agent can pose as another agent. It cannot spend more than the total. |
+| Machine audit records | The daemon and `edge` | Only the daemon's audit token can send records to the `edge` audit sink, so custom agents cannot. A root agent can read the gateway key and send false records. See [The audit trail](#the-audit-trail). |
 | Per-agent limits for root agents | The daemon | Root agents can rewrite any agent's limits. They are bound only by the container ceiling. |
 
 ### Per-agent limits
@@ -104,6 +105,15 @@ the daemon keeps root agents off and reports the host as unsafe.
 What `edge` sees (traffic and model calls) is proof. Records written inside `machine` are a
 hash-chained log: they show what the agents claim, and they are sent to the `edge` audit sink as
 written. A root agent can write false records, but it cannot change what `edge` saw.
+
+Only the daemon may send records to the audit sink. Each request carries a short-lived token
+for the audit sink, signed with the gateway key. Inside `machine` only root can read that key, so
+custom agents cannot make such a token. The sink refuses a request with no token, and it refuses
+a token meant for model calls, such as the one every agent holds. So a custom agent cannot slip in
+a false record and stop the daemon's real records from reaching `edge`.
+
+Root agents can still read the key and write false records, as the daemon. That is why records
+from `machine` stay testimony, not proof.
 
 ### What the internet filter does not do
 

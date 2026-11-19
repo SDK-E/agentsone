@@ -42,15 +42,23 @@ type Component struct {
 
 var _ component.Component = Component{}
 
+// ErrNoKey is returned by Start when env.TokenKey, the gateway key, is not set: without it the
+// sink could not tell the daemon's records from anyone else's.
+var ErrNoKey = errors.New("audit: the gateway key is not loaded")
+
 // Name names the component.
 func (Component) Name() string { return "audit" }
 
 // Start opens audit.db, shares the proof recorder, adds the admin routes and listens for the
-// machine's records on the inner address only.
+// machine's records on the inner address only, taking them only with the daemon's audit token,
+// checked with env.TokenKey.
 func (c Component) Start(ctx context.Context, env *component.Env) (component.Stopper, error) {
 	log := env.Log
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
+	}
+	if len(env.TokenKey) == 0 {
+		return nil, ErrNoKey
 	}
 	store, err := sqlite.Open(ctx, filepath.Join(env.DataDir, sqlite.FileName))
 	if err != nil {
@@ -72,7 +80,7 @@ func (c Component) Start(ctx context.Context, env *component.Env) (component.Sto
 	env.Proof = proofRecorder{sink}
 	httpadapter.RegisterAdmin(env.Admin, sink, log)
 	s := &Sink{ln: ln, store: store, srv: &http.Server{
-		Handler:           httpadapter.Inner(sink, log),
+		Handler:           httpadapter.Inner(sink, env.TokenKey, systemClock{}, log),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,

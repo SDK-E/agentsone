@@ -13,18 +13,44 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/auditchain"
 	"github.com/SDK-E/agentsone/internal/edge/audit"
 	"github.com/SDK-E/agentsone/internal/edge/component"
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
+	"github.com/SDK-E/agentsone/internal/gatewaytoken"
 )
+
+// testKey stands for the gateway key, which the edge loads before any part starts.
+var testKey = bytes.Repeat([]byte{0x5a}, tokenkey.Size)
 
 func newEnv(t *testing.T, dir string) *component.Env {
 	t.Helper()
 	return &component.Env{
 		InnerAddr: netip.MustParseAddr("127.0.0.1"), DataDir: dir,
-		Log: slog.New(slog.DiscardHandler), Admin: http.NewServeMux(),
+		Log: slog.New(slog.DiscardHandler), Admin: http.NewServeMux(), TokenKey: testKey,
 	}
+}
+
+// signed signs c with key for five minutes from now.
+func signed(t *testing.T, key []byte, c gatewaytoken.Claims) string {
+	t.Helper()
+	now := time.Now()
+	c.IssuedAt, c.ExpiresAt = now.Unix(), now.Add(5*time.Minute).Unix()
+	tok, err := gatewaytoken.Sign(key, c)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	return tok
+}
+
+// daemonToken is the token the daemon's shipper sends.
+func daemonToken(t *testing.T) string {
+	t.Helper()
+	return signed(t, testKey, gatewaytoken.Claims{
+		Agent: "system:audit", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceAudit,
+	})
 }
 
 func start(t *testing.T, env *component.Env) *audit.Sink {
@@ -63,6 +89,7 @@ func TestComponent_TakesMachineRecordsOnTheInnerAddressAndShowsThemOnAdmin(t *te
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost,
 		fmt.Sprintf("http://%s/v1/audit/records", sink.Addr()), bytes.NewReader(record(t)))
+	req.Header.Set("Authorization", "Bearer "+daemonToken(t))
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -126,6 +153,20 @@ func TestComponent_FailsWithoutADataFolder(t *testing.T) {
 	env := newEnv(t, t.TempDir()+"/missing/deeper")
 	if _, err := (audit.Component{}).Start(t.Context(), env); err == nil {
 		t.Fatal("Start without a data folder succeeded")
+	}
+}
+
+// Without the gateway key no token could be checked; the sink must not open at all.
+func TestComponent_FailsWithoutTheGatewayKey(t *testing.T) {
+	t.Parallel()
+	env := newEnv(t, t.TempDir())
+	env.TokenKey = nil
+	if s, err := (audit.Component{Port: -1}).Start(t.Context(), env); err == nil {
+		_ = s.Stop()
+		t.Fatal("Start without the gateway key succeeded")
+	}
+	if env.Proof != nil {
+		t.Error("env.Proof shared by a sink that did not start")
 	}
 }
 

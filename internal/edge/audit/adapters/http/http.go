@@ -7,6 +7,11 @@
 //	POST /v1/audit/records  {"records": [<audit record as written>, ...]} -> {"head": {"seq", "hash"}}
 //	GET  /v1/audit/head     the last machine record the edge holds: {"seq", "hash"}
 //
+// Both need "Authorization: Bearer <token>": an ao1 token (internal/gatewaytoken) for the audit
+// sink (aud "audit") held by a system caller (kind system), signed with the gateway key. No token
+// or a bad one answers 401 urn:agentsone:problem:unauthenticated; a good token for anything else,
+// such as an agent's model-call token, answers 403 urn:agentsone:problem:forbidden.
+//
 // A record that does not continue the chain answers 409 urn:agentsone:problem:conflict with the
 // verdict (gap, fork, broken) and the edge's head, so the shipper resumes from there.
 //
@@ -27,10 +32,12 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/edge/audit/app"
 	"github.com/SDK-E/agentsone/internal/edge/audit/domain"
+	"github.com/SDK-E/agentsone/internal/gatewaytoken"
 )
 
 // MaxBodyBytes is the largest batch the machine may send.
@@ -38,10 +45,12 @@ const MaxBodyBytes = 4 << 20
 
 // Problem types.
 const (
-	ProblemValidation = "urn:agentsone:problem:validation"
-	ProblemTooLarge   = "urn:agentsone:problem:payload-too-large"
-	ProblemConflict   = "urn:agentsone:problem:conflict"
-	ProblemInternal   = "urn:agentsone:problem:internal"
+	ProblemValidation      = "urn:agentsone:problem:validation"
+	ProblemTooLarge        = "urn:agentsone:problem:payload-too-large"
+	ProblemConflict        = "urn:agentsone:problem:conflict"
+	ProblemInternal        = "urn:agentsone:problem:internal"
+	ProblemUnauthenticated = "urn:agentsone:problem:unauthenticated"
+	ProblemForbidden       = "urn:agentsone:problem:forbidden"
 )
 
 type headBody struct {
@@ -52,11 +61,16 @@ type headBody struct {
 func toHead(h domain.Head) headBody { return headBody(h) }
 
 // Inner returns the machine-side handler. It serves nothing else: the machine cannot read the
-// edge's copy or the edge's proof.
-func Inner(s *app.Sink, log *slog.Logger) http.Handler {
+// edge's copy or the edge's proof. Every route needs the daemon's audit token, checked with key,
+// the gateway key.
+func Inner(s *app.Sink, key []byte, clock app.Clock, log *slog.Logger) http.Handler {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/audit/head", headHandler(s, log))
-	mux.HandleFunc("POST /v1/audit/records", func(w http.ResponseWriter, r *http.Request) {
+	daemon := func(next http.HandlerFunc) http.HandlerFunc { return daemonOnly(key, clock, log, next) }
+	mux.HandleFunc("GET /v1/audit/head", daemon(headHandler(s, log)))
+	mux.HandleFunc("POST /v1/audit/records", daemon(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
 		if err != nil {
 			writeProblem(w, http.StatusRequestEntityTooLarge, ProblemTooLarge, "Batch too large", nil)
@@ -88,8 +102,36 @@ func Inner(s *app.Sink, log *slog.Logger) http.Handler {
 		default:
 			writeJSON(w, http.StatusOK, map[string]any{"head": toHead(head)})
 		}
-	})
+	}))
 	return mux
+}
+
+var errNoBearer = errors.New("no bearer token")
+
+// daemonOnly lets a request through only with a valid token for the audit sink (aud "audit")
+// held by a system caller (kind system). The daemon mints it from the gateway key, which only
+// root can read inside the machine; a custom agent's own token is for the model gateway and is
+// refused here, so it cannot slip a forged record into the chain and pause shipping.
+func daemonOnly(key []byte, clock app.Clock, log *slog.Logger, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var c gatewaytoken.Claims
+		err := errNoBearer
+		if tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+			c, err = gatewaytoken.Verify(key, strings.TrimSpace(tok), clock.Now())
+		}
+		if err != nil {
+			log.Warn("audit: refused a token on the inner address", "remote", r.RemoteAddr, "err", err)
+			writeProblem(w, http.StatusUnauthorized, ProblemUnauthenticated, "Send the daemon's audit token", nil)
+			return
+		}
+		if c.Audience != gatewaytoken.AudienceAudit || c.Kind != gatewaytoken.KindSystem {
+			log.Warn("audit: refused a token not meant for the audit sink", "remote", r.RemoteAddr,
+				"agent", c.Agent, "kind", c.Kind, "aud", c.Audience)
+			writeProblem(w, http.StatusForbidden, ProblemForbidden, "Only the daemon may write the audit copy", nil)
+			return
+		}
+		next(w, r)
+	}
 }
 
 func headHandler(s *app.Sink, log *slog.Logger) http.HandlerFunc {

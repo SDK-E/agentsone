@@ -17,11 +17,57 @@ import (
 	httpadapter "github.com/SDK-E/agentsone/internal/edge/audit/adapters/http"
 	"github.com/SDK-E/agentsone/internal/edge/audit/adapters/sqlite"
 	"github.com/SDK-E/agentsone/internal/edge/audit/app"
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
+	"github.com/SDK-E/agentsone/internal/gatewaytoken"
 )
 
 type clock struct{}
 
 func (clock) Now() time.Time { return time.Date(2026, 11, 19, 22, 0, 0, 0, time.UTC) }
+
+// testKey stands for the gateway key the edge shares with the machine.
+var testKey = bytes.Repeat([]byte{0x5a}, tokenkey.Size)
+
+// token signs c with key, issued now for five minutes unless c says otherwise.
+func token(t *testing.T, key []byte, c gatewaytoken.Claims) string {
+	t.Helper()
+	if c.IssuedAt == 0 {
+		c.IssuedAt = clock{}.Now().Unix()
+		c.ExpiresAt = clock{}.Now().Add(5 * time.Minute).Unix()
+	}
+	tok, err := gatewaytoken.Sign(key, c)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	return tok
+}
+
+// daemonToken is what the daemon's shipper sends: a system caller's token for the audit sink.
+func daemonToken(t *testing.T) string {
+	t.Helper()
+	return token(t, testKey, gatewaytoken.Claims{
+		Agent: "system:audit", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceAudit,
+	})
+}
+
+func inner(s *app.Sink) http.Handler {
+	return httpadapter.Inner(s, testKey, clock{}, slog.New(slog.DiscardHandler))
+}
+
+// send serves one request to h with the Authorization header auth (none when empty).
+func send(t *testing.T, h http.Handler, method, path, auth string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(t.Context(), method, path, bytes.NewReader(body))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	h.ServeHTTP(rec, req)
+	return rec
+}
 
 func newSink(t *testing.T) *app.Sink {
 	t.Helper()
@@ -50,13 +96,10 @@ func chain(t *testing.T, n int) []json.RawMessage {
 	return out
 }
 
+// post sends a batch as the daemon does, with its audit token.
 func post(t *testing.T, h http.Handler, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/audit/records", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(rec, req)
-	return rec
+	return send(t, h, http.MethodPost, "/v1/audit/records", "Bearer "+daemonToken(t), body)
 }
 
 func batch(t *testing.T, records []json.RawMessage) []byte {
@@ -68,16 +111,68 @@ func batch(t *testing.T, records []json.RawMessage) []byte {
 	return b
 }
 
+// get reads path with the daemon's audit token.
 func get(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
-	return rec
+	return send(t, h, http.MethodGet, path, "Bearer "+daemonToken(t), nil)
+}
+
+// Only the daemon holds the key, so only it can mint an audit token. Anything else in the machine
+// (a custom agent with its model-call token, a token for another purpose, no token at all) is
+// refused on both inner routes, and nothing is stored.
+func TestInner_TakesRecordsOnlyWithTheDaemonsAuditToken(t *testing.T) {
+	t.Parallel()
+	now := clock{}.Now()
+	otherKey := bytes.Repeat([]byte{0x33}, tokenkey.Size)
+	audit := gatewaytoken.Claims{Agent: "system:audit", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceAudit}
+	for name, tc := range map[string]struct {
+		auth string
+		code int
+		typ  string
+	}{
+		"no token":        {"", http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"not a bearer":    {"Basic " + daemonToken(t), http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"not a token":     {"Bearer forged", http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"another key":     {"Bearer " + token(t, otherKey, audit), http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"expired":         {"Bearer " + token(t, testKey, withWindow(audit, now.Add(-10*time.Minute), now)), http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"not yet valid":   {"Bearer " + token(t, testKey, withWindow(audit, now.Add(5*time.Minute), now.Add(10*time.Minute))), http.StatusUnauthorized, httpadapter.ProblemUnauthenticated},
+		"agent model":     {"Bearer " + token(t, testKey, gatewaytoken.Claims{Agent: "dev", Kind: gatewaytoken.KindChat, Chart: "founder/dev", Audience: gatewaytoken.AudienceGateway}), http.StatusForbidden, httpadapter.ProblemForbidden},
+		"system model":    {"Bearer " + token(t, testKey, gatewaytoken.Claims{Agent: "system:router", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceGateway}), http.StatusForbidden, httpadapter.ProblemForbidden},
+		"agent audit":     {"Bearer " + token(t, testKey, gatewaytoken.Claims{Agent: "dev", Kind: gatewaytoken.KindAlwaysOn, Chart: "founder/dev", Audience: gatewaytoken.AudienceAudit}), http.StatusForbidden, httpadapter.ProblemForbidden},
+		"daemon accepted": {"Bearer " + daemonToken(t), http.StatusOK, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			h := inner(newSink(t))
+			head := send(t, h, http.MethodGet, "/v1/audit/head", tc.auth, nil)
+			rec := send(t, h, http.MethodPost, "/v1/audit/records", tc.auth, batch(t, chain(t, 1)))
+			for route, got := range map[string]*httptest.ResponseRecorder{"GET head": head, "POST records": rec} {
+				if got.Code != tc.code {
+					t.Errorf("%s = %d %s, want %d", route, got.Code, got.Body, tc.code)
+				}
+				if tc.typ != "" && !strings.Contains(got.Body.String(), `"type":"`+tc.typ+`"`) {
+					t.Errorf("%s problem = %s, want type %s", route, got.Body, tc.typ)
+				}
+			}
+			want := `"seq":0`
+			if tc.code == http.StatusOK {
+				want = `"seq":1`
+			}
+			if after := get(t, h, "/v1/audit/head"); !strings.Contains(after.Body.String(), want) {
+				t.Errorf("head after = %s, want %s", after.Body, want)
+			}
+		})
+	}
+}
+
+func withWindow(c gatewaytoken.Claims, issued, expires time.Time) gatewaytoken.Claims {
+	c.IssuedAt, c.ExpiresAt = issued.Unix(), expires.Unix()
+	return c
 }
 
 func TestInner_TakesABatchAndAnswersTheHead(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.Inner(newSink(t), slog.New(slog.DiscardHandler))
+	h := inner(newSink(t))
 	rec := post(t, h, batch(t, chain(t, 2)))
 	var got struct {
 		Head struct {
@@ -96,7 +191,7 @@ func TestInner_TakesABatchAndAnswersTheHead(t *testing.T) {
 
 func TestInner_AnswersAConflictWithTheHeadOnAGap(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.Inner(newSink(t), slog.New(slog.DiscardHandler))
+	h := inner(newSink(t))
 	c := chain(t, 3)
 	rec := post(t, h, batch(t, []json.RawMessage{c[0], c[2]}))
 	var p struct {
@@ -116,7 +211,7 @@ func TestInner_AnswersAConflictWithTheHeadOnAGap(t *testing.T) {
 
 func TestInner_RefusesBadBodies(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.Inner(newSink(t), slog.New(slog.DiscardHandler))
+	h := inner(newSink(t))
 	for name, tc := range map[string]struct {
 		body []byte
 		code int
@@ -136,7 +231,7 @@ func TestInner_RefusesBadBodies(t *testing.T) {
 
 func TestInner_DoesNotServeTheAdminRoutes(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.Inner(newSink(t), slog.New(slog.DiscardHandler))
+	h := inner(newSink(t))
 	for _, path := range []string{"/v1/audit/inside", "/v1/audit/proof", "/v1/audit/alerts", "/v1/audit/verify"} {
 		if rec := get(t, h, path); rec.Code != http.StatusNotFound {
 			t.Errorf("machine side GET %s = %d, want 404", path, rec.Code)
@@ -209,10 +304,10 @@ func TestAdmin_HidesStoreErrors(t *testing.T) {
 	_ = st.Close()
 	s := app.New(st, clock{}, nil)
 	mux := admin(t, s)
-	inner := httpadapter.Inner(s, slog.New(slog.DiscardHandler))
+	machine := inner(s)
 	for _, rec := range []*httptest.ResponseRecorder{
 		get(t, mux, "/v1/audit/inside"), get(t, mux, "/v1/audit/alerts"), get(t, mux, "/v1/audit/head"),
-		post(t, inner, batch(t, chain(t, 1))), get(t, inner, "/v1/audit/head"),
+		post(t, machine, batch(t, chain(t, 1))), get(t, machine, "/v1/audit/head"),
 	} {
 		if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "sql") {
 			t.Errorf("store down = %d %s, want 500 without detail", rec.Code, rec.Body)

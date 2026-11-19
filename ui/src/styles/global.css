@@ -784,7 +784,7 @@ ul.notice {
   outline-offset: 2px;
 }
 
-/* taro: shared bits for the Memory, Plugins and Settings panels (start) */
+/* Shared bits for the Memory, Plugins and Settings panels (start) */
 
 .notice__list {
   margin: 0;
@@ -1352,7 +1352,7 @@ mark {
     width: 100%;
   }
 }
-/* taro: shared bits for the Memory, Plugins and Settings panels (end) */
+/* Shared bits for the Memory, Plugins and Settings panels (end) */
 
 .sheet-open {
   width: 100%;
@@ -1580,7 +1580,7 @@ body:has(.sheet[open]) {
   }
 }
 
-/* ---- juno: monitor, tasks and audit panels (start) ---- */
+/* ---- Monitor, tasks and audit panels (start) ---- */
 
 .card {
   display: grid;
@@ -2086,7 +2086,7 @@ body:has(.sheet[open]) {
   }
 }
 
-/* ---- juno: monitor, tasks and audit panels (end) ---- */
+/* ---- Monitor, tasks and audit panels (end) ---- */
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -28,7 +28,7 @@ export type ThemeSelection = S["ThemeSelection"];
 export type InstalledTheme = S["InstalledTheme"];
 export type FirstHumanCreate = S["FirstHumanCreate"];
 export type Freeze = S["Freeze"];
-// juno: monitor/tasks/audit
+// Monitor, tasks and audit
 export type Budget = S["Budget"];
 export type BudgetSplit = S["BudgetSplit"];
 export type BudgetNode = S["BudgetNode"];
@@ -57,7 +57,7 @@ export interface TaskFilter {
   assignee?: string;
 }
 
-// taro: memory/plugins/settings
+// Memory, plugins and settings
 export type MemoryRecord = S["MemoryRecord"];
 export type MemoryScope = S["MemoryScope"];
 export type MemoryHit = S["MemoryHit"];
@@ -79,7 +79,7 @@ export interface Page<T> {
 export class ApiError extends Error {
   readonly status: number;
   readonly problem: Problem | undefined;
-  /** taro: seconds to wait, from the Retry-After header of a 429. */
+  /** Seconds to wait, from the Retry-After header of a 429. */
   readonly retryAfter: number | undefined;
 
   constructor(status: number, problem?: Problem, retryAfter?: number) {

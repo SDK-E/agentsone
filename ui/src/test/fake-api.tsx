@@ -11,7 +11,7 @@ import licence from "../../../contract/fixtures/api/getEngineLicence.json";
 import engineFetch from "../../../contract/fixtures/api/getEngineFetchStatus.json";
 import me from "../../../contract/fixtures/api/getMe.json";
 import setup from "../../../contract/fixtures/api/getSetupStatus.json";
-// juno: monitor/tasks/audit
+// Monitor, tasks and audit
 import auditList from "../../../contract/fixtures/api/listAuditRecords.json";
 import budget from "../../../contract/fixtures/api/getBudget.json";
 import budgetSplit from "../../../contract/fixtures/api/getBudgetSplit.json";

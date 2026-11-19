@@ -29,7 +29,7 @@ func publishDisk(t *testing.T, f *fixture) {
 	}
 }
 
-func createTrigger(t *testing.T, f *fixture, ctx context.Context, spec domain.TriggerSpec) domain.Trigger {
+func createTrigger(ctx context.Context, t *testing.T, f *fixture, spec domain.TriggerSpec) domain.Trigger {
 	t.Helper()
 	tr, err := f.svc.CreateTrigger(ctx, spec)
 	if err != nil {
@@ -41,9 +41,9 @@ func createTrigger(t *testing.T, f *fixture, ctx context.Context, spec domain.Tr
 func TestCreateTrigger_Ownership(t *testing.T) {
 	f := newFixture(t)
 
-	own := createTrigger(t, f, asAgent("builder"), wakeSpec("builder"))
-	below := createTrigger(t, f, asAgent("builder"), wakeSpec("intern"))
-	byHuman := createTrigger(t, f, asHuman("hsaddek"), wakeSpec("outsider"))
+	own := createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
+	below := createTrigger(asAgent("builder"), t, f, wakeSpec("intern"))
+	byHuman := createTrigger(asHuman("hsaddek"), t, f, wakeSpec("outsider"))
 
 	if own.Owner != "builder" || below.Owner != "builder" || byHuman.Owner != "outsider" {
 		t.Fatalf("owners = %q %q %q", own.Owner, below.Owner, byHuman.Owner)
@@ -66,7 +66,7 @@ func TestCreateTrigger_Ownership(t *testing.T) {
 
 func TestTrigger_WakesTheAgentWithAReasonOfEvent(t *testing.T) {
 	f := newFixture(t)
-	tr := createTrigger(t, f, asAgent("builder"), wakeSpec("builder"))
+	tr := createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
 
 	publishDisk(t, f)
 
@@ -87,7 +87,7 @@ func TestTrigger_WakesTheAgentWithAReasonOfEvent(t *testing.T) {
 // window, and the window edge.
 func TestTrigger_WakeRateLimit(t *testing.T) {
 	f := newFixture(t)
-	tr := createTrigger(t, f, asAgent("builder"), wakeSpec("builder")) // 2 per 60 s
+	tr := createTrigger(asAgent("builder"), t, f, wakeSpec("builder")) // 2 per 60 s
 
 	publishDisk(t, f)
 	f.clock.Advance(window / 2)
@@ -118,7 +118,7 @@ func TestTrigger_WakeRateLimit(t *testing.T) {
 
 func TestTrigger_NeverWakesAFrozenAgent(t *testing.T) {
 	f := newFixture(t)
-	tr := createTrigger(t, f, asAgent("builder"), wakeSpec("builder"))
+	tr := createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
 	f.waker.err = core.ErrFrozen
 
 	publishDisk(t, f)
@@ -134,7 +134,7 @@ func TestTrigger_NeverWakesAFrozenAgent(t *testing.T) {
 
 func TestTrigger_ActionFailureIsNotCountedAndDoesNotFailThePublish(t *testing.T) {
 	f := newFixture(t)
-	tr := createTrigger(t, f, asAgent("builder"), wakeSpec("builder"))
+	tr := createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
 	f.waker.err = errors.New("boom")
 
 	publishDisk(t, f)
@@ -149,7 +149,7 @@ func TestTrigger_CreatesATaskWithTheRenderedTitle(t *testing.T) {
 	f := newFixture(t)
 	spec := wakeSpec("builder")
 	spec.Action = domain.Action{Kind: domain.ActionCreateTask, Agent: "builder", Title: "Clean {{subject}}", Priority: "high"}
-	createTrigger(t, f, asAgent("builder"), spec)
+	createTrigger(asAgent("builder"), t, f, spec)
 
 	publishDisk(t, f)
 
@@ -169,10 +169,10 @@ func TestTrigger_SkipsDisabledTriggersAndEventsTheOwnerCannotSee(t *testing.T) {
 	f := newFixture(t)
 	off := wakeSpec("builder")
 	off.Enabled = false
-	createTrigger(t, f, asAgent("builder"), off)
+	createTrigger(asAgent("builder"), t, f, off)
 	hired := wakeSpec("outsider")
 	hired.Filter = domain.Filter{Types: []string{"agentsone.agents.hired"}}
-	createTrigger(t, f, asHuman("h"), hired)
+	createTrigger(asHuman("h"), t, f, hired)
 
 	publishDisk(t, f)
 	// A hire in the founder team is out of sight for the outsider's trigger.
@@ -188,19 +188,23 @@ func TestTrigger_SkipsDisabledTriggersAndEventsTheOwnerCannotSee(t *testing.T) {
 
 func TestListTriggers_ShowsTheCallerOwnAndBelow(t *testing.T) {
 	f := newFixture(t)
-	createTrigger(t, f, asHuman("h"), wakeSpec("builder"))
-	createTrigger(t, f, asHuman("h"), wakeSpec("intern"))
-	createTrigger(t, f, asHuman("h"), wakeSpec("outsider"))
+	createTrigger(asHuman("h"), t, f, wakeSpec("builder"))
+	createTrigger(asHuman("h"), t, f, wakeSpec("intern"))
+	createTrigger(asHuman("h"), t, f, wakeSpec("outsider"))
 
-	all, more, err := f.svc.ListTriggers(asHuman("h"), "", 10)
+	all, more, err := f.svc.ListTriggers(asHuman("h"), "", "", 10)
 	if err != nil || len(all) != 3 || more {
 		t.Fatalf("human list = %d, more %v, %v", len(all), more, err)
 	}
-	mine, _, err := f.svc.ListTriggers(asAgent("builder"), "", 10)
+	mine, _, err := f.svc.ListTriggers(asAgent("builder"), "", "", 10)
 	if err != nil || len(mine) != 2 {
 		t.Fatalf("builder list = %d, %v, want 2", len(mine), err)
 	}
-	first, more, err := f.svc.ListTriggers(asHuman("h"), "", 2)
+	owned, _, err := f.svc.ListTriggers(asHuman("h"), "intern", "", 10)
+	if err != nil || len(owned) != 1 || owned[0].Owner != "intern" {
+		t.Fatalf("owner filter list = %+v, %v, want the intern trigger only", owned, err)
+	}
+	first, more, err := f.svc.ListTriggers(asHuman("h"), "", "", 2)
 	if err != nil || len(first) != 2 || !more {
 		t.Fatalf("page = %d, more %v, %v", len(first), more, err)
 	}
@@ -211,7 +215,7 @@ func TestListTriggers_ShowsTheCallerOwnAndBelow(t *testing.T) {
 
 func TestUpdateAndDeleteTrigger(t *testing.T) {
 	f := newFixture(t)
-	tr := createTrigger(t, f, asAgent("intern"), wakeSpec("intern"))
+	tr := createTrigger(asAgent("intern"), t, f, wakeSpec("intern"))
 	name := "renamed"
 
 	if _, err := f.svc.UpdateTrigger(asAgent("outsider"), tr.ID, domain.TriggerPatch{Name: &name}); !errors.Is(err, core.ErrNotFound) {

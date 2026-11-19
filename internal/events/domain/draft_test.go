@@ -50,7 +50,7 @@ func TestDraft_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			err := validDraft(tt.mod).Validate()
-			if !errors.Is(err, tt.wantErr) && !(tt.wantErr == nil && err == nil) {
+			if !errors.Is(err, tt.wantErr) && (tt.wantErr != nil || err != nil) {
 				t.Fatalf("Validate() error = %v, want %v", err, tt.wantErr)
 			}
 		})
@@ -76,7 +76,7 @@ func TestActorOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := domain.ActorOf(tt.caller)
-			if !errors.Is(err, tt.wantErr) && !(tt.wantErr == nil && err == nil) {
+			if !errors.Is(err, tt.wantErr) && (tt.wantErr != nil || err != nil) {
 				t.Fatalf("ActorOf() error = %v, want %v", err, tt.wantErr)
 			}
 			if got != tt.want {

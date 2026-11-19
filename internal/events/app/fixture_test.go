@@ -50,6 +50,8 @@ type fakeUnits struct {
 	err     error
 }
 
+func (u *fakeUnits) Available() bool { return true }
+
 func (u *fakeUnits) Start(_ context.Context, e domain.Emitter) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()

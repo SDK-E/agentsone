@@ -67,6 +67,9 @@ func (s *Service) RegisterEmitter(ctx context.Context, reg domain.Registration) 
 	if reg.Kind == domain.KindProcess && !isPrivileged(c) {
 		return Registered{}, fmt.Errorf("%w: only root may register a process emitter", core.ErrForbidden)
 	}
+	if reg.Kind == domain.KindProcess && !s.d.Units.Available() {
+		return Registered{}, fmt.Errorf("%w: process emitters are not supported on this machine", core.ErrInvalid)
+	}
 	e := domain.NewEmitter(reg, s.d.IDs.New("emt"), owner, s.d.Clock.Now())
 	if reg.Kind == domain.KindWebhook {
 		secret, err := s.newSecret()

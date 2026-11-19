@@ -19,6 +19,8 @@ import (
 
 // UnitController starts and stops the systemd unit behind a process emitter.
 type UnitController interface {
+	// Available reports whether process emitters can run on this machine.
+	Available() bool
 	// Start installs the unit of e when needed and starts it.
 	Start(ctx context.Context, e domain.Emitter) error
 	// Stop stops the unit of e.

@@ -125,7 +125,7 @@ func (c *Catalog) ValidateData(eventType string, data json.RawMessage) error {
 		return fmt.Errorf("%w: event data is not JSON", core.ErrInvalid)
 	}
 	if err := e.schema.Validate(doc); err != nil {
-		return fmt.Errorf("%w: data for %s: %v", core.ErrInvalid, eventType, err)
+		return fmt.Errorf("%w: data for %s: %w", core.ErrInvalid, eventType, err)
 	}
 	return nil
 }

@@ -55,8 +55,8 @@ func (s *Service) GetTrigger(ctx context.Context, id string) (domain.Trigger, er
 }
 
 // ListTriggers returns up to limit visible triggers after afterID, and
-// whether more follow.
-func (s *Service) ListTriggers(ctx context.Context, afterID string, limit int) ([]domain.Trigger, bool, error) {
+// whether more follow. A non-empty owner keeps only that agent's triggers.
+func (s *Service) ListTriggers(ctx context.Context, owner, afterID string, limit int) ([]domain.Trigger, bool, error) {
 	viewer := s.viewerOf(ctx, callerOf(ctx))
 	var out []domain.Trigger
 	cursor := afterID
@@ -67,7 +67,7 @@ func (s *Service) ListTriggers(ctx context.Context, afterID string, limit int) (
 		}
 		for _, t := range batch {
 			cursor = t.ID
-			if !viewer.CanSeeAgent(t.Owner) {
+			if !viewer.CanSeeAgent(t.Owner) || (owner != "" && t.Owner != owner) {
 				continue
 			}
 			if len(out) == limit {

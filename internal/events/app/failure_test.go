@@ -149,7 +149,7 @@ func TestTrigger_FailingCountersDoNotStopAWakeOrTheRateLimit(t *testing.T) {
 	f := newFixtureWith(t, withTriggers(triggers))
 	spec := wakeSpec("builder")
 	spec.Rate = domain.TriggerRate{Max: 1, PerSeconds: 60}
-	createTrigger(t, f, asAgent("builder"), spec)
+	createTrigger(asAgent("builder"), t, f, spec)
 	triggers.countersFail = true
 
 	publishDisk(t, f)

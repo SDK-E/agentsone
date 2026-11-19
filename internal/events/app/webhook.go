@@ -48,6 +48,10 @@ func (s *Service) ReceiveWebhook(ctx context.Context, w Webhook) (core.Event, er
 		s.reject(ctx, w, "rate limited")
 		return core.Event{}, core.NewProblem(429, "rate-limited", "too many webhook requests; slow down")
 	}
+	if len(w.Body) > MaxWebhookBody {
+		s.reject(ctx, w, "body too large")
+		return core.Event{}, fmt.Errorf("webhook body over %d bytes: %w", MaxWebhookBody, domain.ErrTooLarge)
+	}
 	if !domain.VerifySignature(e.Secret, w.Body, w.Signature) {
 		s.reject(ctx, w, "bad signature")
 		return core.Event{}, fmt.Errorf("%w: webhook signature is missing or wrong", core.ErrUnauthorized)

@@ -100,7 +100,7 @@ func TestEmbeddedCopyMatchesTheContract(t *testing.T) {
 	if dir == "" {
 		dir = filepath.Join("..", "..", "..", "..", "contract")
 	}
-	want, err := os.ReadFile(filepath.Join(dir, "schemas", "events", "catalog.json")) // #nosec G304 -- contract file
+	want, err := os.ReadFile(filepath.Join(dir, "schemas", "events", "catalog.json")) // #nosec G304 G703 -- contract file
 	if os.IsNotExist(err) {
 		t.Skip("contract catalog is not present")
 	}

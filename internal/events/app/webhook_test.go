@@ -114,6 +114,29 @@ func TestReceiveWebhook_RefusesAWrongOrMissingSignatureAndAuditsTheSender(t *tes
 	}
 }
 
+func TestReceiveWebhook_RefusesAnOversizeBodyAndAuditsTheSender(t *testing.T) {
+	f := newFixture(t)
+	h := registerHook(t, f)
+	atLimit := h.request(strings.Repeat("a", app.MaxWebhookBody))
+	over := h.request(strings.Repeat("a", app.MaxWebhookBody+1))
+
+	if _, err := f.svc.ReceiveWebhook(t.Context(), over); !errors.Is(err, domain.ErrTooLarge) {
+		t.Fatalf("oversize error = %v, want ErrTooLarge", err)
+	}
+	if _, err := f.svc.ReceiveWebhook(t.Context(), atLimit); errors.Is(err, domain.ErrTooLarge) {
+		t.Fatalf("a body at the limit was refused as too large: %v", err)
+	}
+	var found bool
+	for _, a := range f.fakes.Audit.Entries() {
+		if a.Action == "webhook.reject" && strings.Contains(string(a.Detail), "203.0.113.9:4711") && strings.Contains(string(a.Detail), "too large") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the oversize body was not audited with the sender address")
+	}
+}
+
 func TestReceiveWebhook_UnknownDisabledAndNonWebhookEmitters(t *testing.T) {
 	f := newFixture(t)
 	h := registerHook(t, f)

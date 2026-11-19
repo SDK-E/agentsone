@@ -17,7 +17,7 @@ PluginSource:
   required: [id, name, url, enabled]
   properties:
     id:
-      $ref: '#/PluginSourceId'
+      $ref: "#/PluginSourceId"
     name:
       type: string
     url:
@@ -34,9 +34,9 @@ PluginSourceList:
     items:
       type: array
       items:
-        $ref: '#/PluginSource'
+        $ref: "#/PluginSource"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 PluginHealth:
   type: string
@@ -44,13 +44,14 @@ PluginHealth:
 
 Plugin:
   type: object
-  required: [id, name, version, kinds, source, ref, enabled, health, installed_by, installed_at, manifest]
+  required:
+    [id, name, version, kinds, source, ref, enabled, health, installed_by, installed_at, manifest]
   properties:
     id:
-      $ref: './common.yaml#/PluginId'
+      $ref: "./common.yaml#/PluginId"
     name:
       type: string
-      pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
     version:
       type: string
       description: Semantic version.
@@ -58,22 +59,22 @@ Plugin:
       type: array
       minItems: 1
       items:
-        $ref: '#/PluginKind'
+        $ref: "#/PluginKind"
     source:
-      $ref: '#/PluginSourceId'
+      $ref: "#/PluginSourceId"
     ref:
       type: string
       description: Source-specific reference the plugin was installed from.
     enabled:
       type: boolean
     health:
-      $ref: '#/PluginHealth'
+      $ref: "#/PluginHealth"
     installed_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     installed_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     manifest:
-      $ref: '../../../schemas/plugin-manifest.schema.json'
+      $ref: "../../../schemas/plugin-manifest.schema.json"
 
 PluginList:
   type: object
@@ -82,16 +83,16 @@ PluginList:
     items:
       type: array
       items:
-        $ref: '#/Plugin'
+        $ref: "#/Plugin"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 CatalogEntry:
   type: object
   required: [source, ref, name, version, summary, kinds, publisher, homepage, installed]
   properties:
     source:
-      $ref: '#/PluginSourceId'
+      $ref: "#/PluginSourceId"
     ref:
       type: string
       description: Pass this to `installPlugin`.
@@ -105,11 +106,11 @@ CatalogEntry:
     kinds:
       type: array
       items:
-        $ref: '#/PluginKind'
+        $ref: "#/PluginKind"
     publisher:
       type: string
     homepage:
-      type: [string, 'null']
+      type: [string, "null"]
       format: uri
     installed:
       type: boolean
@@ -121,9 +122,9 @@ CatalogList:
     items:
       type: array
       items:
-        $ref: '#/CatalogEntry'
+        $ref: "#/CatalogEntry"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 PluginInstall:
   type: object
@@ -131,7 +132,7 @@ PluginInstall:
   required: [source, ref]
   properties:
     source:
-      $ref: '#/PluginSourceId'
+      $ref: "#/PluginSourceId"
     ref:
       type: string
       minLength: 1
@@ -161,11 +162,12 @@ RunnerStatus:
 Runner:
   type: object
   description: A registered runner adapter. Each agent runs one runner process.
-  required: [name, display_name, version, protocol_version, builtin, plugin_id, model, status, description]
+  required:
+    [name, display_name, version, protocol_version, builtin, plugin_id, model, status, description]
   properties:
     name:
       type: string
-      pattern: '^[a-z][a-z0-9-]{0,62}$'
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
       examples: [echo]
     display_name:
       type: string
@@ -177,13 +179,13 @@ Runner:
     builtin:
       type: boolean
     plugin_id:
-      type: [string, 'null']
-      pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+      type: [string, "null"]
+      pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
     model:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`.
     status:
-      $ref: '#/RunnerStatus'
+      $ref: "#/RunnerStatus"
     description:
       type: string
 
@@ -194,28 +196,28 @@ RunnerList:
     items:
       type: array
       items:
-        $ref: '#/Runner'
+        $ref: "#/Runner"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 InstalledTheme:
   type: object
   required: [id, name, builtin, plugin_id, installed_at, theme]
   properties:
     id:
-      $ref: './common.yaml#/ThemeId'
+      $ref: "./common.yaml#/ThemeId"
     name:
       type: string
     builtin:
       type: boolean
       description: True for the default "Agents One Theme".
     plugin_id:
-      type: [string, 'null']
-      pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+      type: [string, "null"]
+      pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
     installed_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     theme:
-      $ref: '../../../schemas/theme.schema.json'
+      $ref: "../../../schemas/theme.schema.json"
 
 ThemeList:
   type: object
@@ -224,9 +226,9 @@ ThemeList:
     items:
       type: array
       items:
-        $ref: '#/InstalledTheme'
+        $ref: "#/InstalledTheme"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 ThemeImport:
   type: object
@@ -234,7 +236,7 @@ ThemeImport:
   required: [theme]
   properties:
     theme:
-      $ref: '../../../schemas/theme.schema.json'
+      $ref: "../../../schemas/theme.schema.json"
 
 ThemeMode:
   type: string
@@ -246,9 +248,9 @@ ThemeSelection:
   required: [theme_id, mode]
   properties:
     theme_id:
-      $ref: './common.yaml#/ThemeId'
+      $ref: "./common.yaml#/ThemeId"
     mode:
-      $ref: '#/ThemeMode'
+      $ref: "#/ThemeMode"
 
 ThemeSelectionUpdate:
   type: object
@@ -256,6 +258,6 @@ ThemeSelectionUpdate:
   minProperties: 1
   properties:
     theme_id:
-      $ref: './common.yaml#/ThemeId'
+      $ref: "./common.yaml#/ThemeId"
     mode:
-      $ref: '#/ThemeMode'
+      $ref: "#/ThemeMode"

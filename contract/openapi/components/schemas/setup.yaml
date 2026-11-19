@@ -13,20 +13,20 @@ SetupStatus:
   required: [phase, first_human_created, licence_accepted, engine, seed_installed, contract_version]
   properties:
     phase:
-      $ref: '#/SetupPhase'
+      $ref: "#/SetupPhase"
     first_human_created:
       type: boolean
     licence_accepted:
       type: boolean
     engine:
-      $ref: '#/EngineFetchStatus'
+      $ref: "#/EngineFetchStatus"
     seed_installed:
       type: boolean
       description: True once the default "Small Seed" plugin has created the founder, router and waker.
     contract_version:
       type: string
       description: Semantic version of this API contract that the daemon implements.
-      examples: ['1.0.0']
+      examples: ["1.0.0"]
 
 FirstHumanCreate:
   type: object
@@ -34,9 +34,9 @@ FirstHumanCreate:
   required: [name, display_name, password]
   properties:
     name:
-      $ref: './common.yaml#/HumanName'
+      $ref: "./common.yaml#/HumanName"
     display_name:
-      $ref: './common.yaml#/DisplayName'
+      $ref: "./common.yaml#/DisplayName"
     password:
       type: string
       format: password
@@ -62,11 +62,11 @@ EngineLicence:
     accepted:
       type: boolean
     accepted_at:
-      type: [string, 'null']
+      type: [string, "null"]
       format: date-time
     accepted_by:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Human who accepted, or null.
 
 LicenceAccept:
@@ -90,7 +90,7 @@ EngineFetchStatus:
   required: [state, progress, bytes_done, bytes_total, version, error, updated_at]
   properties:
     state:
-      $ref: '#/EngineFetchState'
+      $ref: "#/EngineFetchState"
     progress:
       type: number
       minimum: 0
@@ -100,14 +100,14 @@ EngineFetchStatus:
       format: int64
       minimum: 0
     bytes_total:
-      type: [integer, 'null']
+      type: [integer, "null"]
       format: int64
       minimum: 0
     version:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Engine version once known.
     error:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Last failure in plain words, or null.
     updated_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"

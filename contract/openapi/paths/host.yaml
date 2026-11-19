@@ -12,16 +12,16 @@ health:
     security:
       - hostDoor: []
     responses:
-      '200':
+      "200":
         description: Health.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/host.yaml#/DoorHealth'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/host.yaml#/DoorHealth"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 freezes:
   servers:
     - url: http://agentsone-door/v1
@@ -34,21 +34,21 @@ freezes:
     security:
       - hostDoor: []
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of freezes.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/host.yaml#/FreezeList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/host.yaml#/FreezeList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
   post:
     operationId: applyFreeze
     tags: [host]
@@ -63,22 +63,22 @@ freezes:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host.yaml#/FreezeRequest'
+            $ref: "../components/schemas/host.yaml#/FreezeRequest"
     responses:
-      '201':
+      "201":
         description: The freeze.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/host.yaml#/Freeze'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/host.yaml#/Freeze"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 release:
   servers:
     - url: http://agentsone-door/v1
@@ -95,22 +95,22 @@ release:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host.yaml#/ReleaseRequest'
+            $ref: "../components/schemas/host.yaml#/ReleaseRequest"
     responses:
-      '200':
+      "200":
         description: Remaining freezes.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/host.yaml#/FreezeList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/host.yaml#/FreezeList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 budget:
   servers:
     - url: http://agentsone-door/v1
@@ -127,16 +127,16 @@ budget:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host.yaml#/HostBudgetPush'
+            $ref: "../components/schemas/host.yaml#/HostBudgetPush"
     responses:
-      '204':
+      "204":
         description: Stored.
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 audit:
   servers:
     - url: http://agentsone-door/v1
@@ -156,20 +156,20 @@ audit:
           type: integer
           format: int64
           minimum: 0
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of audit records.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/audit.yaml#/AuditList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/audit.yaml#/AuditList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 audit-ack:
   servers:
     - url: http://agentsone-door/v1
@@ -186,22 +186,22 @@ audit-ack:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host.yaml#/AuditAck'
+            $ref: "../components/schemas/host.yaml#/AuditAck"
     responses:
-      '200':
+      "200":
         description: Acknowledged.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/host.yaml#/AuditAckResult'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/host.yaml#/AuditAckResult"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 allow-list:
   servers:
     - url: http://agentsone-door/v1
@@ -218,13 +218,13 @@ allow-list:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/host.yaml#/AllowListSync'
+            $ref: "../components/schemas/host.yaml#/AllowListSync"
     responses:
-      '204':
+      "204":
         description: Stored.
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"

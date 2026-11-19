@@ -10,7 +10,7 @@ audit:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Actor'
+          $ref: "../components/schemas/common.yaml#/Actor"
       - name: action
         in: query
         required: false
@@ -25,19 +25,19 @@ audit:
           type: integer
           format: int64
           minimum: 0
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of audit records.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/audit.yaml#/AuditList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/audit.yaml#/AuditList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 verify:
   post:
     operationId: verifyAuditChain
@@ -49,18 +49,18 @@ verify:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/audit.yaml#/AuditVerifyRequest'
+            $ref: "../components/schemas/audit.yaml#/AuditVerifyRequest"
     responses:
-      '200':
+      "200":
         description: The verification result.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/audit.yaml#/AuditVerification'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/audit.yaml#/AuditVerification"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 stream:
   get:
     operationId: streamAudit
@@ -72,13 +72,13 @@ stream:
       frame: AuditStreamFrame
       heartbeat_seconds: 15
     parameters:
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     responses:
-      '200':
+      "200":
         description: An SSE stream of audit frames.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/audit.yaml#/AuditStreamFrame'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/audit.yaml#/AuditStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

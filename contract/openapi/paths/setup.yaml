@@ -9,16 +9,16 @@ setup:
     description: Where first boot stands. Open to anyone on loopback so the kiosk can show the right first screen.
     security: []
     responses:
-      '200':
+      "200":
         description: Current setup status.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/setup.yaml#/SetupStatus'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
-      '503':
-        $ref: '../components/responses.yaml#/Unavailable'
+              $ref: "../components/schemas/setup.yaml#/SetupStatus"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 
 first-human:
   post:
@@ -34,18 +34,18 @@ first-human:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/setup.yaml#/FirstHumanCreate'
+            $ref: "../components/schemas/setup.yaml#/FirstHumanCreate"
     responses:
-      '201':
+      "201":
         description: The first human was created.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/Human'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 engine-licence:
   get:
@@ -54,14 +54,14 @@ engine-licence:
     summary: Get the Claude engine licence
     description: Licence text shown on screen before the Claude engine is downloaded.
     responses:
-      '200':
+      "200":
         description: Licence text and acceptance state.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/setup.yaml#/EngineLicence'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/setup.yaml#/EngineLicence"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: acceptEngineLicence
     tags: [setup]
@@ -74,22 +74,22 @@ engine-licence:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/setup.yaml#/LicenceAccept'
+            $ref: "../components/schemas/setup.yaml#/LicenceAccept"
     responses:
-      '202':
+      "202":
         description: Accepted; the engine fetch is queued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/setup.yaml#/EngineFetchStatus'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/setup.yaml#/EngineFetchStatus"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 engine-fetch:
   get:
@@ -98,11 +98,11 @@ engine-fetch:
     summary: Get the engine download status
     description: Progress of the Claude engine download that follows licence acceptance.
     responses:
-      '200':
+      "200":
         description: Engine fetch status.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/setup.yaml#/EngineFetchStatus'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/setup.yaml#/EngineFetchStatus"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

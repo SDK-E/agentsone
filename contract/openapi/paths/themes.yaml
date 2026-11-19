@@ -6,19 +6,19 @@ themes:
     summary: List themes
     description: Lists installed themes. The default is "Agents One Theme".
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of themes.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/ThemeList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/plugins.yaml#/ThemeList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: importTheme
     tags: [themes]
@@ -29,57 +29,57 @@ themes:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/plugins.yaml#/ThemeImport'
+            $ref: "../components/schemas/plugins.yaml#/ThemeImport"
     responses:
-      '201':
+      "201":
         description: The installed theme.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/InstalledTheme'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
+              $ref: "../components/schemas/plugins.yaml#/InstalledTheme"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
 theme:
   parameters:
-    - $ref: '../components/parameters.yaml#/ThemeId'
+    - $ref: "../components/parameters.yaml#/ThemeId"
   get:
     operationId: getTheme
     tags: [themes]
     summary: Get a theme
     description: Returns one installed theme.
     responses:
-      '200':
+      "200":
         description: The theme.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/InstalledTheme'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/plugins.yaml#/InstalledTheme"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteTheme
     tags: [themes]
     summary: Delete a theme
     description: Removes an imported theme. The built-in theme and a theme in use cannot be removed (409).
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 selection:
   get:
     operationId: getThemeSelection
@@ -89,14 +89,14 @@ selection:
     security:
       - cookieAuth: []
     responses:
-      '200':
+      "200":
         description: The selection.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/ThemeSelection'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/plugins.yaml#/ThemeSelection"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   put:
     operationId: setThemeSelection
     tags: [themes]
@@ -109,17 +109,17 @@ selection:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/plugins.yaml#/ThemeSelectionUpdate'
+            $ref: "../components/schemas/plugins.yaml#/ThemeSelectionUpdate"
     responses:
-      '200':
+      "200":
         description: The new selection.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/ThemeSelection'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/plugins.yaml#/ThemeSelection"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

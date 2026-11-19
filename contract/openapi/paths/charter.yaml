@@ -8,14 +8,14 @@ charter:
     summary: Get the charter
     description: The society's charter. Version 0 with empty text means no charter yet.
     responses:
-      '200':
+      "200":
         description: The charter.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/Charter'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/chart.yaml#/Charter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   put:
     operationId: updateCharter
     tags: [charter]
@@ -26,22 +26,22 @@ charter:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/chart.yaml#/CharterUpdate'
+            $ref: "../components/schemas/chart.yaml#/CharterUpdate"
     responses:
-      '200':
+      "200":
         description: The new charter.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/Charter'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/chart.yaml#/Charter"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 goals:
   get:
@@ -54,25 +54,25 @@ goals:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
+          $ref: "../components/schemas/common.yaml#/AgentName"
       - name: status
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/chart.yaml#/GoalStatus'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/chart.yaml#/GoalStatus"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of goals.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/GoalList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/chart.yaml#/GoalList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createGoal
     tags: [charter]
@@ -83,40 +83,40 @@ goals:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/chart.yaml#/GoalCreate'
+            $ref: "../components/schemas/chart.yaml#/GoalCreate"
     responses:
-      '201':
+      "201":
         description: Created.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/Goal'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/chart.yaml#/Goal"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 
 goal:
   parameters:
-    - $ref: '../components/parameters.yaml#/GoalId'
+    - $ref: "../components/parameters.yaml#/GoalId"
   get:
     operationId: getGoal
     tags: [charter]
     summary: Get a goal
     description: One goal.
     responses:
-      '200':
+      "200":
         description: The goal.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/Goal'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/chart.yaml#/Goal"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateGoal
     tags: [charter]
@@ -127,33 +127,33 @@ goal:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/chart.yaml#/GoalUpdate'
+            $ref: "../components/schemas/chart.yaml#/GoalUpdate"
     responses:
-      '200':
+      "200":
         description: Updated.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/chart.yaml#/Goal'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/chart.yaml#/Goal"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteGoal
     tags: [charter]
     summary: Delete a goal
     description: The owner or an agent above the owner may delete a goal. Prefer status `dropped` to keep history.
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

@@ -11,20 +11,20 @@ schedules:
         required: false
         description: Only timers of this agent.
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/common.yaml#/AgentName"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of schedules.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/ScheduleList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/tasks.yaml#/ScheduleList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createSchedule
     tags: [schedules]
@@ -35,41 +35,41 @@ schedules:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/ScheduleCreate'
+            $ref: "../components/schemas/tasks.yaml#/ScheduleCreate"
     responses:
-      '201':
+      "201":
         description: The new schedule.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Schedule'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Schedule"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 schedule:
   parameters:
-    - $ref: '../components/parameters.yaml#/ScheduleId'
+    - $ref: "../components/parameters.yaml#/ScheduleId"
   get:
     operationId: getSchedule
     tags: [schedules]
     summary: Get a schedule
     description: Returns one schedule.
     responses:
-      '200':
+      "200":
         description: The schedule.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Schedule'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Schedule"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateSchedule
     tags: [schedules]
@@ -80,33 +80,33 @@ schedule:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/ScheduleUpdate'
+            $ref: "../components/schemas/tasks.yaml#/ScheduleUpdate"
     responses:
-      '200':
+      "200":
         description: The updated schedule.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Schedule'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Schedule"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteSchedule
     tags: [schedules]
     summary: Delete a schedule
     description: Removes a schedule owned by the caller or by an agent below the caller.
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

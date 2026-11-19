@@ -32,86 +32,86 @@ AgentName:
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/AgentName'
+    $ref: "./schemas/common.yaml#/AgentName"
 HumanName:
   name: human_name
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/HumanName'
+    $ref: "./schemas/common.yaml#/HumanName"
 TaskId:
   name: task_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/TaskId'
+    $ref: "./schemas/common.yaml#/TaskId"
 GoalId:
   name: goal_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/GoalId'
+    $ref: "./schemas/common.yaml#/GoalId"
 ChannelName:
   name: channel_name
   in: path
   required: true
   schema:
-    $ref: './schemas/bus.yaml#/ChannelName'
+    $ref: "./schemas/bus.yaml#/ChannelName"
 AssignmentId:
   name: assignment_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/AssignmentId'
+    $ref: "./schemas/common.yaml#/AssignmentId"
 ScheduleId:
   name: schedule_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/ScheduleId'
+    $ref: "./schemas/common.yaml#/ScheduleId"
 TriggerId:
   name: trigger_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/TriggerId'
+    $ref: "./schemas/common.yaml#/TriggerId"
 EmitterId:
   name: emitter_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/EmitterId'
+    $ref: "./schemas/common.yaml#/EmitterId"
 MemoryId:
   name: memory_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/MemoryId'
+    $ref: "./schemas/common.yaml#/MemoryId"
 PluginId:
   name: plugin_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/PluginId'
+    $ref: "./schemas/common.yaml#/PluginId"
 RunnerName:
   name: runner_name
   in: path
   required: true
   schema:
     type: string
-    pattern: '^[a-z][a-z0-9-]{0,62}$'
+    pattern: "^[a-z][a-z0-9-]{0,62}$"
 ThemeId:
   name: theme_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/ThemeId'
+    $ref: "./schemas/common.yaml#/ThemeId"
 TokenId:
   name: token_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/TokenId'
+    $ref: "./schemas/common.yaml#/TokenId"
 Pid:
   name: pid
   in: path
@@ -133,7 +133,7 @@ PackageName:
   required: true
   schema:
     type: string
-    pattern: '^[a-z0-9][a-z0-9+.-]+$'
+    pattern: "^[a-z0-9][a-z0-9+.-]+$"
 FilePath:
   name: path
   in: query
@@ -141,14 +141,14 @@ FilePath:
   description: Absolute path inside the VM.
   schema:
     type: string
-    pattern: '^/'
+    pattern: "^/"
     maxLength: 4096
 PtyId:
   name: pty_id
   in: path
   required: true
   schema:
-    $ref: './schemas/common.yaml#/PtyId'
+    $ref: "./schemas/common.yaml#/PtyId"
 McpSessionId:
   name: Mcp-Session-Id
   in: header
@@ -164,4 +164,4 @@ McpProtocolVersion:
   description: MCP protocol revision negotiated at `initialize`.
   schema:
     type: string
-    examples: ['2025-06-18']
+    examples: ["2025-06-18"]

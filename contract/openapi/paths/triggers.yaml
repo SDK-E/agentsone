@@ -11,20 +11,20 @@ triggers:
         required: false
         description: Only triggers owned by this agent.
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/common.yaml#/AgentName"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of triggers.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/TriggerList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/tasks.yaml#/TriggerList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createTrigger
     tags: [triggers]
@@ -37,39 +37,39 @@ triggers:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TriggerCreate'
+            $ref: "../components/schemas/tasks.yaml#/TriggerCreate"
     responses:
-      '201':
+      "201":
         description: The new trigger.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Trigger'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 trigger:
   parameters:
-    - $ref: '../components/parameters.yaml#/TriggerId'
+    - $ref: "../components/parameters.yaml#/TriggerId"
   get:
     operationId: getTrigger
     tags: [triggers]
     summary: Get a trigger
     description: Returns one trigger with its firing counters.
     responses:
-      '200':
+      "200":
         description: The trigger.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Trigger'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateTrigger
     tags: [triggers]
@@ -80,33 +80,33 @@ trigger:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TriggerUpdate'
+            $ref: "../components/schemas/tasks.yaml#/TriggerUpdate"
     responses:
-      '200':
+      "200":
         description: The updated trigger.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Trigger'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteTrigger
     tags: [triggers]
     summary: Delete a trigger
     description: Removes a trigger owned by the caller or by an agent below the caller.
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

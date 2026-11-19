@@ -8,19 +8,19 @@ channels:
     summary: List channels
     description: Public channels and the team channels the caller can see.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of channels.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bus.yaml#/ChannelList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/bus.yaml#/ChannelList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createChannel
     tags: [bus]
@@ -31,40 +31,40 @@ channels:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/bus.yaml#/ChannelCreate'
+            $ref: "../components/schemas/bus.yaml#/ChannelCreate"
     responses:
-      '201':
+      "201":
         description: Created.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bus.yaml#/Channel'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/bus.yaml#/Channel"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 channel:
   parameters:
-    - $ref: '../components/parameters.yaml#/ChannelName'
+    - $ref: "../components/parameters.yaml#/ChannelName"
   get:
     operationId: getChannel
     tags: [bus]
     summary: Get a channel
     description: One channel.
     responses:
-      '200':
+      "200":
         description: The channel.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bus.yaml#/Channel'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/bus.yaml#/Channel"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 messages:
   get:
@@ -77,35 +77,35 @@ messages:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/bus.yaml#/ChannelName'
+          $ref: "../components/schemas/bus.yaml#/ChannelName"
       - name: to
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
+          $ref: "../components/schemas/common.yaml#/AgentName"
       - name: from
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Actor'
+          $ref: "../components/schemas/common.yaml#/Actor"
       - name: since
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Timestamp'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/common.yaml#/Timestamp"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of messages.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bus.yaml#/BusMessageList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/bus.yaml#/BusMessageList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: sendBusMessage
     tags: [bus]
@@ -116,24 +116,24 @@ messages:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/bus.yaml#/BusMessageCreate'
+            $ref: "../components/schemas/bus.yaml#/BusMessageCreate"
     responses:
-      '201':
+      "201":
         description: Sent.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bus.yaml#/BusMessage'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../components/schemas/bus.yaml#/BusMessage"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
 
 stream:
   get:
@@ -147,20 +147,20 @@ stream:
         required: false
         description: Only this channel.
         schema:
-          $ref: '../components/schemas/bus.yaml#/ChannelName'
-      - $ref: '../components/parameters.yaml#/LastEventId'
+          $ref: "../components/schemas/bus.yaml#/ChannelName"
+      - $ref: "../components/parameters.yaml#/LastEventId"
     x-stream:
       protocol: sse
       frame: BusStreamFrame
       heartbeat_seconds: 15
     responses:
-      '200':
+      "200":
         description: Event stream of `BusStreamFrame`.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/bus.yaml#/BusStreamFrame'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/bus.yaml#/BusStreamFrame"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

@@ -325,7 +325,7 @@ components:
       type: apiKey
       in: header
       name: X-Agentsone-Signature
-      description: '`sha256=<hex HMAC-SHA256 of the raw body>` using the emitter''s webhook secret.'
+      description: "`sha256=<hex HMAC-SHA256 of the raw body>` using the emitter's webhook secret."
   schemas:
     Event:
       $ref: ../schemas/event.schema.json

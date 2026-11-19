@@ -6,21 +6,21 @@ ChartNode:
   required: [agent, display_name, kind, is_root, state, role, children]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     display_name:
-      $ref: './common.yaml#/DisplayName'
+      $ref: "./common.yaml#/DisplayName"
     kind:
-      $ref: './agents.yaml#/AgentKind'
+      $ref: "./agents.yaml#/AgentKind"
     is_root:
       type: boolean
     state:
-      $ref: './agents.yaml#/AgentState'
+      $ref: "./agents.yaml#/AgentState"
     role:
       type: string
     children:
       type: array
       items:
-        $ref: '#/ChartNode'
+        $ref: "#/ChartNode"
 
 Chart:
   type: object
@@ -30,12 +30,12 @@ Chart:
     roots:
       type: array
       items:
-        $ref: '#/ChartNode'
+        $ref: "#/ChartNode"
     agent_count:
       type: integer
       minimum: 0
     updated_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 ChartMove:
   type: object
@@ -44,9 +44,9 @@ ChartMove:
   required: [agent, new_manager]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     new_manager:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
 
 Charter:
   type: object
@@ -62,9 +62,9 @@ Charter:
       minimum: 0
       description: Increments on every change. 0 means no charter yet.
     updated_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     updated_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
 
 CharterUpdate:
   type: object
@@ -88,9 +88,9 @@ Goal:
   required: [id, owner, title, detail, status, parent_id, created_at, updated_at]
   properties:
     id:
-      $ref: './common.yaml#/GoalId'
+      $ref: "./common.yaml#/GoalId"
     owner:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     title:
       type: string
       minLength: 1
@@ -99,15 +99,15 @@ Goal:
       type: string
       maxLength: 8000
     status:
-      $ref: '#/GoalStatus'
+      $ref: "#/GoalStatus"
     parent_id:
-      type: [string, 'null']
-      pattern: '^gol_[0-9A-HJKMNP-TV-Z]{26}$'
+      type: [string, "null"]
+      pattern: "^gol_[0-9A-HJKMNP-TV-Z]{26}$"
       description: Goal of the manager this goal serves, or null.
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     updated_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 GoalList:
   type: object
@@ -116,9 +116,9 @@ GoalList:
     items:
       type: array
       items:
-        $ref: '#/Goal'
+        $ref: "#/Goal"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 GoalCreate:
   type: object
@@ -126,7 +126,7 @@ GoalCreate:
   required: [title]
   properties:
     owner:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
       description: Defaults to the caller. Another owner must be below the caller.
     title:
       type: string
@@ -136,7 +136,7 @@ GoalCreate:
       type: string
       maxLength: 8000
     parent_id:
-      $ref: './common.yaml#/GoalId'
+      $ref: "./common.yaml#/GoalId"
 
 GoalUpdate:
   type: object
@@ -151,4 +151,4 @@ GoalUpdate:
       type: string
       maxLength: 8000
     status:
-      $ref: '#/GoalStatus'
+      $ref: "#/GoalStatus"

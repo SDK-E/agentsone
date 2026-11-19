@@ -8,9 +8,9 @@ AuditList:
     items:
       type: array
       items:
-        $ref: '../../../schemas/audit-record.schema.json'
+        $ref: "../../../schemas/audit-record.schema.json"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 AuditVerifyRequest:
   type: object
@@ -48,9 +48,9 @@ AuditVerification:
       minimum: 0
     head_hash:
       type: string
-      pattern: '^[0-9a-f]{64}$'
+      pattern: "^[0-9a-f]{64}$"
     broken_at_seq:
-      type: [integer, 'null']
+      type: [integer, "null"]
       format: int64
       description: First record whose hash does not match, or null.
     host_acked_seq:
@@ -59,7 +59,7 @@ AuditVerification:
       minimum: 0
       description: Highest sequence the host audit sink has acknowledged.
     verified_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 AuditFrame:
   type: object
@@ -69,14 +69,14 @@ AuditFrame:
       type: string
       const: record
     record:
-      $ref: '../../../schemas/audit-record.schema.json'
+      $ref: "../../../schemas/audit-record.schema.json"
 
 AuditStreamFrame:
   oneOf:
-    - $ref: '#/AuditFrame'
-    - $ref: './common.yaml#/Heartbeat'
+    - $ref: "#/AuditFrame"
+    - $ref: "./common.yaml#/Heartbeat"
   discriminator:
     propertyName: kind
     mapping:
-      record: '#/AuditFrame'
-      heartbeat: './common.yaml#/Heartbeat'
+      record: "#/AuditFrame"
+      heartbeat: "./common.yaml#/Heartbeat"

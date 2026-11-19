@@ -12,30 +12,30 @@ tasks:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/tasks.yaml#/TaskStatus'
+          $ref: "../components/schemas/tasks.yaml#/TaskStatus"
       - name: assignee
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
+          $ref: "../components/schemas/common.yaml#/AgentName"
       - name: source
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/tasks.yaml#/TaskSource'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/tasks.yaml#/TaskSource"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of tasks.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/TaskList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/tasks.yaml#/TaskList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createTask
     tags: [tasks]
@@ -46,22 +46,22 @@ tasks:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TaskCreate'
+            $ref: "../components/schemas/tasks.yaml#/TaskCreate"
     responses:
-      '201':
+      "201":
         description: Created.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 
 stream:
   get:
@@ -70,40 +70,40 @@ stream:
     summary: Stream task updates
     description: Task creations and changes as Server-Sent Events.
     parameters:
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     x-stream:
       protocol: sse
       frame: TaskStreamFrame
       heartbeat_seconds: 15
     responses:
-      '200':
+      "200":
         description: Event stream of `TaskStreamFrame`.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/TaskStreamFrame'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/tasks.yaml#/TaskStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 
 task:
   parameters:
-    - $ref: '../components/parameters.yaml#/TaskId'
+    - $ref: "../components/parameters.yaml#/TaskId"
   get:
     operationId: getTask
     tags: [tasks]
     summary: Get a task
     description: One task.
     responses:
-      '200':
+      "200":
         description: The task.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateTask
     tags: [tasks]
@@ -117,28 +117,28 @@ task:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TaskUpdate'
+            $ref: "../components/schemas/tasks.yaml#/TaskUpdate"
     responses:
-      '200':
+      "200":
         description: Updated.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 assign:
   parameters:
-    - $ref: '../components/parameters.yaml#/TaskId'
+    - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: assignTask
     tags: [tasks]
@@ -151,30 +151,30 @@ assign:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TaskAssign'
+            $ref: "../components/schemas/tasks.yaml#/TaskAssign"
     responses:
-      '200':
+      "200":
         description: Assigned.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 
 complete:
   parameters:
-    - $ref: '../components/parameters.yaml#/TaskId'
+    - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: completeTask
     tags: [tasks]
@@ -187,45 +187,45 @@ complete:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/tasks.yaml#/TaskCompletion'
+            $ref: "../components/schemas/tasks.yaml#/TaskCompletion"
     responses:
-      '200':
+      "200":
         description: Completed.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 cancel:
   parameters:
-    - $ref: '../components/parameters.yaml#/TaskId'
+    - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: cancelTask
     tags: [tasks]
     summary: Cancel a task
     description: Sets the task to `cancelled` and tells the assignee's runner to stop work on it.
     responses:
-      '200':
+      "200":
         description: Cancelled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/tasks.yaml#/Task'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

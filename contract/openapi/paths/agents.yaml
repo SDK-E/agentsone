@@ -12,42 +12,42 @@ agents:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/agents.yaml#/AgentKind'
+          $ref: "../components/schemas/agents.yaml#/AgentKind"
       - name: state
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/agents.yaml#/AgentState'
+          $ref: "../components/schemas/agents.yaml#/AgentState"
       - name: manager
         in: query
         required: false
         description: Only direct reports of this agent.
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
+          $ref: "../components/schemas/common.yaml#/AgentName"
       - name: team
         in: query
         required: false
         description: Only agents in this chart branch.
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
+          $ref: "../components/schemas/common.yaml#/AgentName"
       - name: is_root
         in: query
         required: false
         schema:
           type: boolean
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of agents.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/AgentList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/agents.yaml#/AgentList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: hireAgent
     tags: [agents]
@@ -60,44 +60,44 @@ agents:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/AgentCreate'
+            $ref: "../components/schemas/agents.yaml#/AgentCreate"
     responses:
-      '201':
+      "201":
         description: Hired.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/Agent'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/agents.yaml#/Agent"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 
 agent:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: getAgent
     tags: [agents]
     summary: Get an agent
     description: One agent with its state, one-line and limits.
     responses:
-      '200':
+      "200":
         description: The agent.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/Agent'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/Agent"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateAgent
     tags: [agents]
@@ -108,24 +108,24 @@ agent:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/AgentUpdate'
+            $ref: "../components/schemas/agents.yaml#/AgentUpdate"
     responses:
-      '200':
+      "200":
         description: Updated.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/Agent'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/agents.yaml#/Agent"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
   delete:
     operationId: retireAgent
     tags: [agents]
@@ -134,20 +134,20 @@ agent:
       Retires an agent below the caller. Its unit stops, its reports move up to the caller and its
       private memory is kept read-only for root agents. Audited.
     responses:
-      '204':
+      "204":
         description: Retired.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 wake:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: wakeAgent
     tags: [agents]
@@ -158,32 +158,32 @@ wake:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/WakeRequest'
+            $ref: "../components/schemas/agents.yaml#/WakeRequest"
     responses:
-      '202':
+      "202":
         description: Wake queued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/Agent'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '402':
-        $ref: '../components/responses.yaml#/PaymentRequired'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../components/schemas/agents.yaml#/Agent"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "402":
+        $ref: "../components/responses.yaml#/PaymentRequired"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
 
 sleep:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: sleepAgent
     tags: [agents]
@@ -194,42 +194,42 @@ sleep:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/SleepRequest'
+            $ref: "../components/schemas/agents.yaml#/SleepRequest"
     responses:
-      '202':
+      "202":
         description: Sleep queued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/Agent'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/Agent"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 one-line:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: getAgentOneLine
     tags: [agents]
     summary: Get an agent's one-line
     description: The agent's latest one-line (its live list entry).
     responses:
-      '200':
+      "200":
         description: The one-line.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/OneLine'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/OneLine"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   put:
     operationId: setAgentOneLine
     tags: [agents]
@@ -242,75 +242,75 @@ one-line:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/OneLineUpdate'
+            $ref: "../components/schemas/agents.yaml#/OneLineUpdate"
     responses:
-      '200':
+      "200":
         description: Stored.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/OneLine'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/OneLine"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 output:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: streamAgentOutput
     tags: [agents]
     summary: Stream an agent's output
     description: Live runner output, state changes and one-lines of one agent, as Server-Sent Events.
     parameters:
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     x-stream:
       protocol: sse
       frame: AgentOutputFrame
       heartbeat_seconds: 15
     responses:
-      '200':
+      "200":
         description: Event stream of `AgentOutputFrame`.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/agents.yaml#/AgentOutputFrame'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/AgentOutputFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 chat:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: listChatMessages
     tags: [agents]
     summary: List chat messages
     description: Chat history with one agent, newest first.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of chat messages.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/ChatMessageList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/ChatMessageList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   post:
     operationId: sendChatMessage
     tags: [agents]
@@ -321,56 +321,56 @@ chat:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/agents.yaml#/ChatMessageCreate'
+            $ref: "../components/schemas/agents.yaml#/ChatMessageCreate"
     responses:
-      '201':
+      "201":
         description: Posted.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/ChatMessage'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '402':
-        $ref: '../components/responses.yaml#/PaymentRequired'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../components/schemas/agents.yaml#/ChatMessage"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "402":
+        $ref: "../components/responses.yaml#/PaymentRequired"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
 
 chat-stream:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: streamChat
     tags: [agents]
     summary: Stream an agent's chat
     description: New chat messages and partial reply text for one agent, as Server-Sent Events.
     parameters:
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     x-stream:
       protocol: sse
       frame: ChatStreamFrame
       heartbeat_seconds: 15
     responses:
-      '200':
+      "200":
         description: Event stream of `ChatStreamFrame`.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/agents.yaml#/ChatStreamFrame'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/agents.yaml#/ChatStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 tokens:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: issueAgentToken
     tags: [agents]
@@ -383,22 +383,22 @@ tokens:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/session.yaml#/TokenCreate'
+            $ref: "../components/schemas/session.yaml#/TokenCreate"
     responses:
-      '201':
+      "201":
         description: Issued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/IssuedToken'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/session.yaml#/IssuedToken"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 templates:
   get:
@@ -407,16 +407,16 @@ templates:
     summary: List agent templates
     description: Agent templates from installed plugins, used when hiring.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of agent templates.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/agents.yaml#/AgentTemplateList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/agents.yaml#/AgentTemplateList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

@@ -8,9 +8,9 @@ EventList:
     items:
       type: array
       items:
-        $ref: '../../../schemas/event.schema.json'
+        $ref: "../../../schemas/event.schema.json"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 EventPublish:
   type: object
@@ -35,7 +35,7 @@ EventPublish:
       type: object
       description: Event payload, at most 64 KiB once encoded.
     causationid:
-      $ref: './common.yaml#/EventId'
+      $ref: "./common.yaml#/EventId"
     correlationid:
       type: string
       maxLength: 200
@@ -48,17 +48,17 @@ EventFrame:
       type: string
       const: event
     event:
-      $ref: '../../../schemas/event.schema.json'
+      $ref: "../../../schemas/event.schema.json"
 
 EventStreamFrame:
   oneOf:
-    - $ref: '#/EventFrame'
-    - $ref: './common.yaml#/Heartbeat'
+    - $ref: "#/EventFrame"
+    - $ref: "./common.yaml#/Heartbeat"
   discriminator:
     propertyName: kind
     mapping:
-      event: '#/EventFrame'
-      heartbeat: './common.yaml#/Heartbeat'
+      event: "#/EventFrame"
+      heartbeat: "./common.yaml#/Heartbeat"
 
 EmitterKind:
   type: string
@@ -69,16 +69,30 @@ EmitterKind:
 
 Emitter:
   type: object
-  required: [id, name, kind, description, event_types, enabled, unit, owner, plugin_id, webhook_path, created_at, last_event_at]
+  required:
+    [
+      id,
+      name,
+      kind,
+      description,
+      event_types,
+      enabled,
+      unit,
+      owner,
+      plugin_id,
+      webhook_path,
+      created_at,
+      last_event_at,
+    ]
   properties:
     id:
-      $ref: './common.yaml#/EmitterId'
+      $ref: "./common.yaml#/EmitterId"
     name:
       type: string
-      pattern: '^[a-z][a-z0-9-]{0,62}$'
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
       examples: [disk]
     kind:
-      $ref: '#/EmitterKind'
+      $ref: "#/EmitterKind"
     description:
       type: string
       maxLength: 500
@@ -91,20 +105,20 @@ Emitter:
     enabled:
       type: boolean
     unit:
-      type: [string, 'null']
-      description: '`emitter@<id>.service` for `process` emitters, null otherwise.'
+      type: [string, "null"]
+      description: "`emitter@<id>.service` for `process` emitters, null otherwise."
     owner:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     plugin_id:
-      type: [string, 'null']
-      pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+      type: [string, "null"]
+      pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
     webhook_path:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Intake path for `webhook` emitters, for example `/v1/webhooks/emt_...`.
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     last_event_at:
-      type: [string, 'null']
+      type: [string, "null"]
       format: date-time
 
 EmitterList:
@@ -114,9 +128,9 @@ EmitterList:
     items:
       type: array
       items:
-        $ref: '#/Emitter'
+        $ref: "#/Emitter"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 EmitterRegister:
   type: object
@@ -126,7 +140,7 @@ EmitterRegister:
   properties:
     name:
       type: string
-      pattern: '^[a-z][a-z0-9-]{0,62}$'
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
     kind:
       type: string
       enum: [process, webhook]
@@ -150,9 +164,9 @@ EmitterRegistered:
   required: [emitter, webhook_secret]
   properties:
     emitter:
-      $ref: '#/Emitter'
+      $ref: "#/Emitter"
     webhook_secret:
-      type: [string, 'null']
+      type: [string, "null"]
       description: HMAC-SHA256 secret for `webhook` emitters. Shown once. Null for other kinds.
 
 WebhookAccepted:
@@ -160,4 +174,4 @@ WebhookAccepted:
   required: [event_id]
   properties:
     event_id:
-      $ref: './common.yaml#/EventId'
+      $ref: "./common.yaml#/EventId"

@@ -16,46 +16,46 @@ route:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/router.yaml#/RouteRequest'
+            $ref: "../components/schemas/router.yaml#/RouteRequest"
     responses:
-      '201':
+      "201":
         description: Assigned.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/router.yaml#/Assignment'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '402':
-        $ref: '../components/responses.yaml#/PaymentRequired'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
-      '503':
-        $ref: '../components/responses.yaml#/Unavailable'
+              $ref: "../components/schemas/router.yaml#/Assignment"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "402":
+        $ref: "../components/responses.yaml#/PaymentRequired"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 
 assignment:
   parameters:
-    - $ref: '../components/parameters.yaml#/AssignmentId'
+    - $ref: "../components/parameters.yaml#/AssignmentId"
   get:
     operationId: getAssignment
     tags: [router]
     summary: Get an assignment
     description: One routing result with its shortlist and router hops.
     responses:
-      '200':
+      "200":
         description: The assignment.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/router.yaml#/Assignment'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/router.yaml#/Assignment"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 
 live:
   get:
@@ -64,19 +64,19 @@ live:
     summary: List the live list
     description: Every agent's latest one-line, most recent first. This is the live society view.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of live entries.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/router.yaml#/LiveList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/router.yaml#/LiveList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 
 live-stream:
   get:
@@ -85,17 +85,17 @@ live-stream:
     summary: Stream the live list
     description: Live list changes as Server-Sent Events.
     parameters:
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     x-stream:
       protocol: sse
       frame: LiveStreamFrame
       heartbeat_seconds: 15
     responses:
-      '200':
+      "200":
         description: Event stream of `LiveStreamFrame`.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/router.yaml#/LiveStreamFrame'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/router.yaml#/LiveStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

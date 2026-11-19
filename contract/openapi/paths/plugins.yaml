@@ -6,19 +6,19 @@ sources:
     summary: List plugin sources
     description: Lists the catalog sources (Claude Code marketplace, own format, Agent Skills, MCP registry).
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of sources.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/PluginSourceList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/plugins.yaml#/PluginSourceList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 catalog:
   get:
     operationId: searchPluginCatalog
@@ -36,27 +36,27 @@ catalog:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/plugins.yaml#/PluginSourceId'
+          $ref: "../components/schemas/plugins.yaml#/PluginSourceId"
       - name: kind
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/plugins.yaml#/PluginKind'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/plugins.yaml#/PluginKind"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of catalog entries.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/CatalogList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '503':
-        $ref: '../components/responses.yaml#/Unavailable'
+              $ref: "../components/schemas/plugins.yaml#/CatalogList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 plugins:
   get:
     operationId: listPlugins
@@ -68,25 +68,25 @@ plugins:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/plugins.yaml#/PluginKind'
+          $ref: "../components/schemas/plugins.yaml#/PluginKind"
       - name: enabled
         in: query
         required: false
         schema:
           type: boolean
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of plugins.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/PluginList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/plugins.yaml#/PluginList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: installPlugin
     tags: [plugins]
@@ -97,106 +97,106 @@ plugins:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/plugins.yaml#/PluginInstall'
+            $ref: "../components/schemas/plugins.yaml#/PluginInstall"
     responses:
-      '201':
+      "201":
         description: The installed plugin.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/Plugin'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
-      '503':
-        $ref: '../components/responses.yaml#/Unavailable'
+              $ref: "../components/schemas/plugins.yaml#/Plugin"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 plugin:
   parameters:
-    - $ref: '../components/parameters.yaml#/PluginId'
+    - $ref: "../components/parameters.yaml#/PluginId"
   get:
     operationId: getPlugin
     tags: [plugins]
     summary: Get a plugin
     description: Returns one installed plugin with its manifest.
     responses:
-      '200':
+      "200":
         description: The plugin.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/Plugin'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/plugins.yaml#/Plugin"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: uninstallPlugin
     tags: [plugins]
     summary: Uninstall a plugin
     description: Removes a plugin and everything it registered (servers, skills, runners, panels, themes, emitters).
     responses:
-      '204':
+      "204":
         description: Uninstalled.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 enable:
   parameters:
-    - $ref: '../components/parameters.yaml#/PluginId'
+    - $ref: "../components/parameters.yaml#/PluginId"
   post:
     operationId: enablePlugin
     tags: [plugins]
     summary: Enable a plugin
     description: Turns a plugin on.
     responses:
-      '200':
+      "200":
         description: The plugin, now enabled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/Plugin'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/plugins.yaml#/Plugin"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 disable:
   parameters:
-    - $ref: '../components/parameters.yaml#/PluginId'
+    - $ref: "../components/parameters.yaml#/PluginId"
   post:
     operationId: disablePlugin
     tags: [plugins]
     summary: Disable a plugin
     description: Turns a plugin off without removing it.
     responses:
-      '200':
+      "200":
         description: The plugin, now disabled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/plugins.yaml#/Plugin'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/plugins.yaml#/Plugin"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 panel-token:
   parameters:
-    - $ref: '../components/parameters.yaml#/PluginId'
+    - $ref: "../components/parameters.yaml#/PluginId"
   post:
     operationId: issuePanelToken
     tags: [plugins]
@@ -211,21 +211,21 @@ panel-token:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/plugins.yaml#/PanelTokenCreate'
+            $ref: "../components/schemas/plugins.yaml#/PanelTokenCreate"
     responses:
-      '201':
+      "201":
         description: The token. The secret is shown once.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/IssuedToken'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/session.yaml#/IssuedToken"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

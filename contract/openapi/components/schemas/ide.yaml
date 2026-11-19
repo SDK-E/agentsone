@@ -10,17 +10,17 @@ IdeServer:
   required: [human, state, url, started_at, error]
   properties:
     human:
-      $ref: './common.yaml#/HumanName'
+      $ref: "./common.yaml#/HumanName"
     state:
-      $ref: '#/IdeServerState'
+      $ref: "#/IdeServerState"
     url:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Loopback path served through the daemon proxy, for example `/ide/ada/`. Null unless running.
     started_at:
-      type: [string, 'null']
+      type: [string, "null"]
       format: date-time
     error:
-      type: [string, 'null']
+      type: [string, "null"]
 
 OfficialIdeState:
   type: string
@@ -32,15 +32,15 @@ OfficialIdeDownload:
   required: [state, progress, version, error]
   properties:
     state:
-      $ref: '#/OfficialIdeState'
+      $ref: "#/OfficialIdeState"
     progress:
       type: number
       minimum: 0
       maximum: 1
     version:
-      type: [string, 'null']
+      type: [string, "null"]
     error:
-      type: [string, 'null']
+      type: [string, "null"]
 
 IdeStatus:
   type: object
@@ -56,11 +56,11 @@ IdeStatus:
       type: string
       enum: [open, official]
     official:
-      $ref: '#/OfficialIdeDownload'
+      $ref: "#/OfficialIdeDownload"
     servers:
       type: array
       items:
-        $ref: '#/IdeServer'
+        $ref: "#/IdeServer"
 
 OfficialIdeRequest:
   type: object

@@ -8,7 +8,7 @@ CI fails when generated code drifts from them.
 ## Files
 
 | Path | What it holds |
-|---|---|
+| --- | --- |
 | `VERSION` | Contract version (semantic versioning). |
 | `openapi/openapi.yaml` | Root of the machine API description (OpenAPI 3.1): servers, security, tags, path index. |
 | `openapi/paths/<group>.yaml` | Operations, one file per tag (bounded context). |

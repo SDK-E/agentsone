@@ -8,16 +8,16 @@ budget:
       Returns the human's total budget as last pushed by the host gateway. The total is a hard
       wall held outside the VM; it can only be changed on the host.
     responses:
-      '200':
+      "200":
         description: The total budget.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/budget.yaml#/Budget'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '503':
-        $ref: '../components/responses.yaml#/Unavailable'
+              $ref: "../components/schemas/budget.yaml#/Budget"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 split:
   get:
     operationId: getBudgetSplit
@@ -25,17 +25,17 @@ split:
     summary: Get the budget split
     description: Returns every agent's share down the chart. The split is a soft wall enforced inside the VM.
     responses:
-      '200':
+      "200":
         description: The split.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/budget.yaml#/BudgetSplit'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/budget.yaml#/BudgetSplit"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 allocation:
   parameters:
-    - $ref: '../components/parameters.yaml#/AgentName'
+    - $ref: "../components/parameters.yaml#/AgentName"
   put:
     operationId: setBudgetAllocation
     tags: [budget]
@@ -46,21 +46,21 @@ allocation:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/budget.yaml#/BudgetAllocationSet'
+            $ref: "../components/schemas/budget.yaml#/BudgetAllocationSet"
     responses:
-      '200':
+      "200":
         description: The agent's new share.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/budget.yaml#/BudgetNode'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/budget.yaml#/BudgetNode"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

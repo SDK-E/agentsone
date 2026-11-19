@@ -63,7 +63,7 @@ MachineMetrics:
   required: [time, hostname, uptime_seconds, load, cpu, memory, disks, net]
   properties:
     time:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     hostname:
       type: string
     uptime_seconds:
@@ -79,15 +79,15 @@ MachineMetrics:
         type: number
         minimum: 0
     cpu:
-      $ref: '#/CpuMetrics'
+      $ref: "#/CpuMetrics"
     memory:
-      $ref: '#/MemoryMetrics'
+      $ref: "#/MemoryMetrics"
     disks:
       type: array
       items:
-        $ref: '#/DiskMetrics'
+        $ref: "#/DiskMetrics"
     net:
-      $ref: '#/NetMetrics'
+      $ref: "#/NetMetrics"
 
 Process:
   type: object
@@ -112,13 +112,13 @@ Process:
       format: int64
       minimum: 0
     started_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     unit:
-      type: [string, 'null']
+      type: [string, "null"]
       description: systemd unit owning the process.
     agent:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Agent whose cgroup holds the process.
 
 ProcessList:
@@ -128,9 +128,9 @@ ProcessList:
     items:
       type: array
       items:
-        $ref: '#/Process'
+        $ref: "#/Process"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 SignalRequest:
   type: object
@@ -158,15 +158,15 @@ Service:
       type: string
       examples: [loaded]
     active_state:
-      $ref: '#/ServiceActiveState'
+      $ref: "#/ServiceActiveState"
     sub_state:
       type: string
       examples: [running]
     enabled:
       type: boolean
     agent:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Agent for `agent@<name>.service` units.
 
 ServiceList:
@@ -176,9 +176,9 @@ ServiceList:
     items:
       type: array
       items:
-        $ref: '#/Service'
+        $ref: "#/Service"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 Package:
   type: object
@@ -186,7 +186,7 @@ Package:
   properties:
     name:
       type: string
-      pattern: '^[a-z0-9][a-z0-9+.-]+$'
+      pattern: "^[a-z0-9][a-z0-9+.-]+$"
     version:
       type: string
     architecture:
@@ -202,9 +202,9 @@ PackageList:
     items:
       type: array
       items:
-        $ref: '#/Package'
+        $ref: "#/Package"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 PackageInstall:
   type: object
@@ -213,7 +213,7 @@ PackageInstall:
   properties:
     name:
       type: string
-      pattern: '^[a-z0-9][a-z0-9+.-]+$'
+      pattern: "^[a-z0-9][a-z0-9+.-]+$"
     version:
       type: string
 
@@ -227,16 +227,16 @@ PackageJob:
   required: [id, action, package, state, created_at]
   properties:
     id:
-      $ref: './common.yaml#/JobId'
+      $ref: "./common.yaml#/JobId"
     action:
       type: string
       enum: [install, remove]
     package:
       type: string
     state:
-      $ref: '#/JobState'
+      $ref: "#/JobState"
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 MachineUserKind:
   type: string
@@ -259,7 +259,7 @@ MachineUser:
     shell:
       type: string
     kind:
-      $ref: '#/MachineUserKind'
+      $ref: "#/MachineUserKind"
 
 MachineUserList:
   type: object
@@ -268,9 +268,9 @@ MachineUserList:
     items:
       type: array
       items:
-        $ref: '#/MachineUser'
+        $ref: "#/MachineUser"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 FileType:
   type: string
@@ -286,21 +286,21 @@ FileEntry:
     name:
       type: string
     type:
-      $ref: '#/FileType'
+      $ref: "#/FileType"
     size_bytes:
       type: integer
       format: int64
       minimum: 0
     mode:
       type: string
-      pattern: '^[0-7]{4}$'
-      examples: ['0644']
+      pattern: "^[0-7]{4}$"
+      examples: ["0644"]
     owner:
       type: string
     group:
       type: string
     modified_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 FileList:
   type: object
@@ -311,9 +311,9 @@ FileList:
     items:
       type: array
       items:
-        $ref: '#/FileEntry'
+        $ref: "#/FileEntry"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 FileEncoding:
   type: string
@@ -327,7 +327,7 @@ FileContent:
     path:
       type: string
     encoding:
-      $ref: '#/FileEncoding'
+      $ref: "#/FileEncoding"
     content:
       type: string
     size_bytes:
@@ -345,14 +345,14 @@ FileWrite:
   properties:
     path:
       type: string
-      pattern: '^/'
+      pattern: "^/"
     encoding:
-      $ref: '#/FileEncoding'
+      $ref: "#/FileEncoding"
     content:
       type: string
     mode:
       type: string
-      pattern: '^[0-7]{4}$'
+      pattern: "^[0-7]{4}$"
     create_parents:
       type: boolean
       default: false
@@ -382,9 +382,9 @@ PowerAction:
     reason:
       type: string
     requested_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
       description: When the reboot will start.
 
 PtyCreate:
@@ -412,7 +412,7 @@ PtySession:
   required: [id, user, command, cols, rows, socket_path, created_at, exited, exit_code]
   properties:
     id:
-      $ref: './common.yaml#/PtyId'
+      $ref: "./common.yaml#/PtyId"
     user:
       type: string
       description: Linux user the terminal runs as (the caller's own).
@@ -429,11 +429,11 @@ PtySession:
       description: WebSocket path for `connectPty`.
       examples: [/v1/machine/pty/pty_01JD7ZK3M00000000000000001/socket]
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     exited:
       type: boolean
     exit_code:
-      type: [integer, 'null']
+      type: [integer, "null"]
 
 PtySessionList:
   type: object
@@ -442,6 +442,6 @@ PtySessionList:
     items:
       type: array
       items:
-        $ref: '#/PtySession'
+        $ref: "#/PtySession"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"

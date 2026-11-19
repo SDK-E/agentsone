@@ -7,21 +7,21 @@ LiveEntry:
   required: [agent, display_name, kind, state, team, role, one_line]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     display_name:
-      $ref: './common.yaml#/DisplayName'
+      $ref: "./common.yaml#/DisplayName"
     kind:
-      $ref: './agents.yaml#/AgentKind'
+      $ref: "./agents.yaml#/AgentKind"
     state:
-      $ref: './agents.yaml#/AgentState'
+      $ref: "./agents.yaml#/AgentState"
     team:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     role:
       type: string
     one_line:
       oneOf:
-        - $ref: './agents.yaml#/OneLine'
-        - type: 'null'
+        - $ref: "./agents.yaml#/OneLine"
+        - type: "null"
 
 LiveList:
   type: object
@@ -30,9 +30,9 @@ LiveList:
     items:
       type: array
       items:
-        $ref: '#/LiveEntry'
+        $ref: "#/LiveEntry"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 LiveEntryFrame:
   type: object
@@ -43,7 +43,7 @@ LiveEntryFrame:
       type: string
       const: entry
     entry:
-      $ref: '#/LiveEntry'
+      $ref: "#/LiveEntry"
 
 LiveRemovedFrame:
   type: object
@@ -54,19 +54,19 @@ LiveRemovedFrame:
       type: string
       const: removed
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
 
 LiveStreamFrame:
   oneOf:
-    - $ref: '#/LiveEntryFrame'
-    - $ref: '#/LiveRemovedFrame'
-    - $ref: './common.yaml#/Heartbeat'
+    - $ref: "#/LiveEntryFrame"
+    - $ref: "#/LiveRemovedFrame"
+    - $ref: "./common.yaml#/Heartbeat"
   discriminator:
     propertyName: kind
     mapping:
-      entry: '#/LiveEntryFrame'
-      removed: '#/LiveRemovedFrame'
-      heartbeat: './common.yaml#/Heartbeat'
+      entry: "#/LiveEntryFrame"
+      removed: "#/LiveRemovedFrame"
+      heartbeat: "./common.yaml#/Heartbeat"
 
 RouteRequest:
   type: object
@@ -79,7 +79,7 @@ RouteRequest:
       maxLength: 4000
       description: The human's request in their own words.
     router:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
       description: Router agent to start with. Defaults to the society's main router.
 
 ShortlistEntry:
@@ -87,7 +87,7 @@ ShortlistEntry:
   required: [agent, score, reason, one_line]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     score:
       type: number
       minimum: 0
@@ -98,7 +98,7 @@ ShortlistEntry:
       maxLength: 255
       description: One sentence on why this agent fits or not.
     one_line:
-      $ref: './common.yaml#/OneLineText'
+      $ref: "./common.yaml#/OneLineText"
 
 RouterHop:
   type: object
@@ -106,9 +106,9 @@ RouterHop:
   required: [router, handed_to, reason]
   properties:
     router:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     handed_to:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     reason:
       type: string
       maxLength: 255
@@ -118,35 +118,36 @@ Assignment:
   description: |
     Result of routing. The request is posted into the chosen agent's chat as the first human
     message; the interface opens `chat_path`.
-  required: [id, text, chosen, router, hops, shortlist, chat_path, chat_message_id, created_by, created_at]
+  required:
+    [id, text, chosen, router, hops, shortlist, chat_path, chat_message_id, created_by, created_at]
   properties:
     id:
-      $ref: './common.yaml#/AssignmentId'
+      $ref: "./common.yaml#/AssignmentId"
     text:
       type: string
     chosen:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     router:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
       description: Router that made the final pick.
     hops:
       type: array
       description: Hand-offs between routers, in order. Empty when the first router picked.
       items:
-        $ref: '#/RouterHop'
+        $ref: "#/RouterHop"
     shortlist:
       type: array
       maxItems: 10
       description: Rated candidates, best first. The chosen agent is the first entry.
       items:
-        $ref: '#/ShortlistEntry'
+        $ref: "#/ShortlistEntry"
     chat_path:
       type: string
       description: API path of the chosen agent's chat, for example `/v1/agents/helper/chat`.
       examples: [/v1/agents/helper/chat]
     chat_message_id:
-      $ref: './common.yaml#/ChatMessageId'
+      $ref: "./common.yaml#/ChatMessageId"
     created_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"

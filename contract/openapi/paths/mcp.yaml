@@ -9,32 +9,32 @@ mcp:
       The same server is reachable as `agentctl mcp` over the Unix socket. Requests answer
       with JSON or an SSE stream; notifications and responses answer 202.
     parameters:
-      - $ref: '../components/parameters.yaml#/McpSessionId'
-      - $ref: '../components/parameters.yaml#/McpProtocolVersion'
+      - $ref: "../components/parameters.yaml#/McpSessionId"
+      - $ref: "../components/parameters.yaml#/McpProtocolVersion"
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/mcp.yaml#/JsonRpcMessage'
+            $ref: "../components/schemas/mcp.yaml#/JsonRpcMessage"
     responses:
-      '200':
+      "200":
         description: The JSON-RPC response, or an SSE stream ending with it.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/mcp.yaml#/JsonRpcMessage'
+              $ref: "../components/schemas/mcp.yaml#/JsonRpcMessage"
           text/event-stream:
             schema:
-              $ref: '../components/schemas/mcp.yaml#/JsonRpcMessage'
-      '202':
+              $ref: "../components/schemas/mcp.yaml#/JsonRpcMessage"
+      "202":
         description: Accepted (notification or response from the client).
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   get:
     operationId: mcpListen
     tags: [mcp]
@@ -45,35 +45,35 @@ mcp:
       frame: JsonRpcMessage
       heartbeat_seconds: 15
     parameters:
-      - $ref: '../components/parameters.yaml#/McpSessionId'
-      - $ref: '../components/parameters.yaml#/McpProtocolVersion'
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/McpSessionId"
+      - $ref: "../components/parameters.yaml#/McpProtocolVersion"
+      - $ref: "../components/parameters.yaml#/LastEventId"
     responses:
-      '200':
+      "200":
         description: An SSE stream of JSON-RPC messages.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/mcp.yaml#/JsonRpcMessage'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/mcp.yaml#/JsonRpcMessage"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: mcpEndSession
     tags: [mcp]
     summary: End an MCP session
     description: Ends the MCP session named by `Mcp-Session-Id`.
     parameters:
-      - $ref: '../components/parameters.yaml#/McpSessionId'
+      - $ref: "../components/parameters.yaml#/McpSessionId"
     responses:
-      '204':
+      "204":
         description: Session ended.
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

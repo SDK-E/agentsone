@@ -29,17 +29,17 @@ events:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Actor'
+          $ref: "../components/schemas/common.yaml#/Actor"
       - name: since
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Timestamp'
+          $ref: "../components/schemas/common.yaml#/Timestamp"
       - name: until
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/Timestamp'
+          $ref: "../components/schemas/common.yaml#/Timestamp"
       - name: after_sequence
         in: query
         required: false
@@ -48,19 +48,19 @@ events:
           type: integer
           format: int64
           minimum: 0
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of events.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/EventList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/events.yaml#/EventList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: publishEvent
     tags: [events]
@@ -71,24 +71,24 @@ events:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/events.yaml#/EventPublish'
+            $ref: "../components/schemas/events.yaml#/EventPublish"
     responses:
-      '201':
+      "201":
         description: The stored event.
         content:
           application/json:
             schema:
-              $ref: '../../schemas/event.schema.json'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../../schemas/event.schema.json"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
 stream:
   get:
     operationId: streamEvents
@@ -111,18 +111,18 @@ stream:
           items:
             type: string
             maxLength: 200
-      - $ref: '../components/parameters.yaml#/LastEventId'
+      - $ref: "../components/parameters.yaml#/LastEventId"
     responses:
-      '200':
+      "200":
         description: An SSE stream of event frames.
         content:
           text/event-stream:
             schema:
-              $ref: '../components/schemas/events.yaml#/EventStreamFrame'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/events.yaml#/EventStreamFrame"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 emitters:
   get:
     operationId: listEmitters
@@ -132,19 +132,19 @@ emitters:
       Lists event emitters. Built-in emitters are auth, services, disk, load, files, git, agents,
       clock and webhooks; agents and plugins register more.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of emitters.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/EmitterList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/events.yaml#/EmitterList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: registerEmitter
     tags: [events]
@@ -155,86 +155,86 @@ emitters:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/events.yaml#/EmitterRegister'
+            $ref: "../components/schemas/events.yaml#/EmitterRegister"
     responses:
-      '201':
+      "201":
         description: The registered emitter.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/EmitterRegistered'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/events.yaml#/EmitterRegistered"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 emitter:
   parameters:
-    - $ref: '../components/parameters.yaml#/EmitterId'
+    - $ref: "../components/parameters.yaml#/EmitterId"
   get:
     operationId: getEmitter
     tags: [events]
     summary: Get an emitter
     description: Returns one emitter.
     responses:
-      '200':
+      "200":
         description: The emitter.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/Emitter'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 emitter-enable:
   parameters:
-    - $ref: '../components/parameters.yaml#/EmitterId'
+    - $ref: "../components/parameters.yaml#/EmitterId"
   post:
     operationId: enableEmitter
     tags: [events]
     summary: Enable an emitter
     description: Turns an emitter on. Process emitters start their `emitter@<id>.service` unit.
     responses:
-      '200':
+      "200":
         description: The emitter, now enabled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/Emitter'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 emitter-disable:
   parameters:
-    - $ref: '../components/parameters.yaml#/EmitterId'
+    - $ref: "../components/parameters.yaml#/EmitterId"
   post:
     operationId: disableEmitter
     tags: [events]
     summary: Disable an emitter
     description: Turns an emitter off. Process emitters stop their unit; webhook intake returns 404.
     responses:
-      '200':
+      "200":
         description: The emitter, now disabled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/Emitter'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 webhook:
   parameters:
-    - $ref: '../components/parameters.yaml#/EmitterId'
+    - $ref: "../components/parameters.yaml#/EmitterId"
   post:
     operationId: receiveWebhook
     tags: [events]
@@ -252,19 +252,19 @@ webhook:
             type: object
             description: Foreign payload; any properties.
     responses:
-      '202':
+      "202":
         description: Accepted and published as an event.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/events.yaml#/WebhookAccepted'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../components/schemas/events.yaml#/WebhookAccepted"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"

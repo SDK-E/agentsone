@@ -34,7 +34,7 @@ Problem:
       type: string
       format: uri
       description: Stable problem type URN from the list above.
-      examples: ['urn:agentsone:problem:not-found']
+      examples: ["urn:agentsone:problem:not-found"]
     title:
       type: string
       description: Short human summary of the problem type.
@@ -53,7 +53,7 @@ Problem:
       type: array
       description: Field level issues for `urn:agentsone:problem:validation`.
       items:
-        $ref: '#/ValidationIssue'
+        $ref: "#/ValidationIssue"
 
 ValidationIssue:
   type: object
@@ -67,13 +67,13 @@ ValidationIssue:
 
 AgentName:
   type: string
-  pattern: '^[a-z][a-z0-9-]{0,30}$'
+  pattern: "^[a-z][a-z0-9-]{0,30}$"
   description: Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
   examples: [founder]
 
 HumanName:
   type: string
-  pattern: '^[a-z][a-z0-9-]{0,30}$'
+  pattern: "^[a-z][a-z0-9-]{0,30}$"
   description: Human login name. It is also the human's Linux username, checked through PAM.
   examples: [ada]
 
@@ -87,7 +87,7 @@ Timestamp:
   type: string
   format: date-time
   description: RFC 3339 time in UTC with a `Z` suffix.
-  examples: ['2026-11-19T18:40:00Z']
+  examples: ["2026-11-19T18:40:00Z"]
 
 OneLineText:
   type: string
@@ -98,13 +98,13 @@ OneLineText:
 
 Actor:
   type: string
-  pattern: '^((agent|human|system|host):[a-z][a-z0-9-]{0,30}|plugin:plg_[0-9A-HJKMNP-TV-Z]{26})$'
+  pattern: "^((agent|human|system|host):[a-z][a-z0-9-]{0,30}|plugin:plg_[0-9A-HJKMNP-TV-Z]{26})$"
   description: |
     Who did something, as `<kind>:<name>`, the same form as the event `actor`:
     `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
     `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
     `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
-  examples: ['agent:founder']
+  examples: ["agent:founder"]
 
 Wall:
   type: string
@@ -114,7 +114,7 @@ Wall:
     be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
 
 Cursor:
-  type: [string, 'null']
+  type: [string, "null"]
   description: Opaque cursor for the next page, or null when this is the last page.
 
 Heartbeat:
@@ -126,69 +126,69 @@ Heartbeat:
       type: string
       const: heartbeat
     time:
-      $ref: '#/Timestamp'
+      $ref: "#/Timestamp"
 
 TaskId:
   type: string
-  pattern: '^tsk_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^tsk_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Task id, `tsk_` plus a ULID.
 GoalId:
   type: string
-  pattern: '^gol_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^gol_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Goal id, `gol_` plus a ULID.
 MessageId:
   type: string
-  pattern: '^msg_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Bus message id, `msg_` plus a ULID.
 ChatMessageId:
   type: string
-  pattern: '^cht_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^cht_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Chat message id, `cht_` plus a ULID.
 MemoryId:
   type: string
-  pattern: '^mem_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Memory record id, `mem_` plus a ULID.
 PluginId:
   type: string
-  pattern: '^plg_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Installed plugin id, `plg_` plus a ULID.
 ScheduleId:
   type: string
-  pattern: '^sch_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^sch_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Schedule id, `sch_` plus a ULID.
 TriggerId:
   type: string
-  pattern: '^trg_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^trg_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Trigger id, `trg_` plus a ULID.
 EventId:
   type: string
-  pattern: '^evt_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Event id, `evt_` plus a ULID.
 EmitterId:
   type: string
-  pattern: '^emt_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^emt_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Emitter id, `emt_` plus a ULID.
 AssignmentId:
   type: string
-  pattern: '^asg_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^asg_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Router assignment id, `asg_` plus a ULID.
 TokenId:
   type: string
-  pattern: '^tok_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^tok_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Token id, `tok_` plus a ULID. The id is not the secret.
 PtyId:
   type: string
-  pattern: '^pty_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^pty_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Terminal session id, `pty_` plus a ULID.
 ThemeId:
   type: string
-  pattern: '^thm_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^thm_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Installed theme id, `thm_` plus a ULID.
 FreezeId:
   type: string
-  pattern: '^frz_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^frz_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Freeze id, `frz_` plus a ULID.
 JobId:
   type: string
-  pattern: '^job_[0-9A-HJKMNP-TV-Z]{26}$'
+  pattern: "^job_[0-9A-HJKMNP-TV-Z]{26}$"
   description: Background job id, `job_` plus a ULID.

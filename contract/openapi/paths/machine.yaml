@@ -8,14 +8,14 @@ metrics:
     summary: Get machine metrics
     description: Returns a snapshot of CPU, memory, disk, network and load inside the VM.
     responses:
-      '200':
+      "200":
         description: The metrics.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/MachineMetrics'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/MachineMetrics"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 processes:
   get:
     operationId: listProcesses
@@ -33,23 +33,23 @@ processes:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/common.yaml#/AgentName'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/common.yaml#/AgentName"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of processes.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/ProcessList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/ProcessList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 process-signal:
   parameters:
-    - $ref: '../components/parameters.yaml#/Pid'
+    - $ref: "../components/parameters.yaml#/Pid"
   post:
     operationId: signalProcess
     tags: [machine]
@@ -60,18 +60,18 @@ process-signal:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/machine.yaml#/SignalRequest'
+            $ref: "../components/schemas/machine.yaml#/SignalRequest"
     responses:
-      '204':
+      "204":
         description: Signal sent.
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 services:
   get:
     operationId: listServices
@@ -83,87 +83,87 @@ services:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/machine.yaml#/ServiceActiveState'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+          $ref: "../components/schemas/machine.yaml#/ServiceActiveState"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of services.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/ServiceList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/ServiceList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 service-start:
   parameters:
-    - $ref: '../components/parameters.yaml#/Unit'
+    - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: startService
     tags: [machine]
     summary: Start a service
     description: Starts a systemd unit and returns its new state.
     responses:
-      '200':
+      "200":
         description: The service.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/Service'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/machine.yaml#/Service"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 service-stop:
   parameters:
-    - $ref: '../components/parameters.yaml#/Unit'
+    - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: stopService
     tags: [machine]
     summary: Stop a service
     description: Stops a systemd unit and returns its new state.
     responses:
-      '200':
+      "200":
         description: The service.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/Service'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/machine.yaml#/Service"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 service-restart:
   parameters:
-    - $ref: '../components/parameters.yaml#/Unit'
+    - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: restartService
     tags: [machine]
     summary: Restart a service
     description: Restarts a systemd unit and returns its new state.
     responses:
-      '200':
+      "200":
         description: The service.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/Service'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/machine.yaml#/Service"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 packages:
   get:
     operationId: listPackages
@@ -178,19 +178,19 @@ packages:
         schema:
           type: string
           maxLength: 100
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of packages.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PackageList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/PackageList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: installPackage
     tags: [machine]
@@ -201,41 +201,41 @@ packages:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/machine.yaml#/PackageInstall'
+            $ref: "../components/schemas/machine.yaml#/PackageInstall"
     responses:
-      '202':
+      "202":
         description: Queued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PackageJob'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+              $ref: "../components/schemas/machine.yaml#/PackageJob"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 package:
   parameters:
-    - $ref: '../components/parameters.yaml#/PackageName'
+    - $ref: "../components/parameters.yaml#/PackageName"
   delete:
     operationId: removePackage
     tags: [machine]
     summary: Remove a package
     description: Queues an apt remove. Root agents and humans only.
     responses:
-      '202':
+      "202":
         description: Queued.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PackageJob'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/machine.yaml#/PackageJob"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 users:
   get:
     operationId: listMachineUsers
@@ -243,19 +243,19 @@ users:
     summary: List Linux users
     description: Lists Linux accounts with their kind (human, agent or system).
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of users.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/MachineUserList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/MachineUserList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
 files:
   get:
     operationId: listFiles
@@ -263,24 +263,24 @@ files:
     summary: List a folder
     description: Lists entries of a folder, folders first, then by name.
     parameters:
-      - $ref: '../components/parameters.yaml#/FilePath'
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/FilePath"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of entries.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/FileList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/machine.yaml#/FileList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 file-content:
   get:
     operationId: readFile
@@ -288,24 +288,24 @@ file-content:
     summary: Read a file
     description: Reads a file as UTF-8 text or base64. Reads stop at 8 MiB and set `truncated`.
     parameters:
-      - $ref: '../components/parameters.yaml#/FilePath'
+      - $ref: "../components/parameters.yaml#/FilePath"
     responses:
-      '200':
+      "200":
         description: The file content.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/FileContent'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
+              $ref: "../components/schemas/machine.yaml#/FileContent"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
   put:
     operationId: writeFile
     tags: [machine]
@@ -316,31 +316,31 @@ file-content:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/machine.yaml#/FileWrite'
+            $ref: "../components/schemas/machine.yaml#/FileWrite"
     responses:
-      '200':
+      "200":
         description: The written file.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/FileEntry'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '413':
-        $ref: '../components/responses.yaml#/PayloadTooLarge'
+              $ref: "../components/schemas/machine.yaml#/FileEntry"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
   delete:
     operationId: deleteFile
     tags: [machine]
     summary: Delete a file or folder
     description: Deletes a file, or a folder when `recursive` is true. This cannot be undone.
     parameters:
-      - $ref: '../components/parameters.yaml#/FilePath'
+      - $ref: "../components/parameters.yaml#/FilePath"
       - name: recursive
         in: query
         required: false
@@ -348,18 +348,18 @@ file-content:
           type: boolean
           default: false
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 reboot:
   post:
     operationId: rebootMachine
@@ -373,22 +373,22 @@ reboot:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/machine.yaml#/RebootRequest'
+            $ref: "../components/schemas/machine.yaml#/RebootRequest"
     responses:
-      '202':
+      "202":
         description: Reboot scheduled.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PowerAction'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '423':
-        $ref: '../components/responses.yaml#/Locked'
+              $ref: "../components/schemas/machine.yaml#/PowerAction"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
 ptys:
   get:
     operationId: listPtySessions
@@ -396,19 +396,19 @@ ptys:
     summary: List terminal sessions
     description: Lists the caller's terminal sessions. Root agents and humans see all.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of terminal sessions.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PtySessionList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/machine.yaml#/PtySessionList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createPtySession
     tags: [machine]
@@ -419,58 +419,58 @@ ptys:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/machine.yaml#/PtyCreate'
+            $ref: "../components/schemas/machine.yaml#/PtyCreate"
     responses:
-      '201':
+      "201":
         description: The terminal session.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PtySession'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '429':
-        $ref: '../components/responses.yaml#/TooManyRequests'
+              $ref: "../components/schemas/machine.yaml#/PtySession"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
 pty:
   parameters:
-    - $ref: '../components/parameters.yaml#/PtyId'
+    - $ref: "../components/parameters.yaml#/PtyId"
   get:
     operationId: getPtySession
     tags: [machine]
     summary: Get a terminal session
     description: Returns one terminal session.
     responses:
-      '200':
+      "200":
         description: The terminal session.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/machine.yaml#/PtySession'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/machine.yaml#/PtySession"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: closePtySession
     tags: [machine]
     summary: Close a terminal session
     description: Hangs up the terminal and ends its process group.
     responses:
-      '204':
+      "204":
         description: Closed.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
 pty-socket:
   parameters:
-    - $ref: '../components/parameters.yaml#/PtyId'
+    - $ref: "../components/parameters.yaml#/PtyId"
   get:
     operationId: connectPty
     tags: [machine]
@@ -484,11 +484,11 @@ pty-socket:
     x-websocket:
       subprotocol: agentsone.pty.v1
     responses:
-      '200':
+      "200":
         description: |
           WebSocket open over HTTP/2 or HTTP/3 extended CONNECT (RFC 8441, RFC 9220). No body;
           frames follow as described above.
-      '101':
+      "101":
         description: Switching Protocols (HTTP/1.1 upgrade, RFC 6455).
         headers:
           Upgrade:
@@ -503,13 +503,13 @@ pty-socket:
             description: RFC 6455 accept key.
             schema:
               type: string
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

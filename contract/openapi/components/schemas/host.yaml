@@ -13,19 +13,19 @@ Freeze:
   required: [id, scope, target, reason, wall, created_at]
   properties:
     id:
-      $ref: './common.yaml#/FreezeId'
+      $ref: "./common.yaml#/FreezeId"
     scope:
-      $ref: '#/FreezeScope'
+      $ref: "#/FreezeScope"
     target:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Agent (or head of team) for `team` and `agent`; null for `all`.
     reason:
       type: string
     wall:
-      $ref: './common.yaml#/Wall'
+      $ref: "./common.yaml#/Wall"
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 FreezeList:
   type: object
@@ -34,9 +34,9 @@ FreezeList:
     items:
       type: array
       items:
-        $ref: '#/Freeze'
+        $ref: "#/Freeze"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 FreezeRequest:
   type: object
@@ -44,9 +44,9 @@ FreezeRequest:
   required: [scope, reason]
   properties:
     scope:
-      $ref: '#/FreezeScope'
+      $ref: "#/FreezeScope"
     target:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
       description: Required for `team` and `agent`.
     reason:
       type: string
@@ -59,17 +59,29 @@ ReleaseRequest:
   required: [freeze_id]
   properties:
     freeze_id:
-      $ref: './common.yaml#/FreezeId'
+      $ref: "./common.yaml#/FreezeId"
 
 HostBudgetPush:
   type: object
   additionalProperties: false
   description: Budget state from the gateway. The daemon shows it and splits it; it cannot raise it.
-  required: [currency, total_micros, spent_micros, remaining_micros, state, defence, period_start, period_end, check_interval_seconds, as_of]
+  required:
+    [
+      currency,
+      total_micros,
+      spent_micros,
+      remaining_micros,
+      state,
+      defence,
+      period_start,
+      period_end,
+      check_interval_seconds,
+      as_of,
+    ]
   properties:
     currency:
       type: string
-      pattern: '^[A-Z]{3}$'
+      pattern: "^[A-Z]{3}$"
     total_micros:
       type: integer
       format: int64
@@ -83,18 +95,18 @@ HostBudgetPush:
       format: int64
       minimum: 0
     state:
-      $ref: './budget.yaml#/BudgetState'
+      $ref: "./budget.yaml#/BudgetState"
     defence:
-      $ref: '#/HostDefencePush'
+      $ref: "#/HostDefencePush"
     period_start:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     period_end:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     check_interval_seconds:
       type: integer
       minimum: 1
     as_of:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 HostDefencePush:
   type: object
@@ -123,7 +135,7 @@ AuditAck:
       minimum: 1
     head_hash:
       type: string
-      pattern: '^[0-9a-f]{64}$'
+      pattern: "^[0-9a-f]{64}$"
       description: Hash of record `up_to_seq` as the host computed it. A mismatch returns 409.
 
 AuditAckResult:
@@ -146,11 +158,12 @@ AllowListSync:
     entries:
       type: array
       items:
-        $ref: './budget.yaml#/AllowEntry'
+        $ref: "./budget.yaml#/AllowEntry"
 
 DoorHealth:
   type: object
-  required: [ok, daemon_version, contract_version, uptime_seconds, agents, frozen, audit_head_seq, time]
+  required:
+    [ok, daemon_version, contract_version, uptime_seconds, agents, frozen, audit_head_seq, time]
   properties:
     ok:
       type: boolean
@@ -173,4 +186,4 @@ DoorHealth:
       format: int64
       minimum: 0
     time:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"

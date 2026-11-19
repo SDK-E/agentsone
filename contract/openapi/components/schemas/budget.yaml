@@ -5,7 +5,7 @@
 BudgetState:
   type: string
   enum: [ok, low, exhausted]
-  description: '`exhausted` means model calls fail; agents resume where they stopped when budget returns.'
+  description: "`exhausted` means model calls fail; agents resume where they stopped when budget returns."
 
 DefenceSlice:
   type: object
@@ -23,18 +23,31 @@ DefenceSlice:
       format: int64
       minimum: 0
     wall:
-      $ref: './common.yaml#/Wall'
+      $ref: "./common.yaml#/Wall"
 
 Budget:
   type: object
   description: |
     The human's total budget as pushed by the host gateway. The total is a HARD wall: the
     gateway on the Mac refuses model calls past it, whatever happens inside the VM.
-  required: [currency, total_micros, spent_micros, remaining_micros, state, wall, defence, period_start, period_end, check_interval_seconds, as_of]
+  required:
+    [
+      currency,
+      total_micros,
+      spent_micros,
+      remaining_micros,
+      state,
+      wall,
+      defence,
+      period_start,
+      period_end,
+      check_interval_seconds,
+      as_of,
+    ]
   properties:
     currency:
       type: string
-      pattern: '^[A-Z]{3}$'
+      pattern: "^[A-Z]{3}$"
       examples: [USD]
     total_micros:
       type: integer
@@ -49,22 +62,22 @@ Budget:
       format: int64
       minimum: 0
     state:
-      $ref: '#/BudgetState'
+      $ref: "#/BudgetState"
     wall:
       type: string
       const: hard
     defence:
-      $ref: '#/DefenceSlice'
+      $ref: "#/DefenceSlice"
     period_start:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     period_end:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     check_interval_seconds:
       type: integer
       minimum: 1
       description: How often the gateway checks usage in chunks.
     as_of:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
       description: When the host last pushed this state.
 
 BudgetNode:
@@ -75,12 +88,12 @@ BudgetNode:
   required: [agent, manager, allocated_micros, spent_micros, remaining_micros, state, wall]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     manager:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
     allocated_micros:
-      type: [integer, 'null']
+      type: [integer, "null"]
       format: int64
       minimum: 0
       description: Soft allocation set by the manager; null means "share the manager's remainder".
@@ -93,7 +106,7 @@ BudgetNode:
       format: int64
       minimum: 0
     state:
-      $ref: '#/BudgetState'
+      $ref: "#/BudgetState"
     wall:
       type: string
       const: soft
@@ -104,14 +117,14 @@ BudgetSplit:
   properties:
     currency:
       type: string
-      pattern: '^[A-Z]{3}$'
+      pattern: "^[A-Z]{3}$"
     nodes:
       type: array
       description: Every agent, parents before children.
       items:
-        $ref: '#/BudgetNode'
+        $ref: "#/BudgetNode"
     as_of:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 BudgetAllocationSet:
   type: object
@@ -119,7 +132,7 @@ BudgetAllocationSet:
   required: [allocated_micros]
   properties:
     allocated_micros:
-      type: [integer, 'null']
+      type: [integer, "null"]
       format: int64
       minimum: 0
       description: New soft allocation, or null to share the manager's remainder.
@@ -150,7 +163,7 @@ AllowList:
     entries:
       type: array
       items:
-        $ref: '#/AllowEntry'
+        $ref: "#/AllowEntry"
     wall:
       type: string
       const: hard
@@ -158,12 +171,12 @@ AllowList:
       type: boolean
       const: true
     as_of:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 NetMode:
   type: string
   enum: [inherit, allow-only, deny-all]
-  description: '`inherit` uses the whole allow list; `allow-only` narrows it to `allow`; `deny-all` blocks the agent''s traffic.'
+  description: "`inherit` uses the whole allow list; `allow-only` narrows it to `allow`; `deny-all` blocks the agent's traffic."
 
 AgentNetRules:
   type: object
@@ -171,9 +184,9 @@ AgentNetRules:
   required: [agent, mode, allow, wall, updated_at, updated_by]
   properties:
     agent:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     mode:
-      $ref: '#/NetMode'
+      $ref: "#/NetMode"
     allow:
       type: array
       items:
@@ -183,9 +196,9 @@ AgentNetRules:
       type: string
       const: soft
     updated_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     updated_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
 
 AgentNetRulesList:
   type: object
@@ -194,9 +207,9 @@ AgentNetRulesList:
     items:
       type: array
       items:
-        $ref: '#/AgentNetRules'
+        $ref: "#/AgentNetRules"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 AgentNetRulesSet:
   type: object
@@ -204,7 +217,7 @@ AgentNetRulesSet:
   required: [mode]
   properties:
     mode:
-      $ref: '#/NetMode'
+      $ref: "#/NetMode"
     allow:
       type: array
       maxItems: 200

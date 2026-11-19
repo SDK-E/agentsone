@@ -8,19 +8,19 @@ humans:
     summary: List humans
     description: Human accounts on this machine.
     parameters:
-      - $ref: '../components/parameters.yaml#/Cursor'
-      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
     responses:
-      '200':
+      "200":
         description: A page of humans.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/HumanList'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
+              $ref: "../components/schemas/session.yaml#/HumanList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createHuman
     tags: [humans]
@@ -35,42 +35,42 @@ humans:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/session.yaml#/HumanCreate'
+            $ref: "../components/schemas/session.yaml#/HumanCreate"
     responses:
-      '201':
+      "201":
         description: Created.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/Human'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
 
 human:
   parameters:
-    - $ref: '../components/parameters.yaml#/HumanName'
+    - $ref: "../components/parameters.yaml#/HumanName"
   get:
     operationId: getHuman
     tags: [humans]
     summary: Get a human
     description: One human account.
     responses:
-      '200':
+      "200":
         description: The human.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/Human'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/session.yaml#/Human"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateHuman
     tags: [humans]
@@ -83,22 +83,22 @@ human:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/session.yaml#/HumanUpdate'
+            $ref: "../components/schemas/session.yaml#/HumanUpdate"
     responses:
-      '200':
+      "200":
         description: Updated.
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/session.yaml#/Human'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteHuman
     tags: [humans]
@@ -107,13 +107,13 @@ human:
     security:
       - cookieAuth: []
     responses:
-      '204':
+      "204":
         description: Deleted.
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

@@ -15,9 +15,9 @@ MemoryList:
     items:
       type: array
       items:
-        $ref: '../../../schemas/memory-record.schema.json'
+        $ref: "../../../schemas/memory-record.schema.json"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 MemoryWrite:
   type: object
@@ -26,10 +26,10 @@ MemoryWrite:
   required: [scope, title, body]
   properties:
     scope:
-      $ref: '#/MemoryScope'
+      $ref: "#/MemoryScope"
     key:
       type: string
-      pattern: '^[a-z0-9][a-z0-9._/-]{0,127}$'
+      pattern: "^[a-z0-9][a-z0-9._/-]{0,127}$"
       description: Optional stable key for upserts.
     title:
       type: string
@@ -43,14 +43,14 @@ MemoryWrite:
       maxItems: 32
       items:
         type: string
-        pattern: '^[a-z0-9][a-z0-9-]{0,39}$'
+        pattern: "^[a-z0-9][a-z0-9-]{0,39}$"
 
 MemoryHit:
   type: object
   required: [record, score, snippet]
   properties:
     record:
-      $ref: '../../../schemas/memory-record.schema.json'
+      $ref: "../../../schemas/memory-record.schema.json"
     score:
       type: number
       description: Full-text rank; higher is better. Only comparable within one response.
@@ -66,6 +66,6 @@ MemorySearchResult:
     items:
       type: array
       items:
-        $ref: '#/MemoryHit'
+        $ref: "#/MemoryHit"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"

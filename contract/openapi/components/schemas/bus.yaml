@@ -3,36 +3,36 @@
 
 ChannelName:
   type: string
-  pattern: '^[a-z0-9][a-z0-9.-]{0,62}$'
+  pattern: "^[a-z0-9][a-z0-9.-]{0,62}$"
   description: Channel name, for example `general` or `team.founder`.
   examples: [general]
 
 ChannelKind:
   type: string
   enum: [public, team]
-  description: '`public` is open to every agent; `team` is limited to one chart branch.'
+  description: "`public` is open to every agent; `team` is limited to one chart branch."
 
 Channel:
   type: object
   required: [name, kind, description, team, created_at, created_by, last_message_at]
   properties:
     name:
-      $ref: '#/ChannelName'
+      $ref: "#/ChannelName"
     kind:
-      $ref: '#/ChannelKind'
+      $ref: "#/ChannelKind"
     description:
       type: string
       maxLength: 500
     team:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Head of the branch for `team` channels, null for public ones.
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
     created_by:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     last_message_at:
-      type: [string, 'null']
+      type: [string, "null"]
       format: date-time
 
 ChannelList:
@@ -42,9 +42,9 @@ ChannelList:
     items:
       type: array
       items:
-        $ref: '#/Channel'
+        $ref: "#/Channel"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 ChannelCreate:
   type: object
@@ -52,9 +52,9 @@ ChannelCreate:
   required: [name, kind]
   properties:
     name:
-      $ref: '#/ChannelName'
+      $ref: "#/ChannelName"
     kind:
-      $ref: '#/ChannelKind'
+      $ref: "#/ChannelKind"
     description:
       type: string
       maxLength: 500
@@ -65,27 +65,27 @@ BusMessage:
   required: [id, channel, to, from, text, reply_to, correlation_id, created_at]
   properties:
     id:
-      $ref: './common.yaml#/MessageId'
+      $ref: "./common.yaml#/MessageId"
     channel:
-      type: [string, 'null']
-      pattern: '^[a-z0-9][a-z0-9.-]{0,62}$'
+      type: [string, "null"]
+      pattern: "^[a-z0-9][a-z0-9.-]{0,62}$"
     to:
-      type: [string, 'null']
-      pattern: '^[a-z][a-z0-9-]{0,30}$'
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
       description: Direct recipient agent; delivery wakes a sleeping recipient.
     from:
-      $ref: './common.yaml#/Actor'
+      $ref: "./common.yaml#/Actor"
     text:
       type: string
       maxLength: 16000
     reply_to:
-      type: [string, 'null']
-      pattern: '^msg_[0-9A-HJKMNP-TV-Z]{26}$'
+      type: [string, "null"]
+      pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$"
     correlation_id:
-      type: [string, 'null']
+      type: [string, "null"]
       description: Ties a conversation across bus, tasks and events.
     created_at:
-      $ref: './common.yaml#/Timestamp'
+      $ref: "./common.yaml#/Timestamp"
 
 BusMessageList:
   type: object
@@ -94,9 +94,9 @@ BusMessageList:
     items:
       type: array
       items:
-        $ref: '#/BusMessage'
+        $ref: "#/BusMessage"
     next_cursor:
-      $ref: './common.yaml#/Cursor'
+      $ref: "./common.yaml#/Cursor"
 
 BusMessageCreate:
   type: object
@@ -105,15 +105,15 @@ BusMessageCreate:
   required: [text]
   properties:
     channel:
-      $ref: '#/ChannelName'
+      $ref: "#/ChannelName"
     to:
-      $ref: './common.yaml#/AgentName'
+      $ref: "./common.yaml#/AgentName"
     text:
       type: string
       minLength: 1
       maxLength: 16000
     reply_to:
-      $ref: './common.yaml#/MessageId'
+      $ref: "./common.yaml#/MessageId"
 
 BusMessageFrame:
   type: object
@@ -123,14 +123,14 @@ BusMessageFrame:
       type: string
       const: message
     message:
-      $ref: '#/BusMessage'
+      $ref: "#/BusMessage"
 
 BusStreamFrame:
   oneOf:
-    - $ref: '#/BusMessageFrame'
-    - $ref: './common.yaml#/Heartbeat'
+    - $ref: "#/BusMessageFrame"
+    - $ref: "./common.yaml#/Heartbeat"
   discriminator:
     propertyName: kind
     mapping:
-      message: '#/BusMessageFrame'
-      heartbeat: './common.yaml#/Heartbeat'
+      message: "#/BusMessageFrame"
+      heartbeat: "./common.yaml#/Heartbeat"

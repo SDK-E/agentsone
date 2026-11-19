@@ -22,7 +22,7 @@ JsonRpcMessage:
   properties:
     jsonrpc:
       type: string
-      const: '2.0'
+      const: "2.0"
     id:
       type: [string, integer]
     method:
@@ -33,4 +33,4 @@ JsonRpcMessage:
     result:
       type: object
     error:
-      $ref: '#/JsonRpcError'
+      $ref: "#/JsonRpcError"

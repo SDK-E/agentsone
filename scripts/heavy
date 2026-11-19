@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# heavy: run a heavy local command under a cross-process semaphore.
+#
+# Usage: scripts/heavy <command> [args...]
+#
+# At most AGENTSONE_HEAVY_SLOTS (default 4) commands run at once on this machine.
+# Slots are directories under /tmp/agentsone-heavy that hold the owner's pid.
+# Slots whose owner is no longer running are reclaimed.
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  echo "usage: scripts/heavy <command> [args...]" >&2
+  exit 2
+fi
+
+slots="${AGENTSONE_HEAVY_SLOTS:-4}"
+case "$slots" in
+  '' | *[!0-9]* | 0)
+    echo "heavy: AGENTSONE_HEAVY_SLOTS must be a positive integer" >&2
+    exit 2
+    ;;
+esac
+
+root="${AGENTSONE_HEAVY_DIR:-/tmp/agentsone-heavy}"
+mkdir -p "$root"
+
+held=""
+
+# shellcheck disable=SC2329  # invoked through the EXIT trap
+release() {
+  if [ -n "$held" ]; then
+    rm -rf "${root:?}/slot-$held"
+    held=""
+  fi
+}
+
+# Remove a slot whose owner process is gone.
+reap() {
+  local dir="$1" pid
+  pid="$(cat "$dir/pid" 2>/dev/null || true)"
+  if [ -z "$pid" ]; then
+    # Owner is between mkdir and writing the pid file; leave it alone unless old.
+    if [ -d "$dir" ] && [ -n "$(find "$dir" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rm -rf "$dir"
+    fi
+    return 0
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -rf "$dir"
+  fi
+}
+
+acquire() {
+  local n dir
+  while true; do
+    for ((n = 1; n <= slots; n++)); do
+      dir="$root/slot-$n"
+      if mkdir "$dir" 2>/dev/null; then
+        echo "$$" >"$dir/pid"
+        held="$n"
+        return 0
+      fi
+      reap "$dir"
+    done
+    sleep 2
+  done
+}
+
+trap release EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+acquire
+echo "heavy: holding slot $held of $slots (pid $$)" >&2
+
+# Run as a child (not exec) so the EXIT trap releases the slot afterwards.
+status=0
+"$@" || status=$?
+exit "$status"

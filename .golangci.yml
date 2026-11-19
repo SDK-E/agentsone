@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+    - revive
+    - misspell
+    - errorlint
+    - bodyclose
+    - nolintlint
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/SDK-E/agentsone

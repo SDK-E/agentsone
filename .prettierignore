@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+bin
+mkosi.output
+pnpm-lock.yaml
+contract/fixtures
+packages/contract-ts/src/generated
+.claude/worktrees
+# Markdown, YAML and shell are checked by their own linters.
+*.md
+.github

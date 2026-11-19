@@ -46,7 +46,29 @@ func (f *switchFreezer) set(v bool) {
 	f.mu.Unlock()
 }
 
-var loopback = netip.MustParseAddr("127.0.0.1")
+var (
+	loopback     = netip.MustParseAddr("127.0.0.1")
+	testTokenKey = []byte("0123456789abcdef0123456789abcdef")
+)
+
+// memProof keeps the proof records parts write.
+type memProof struct {
+	mu  sync.Mutex
+	got []component.Proof
+}
+
+func (m *memProof) RecordProof(_ context.Context, p component.Proof) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.got = append(m.got, p)
+	return nil
+}
+
+func (m *memProof) all() []component.Proof {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]component.Proof(nil), m.got...)
+}
 
 // startComponent starts the gateway component on loopback with a fake provider and a budget.
 func startComponent(t *testing.T, fr component.Freezer) (*gateway.Server, netip.AddrPort, *component.Env, component.Stopper) {
@@ -78,7 +100,8 @@ func startComponent(t *testing.T, fr component.Freezer) (*gateway.Server, netip.
 	zero := uint16(0)
 	c := gateway.Component{Port: &zero, HTTPClient: fake.Client(), Keys: memKeys{},
 		Started: func(s *gateway.Server, a netip.AddrPort) { srv, addr = s, a }}
-	env := &component.Env{InnerAddr: loopback, DataDir: dir, Log: slog.New(slog.DiscardHandler), Admin: http.NewServeMux(), Freezer: fr}
+	env := &component.Env{InnerAddr: loopback, DataDir: dir, Log: slog.New(slog.DiscardHandler), Admin: http.NewServeMux(),
+		Freezer: fr, TokenKey: testTokenKey, Proof: &memProof{}}
 	stopper, err := c.Start(t.Context(), env)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
@@ -186,6 +209,55 @@ func TestComponent_StopIsSafeTwiceAndClosesTheListener(t *testing.T) {
 	}
 }
 
+func TestComponent_RefusesToStartWithoutTheGatewayKey(t *testing.T) {
+	env := &component.Env{InnerAddr: loopback, DataDir: t.TempDir(), Freezer: &switchFreezer{}}
+	if _, err := (gateway.Component{}).Start(t.Context(), env); err == nil || !strings.Contains(err.Error(), "gateway key") {
+		t.Fatalf("Start without a gateway key error = %v", err)
+	}
+}
+
+func TestComponent_UsesTheEdgeGatewayKey(t *testing.T) {
+	srv, _, _, _ := startComponent(t, &switchFreezer{})
+	if string(srv.TokenKey()) != string(testTokenKey) {
+		t.Fatal("the gateway checks tokens with a key other than the edge's")
+	}
+}
+
+func TestComponent_WritesOneProofRecordPerModelCall(t *testing.T) {
+	fr := &switchFreezer{}
+	srv, addr, env, _ := startComponent(t, fr)
+	url := "http://" + addr.String() + "/v1/chat/completions"
+
+	if status, _ := post(t, url, agentToken(t, srv, time.Now()), `{"model":"autoagents/one"}`); status != http.StatusOK {
+		t.Fatalf("call: status %d", status)
+	}
+	fr.set(true)
+	if status, _ := post(t, url, agentToken(t, srv, time.Now()), `{"model":"autoagents/one"}`); status != http.StatusLocked {
+		t.Fatalf("frozen call: status %d", status)
+	}
+
+	got := env.Proof.(*memProof).all()
+	if len(got) != 2 {
+		t.Fatalf("proof records = %+v, want 2", got)
+	}
+	ok, frozen := got[0], got[1]
+	if ok.Action != gateway.ProofAction || ok.Target != "agent:worker" || ok.Outcome != "success" ||
+		ok.Details["model"] != "fake/fake-mid" || ok.Details["chart"] != "founder/worker" ||
+		ok.Details["input_tokens"] != int64(1) || ok.Details["status"] != http.StatusOK {
+		t.Errorf("record of the call = %+v", ok)
+	}
+	if frozen.Outcome != "denied" || frozen.Details["status"] != http.StatusLocked {
+		t.Errorf("record of the frozen call = %+v", frozen)
+	}
+	for _, r := range got {
+		for k, v := range r.Details {
+			if _, isFloat := v.(float64); isFloat {
+				t.Errorf("detail %s is a float: %v", k, v)
+			}
+		}
+	}
+}
+
 func TestComponent_RefusesToStartWithoutTheFreezeSwitch(t *testing.T) {
 	env := &component.Env{InnerAddr: loopback, DataDir: t.TempDir()}
 	if _, err := (gateway.Component{}).Start(t.Context(), env); err == nil || !strings.Contains(err.Error(), "freeze") {
@@ -200,10 +272,10 @@ func TestComponent_ReportsAPortItCannotTake(t *testing.T) {
 	}
 	defer func() { _ = ln.Close() }()
 	busy := netip.MustParseAddrPort(ln.Addr().String()).Port()
-	env := &component.Env{InnerAddr: loopback, DataDir: t.TempDir(), Freezer: &switchFreezer{}}
+	env := &component.Env{InnerAddr: loopback, DataDir: t.TempDir(), Freezer: &switchFreezer{}, TokenKey: testTokenKey}
 
-	if _, err := (gateway.Component{Port: &busy, Keys: memKeys{}}).Start(t.Context(), env); err == nil {
-		t.Fatal("Start on a busy port succeeded")
+	if _, err := (gateway.Component{Port: &busy, Keys: memKeys{}}).Start(t.Context(), env); err == nil || !strings.Contains(err.Error(), "listen") {
+		t.Fatalf("Start on a busy port error = %v, want a listen error", err)
 	}
 	if (gateway.Component{}).Name() == "" {
 		t.Error("Name() is empty")

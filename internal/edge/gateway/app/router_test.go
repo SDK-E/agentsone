@@ -219,6 +219,9 @@ func TestCallGoesToCheapestModelAndSettlesActualCost(t *testing.T) {
 	if st.Spent != price("1.80") || st.Reserved != 0 {
 		t.Fatalf("state = %+v", st)
 	}
+	if got := *res.Spend; got != (gatewayapp.Spend{Usage: u, Reported: true, Cost: price("1.80")}) {
+		t.Fatalf("Spend = %+v", got)
+	}
 	c := r.upstream.calls[0]
 	if c.Key != "test-key-o" || c.Model != "gpt-mid" || c.API != routing.APIOpenAI || c.MaxOutputTokens != 1000 {
 		t.Fatalf("upstream call = %+v", c)
@@ -254,6 +257,9 @@ func TestUnknownUsageIsChargedAtTheEstimate(t *testing.T) {
 	want := routing.Estimate(testCatalog().Models[1], body, 1000)
 	if got := r.budget.state().Spent; got != want {
 		t.Fatalf("spent = %v, want estimate %v", got, want)
+	}
+	if got := *res.Spend; got.Reported || got.Cost != want {
+		t.Fatalf("Spend = %+v, want the estimate and no reported usage", got)
 	}
 }
 
@@ -521,6 +527,9 @@ func TestCountTokensGoesToClaudeWithoutCharging(t *testing.T) {
 	}
 	if got := drain(t, res); got != `{"input_tokens":42}` || res.Model.ID != "claude-sonnet-5-5" {
 		t.Fatalf("result %+v body %q", res.Model, got)
+	}
+	if res.Spend != nil {
+		t.Fatalf("Spend of a free count = %+v, want none", res.Spend)
 	}
 	c := r.upstream.calls[0]
 	if c.Op != gatewayapp.OpCountTokens || c.API != routing.APIAnthropic || c.Key != "test-key-a" {

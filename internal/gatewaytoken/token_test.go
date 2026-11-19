@@ -24,6 +24,7 @@ func validClaims() gatewaytoken.Claims {
 		Kind:      gatewaytoken.KindAlwaysOn,
 		Chart:     "founder/lead",
 		Defence:   false,
+		Audience:  gatewaytoken.AudienceGateway,
 		IssuedAt:  issued.Unix(),
 		ExpiresAt: issued.Add(10 * time.Minute).Unix(),
 	}
@@ -107,6 +108,8 @@ func TestSignRejectsInvalidClaims(t *testing.T) {
 		{"unknown kind", func(c *gatewaytoken.Claims) { c.Kind = "robot" }},
 		{"expiry before issue", func(c *gatewaytoken.Claims) { c.ExpiresAt = c.IssuedAt }},
 		{"no issue time", func(c *gatewaytoken.Claims) { c.IssuedAt = 0 }},
+		{"no audience", func(c *gatewaytoken.Claims) { c.Audience = "" }},
+		{"unknown audience", func(c *gatewaytoken.Claims) { c.Audience = "anyone" }},
 		{"lives too long", func(c *gatewaytoken.Claims) {
 			c.ExpiresAt = c.IssuedAt + int64(gatewaytoken.MaxLifetime/time.Second) + 1
 		}},
@@ -150,12 +153,15 @@ func TestSystemCallersHaveNoChart(t *testing.T) {
 	c.Agent, c.Kind, c.Chart = "system:router", gatewaytoken.KindSystem, ""
 	c.ExpiresAt = c.IssuedAt + int64(gatewaytoken.MaxLifetime/time.Second)
 
-	tok, err := gatewaytoken.Sign(testKey, c)
-	if err != nil {
-		t.Fatalf("Sign: %v", err)
-	}
-	if got, err := gatewaytoken.Verify(testKey, tok, issued); err != nil || got != c {
-		t.Fatalf("Verify = %+v, %v; want %+v", got, err, c)
+	for _, aud := range []gatewaytoken.Audience{gatewaytoken.AudienceGateway, gatewaytoken.AudienceAudit} {
+		c.Audience = aud
+		tok, err := gatewaytoken.Sign(testKey, c)
+		if err != nil {
+			t.Fatalf("Sign for %s: %v", aud, err)
+		}
+		if got, err := gatewaytoken.Verify(testKey, tok, issued); err != nil || got != c {
+			t.Fatalf("Verify = %+v, %v; want %+v", got, err, c)
+		}
 	}
 }
 

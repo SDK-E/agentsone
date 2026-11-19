@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/tokenkey"
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
 )
 
 func TestLoadOrCreate_MakesAKeyOnlyTheEdgeCanRead(t *testing.T) {

@@ -3,6 +3,7 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,14 +18,15 @@ import (
 	budgetstore "github.com/SDK-E/agentsone/internal/edge/budget/adapters/sqlite"
 	budgetapp "github.com/SDK-E/agentsone/internal/edge/budget/app"
 	ledger "github.com/SDK-E/agentsone/internal/edge/budget/domain"
+	"github.com/SDK-E/agentsone/internal/edge/component"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/admin"
 	gatewayconfig "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/config"
 	gatewayhttp "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/http"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/keyfile"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/providers"
-	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/tokenkey"
 	gatewayapp "github.com/SDK-E/agentsone/internal/edge/gateway/app"
 	routing "github.com/SDK-E/agentsone/internal/edge/gateway/domain"
+	"github.com/SDK-E/agentsone/internal/edge/tokenkey"
 )
 
 // BudgetFileName is the budget database inside the edge data folder.
@@ -49,6 +51,10 @@ type KeyStore interface {
 type Options struct {
 	// DataDir holds gateway.toml, budget.db, the gateway-key folder and the keys folder.
 	DataDir string
+	// TokenKey checks agent tokens. Empty loads it from DataDir, making it on first start.
+	TokenKey []byte
+	// Proof, when set, receives one proof record per model call.
+	Proof component.ProofRecorder
 	// Frozen reads the edge freeze switch before every model call. Nil refuses every call.
 	Frozen func(ctx context.Context) (bool, error)
 	// Keys defaults to key files in DataDir/keys.
@@ -116,9 +122,11 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 	if o.HTTPClient == nil {
 		o.HTTPClient = providers.NewHTTPClient(time.Duration(cfg.Limits.HeaderTimeoutSeconds) * time.Second)
 	}
-	key, err := tokenkey.LoadOrCreate(tokenkey.Path(o.DataDir))
-	if err != nil {
-		return nil, err
+	key := bytes.Clone(o.TokenKey)
+	if len(key) == 0 {
+		if key, err = tokenkey.LoadOrCreate(tokenkey.Path(o.DataDir)); err != nil {
+			return nil, err
+		}
 	}
 
 	store, err := budgetstore.Open(ctx, filepath.Join(o.DataDir, BudgetFileName))
@@ -156,9 +164,33 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 		Clock:      o.Clock,
 		RetryAfter: time.Duration(cfg.Limits.RetryAfterSeconds) * time.Second,
 		Frozen:     o.Frozen,
+		Record:     proofRecorder(o.Proof, o.Log),
 		Log:        o.Log,
 	})
 	return s, nil
+}
+
+// ProofAction is the edge audit action of a model call.
+const ProofAction = "model.call"
+
+// proofRecorder writes each call record as an edge proof record. A record that cannot be
+// written is logged; the call itself is already answered.
+func proofRecorder(p component.ProofRecorder, log *slog.Logger) func(context.Context, gatewayhttp.CallRecord) {
+	if p == nil {
+		return nil
+	}
+	return func(ctx context.Context, r gatewayhttp.CallRecord) {
+		err := p.RecordProof(ctx, component.Proof{
+			Action: ProofAction, Target: "agent:" + r.Agent, Outcome: r.Outcome(),
+			Details: map[string]any{
+				"agent": r.Agent, "kind": r.Kind, "chart": r.Chart, "model": r.Model, "status": r.Status,
+				"input_tokens": r.InputTokens, "output_tokens": r.OutputTokens, "cost_micros": r.CostMicros,
+			},
+		})
+		if err != nil {
+			log.Error("gateway: write the proof record of a model call", "agent", r.Agent, "err", err)
+		}
+	}
 }
 
 // TokenKey returns a copy of the key that signs agent gateway tokens. The edge hands it to the

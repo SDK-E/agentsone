@@ -85,14 +85,37 @@ func answer(r *fakeRouter, status int, contentType, body string) {
 
 func token(t *testing.T, defence bool, exp time.Time) string {
 	t.Helper()
-	tok, err := gatewaytoken.Sign(key, gatewaytoken.Claims{
+	return signed(t, gatewaytoken.Claims{
 		Agent: "worker", Kind: gatewaytoken.KindAlwaysOn, Chart: "founder/worker", Defence: defence,
-		IssuedAt: now.Add(-time.Minute).Unix(), ExpiresAt: exp.Unix(),
+		Audience: gatewaytoken.AudienceGateway, IssuedAt: now.Add(-time.Minute).Unix(), ExpiresAt: exp.Unix(),
 	})
+}
+
+func signed(t *testing.T, c gatewaytoken.Claims) string {
+	t.Helper()
+	tok, err := gatewaytoken.Sign(key, c)
 	if err != nil {
 		t.Fatalf("Sign: %v", err)
 	}
 	return tok
+}
+
+// records keeps the call records the handler writes.
+type records struct {
+	mu  sync.Mutex
+	got []gatewayhttp.CallRecord
+}
+
+func (r *records) add(_ context.Context, c gatewayhttp.CallRecord) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.got = append(r.got, c)
+}
+
+func (r *records) all() []gatewayhttp.CallRecord {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]gatewayhttp.CallRecord(nil), r.got...)
 }
 
 func server(t *testing.T, r *fakeRouter) *httptest.Server {
@@ -102,16 +125,136 @@ func server(t *testing.T, r *fakeRouter) *httptest.Server {
 
 func serverWithFreeze(t *testing.T, r *fakeRouter, frozen func(context.Context) (bool, error)) *httptest.Server {
 	t.Helper()
-	h := gatewayhttp.New(gatewayhttp.Options{
+	return serverWith(t, r, frozen, nil)
+}
+
+func serverWith(t *testing.T, r *fakeRouter, frozen func(context.Context) (bool, error), rec *records) *httptest.Server {
+	t.Helper()
+	o := gatewayhttp.Options{
 		Router:     r,
 		Key:        func() []byte { return key },
 		Clock:      fakeClock{},
 		RetryAfter: 30 * time.Second,
 		Frozen:     frozen,
-	})
-	srv := httptest.NewServer(h)
+	}
+	if rec != nil {
+		o.Record = rec.add
+	}
+	srv := httptest.NewServer(gatewayhttp.New(o))
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+func TestAudience_RefusesATokenForTheAuditSinkOnEveryRoute(t *testing.T) {
+	t.Parallel()
+	r := &fakeRouter{}
+	answer(r, 200, "application/json", `{}`)
+	srv := server(t, r)
+	tok := signed(t, gatewaytoken.Claims{
+		Agent: "system:router", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceAudit,
+		IssuedAt: now.Unix(), ExpiresAt: now.Add(10 * time.Minute).Unix(),
+	})
+
+	for _, c := range []struct{ method, path string }{
+		{http.MethodPost, "/v1/chat/completions"}, {http.MethodPost, "/anthropic/v1/messages"},
+		{http.MethodPost, "/anthropic/v1/messages/count_tokens"}, {http.MethodGet, "/v1/models"},
+		{http.MethodGet, "/v1/budget"},
+	} {
+		got := do(t, srv, c.method, c.path, `{"model":"autoagents/one"}`, map[string]string{"Authorization": "Bearer " + tok})
+		var p map[string]any
+		_ = json.NewDecoder(got.Body).Decode(&p)
+		if got.StatusCode != http.StatusForbidden || p["type"] != gatewayhttp.ProblemWrongAudience {
+			t.Errorf("%s %s with an audit token = %d %v, want 403 %s", c.method, c.path, got.StatusCode, p["type"], gatewayhttp.ProblemWrongAudience)
+		}
+	}
+	if len(r.got) != 0 || len(r.counts) != 0 {
+		t.Errorf("the router was called %d times with an audit token", len(r.got)+len(r.counts))
+	}
+}
+
+func TestSystemCallers_CallModelsOnTheSystemLine(t *testing.T) {
+	t.Parallel()
+	r := &fakeRouter{}
+	answer(r, 200, "application/json", `{}`)
+	rec := &records{}
+	srv := serverWith(t, r, func(context.Context) (bool, error) { return false, nil }, rec)
+	tok := signed(t, gatewaytoken.Claims{
+		Agent: "system:router", Kind: gatewaytoken.KindSystem, Audience: gatewaytoken.AudienceGateway,
+		IssuedAt: now.Unix(), ExpiresAt: now.Add(10 * time.Minute).Unix(),
+	})
+
+	got := do(t, srv, http.MethodPost, "/v1/chat/completions", `{"model":"autoagents/one"}`, map[string]string{"Authorization": "Bearer " + tok})
+
+	if got.StatusCode != http.StatusOK || len(r.got) != 1 || r.got[0].Caller.Agent != "system" {
+		t.Fatalf("status %d, calls %+v; want one call booked on the system line", got.StatusCode, r.got)
+	}
+	if all := rec.all(); len(all) != 1 || all[0].Agent != "system:router" || all[0].Kind != "system" {
+		t.Fatalf("records = %+v, want the system caller named", all)
+	}
+}
+
+func TestRecord_WritesOneRecordPerModelCall(t *testing.T) {
+	t.Parallel()
+	r := &fakeRouter{}
+	answer(r, 200, "application/json", `{"ok":true}`)
+	r.result.Spend = &gatewayapp.Spend{Usage: routing.Usage{Input: 120, Output: 30}, Reported: true, Cost: 4500}
+	rec := &records{}
+	srv := serverWith(t, r, func(context.Context) (bool, error) { return false, nil }, rec)
+
+	got := do(t, srv, http.MethodPost, "/v1/chat/completions", `{"model":"autoagents/one"}`, bearer(t))
+	_, _ = io.ReadAll(got.Body)
+
+	want := gatewayhttp.CallRecord{
+		Agent: "worker", Kind: "always-on", Chart: "founder/worker", Model: "openai/gpt-mid",
+		Status: 200, InputTokens: 120, OutputTokens: 30, CostMicros: 4500,
+	}
+	if all := rec.all(); len(all) != 1 || all[0] != want {
+		t.Fatalf("records = %+v, want [%+v]", all, want)
+	}
+	if want.Outcome() != "success" {
+		t.Errorf("Outcome() = %q, want success", want.Outcome())
+	}
+}
+
+func TestRecord_WritesRefusalsAndFailuresToo(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		frozen  bool
+		err     error
+		status  int
+		outcome string
+	}{
+		{"budget spent", false, ledger.ErrBudgetExhausted, http.StatusPaymentRequired, "denied"},
+		{"frozen", true, nil, http.StatusLocked, "denied"},
+		{"providers failed", false, &gatewayapp.UpstreamError{Status: 500, Err: errors.New("down")}, http.StatusBadGateway, "failure"},
+	} {
+		r := &fakeRouter{err: tc.err}
+		rec := &records{}
+		frozen := tc.frozen
+		srv := serverWith(t, r, func(context.Context) (bool, error) { return frozen, nil }, rec)
+
+		_ = do(t, srv, http.MethodPost, "/anthropic/v1/messages", `{"model":"autoagents/one"}`, bearer(t))
+
+		all := rec.all()
+		if len(all) != 1 || all[0].Status != tc.status || all[0].Outcome() != tc.outcome || all[0].Agent != "worker" {
+			t.Errorf("%s: records = %+v, want one %d %s", tc.name, all, tc.status, tc.outcome)
+		}
+	}
+}
+
+func TestRecord_WritesNothingForReadsOrABadToken(t *testing.T) {
+	t.Parallel()
+	rec := &records{}
+	srv := serverWith(t, &fakeRouter{}, func(context.Context) (bool, error) { return false, nil }, rec)
+
+	_ = do(t, srv, http.MethodGet, "/v1/models", "", bearer(t))
+	_ = do(t, srv, http.MethodGet, "/v1/budget", "", bearer(t))
+	_ = do(t, srv, http.MethodPost, "/v1/chat/completions", `{}`, map[string]string{"Authorization": "Bearer forged"})
+
+	if all := rec.all(); len(all) != 0 {
+		t.Fatalf("records = %+v, want none", all)
+	}
 }
 
 func TestFreeze_RefusesEveryModelCallWith423(t *testing.T) {

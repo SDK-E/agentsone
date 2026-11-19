@@ -17,7 +17,12 @@
 // on the Anthropic endpoint, "x-api-key". The token's identity is SOFT: root
 // inside the agent machine can forge it. It decides the per-agent budget split
 // and the defence flag, never the total budget, which the edge enforces
-// regardless.
+// regardless. The token must be for the gateway (aud "gateway"); any other
+// audience answers 403. System callers (kind system, such as system:router)
+// may call models; they are all booked on one budget line, "system".
+//
+// Every model call from a caller with a good token, refused or not, gives one
+// CallRecord once it is answered, for the edge audit log.
 //
 // The model name must be autoagents/one, optionally with a weight suffix
 // (autoagents/one:quick, :normal, :deep). Otherwise the X-Agentsone-Weight
@@ -68,7 +73,37 @@ const (
 	ProblemUpstreamFailed   = "urn:agentsone:problem:upstream-failed"
 	ProblemInternal         = "urn:agentsone:problem:internal"
 	ProblemFrozen           = "urn:agentsone:problem:frozen"
+	ProblemWrongAudience    = "urn:agentsone:problem:wrong-audience"
 )
+
+// SystemLine is the budget line every system caller is booked on.
+const SystemLine = "system"
+
+// CallRecord is one model call, written once its answer is sent: what the edge saw, for the
+// edge audit log. It holds no request or answer text and no secrets.
+type CallRecord struct {
+	Agent string // as the token says; soft
+	Kind  string
+	Chart string
+	// Model is provider/model, empty when no model was reached.
+	Model        string
+	Status       int
+	InputTokens  int64
+	OutputTokens int64
+	CostMicros   int64
+}
+
+// Outcome is success, denied (the edge refused the call: budget, freeze) or failure.
+func (c CallRecord) Outcome() string {
+	switch {
+	case c.Status < http.StatusBadRequest:
+		return "success"
+	case c.Status == http.StatusPaymentRequired || c.Status == http.StatusLocked || c.Status == http.StatusForbidden:
+		return "denied"
+	default:
+		return "failure"
+	}
+}
 
 // Router is the part of the gateway application the handlers use.
 type Router interface {
@@ -93,6 +128,9 @@ type Options struct {
 	// Frozen reads the edge freeze switch before every model call. Frozen, an error, or no
 	// switch at all refuses the call: the gateway fails closed.
 	Frozen func(ctx context.Context) (bool, error)
+	// Record, when set, receives one record per model call from a caller with a good token,
+	// refused or not. Reads are not recorded.
+	Record func(ctx context.Context, r CallRecord)
 	Log    *slog.Logger
 }
 
@@ -110,9 +148,9 @@ func New(o Options) http.Handler {
 	}
 	h := &handler{o: o}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.unfrozen(h.call(routing.APIOpenAI))))
-	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.unfrozen(h.call(routing.APIAnthropic))))
-	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.unfrozen(h.countTokens)))
+	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.recorded(h.unfrozen(h.call(routing.APIOpenAI)))))
+	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.recorded(h.unfrozen(h.call(routing.APIAnthropic)))))
+	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.recorded(h.unfrozen(h.countTokens))))
 	mux.HandleFunc("GET /v1/models", h.authed(false, h.models))
 	mux.HandleFunc("GET /v1/budget", h.authed(false, h.budget))
 	return mux
@@ -136,7 +174,71 @@ func (h *handler) authed(allowAPIKey bool, next authedFunc) http.HandlerFunc {
 				"Send the agent gateway token the daemon issued: "+err.Error(), nil)
 			return
 		}
+		if claims.Audience != gatewaytoken.AudienceGateway {
+			h.problem(w, http.StatusForbidden, ProblemWrongAudience, "Token is not for the gateway",
+				"This token is for "+string(claims.Audience)+". Ask the daemon for a gateway token.", nil)
+			return
+		}
 		next(w, r, claims)
+	}
+}
+
+// callNote is what the call handlers tell recorded about the call.
+type callNote struct {
+	model string
+	spend *gatewayapp.Spend
+}
+
+type noteKey struct{}
+
+func noteFrom(ctx context.Context) *callNote {
+	if n, ok := ctx.Value(noteKey{}).(*callNote); ok {
+		return n
+	}
+	return &callNote{}
+}
+
+// statusWriter remembers the answer's status.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusWriter) WriteHeader(code int) {
+	if s.status == 0 {
+		s.status = code
+	}
+	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusWriter) Write(b []byte) (int, error) {
+	if s.status == 0 {
+		s.status = http.StatusOK
+	}
+	return s.ResponseWriter.Write(b)
+}
+
+func (s *statusWriter) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// recorded writes one call record once the call is answered.
+func (h *handler) recorded(next authedFunc) authedFunc {
+	if h.o.Record == nil {
+		return next
+	}
+	return func(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims) {
+		note := &callNote{}
+		sw := &statusWriter{ResponseWriter: w}
+		next(sw, r.WithContext(context.WithValue(r.Context(), noteKey{}, note)), c)
+		rec := CallRecord{Agent: c.Agent, Kind: string(c.Kind), Chart: c.Chart, Model: note.model, Status: sw.status}
+		if note.spend != nil {
+			rec.InputTokens, rec.OutputTokens = note.spend.Usage.Input, note.spend.Usage.Output
+			rec.CostMicros = int64(note.spend.Cost)
+		}
+		h.o.Record(context.WithoutCancel(r.Context()), rec)
 	}
 }
 
@@ -160,7 +262,11 @@ func (h *handler) unfrozen(next authedFunc) authedFunc {
 	}
 }
 
+// caller is the budget caller for a token. Every system caller is booked on one line, SystemLine.
 func caller(c gatewaytoken.Claims) ledger.Caller {
+	if c.Kind == gatewaytoken.KindSystem {
+		return ledger.Caller{Agent: SystemLine, Defence: c.Defence}
+	}
 	return ledger.Caller{Agent: c.Agent, Defence: c.Defence}
 }
 
@@ -216,7 +322,7 @@ func (h *handler) countTokens(w http.ResponseWriter, r *http.Request, c gatewayt
 		h.callError(w, err)
 		return
 	}
-	h.relay(w, c, res)
+	h.relay(w, r, c, res)
 }
 
 func (h *handler) call(engine routing.API) authedFunc {
@@ -237,7 +343,7 @@ func (h *handler) call(engine routing.API) authedFunc {
 			h.callError(w, err)
 			return
 		}
-		h.relay(w, c, res)
+		h.relay(w, r, c, res)
 	}
 }
 
@@ -254,7 +360,9 @@ func passHeaders(in http.Header) http.Header {
 // relayHeaders are the provider answer headers passed back to the caller.
 var relayHeaders = []string{"Content-Type", "Cache-Control", "Request-Id", "X-Request-Id", "Anthropic-Organization-Id"}
 
-func (h *handler) relay(w http.ResponseWriter, c gatewaytoken.Claims, res *gatewayapp.CallResult) {
+func (h *handler) relay(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims, res *gatewayapp.CallResult) {
+	note := noteFrom(r.Context())
+	note.model, note.spend = string(res.Model.Provider)+"/"+res.Model.ID, res.Spend
 	defer func() {
 		if err := res.Body.Close(); err != nil {
 			h.o.Log.Error("gateway: settle call", "agent", c.Agent, "model", res.Model.ID, "err", err)

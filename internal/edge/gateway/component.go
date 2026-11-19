@@ -39,11 +39,14 @@ func (c Component) Start(ctx context.Context, env *component.Env) (component.Sto
 	if env.Freezer == nil {
 		return nil, errors.New("model gateway: no freeze switch; the internet filter or the freeze part must start first")
 	}
+	if len(env.TokenKey) == 0 {
+		return nil, errors.New("model gateway: no gateway key; the edge loads it before any part starts")
+	}
 	if env.Log == nil {
 		env.Log = slog.New(slog.DiscardHandler)
 	}
-	srv, err := Open(ctx, Options{DataDir: env.DataDir, Frozen: env.Freezer.Frozen, Keys: c.Keys,
-		HTTPClient: c.HTTPClient, Log: env.Log})
+	srv, err := Open(ctx, Options{DataDir: env.DataDir, TokenKey: env.TokenKey, Frozen: env.Freezer.Frozen,
+		Proof: env.Proof, Keys: c.Keys, HTTPClient: c.HTTPClient, Log: env.Log})
 	if err != nil {
 		return nil, err
 	}

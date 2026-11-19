@@ -129,7 +129,7 @@ func serve(t *testing.T, srv *gateway.Server) (string, func()) {
 func agentToken(t *testing.T, srv *gateway.Server, now time.Time) string {
 	t.Helper()
 	tok, err := gatewaytoken.Sign(srv.TokenKey(), gatewaytoken.Claims{
-		Agent: "worker", Kind: gatewaytoken.KindChat, Chart: "founder/worker",
+		Agent: "worker", Kind: gatewaytoken.KindChat, Chart: "founder/worker", Audience: gatewaytoken.AudienceGateway,
 		IssuedAt: now.Unix(), ExpiresAt: now.Add(10 * time.Minute).Unix(),
 	})
 	if err != nil {

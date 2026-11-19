@@ -75,6 +75,18 @@ func ParseKind(s string) (Kind, error) {
 	}
 }
 
+// Audience names the edge part a token is for. Each part accepts only its own audience, so a
+// token minted for one purpose cannot be spent on another.
+type Audience string
+
+// Audiences.
+const (
+	// AudienceGateway tokens call models through the model gateway.
+	AudienceGateway Audience = "gateway"
+	// AudienceAudit tokens write to the edge audit sink; only system callers hold them.
+	AudienceAudit Audience = "audit"
+)
+
 // Claims is what a token says about its holder. This identity is soft; see the
 // package documentation.
 type Claims struct {
@@ -88,6 +100,8 @@ type Claims struct {
 	Chart string `json:"chart"`
 	// Defence marks callers allowed to spend the defence slice of the budget.
 	Defence bool `json:"defence"`
+	// Audience is the edge part the token is for.
+	Audience Audience `json:"aud"`
 	// IssuedAt and ExpiresAt are Unix seconds.
 	IssuedAt  int64 `json:"iat"`
 	ExpiresAt int64 `json:"exp"`
@@ -111,6 +125,9 @@ func (c Claims) validate() error {
 		return fmt.Errorf("%w: only a system caller's name starts with %q", ErrInvalidClaims, SystemPrefix)
 	case kind != KindSystem && c.Chart == "":
 		return fmt.Errorf("%w: chart is empty", ErrInvalidClaims)
+	}
+	if c.Audience != AudienceGateway && c.Audience != AudienceAudit {
+		return fmt.Errorf("%w: unknown audience %q", ErrInvalidClaims, c.Audience)
 	}
 	if c.IssuedAt <= 0 {
 		return fmt.Errorf("%w: issue time missing", ErrInvalidClaims)

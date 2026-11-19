@@ -37,18 +37,20 @@ func (r *recorder) Start(_ context.Context, env *component.Env) (component.Stopp
 
 func (r *recorder) Stop() error { r.stopped = true; return nil }
 
-func testEnv() *edgeenv.Env {
+// testEnv is the edge env with a data folder of its own: the edge writes its gateway key there.
+func testEnv(t *testing.T) *edgeenv.Env {
+	t.Helper()
 	return &edgeenv.Env{
 		Out: &bytes.Buffer{}, Err: &bytes.Buffer{},
 		Log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DataDir: "/var/lib/agentsone-edge", ConfigDir: "/etc/agentsone-edge",
+		DataDir: t.TempDir(), ConfigDir: "/etc/agentsone-edge",
 	}
 }
 
 // serve runs `edge args...` with rec as the only component and returns the env rec got.
-func serve(t *testing.T, rec *recorder, args ...string) component.Env {
+func serve(t *testing.T, env *edgeenv.Env, rec *recorder, args ...string) component.Env {
 	t.Helper()
-	cmd := edge.NewServeCommand(testEnv(), []component.Component{rec})
+	cmd := edge.NewServeCommand(env, []component.Component{rec})
 	cmd.SetArgs(append([]string{"--admin-socket=" + socketPath(t)}, args...))
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -70,10 +72,15 @@ func TestEdge_StartsComponentsOnTheInnerAddressWithTheDefaultFolders(t *testing.
 	t.Parallel()
 	rec := &recorder{got: make(chan component.Env, 1)}
 
-	got := serve(t, rec, "--inner-addr=10.77.42.2")
+	env := testEnv(t)
 
-	if got.InnerAddr != netip.MustParseAddr("10.77.42.2") || got.DataDir != "/var/lib/agentsone-edge" || got.ConfigDir != "/etc/agentsone-edge" {
+	got := serve(t, env, rec, "--inner-addr=10.77.42.2")
+
+	if got.InnerAddr != netip.MustParseAddr("10.77.42.2") || got.DataDir != env.DataDir || got.ConfigDir != "/etc/agentsone-edge" {
 		t.Errorf("env = %+v", got)
+	}
+	if len(got.TokenKey) == 0 {
+		t.Error("components got no gateway key")
 	}
 	if !rec.stopped {
 		t.Error("component not stopped when the edge stopped")
@@ -84,10 +91,12 @@ func TestEdge_TakesADataDirFlag(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{got: make(chan component.Env, 1)}
 
-	got := serve(t, rec, "--inner-addr=10.77.42.2", "--data-dir=/srv/edge")
+	dir := t.TempDir()
 
-	if got.DataDir != "/srv/edge" {
-		t.Errorf("data dir = %q, want /srv/edge", got.DataDir)
+	got := serve(t, testEnv(t), rec, "--inner-addr=10.77.42.2", "--data-dir="+dir)
+
+	if got.DataDir != dir {
+		t.Errorf("data dir = %q, want %q", got.DataDir, dir)
 	}
 }
 
@@ -95,7 +104,7 @@ func TestEdge_PassesEveryDoorAddress(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{got: make(chan component.Env, 1)}
 
-	got := serve(t, rec, "--inner-addr=10.77.42.2", "--door-addr=machine:7701", "--door-addr=10.77.42.3:7701")
+	got := serve(t, testEnv(t), rec, "--inner-addr=10.77.42.2", "--door-addr=machine:7701", "--door-addr=10.77.42.3:7701")
 
 	if diff := cmp.Diff([]string{"machine:7701", "10.77.42.3:7701"}, got.DoorAddrs); diff != "" {
 		t.Errorf("door addresses (-want +got):\n%s", diff)
@@ -107,13 +116,17 @@ func TestEdge_ServesTheAdminSocket(t *testing.T) {
 	path := socketPath(t)
 	ready := make(chan component.Env, 1)
 	pinger := &pingComponent{ready: ready}
-	cmd := edge.NewServeCommand(testEnv(), []component.Component{pinger})
+	cmd := edge.NewServeCommand(testEnv(t), []component.Component{pinger})
 	cmd.SetArgs([]string{"--inner-addr=10.77.42.2", "--admin-socket=" + path})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- cmd.ExecuteContext(ctx) }()
-	<-ready
+	select {
+	case <-ready:
+	case err := <-done:
+		t.Fatalf("edge stopped before starting its components: %v", err)
+	}
 
 	client := &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		var d net.Dialer
@@ -142,7 +155,7 @@ func TestEdge_RefusesAnAdminSocketItCannotOpen(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	rec := &recorder{got: make(chan component.Env, 1)}
-	cmd := edge.NewServeCommand(testEnv(), []component.Component{rec})
+	cmd := edge.NewServeCommand(testEnv(t), []component.Component{rec})
 	cmd.SetArgs([]string{"--inner-addr=10.77.42.2", "--admin-socket=" + filepath.Join(file, "admin.sock")})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -183,7 +196,7 @@ func TestEdge_RefusesToStartWithoutAGoodInnerAddress(t *testing.T) {
 	t.Parallel()
 	for _, args := range [][]string{{}, {"--inner-addr=edge"}, {"--inner-addr="}} {
 		rec := &recorder{got: make(chan component.Env, 1)}
-		cmd := edge.NewServeCommand(testEnv(), []component.Component{rec})
+		cmd := edge.NewServeCommand(testEnv(t), []component.Component{rec})
 		cmd.SetArgs(args)
 		cmd.SetOut(io.Discard)
 		cmd.SetErr(io.Discard)
@@ -199,7 +212,7 @@ func TestEdge_RefusesToStartWithoutAGoodInnerAddress(t *testing.T) {
 
 func TestCommands_RegistersTheEdgeCommand(t *testing.T) {
 	t.Parallel()
-	cmds := edge.Commands(testEnv())
+	cmds := edge.Commands(testEnv(t))
 	if len(cmds) != 1 || cmds[0].Name() != "edge" || cmds[0].Flags().Lookup("inner-addr") == nil {
 		t.Fatalf("Commands() = %v, want edge with --inner-addr", cmds)
 	}

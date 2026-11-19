@@ -10,9 +10,10 @@
 // The HMAC key is a per-boot secret the host hands to the daemon. The daemon
 // issues tokens; the gateway on the host checks them.
 //
-// SOFT IDENTITY. Root inside the VM can read the per-boot secret and forge a
-// token for any agent. A valid token therefore proves only that the caller is
-// inside the VM, not which agent it is. The host uses the claimed identity for
+// SOFT IDENTITY. Root inside the agent machine can read the per-boot secret and
+// forge a token for any agent. A valid token therefore proves only that the
+// caller is inside the agent machine, not which agent it is. The edge uses the
+// claimed identity for
 // soft walls (per-agent budget split, defence flag) and never for hard walls:
 // the total budget is enforced whatever the token says.
 package gatewaytoken

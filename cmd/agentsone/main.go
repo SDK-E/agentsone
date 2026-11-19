@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/SDK-E/agentsone/internal/edge/budget"
+	"github.com/SDK-E/agentsone/internal/edge/gateway"
 	"github.com/SDK-E/agentsone/internal/host/audit"
-	"github.com/SDK-E/agentsone/internal/host/budget"
 	"github.com/SDK-E/agentsone/internal/host/control"
 	"github.com/SDK-E/agentsone/internal/host/door"
-	"github.com/SDK-E/agentsone/internal/host/gateway"
 	"github.com/SDK-E/agentsone/internal/host/hostenv"
 	"github.com/SDK-E/agentsone/internal/host/net"
 	"github.com/SDK-E/agentsone/internal/host/vm"

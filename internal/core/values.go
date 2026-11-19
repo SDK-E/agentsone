@@ -144,3 +144,18 @@ type AgentTemplate struct {
 	// Raw is the agent-template document as installed.
 	Raw json.RawMessage
 }
+
+// AgentProfile is how one agent presents itself in the live list.
+type AgentProfile struct {
+	Name        string
+	DisplayName string
+	Role        string
+	Kind        AgentKind
+	// State is a contract AgentState value: sleeping, waking, awake,
+	// working, frozen or failed.
+	State string
+	// Team is the head of the agent's chart branch.
+	Team string
+	// Template is the id of the template the agent was hired from, or "".
+	Template string
+}

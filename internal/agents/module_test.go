@@ -51,6 +51,13 @@ func TestModule_ProvidesItsPorts(t *testing.T) {
 	if err := p.Waker.Wake(ctx, "ghost", core.WakeEvent, nil); !errors.Is(err, core.ErrNotFound) {
 		t.Errorf("Waker port: %v, want not found", err)
 	}
+	if _, err := p.Profiles.Profiles(ctx); err != nil {
+		t.Errorf("Profiles port: %v", err)
+	}
+	human := core.WithCaller(ctx, core.Caller{Kind: core.CallerHuman, Name: "ada", UID: -1})
+	if _, err := p.Chat.PostChat(human, "ghost", "hi", ""); !errors.Is(err, core.ErrNotFound) {
+		t.Errorf("Chat port: %v, want not found", err)
+	}
 }
 
 func TestModule_StartReprovisionsEveryActiveAgentWithItsUID(t *testing.T) {

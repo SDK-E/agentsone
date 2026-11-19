@@ -38,6 +38,10 @@ type chatPayload struct {
 // agent for it. Humans may chat with any agent. A frozen agent (423) or one
 // out of budget (402) gets nothing stored.
 func (s *Society) SendChat(ctx context.Context, agent, text string) (domain.ChatMessage, error) {
+	return s.postChat(ctx, agent, text, "")
+}
+
+func (s *Society) postChat(ctx context.Context, agent, text, assignmentID string) (domain.ChatMessage, error) {
 	c, ok := core.CallerFrom(ctx)
 	if !ok {
 		return domain.ChatMessage{}, fmt.Errorf("no caller: %w", core.ErrUnauthorized)
@@ -50,6 +54,7 @@ func (s *Society) SendChat(ctx context.Context, agent, text string) (domain.Chat
 	if err != nil {
 		return domain.ChatMessage{}, err
 	}
+	m.AssignmentID = assignmentID
 	if err := s.repo.AppendChat(ctx, m); err != nil {
 		return domain.ChatMessage{}, fmt.Errorf("store chat message: %w", err)
 	}

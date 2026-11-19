@@ -26,6 +26,8 @@ type Ports struct {
 	Freezer   Freezer         // owned by internal/agents
 	Tokens    TokenIssuer     // owned by internal/auth
 	Templates TemplateCatalog // owned by internal/plugins
+	Profiles  AgentProfiles   // owned by internal/agents
+	Chat      ChatPoster      // owned by internal/agents
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -35,6 +37,7 @@ func NewPorts() *Ports {
 		Agents: u, Waker: u, Events: u, Subscribe: u, Tasks: u,
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
+		Profiles: u, Chat: u,
 	}
 }
 
@@ -209,6 +212,22 @@ type TemplateCatalog interface {
 	Get(ctx context.Context, id string) (AgentTemplate, error)
 }
 
+// AgentProfiles reads how agents present themselves, for the live list.
+type AgentProfiles interface {
+	// Profiles returns every active agent, sorted by name.
+	Profiles(ctx context.Context) ([]AgentProfile, error)
+}
+
+// ChatPoster posts into an agent's chat, as sendChatMessage does: the
+// caller on ctx is the author, and the agent is woken for chat.
+type ChatPoster interface {
+	// PostChat returns the new message's id. assignmentID links a message
+	// the router assigned; it is empty otherwise. A frozen agent is an
+	// ErrFrozen, a used-up budget an ErrBudget, an unknown agent an
+	// ErrNotFound and empty text an ErrInvalid.
+	PostChat(ctx context.Context, agent, text, assignmentID string) (string, error)
+}
+
 // AuditEntry is one fact to record. The audit module adds sequence, time,
 // prev_hash and hash.
 type AuditEntry struct {
@@ -329,4 +348,8 @@ func (unavailable) Get(context.Context, string) (AgentTemplate, error) {
 }
 func (unavailable) Issue(context.Context, Caller, []string, time.Duration) (Token, error) {
 	return Token{}, ErrUnavailable
+}
+func (unavailable) Profiles(context.Context) ([]AgentProfile, error) { return nil, ErrUnavailable }
+func (unavailable) PostChat(context.Context, string, string, string) (string, error) {
+	return "", ErrUnavailable
 }

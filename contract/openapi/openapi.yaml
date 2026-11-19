@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: Agents One machine API
-  version: 1.0.3
+  version: 1.0.4
   summary: The daemon API every part of Agents One builds against.
   description: |
     REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event

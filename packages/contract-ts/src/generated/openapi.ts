@@ -3935,6 +3935,7 @@ export interface components {
      *     - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
      *     - `urn:agentsone:problem:internal` (500) unexpected daemon error.
      *     - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+     *     - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
      */
     Problem: {
       /** @description Human explanation of this occurrence. */

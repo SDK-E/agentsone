@@ -30,6 +30,8 @@ type Ports struct {
 	Chat      ChatPoster      // owned by internal/agents
 	Startup   StartupGate     // owned by internal/machine
 	Seed      SeedStatus      // owned by internal/agents
+	// GatewayTokens is owned by internal/gatewaymint.
+	GatewayTokens GatewayTokens
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -39,8 +41,40 @@ func NewPorts() *Ports {
 		Agents: u, Waker: u, Events: u, Subscribe: u, Tasks: u,
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
-		Profiles: u, Chat: u, Startup: u, Seed: u,
+		Profiles: u, Chat: u, Startup: u, Seed: u, GatewayTokens: u,
 	}
+}
+
+// GatewayTokens mints the bearer tokens callers send to the model gateway
+// (format ao1, internal/gatewaytoken). It is the one place tokens are
+// minted, for runners, the router and the bid scorer.
+type GatewayTokens interface {
+	// Mint returns a token for g. Without the gateway key the error
+	// matches ErrUnavailable and says the model gateway is not reachable.
+	Mint(ctx context.Context, g GatewayGrant) (string, error)
+}
+
+// Gateway token audiences: who accepts the token.
+const (
+	AudienceGateway = "gateway" // the model gateway
+	AudienceAudit   = "audit"   // the edge's audit sink
+)
+
+// GatewayGrant is what a gateway token says about its holder.
+type GatewayGrant struct {
+	// Subject is an agent's name, or a daemon subject that starts
+	// "system:" ("system:router").
+	Subject string
+	// ChartPath is an agent's chart path from the top, ending with its
+	// name ("founder/cto/mira"). It is empty for a daemon subject.
+	ChartPath string
+	// Defence lets the holder spend the defence share of the budget.
+	Defence bool
+	// Audience is AudienceGateway (also when empty) or AudienceAudit.
+	Audience string
+	// TTL is the token's lifetime; 0 means the default, and the gateway
+	// accepts only minutes.
+	TTL time.Duration
 }
 
 // AgentKind is how an agent lives, with the contract's values.
@@ -366,8 +400,9 @@ func (unavailable) Get(context.Context, string) (AgentTemplate, error) {
 func (unavailable) Issue(context.Context, Caller, []string, time.Duration) (Token, error) {
 	return Token{}, ErrUnavailable
 }
-func (unavailable) Wait(context.Context) error                       { return ErrUnavailable }
-func (unavailable) Profiles(context.Context) ([]AgentProfile, error) { return nil, ErrUnavailable }
+func (unavailable) Wait(context.Context) error                         { return ErrUnavailable }
+func (unavailable) Profiles(context.Context) ([]AgentProfile, error)   { return nil, ErrUnavailable }
+func (unavailable) Mint(context.Context, GatewayGrant) (string, error) { return "", ErrUnavailable }
 func (unavailable) PostChat(context.Context, string, string, string) (string, error) {
 	return "", ErrUnavailable
 }

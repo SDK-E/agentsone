@@ -53,7 +53,7 @@ services:
         - tcp
         - 127.0.0.1:8081
       timeout: 5s
-    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-v0.1.0}
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
@@ -110,7 +110,7 @@ services:
         - tcp
         - ${AGENTSONE_EDGE_IP:-10.77.42.2}:53
       timeout: 5s
-    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-v0.1.0}
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
@@ -173,7 +173,7 @@ services:
       - ${AGENTSONE_EDGE_IP:-10.77.42.2}
     environment:
       AGENTSONE_EDGE_IP: ${AGENTSONE_EDGE_IP:-10.77.42.2}
-    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-v0.1.0}
+    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     memswap_limit: ${AGENTSONE_MACHINE_MEMORY:-8g}
     networks:
       inner: null

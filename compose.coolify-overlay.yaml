@@ -16,7 +16,15 @@
 # certificate resolver letsencrypt).
 
 services:
+  # Image tags: this file pins one tested build of main (sha-<commit>, published by images.yml
+  # after the end-to-end run) until the first release exists. To move it, change the three
+  # sha- tags below, or set AGENTSONE_IMAGE_TAG in Coolify. After the first release it can
+  # follow compose.yaml again. There is no `latest` tag.
+  machine:
+    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
+
   edge:
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     command:
       - edge
       - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
@@ -43,6 +51,7 @@ services:
       - traefik.http.services.agentsone-door.loadbalancer.server.port=8080
 
   control:
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     networks:
       coolify: {}
     labels:

@@ -18,7 +18,7 @@ func TestComponents_StartInTheOrderTheyShareThings(t *testing.T) {
 	for _, c := range edge.Components() {
 		names = append(names, c.Name())
 	}
-	want := []string{"audit", "internet filter", "freeze", "model gateway", "door"}
+	want := []string{"audit", "internet filter", "freeze", "model gateway", "control credential", "door"}
 	if !slices.Equal(names, want) {
 		t.Fatalf("components = %v, want %v", names, want)
 	}

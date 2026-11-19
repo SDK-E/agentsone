@@ -1,0 +1,207 @@
+{{/* SPDX-License-Identifier: MIT */}}
+{{define "home"}}{{template "top" .}}
+<main id="main">
+  <div class="stack">
+    <h1>Human-only powers</h1>
+    <p class="lead">Agents cannot reach this page. Everything here is held by the edge, outside the machine, so an agent with root inside the machine cannot change it.</p>
+  </div>
+  {{if not .Flash.Where}}{{template "flash" .}}{{end}}
+
+  {{with .O}}
+  <section id="freeze" class="card freeze{{if .Freeze.Frozen}} freeze--on{{end}}" aria-labelledby="freeze-title">
+    <div class="card-head">
+      <h2 id="freeze-title">Freeze all</h2>
+      <span class="wall">Hard wall: the edge enforces it</span>
+    </div>
+    {{if eq $.Flash.Where "freeze"}}{{template "flash" $}}{{end}}
+    {{if .FreezeErr}}
+      <p class="notice notice--error">{{message .FreezeErr}}</p>
+    {{else if .Freeze.Frozen}}
+      <p class="freeze-state"><span class="dot dot--frozen" aria-hidden="true"></span>Everything is frozen{{if not .Freeze.Since.IsZero}} since {{when .Freeze.Since}}{{end}}.</p>
+      <p>The edge refuses every model call and all internet traffic from the machine. Agents stay where they are until you release the freeze.</p>
+      <form method="post" action="/release">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button class="button button--primary button--big" type="submit">Release the freeze</button>
+      </form>
+    {{else}}
+      <p class="freeze-state"><span class="dot" aria-hidden="true"></span>Agents are running.</p>
+      <p>Freeze all stops every model call and all internet traffic from the machine at once. Use it if something looks wrong. You can release it here.</p>
+      <form method="post" action="/freeze">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button class="button button--danger button--big" type="submit">Freeze all now</button>
+      </form>
+    {{end}}
+  </section>
+
+  <section id="allow" class="card" aria-labelledby="allow-title">
+    <div class="card-head">
+      <h2 id="allow-title">Internet allow list</h2>
+      <span class="wall">Hard wall: the edge enforces it</span>
+    </div>
+    {{if eq $.Flash.Where "allow"}}{{template "flash" $}}{{end}}
+    <p>The machine can reach only the names on this list. <code>*.example.org</code> allows every name under example.org.</p>
+    {{if .AllowErr}}
+      <p class="notice notice--error">{{message .AllowErr}}</p>
+    {{else if not .Allow}}
+      <p class="empty">Nothing is allowed yet. The machine cannot reach any internet name.</p>
+    {{else}}
+      <ul class="entries">
+      {{range .Allow}}
+        <li>
+          <span class="entry-text"><code>{{.Pattern}}</code>{{if .Why}}<span class="hint">{{.Why}}</span>{{end}}</span>
+          <form method="post" action="/allow/remove">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="pattern" value="{{.Pattern}}">
+            <button class="button" type="submit">Remove<span class="visually-hidden"> {{.Pattern}}</span></button>
+          </form>
+        </li>
+      {{end}}
+      </ul>
+    {{end}}
+    <form class="form" method="post" action="/allow">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <div class="form-row">
+        <label class="field">Name to allow
+          <input type="text" name="pattern" placeholder="example.org" spellcheck="false" autocapitalize="none" required>
+        </label>
+        <label class="field">Why
+          <input type="text" name="why" placeholder="Package downloads">
+        </label>
+        <button class="button button--primary" type="submit">Allow</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="models" class="card" aria-labelledby="models-title">
+    <div class="card-head">
+      <h2 id="models-title">Model providers and keys</h2>
+      <span class="wall">Hard wall: the edge enforces it</span>
+    </div>
+    {{if eq $.Flash.Where "models"}}{{template "flash" $}}{{end}}
+    <p>Agents ask for one model name. The gateway in the edge picks a real model from the providers you turn on. Keys stay in the edge: this page never shows a key again, only its fingerprint.</p>
+    {{if .ProvidersErr}}
+      <p class="notice notice--error">{{message .ProvidersErr}}</p>
+    {{else if not .Providers}}
+      <p class="empty">The gateway lists no providers. Add them to the gateway settings of the edge.</p>
+    {{else}}
+      {{range .Providers}}
+      <div class="provider">
+        <div class="provider-head">
+          <h3 class="provider-name">{{.ID}}</h3>
+          {{if .Enabled}}<span class="status status--on">On</span>{{else}}<span class="status status--off">Off</span>{{end}}
+        </div>
+        <p>
+          {{if not .KeyRequired}}No key needed.
+          {{else if .Key.Set}}Key set. Fingerprint <code>{{.Key.Fingerprint}}</code>.
+          {{else}}No key yet. Calls to this provider fail until you add one.{{end}}
+        </p>
+        {{if .Models}}<p class="hint">Models: {{range $i, $m := .Models}}{{if $i}}, {{end}}{{$m.ID}} ({{$m.Tier}}){{end}}</p>{{end}}
+        {{if .KeyRequired}}
+        <form class="form" method="post" action="/providers/key">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="provider" value="{{.ID}}">
+          <div class="form-row form-row--two">
+            <label class="field">{{if .Key.Set}}Replace the key{{else}}Add a key{{end}}
+              <input type="password" name="key" autocomplete="off" spellcheck="false" required>
+            </label>
+            <button class="button button--primary" type="submit">Save key<span class="visually-hidden"> for {{.ID}}</span></button>
+          </div>
+        </form>
+        {{end}}
+        <div class="actions">
+          <form method="post" action="/providers/{{if .Enabled}}disable{{else}}enable{{end}}">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="provider" value="{{.ID}}">
+            <button class="button" type="submit">{{if .Enabled}}Turn off{{else}}Turn on{{end}}<span class="visually-hidden"> {{.ID}}</span></button>
+          </form>
+          {{if .Key.Set}}
+          <form method="post" action="/providers/key/clear">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="provider" value="{{.ID}}">
+            <button class="button" type="submit">Remove key<span class="visually-hidden"> for {{.ID}}</span></button>
+          </form>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    {{end}}
+  </section>
+
+  <section id="budget" class="card" aria-labelledby="budget-title">
+    <div class="card-head">
+      <h2 id="budget-title">Budget</h2>
+      <span class="wall">Hard wall: the edge enforces the total</span>
+    </div>
+    {{if eq $.Flash.Where "budget"}}{{template "flash" $}}{{end}}
+    <p>One total for all agents. When it is used up, model calls fail and agents wait. They go on where they stopped when the budget comes back.</p>
+    {{if .BudgetErr}}
+      <p class="notice notice--error">{{message .BudgetErr}}</p>
+    {{else}}
+      {{with .Budget}}
+      {{if .Exhausted}}<p class="notice notice--error">The budget is used up. Agents pause until you add more or the period starts again.</p>{{end}}
+      <dl class="facts">
+        <div><dt>Total each {{.Period}}</dt><dd>{{dollars .TotalMicros}}</dd></div>
+        <div><dt>Spent</dt><dd>{{dollars .SpentMicros}}</dd></div>
+        <div><dt>Left</dt><dd>{{dollars .RemainingMicros}}</dd></div>
+        {{if not .PeriodEnd.IsZero}}<div><dt>Starts again</dt><dd>{{when .PeriodEnd}}</dd></div>{{end}}
+      </dl>
+      <form class="form" method="post" action="/budget">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <div class="form-row">
+          <label class="field">Total in dollars
+            <input type="text" name="total" inputmode="decimal" value="{{plain .TotalMicros}}" required aria-describedby="total-hint">
+            <span class="hint" id="total-hint">Like 25 or 25.50</span>
+          </label>
+          <label class="field">Starts again every
+            <select name="period">
+              <option value="day"{{if eq (print .Period) "day"}} selected{{end}}>day</option>
+              <option value="week"{{if eq (print .Period) "week"}} selected{{end}}>week</option>
+              <option value="month"{{if eq (print .Period) "month"}} selected{{end}}>month</option>
+            </select>
+          </label>
+          <button class="button button--primary" type="submit">Save budget</button>
+        </div>
+      </form>
+
+      <div class="card-head sub">
+        <h3>Defence share</h3>
+        <span class="wall wall--soft">Soft limit</span>
+      </div>
+      <p>A part of the total kept for wakers and security work, so they can still act when the rest is spent.{{if .Defence.Enabled}} Kept now: {{dollars .Defence.ReservedMicros}}, left {{dollars .Defence.RemainingMicros}}.{{end}}</p>
+      <p class="hint">Soft: a root agent can pose as another agent at the gateway, so it can spend from this share. The total above still holds.</p>
+      <form class="form" method="post" action="/defence">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <div class="form-row">
+          <label class="check"><input type="checkbox" name="enabled" value="on"{{if .Defence.Enabled}} checked{{end}}> Keep a defence share</label>
+          <label class="field">Share in percent
+            <input type="text" name="share" inputmode="numeric" value="{{.Defence.SharePct}}" required aria-describedby="share-hint">
+            <span class="hint" id="share-hint">A whole number from 0 to 100</span>
+          </label>
+          <button class="button button--primary" type="submit">Save share</button>
+        </div>
+      </form>
+      {{end}}
+    {{end}}
+  </section>
+  {{end}}
+
+  <section class="card" aria-labelledby="power-title">
+    <div class="card-head">
+      <h2 id="power-title">Start, stop and pause</h2>
+      <span class="wall wall--outside">Outside the stack: Docker or Coolify</span>
+    </div>
+    <p>The edge holds no Docker access, so this page cannot start or stop anything. Use Docker or Coolify where the stack runs:</p>
+    <pre class="command">docker compose stop machine
+docker compose start machine
+docker compose pause machine</pre>
+  </section>
+
+  <section class="card legend" aria-labelledby="walls-title">
+    <h2 id="walls-title">What the labels mean</h2>
+    <p><span class="wall">Hard wall</span> The edge enforces it outside the machine. An agent with root inside the machine cannot get around it.</p>
+    <p><span class="wall wall--soft">Soft limit</span> It holds for agents that play fair. A root agent can get around it, though never around a hard wall.</p>
+    <p><span class="wall wall--outside">Outside the stack</span> Only the person who runs Docker or Coolify can do it.</p>
+    <p class="hint">Freezing one agent or one team, and each agent's share of the budget, are soft limits kept inside the machine. They are set in the main interface.</p>
+  </section>
+</main>
+{{template "bottom" .}}{{end}}

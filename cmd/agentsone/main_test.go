@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"testing"
 
@@ -50,17 +49,10 @@ func TestEdgeRefusesToStartWithoutItsInnerAddress(t *testing.T) {
 	}
 }
 
-func TestControlIsNotBuiltYet(t *testing.T) {
-	for _, name := range []string{"control"} {
-		var errOut bytes.Buffer
-		root := newRoot(testEnv(&errOut))
-		root.SetArgs([]string{name})
-		err := root.Execute()
-		if !errors.Is(err, edgeenv.ErrNotBuilt) {
-			t.Fatalf("%s: got %v", name, err)
-		}
-		if !strings.Contains(err.Error(), name) {
-			t.Errorf("%s: error does not name the command: %v", name, err)
-		}
+func TestControlResetIsACommand(t *testing.T) {
+	root := newRoot(testEnv(&bytes.Buffer{}))
+	cmd, _, err := root.Find([]string{"control", "reset"})
+	if err != nil || cmd.Name() != "reset" {
+		t.Fatalf("control reset not registered: %v", err)
 	}
 }

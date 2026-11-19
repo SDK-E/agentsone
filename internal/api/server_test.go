@@ -68,9 +68,11 @@ func TestServer_ServesOnTheSocketAndOnTCP(t *testing.T) {
 	t.Parallel()
 	run, deps := listening(t, `"172.18.0.2"`)
 	sock := deps.Config.SocketPath()
-	unixc := &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+	// No keep-alive: an open connection would hold up graceful shutdown.
+	unixc := &http.Client{Transport: &http.Transport{DisableKeepAlives: true, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", sock)
 	}}}
+	tcpc := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 	resp, err := unixc.Get("http://agentsoned/v1/setup")
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +82,7 @@ func TestServer_ServesOnTheSocketAndOnTCP(t *testing.T) {
 		t.Fatalf("socket status %d", resp.StatusCode)
 	}
 	tcp := run.Addrs()[1].String()
-	resp, err = http.Get("http://" + tcp + "/v1/agents")
+	resp, err = tcpc.Get("http://" + tcp + "/v1/agents")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +90,7 @@ func TestServer_ServesOnTheSocketAndOnTCP(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("tcp without a session: %d", resp.StatusCode)
 	}
-	resp, err = http.Get("http://" + tcp + "/")
+	resp, err = tcpc.Get("http://" + tcp + "/")
 	if err != nil {
 		t.Fatal(err)
 	}

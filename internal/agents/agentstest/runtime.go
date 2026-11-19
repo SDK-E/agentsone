@@ -66,7 +66,7 @@ func (r *Runtime) Retire(_ context.Context, name string) error {
 func (r *Runtime) Wake(_ context.Context, name string, reason core.WakeReason, _ json.RawMessage) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.frozen[name] {
+	if r.frozen["agent:"+name] || r.frozen["all"] {
 		return fmt.Errorf("wake %s: %w", name, core.ErrFrozen)
 	}
 	r.wakes = append(r.wakes, reason)
@@ -81,27 +81,28 @@ func (r *Runtime) Sleep(_ context.Context, name string, _ bool) error {
 	return nil
 }
 
-// Freeze marks name frozen.
-func (r *Runtime) Freeze(_ context.Context, name string) error {
+// Freeze marks scope frozen. Only agent scopes refuse wakes here; the app
+// keeps team and all freezes in the agents' state.
+func (r *Runtime) Freeze(_ context.Context, scope core.FreezeScope) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.frozen[name] = true
+	r.frozen[scope.String()] = true
 	return nil
 }
 
-// Release clears name's freeze.
-func (r *Runtime) Release(_ context.Context, name string) error {
+// Release clears scope's freeze.
+func (r *Runtime) Release(_ context.Context, scope core.FreezeScope) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	delete(r.frozen, name)
+	delete(r.frozen, scope.String())
 	return nil
 }
 
-// Frozen reports whether name is frozen.
-func (r *Runtime) Frozen(name string) bool {
+// Frozen reports whether scope is frozen.
+func (r *Runtime) Frozen(scope string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.frozen[name]
+	return r.frozen[scope]
 }
 
 func (r *Runtime) list(s []string) []string {

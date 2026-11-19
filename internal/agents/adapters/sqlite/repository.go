@@ -481,6 +481,45 @@ func (r *Repository) AddUsage(ctx context.Context, agent string, micros int64) e
 	return nil
 }
 
+// Freezes.
+
+// Freezes returns the active freeze scopes, sorted.
+func (r *Repository) Freezes(ctx context.Context) ([]string, error) {
+	rows, err := r.db.SQL().QueryContext(ctx, `SELECT scope FROM freezes ORDER BY scope`)
+	if err != nil {
+		return nil, fmt.Errorf("list freezes: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := []string{}
+	for rows.Next() {
+		var scope string
+		if err := rows.Scan(&scope); err != nil {
+			return nil, fmt.Errorf("list freezes: %w", err)
+		}
+		out = append(out, scope)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list freezes: %w", err)
+	}
+	return out, nil
+}
+
+// AddFreeze stores scope; it is a no-op for an active scope.
+func (r *Repository) AddFreeze(ctx context.Context, scope string) error {
+	if _, err := r.db.SQL().ExecContext(ctx, `INSERT INTO freezes (scope) VALUES (?) ON CONFLICT (scope) DO NOTHING`, scope); err != nil {
+		return fmt.Errorf("add freeze %s: %w", scope, err)
+	}
+	return nil
+}
+
+// RemoveFreeze removes scope; it is a no-op for an inactive scope.
+func (r *Repository) RemoveFreeze(ctx context.Context, scope string) error {
+	if _, err := r.db.SQL().ExecContext(ctx, `DELETE FROM freezes WHERE scope = ?`, scope); err != nil {
+		return fmt.Errorf("remove freeze %s: %w", scope, err)
+	}
+	return nil
+}
+
 // Chat.
 
 // AppendChat stores m.

@@ -69,6 +69,17 @@ type ChatRepository interface {
 	ListChat(ctx context.Context, agent, beforeID string, limit int) ([]ChatMessage, error)
 }
 
+// FreezeRepository stores the active freeze scopes in their text form
+// ("all", "team:<head>", "agent:<name>"), so they survive a restart.
+type FreezeRepository interface {
+	// Freezes returns the active scopes, sorted.
+	Freezes(ctx context.Context) ([]string, error)
+	// AddFreeze stores scope; adding an active scope again changes nothing.
+	AddFreeze(ctx context.Context, scope string) error
+	// RemoveFreeze removes scope; removing an inactive scope changes nothing.
+	RemoveFreeze(ctx context.Context, scope string) error
+}
+
 // Repository is every store of the society context. Every implementation
 // passes agentstest.RunRepositoryContract.
 type Repository interface {
@@ -77,4 +88,5 @@ type Repository interface {
 	GoalRepository
 	BudgetRepository
 	ChatRepository
+	FreezeRepository
 }

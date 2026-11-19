@@ -27,9 +27,10 @@ type Runtime interface {
 	Wake(ctx context.Context, name string, reason core.WakeReason, payload json.RawMessage) error
 	// Sleep ends the turn, optionally compacting the session first.
 	Sleep(ctx context.Context, name string, compact bool) error
-	// Freeze cancels the turn and puts the runner to sleep until Release.
-	Freeze(ctx context.Context, name string) error
-	Release(ctx context.Context, name string) error
+	// Freeze cancels the turns in scope and puts their runners to sleep
+	// until Release.
+	Freeze(ctx context.Context, scope core.FreezeScope) error
+	Release(ctx context.Context, scope core.FreezeScope) error
 }
 
 // Society runs the society use cases. Changes are serialised, so every rule

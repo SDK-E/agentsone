@@ -70,6 +70,9 @@ func TestRepository_ReportsAClosedDatabase(t *testing.T) {
 		"AddUsage":      func() error { return repo.AddUsage(ctx, "dev", 1) },
 		"AppendChat":    func() error { return repo.AppendChat(ctx, domain.ChatMessage{ID: "cht_1"}) },
 		"ListChat":      func() error { _, err := repo.ListChat(ctx, "dev", "", 1); return err },
+		"Freezes":       func() error { _, err := repo.Freezes(ctx); return err },
+		"AddFreeze":     func() error { return repo.AddFreeze(ctx, "all") },
+		"RemoveFreeze":  func() error { return repo.RemoveFreeze(ctx, "all") },
 	}
 	for name, call := range calls {
 		if err := call(); err == nil {

@@ -26,7 +26,31 @@ type Repository struct {
 	alloc   map[string]int64
 	usage   map[string]int64
 	chat    []domain.ChatMessage
+	freezes map[string]struct{}
 	fail    error
+}
+
+// Freezes returns the active freeze scopes, sorted.
+func (r *Repository) Freezes(context.Context) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Sorted(maps.Keys(r.freezes)), nil
+}
+
+// AddFreeze stores scope; it is a no-op for an active scope.
+func (r *Repository) AddFreeze(_ context.Context, scope string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.freezes[scope] = struct{}{}
+	return nil
+}
+
+// RemoveFreeze removes scope; it is a no-op for an inactive scope.
+func (r *Repository) RemoveFreeze(_ context.Context, scope string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.freezes, scope)
+	return nil
 }
 
 // FailNext makes the next agent write (CreateAgent or SaveAgents) return
@@ -50,7 +74,7 @@ var _ domain.Repository = (*Repository)(nil)
 func New() *Repository {
 	return &Repository{
 		agents: map[string]domain.Agent{}, goals: map[string]domain.Goal{},
-		alloc: map[string]int64{}, usage: map[string]int64{},
+		alloc: map[string]int64{}, usage: map[string]int64{}, freezes: map[string]struct{}{},
 	}
 }
 

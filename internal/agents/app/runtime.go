@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
@@ -142,83 +141,6 @@ func (s *Society) Sleep(ctx context.Context, agent string, compact bool) (domain
 		return domain.Agent{}, fmt.Errorf("sleep %s: %w", agent, err)
 	}
 	return a, nil
-}
-
-// Freeze freezes a scope: "agent:<name>", "team:<head>" or "machine". A
-// frozen agent is not woken and its runner sleeps until Release. This is
-// the soft half of the host's freeze lever; the hard half is on the host.
-func (s *Society) Freeze(ctx context.Context, scope string) error {
-	return s.setFrozen(ctx, scope, true)
-}
-
-// Release lifts a freeze from a scope.
-func (s *Society) Release(ctx context.Context, scope string) error {
-	return s.setFrozen(ctx, scope, false)
-}
-
-func (s *Society) setFrozen(ctx context.Context, scope string, frozen bool) error {
-	c, _ := core.CallerFrom(ctx)
-	if c.Kind != core.CallerHost && c.Kind != core.CallerSystem {
-		return fmt.Errorf("freeze is a host lever: %w", core.ErrForbidden)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	chart, err := s.chart(ctx)
-	if err != nil {
-		return err
-	}
-	targets, err := scopeAgents(chart, scope)
-	if err != nil {
-		return err
-	}
-	var changed []domain.Agent
-	for _, a := range targets {
-		if frozen {
-			err = s.rt.Freeze(ctx, a.Name)
-			a.State = domain.StateFrozen
-		} else {
-			err = s.rt.Release(ctx, a.Name)
-			a.State = domain.StateSleeping
-		}
-		if err != nil {
-			return fmt.Errorf("freeze %s: %w", a.Name, err)
-		}
-		changed = append(changed, a)
-		s.hub.Publish(a.Name, StreamOutput, Frame{State: &StateFrame{Agent: a.Name, State: a.State, Time: s.clock.Now()}})
-	}
-	if err := s.repo.SaveAgents(ctx, changed...); err != nil {
-		return fmt.Errorf("save freeze: %w", err)
-	}
-	action := "agent.freeze"
-	if !frozen {
-		action = "agent.release"
-	}
-	raw, err := json.Marshal(map[string]any{"scope": scope, "agents": len(changed)})
-	if err != nil {
-		return fmt.Errorf("encode %s: %w", action, err)
-	}
-	return s.ports.Audit.Append(ctx, core.AuditEntry{Actor: string(c.Kind) + ":" + c.Name, Action: action, Target: scope, Detail: raw})
-}
-
-// scopeAgents returns the active agents a freeze scope names.
-func scopeAgents(chart domain.Chart, scope string) ([]domain.Agent, error) {
-	kind, name, _ := strings.Cut(scope, ":")
-	var out []domain.Agent
-	for _, a := range chart.Agents() {
-		if !a.Active() {
-			continue
-		}
-		switch {
-		case kind == "machine" && name == "",
-			kind == "agent" && a.Name == name,
-			kind == "team" && chart.Team(a.Name) == name:
-			out = append(out, a)
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("freeze scope %q names no agent: %w", scope, core.ErrNotFound)
-	}
-	return out, nil
 }
 
 // OneLine returns the agent's live list entry.

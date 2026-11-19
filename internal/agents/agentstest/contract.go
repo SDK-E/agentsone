@@ -22,6 +22,76 @@ func RunRepositoryContract(t *testing.T, newRepo func(t *testing.T) domain.Repos
 	t.Run("goals", func(t *testing.T) { t.Parallel(); runGoalContract(t, newRepo) })
 	t.Run("budget", func(t *testing.T) { t.Parallel(); runBudgetContract(t, newRepo) })
 	t.Run("chat", func(t *testing.T) { t.Parallel(); runChatContract(t, newRepo) })
+	t.Run("freezes", func(t *testing.T) { t.Parallel(); runFreezeContract(t, newRepo) })
+}
+
+func runFreezeContract(t *testing.T, newRepo func(t *testing.T) domain.Repository) {
+	freezes := func(t *testing.T, repo domain.Repository) []string {
+		t.Helper()
+		got, err := repo.Freezes(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	t.Run("has no freezes at first", func(t *testing.T) {
+		t.Parallel()
+		if got := freezes(t, newRepo(t)); len(got) != 0 {
+			t.Fatalf("Freezes() = %v, want none", got)
+		}
+	})
+	t.Run("lists added scopes sorted", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		for _, s := range []string{"team:ops", "agent:dev", "all"} {
+			if err := repo.AddFreeze(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if diff := cmp.Diff([]string{"agent:dev", "all", "team:ops"}, freezes(t, repo)); diff != "" {
+			t.Fatalf("freezes (-want +got):\n%s", diff)
+		}
+	})
+	t.Run("adding an active scope again changes nothing", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		for range 2 {
+			if err := repo.AddFreeze(t.Context(), "agent:dev"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if diff := cmp.Diff([]string{"agent:dev"}, freezes(t, repo)); diff != "" {
+			t.Fatalf("freezes (-want +got):\n%s", diff)
+		}
+	})
+	t.Run("removes a scope", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		for _, s := range []string{"agent:dev", "all"} {
+			if err := repo.AddFreeze(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := repo.RemoveFreeze(t.Context(), "all"); err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff([]string{"agent:dev"}, freezes(t, repo)); diff != "" {
+			t.Fatalf("freezes (-want +got):\n%s", diff)
+		}
+	})
+	t.Run("removing an inactive scope changes nothing", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		if err := repo.AddFreeze(t.Context(), "agent:dev"); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.RemoveFreeze(t.Context(), "team:ops"); err != nil {
+			t.Fatalf("RemoveFreeze() of an inactive scope error = %v, want nil", err)
+		}
+		if diff := cmp.Diff([]string{"agent:dev"}, freezes(t, repo)); diff != "" {
+			t.Fatalf("freezes (-want +got):\n%s", diff)
+		}
+	})
 }
 
 func fullAgent() domain.Agent {

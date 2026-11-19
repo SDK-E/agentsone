@@ -78,3 +78,7 @@ CREATE TABLE chat_messages (
 ) STRICT;
 
 CREATE INDEX chat_messages_agent ON chat_messages (agent, id);
+
+CREATE TABLE freezes (
+    scope TEXT PRIMARY KEY
+) STRICT;

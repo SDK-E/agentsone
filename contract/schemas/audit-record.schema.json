@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/audit-record.schema.json",
+  "title": "AuditRecord",
+  "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
+  "type": "object",
+  "required": [
+    "seq",
+    "time",
+    "actor",
+    "action",
+    "target",
+    "outcome",
+    "details",
+    "origin",
+    "prevHash",
+    "hash"
+  ],
+  "properties": {
+    "seq": {
+      "description": "Position in the log, starting at 1.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "time": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "actor": { "$ref": "common.schema.json#/$defs/Actor" },
+    "action": {
+      "description": "What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+    },
+    "target": { "$ref": "#/$defs/Target" },
+    "outcome": {
+      "description": "success: it happened. failure: it was tried and failed. denied: a rule refused it.",
+      "type": "string",
+      "enum": ["success", "failure", "denied"]
+    },
+    "details": {
+      "description": "Free-form detail about the action. Never contains secrets.",
+      "type": "object",
+      "maxProperties": 64
+    },
+    "origin": {
+      "description": "inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).",
+      "type": "string",
+      "enum": ["inside", "host"]
+    },
+    "prevHash": { "$ref": "common.schema.json#/$defs/Sha256Hex" },
+    "hash": { "$ref": "common.schema.json#/$defs/Sha256Hex" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Target": {
+      "description": "What the action was done to. id is the agent name, record id, plugin name, path, host name or similar.",
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "human",
+            "memory",
+            "task",
+            "message",
+            "event",
+            "plugin",
+            "runner",
+            "emitter",
+            "schedule",
+            "budget",
+            "network",
+            "file",
+            "service",
+            "machine",
+            "theme",
+            "session"
+          ]
+        },
+        "id": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

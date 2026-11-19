@@ -1,0 +1,12 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F61",
+  "source": "/emitters/auth",
+  "type": "agentsone.auth.logout",
+  "time": "2026-11-19T20:02:00+01:00",
+  "datacontenttype": "application/json",
+  "data": { "user": "alice" },
+  "sequence": "00000000000000000007",
+  "actor": "system:emitter-auth",
+  "chartscope": "machine"
+}

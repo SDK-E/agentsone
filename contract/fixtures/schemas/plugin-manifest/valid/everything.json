@@ -1,0 +1,29 @@
+{
+  "name": "garden-kit",
+  "version": "2.1.0-rc.1",
+  "description": "Garden sensors, a gardener agent, a panel and a theme.",
+  "author": { "name": "Example Gardens", "email": "dev@example.com" },
+  "license": "Apache-2.0 OR MIT",
+  "source": { "kind": "claude-code", "ref": "example-marketplace/garden-kit", "sha256": "6bfa50e3d2e00c052b46abe51fff89346ac803e45771f76dcf6df1ab74cca5e1" },
+  "compat": { "agentsone": "^0.4.0", "runnerProtocol": ["1.0"], "arch": ["arm64", "amd64"] },
+  "contents": {
+    "mcpServers": [
+      { "name": "garden-db", "transport": "stdio", "command": "${PLUGIN_ROOT}/bin/garden-mcp", "args": ["--db", "${PLUGIN_ROOT}/data/garden.db"], "env": { "GARDEN_LOG": "info" } },
+      { "name": "weather", "transport": "streamable-http", "url": "https://weather.example.com/mcp", "headers": { "X-Client": "agentsone" } }
+    ],
+    "skills": [
+      { "name": "prune-roses", "path": "${PLUGIN_ROOT}/skills/prune-roses", "description": "Pruning schedule and steps for roses." }
+    ],
+    "agentTemplates": [{ "path": "./agents/gardener.json" }],
+    "runners": [
+      { "name": "garden-runner", "description": "A tiny rule-based runner.", "command": "${PLUGIN_ROOT}/bin/garden-runner", "args": [], "env": {}, "protocolVersions": ["1.0"] }
+    ],
+    "panels": [
+      { "name": "garden", "title": "Garden", "icon": "./panel/icon.svg", "entry": "./panel/index.html", "scopes": ["events:read", "memory:read", "agents:read"] }
+    ],
+    "themes": [{ "path": "./themes/meadow.json" }],
+    "emitters": [
+      { "name": "soil", "command": "${PLUGIN_ROOT}/bin/soil-emitter", "args": ["--interval", "60"], "env": {}, "eventTypes": ["agentsone.soil.moisture.low", "agentsone.soil.moisture.normal"], "catalog": "./events/catalog.json" }
+    ]
+  }
+}

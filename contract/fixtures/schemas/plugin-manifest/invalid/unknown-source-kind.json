@@ -1,0 +1,10 @@
+{
+  "name": "npm-thing",
+  "version": "1.0.0",
+  "description": "Unknown source adapter.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "npm", "ref": "@example/thing" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [], "agentTemplates": [{ "path": "./agents/a.json" }], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

@@ -1,0 +1,50 @@
+{"jsonrpc":"2.0","id":1,"method":"hello","params":{"protocolVersions":["1.0"],"runner":{"name":"echo","version":"1.0.0"},"capabilities":{"streaming":true,"cancel":true,"compaction":true,"resume":true}}}
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"1.0","agent":{"name":"founder","kind":"always-on","isRoot":true,"uid":0,"team":"founder","manager":null,"oneLine":"Goal: keep this machine useful to its humans. Now: starting up.","charter":"I found and grow the society on this machine.","goals":["Keep the machine healthy","Hire agents for the work humans ask for"]},"mcp":{"transport":"streamable-http","url":"http://127.0.0.1:7700/mcp","token":"test-mcp-token-founder-0001","tokenExpiresAt":"2026-11-20T19:00:00Z"},"model":{"baseUrl":"http://192.168.127.254:7710/v1","name":"autoagents/one","token":"test-gateway-token-founder-0001","weights":["quick","normal","deep"],"defaultWeight":"normal"},"session":{"summary":null,"compactedAt":null,"pausedTurnId":null},"config":{"heartbeatIntervalMs":15000,"heartbeatTimeoutMs":45000,"maxLineBytes":1048576,"runner":{}}}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}
+{"jsonrpc":"2.0","method":"heartbeat","params":{"uptimeMs":15002}}
+{"jsonrpc":"2.0","id":1,"method":"wake","params":{"reason":"chat","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","payload":{"id":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","from":"human:alice","text":"Hello founder","sentAt":"2026-11-19T19:00:01Z"}}}
+{"jsonrpc":"2.0","id":1,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"working","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G"}}
+{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","line":"Goal: keep this machine useful to its humans. Now: answering alice in chat."}}
+{"jsonrpc":"2.0","method":"output","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","chunk":0,"text":"Hello ","final":false}}
+{"jsonrpc":"2.0","id":2,"method":"deliver","params":{"kind":"chat","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","message":{"id":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F42","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","from":"human:alice","text":"Are you there?","sentAt":"2026-11-19T19:00:02Z"}}}
+{"jsonrpc":"2.0","id":2,"result":{}}
+{"jsonrpc":"2.0","method":"usage","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","model":"echo","weight":"quick","tokensIn":12,"tokensOut":4,"costMicroUsd":0}}
+{"jsonrpc":"2.0","method":"output","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","chunk":1,"text":"founder\n\nAre you there?","final":true}}
+{"jsonrpc":"2.0","id":2,"method":"bus.send","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","to":"ghost","subject":"alice said hello","body":"alice opened a chat with me."}}
+{"jsonrpc":"2.0","id":2,"error":{"code":1002,"message":"Unknown recipient","data":{"to":"ghost"}}}
+{"jsonrpc":"2.0","id":3,"method":"bus.send","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","to":"watcher","subject":"alice said hello","body":"alice opened a chat with me.","correlationId":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41"}}
+{"jsonrpc":"2.0","id":3,"result":{"messageId":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F43"}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G"}}
+{"jsonrpc":"2.0","id":3,"method":"wake","params":{"reason":"task","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","payload":{"id":"tsk_01JD8X3Q5Y6Z7A8B9C0D1E2F50","title":"Write the weekly status note","body":"Summarise what the society did this week.","from":"human:alice","createdAt":"2026-11-19T19:01:00Z"}}}
+{"jsonrpc":"2.0","id":3,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"working","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H"}}
+{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","line":"Goal: keep this machine useful to its humans. Now: writing the weekly status note for alice."}}
+{"jsonrpc":"2.0","method":"log","params":{"level":"info","message":"Calling the model gateway","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","fields":{"weight":"normal"}}}
+{"jsonrpc":"2.0","method":"error","params":{"code":1010,"message":"Budget exhausted","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","fatal":false}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle","pausedTurnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","detail":"Waiting for budget"}}
+{"jsonrpc":"2.0","id":4,"method":"wake","params":{"reason":"event","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","payload":{"specversion":"1.0","id":"evt_01JD8X3Q5Y6Z7A8B9C0D1E2F60","source":"/emitters/agents","type":"agentsone.agents.budget.restored","subject":"founder","time":"2026-11-19T19:05:00Z","datacontenttype":"application/json","data":{"agent":"founder","pausedTurnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H"},"sequence":"00000000000000000042","actor":"host:agentsone","chartscope":"agent:founder"}}}
+{"jsonrpc":"2.0","id":4,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"working","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H"}}
+{"jsonrpc":"2.0","method":"usage","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","model":"echo","weight":"normal","tokensIn":40,"tokensOut":18,"cacheReadTokens":0,"costMicroUsd":0}}
+{"jsonrpc":"2.0","id":4,"method":"task.done","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","taskId":"tsk_01JD8X3Q5Y6Z7A8B9C0D1E2F50","outcome":"done","summary":"Weekly status note written to common memory","details":"Saved as memory mem_01JD8X3Q5Y6Z7A8B9C0D1E2F80."}}
+{"jsonrpc":"2.0","id":4,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H"}}
+{"jsonrpc":"2.0","id":5,"method":"wake","params":{"reason":"timer","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3J","payload":{"scheduleId":"sch_01JD8X3Q5Y6Z7A8B9C0D1E2F70","name":"nightly-review","due":"2026-11-19T19:10:00Z","firedAt":"2026-11-19T19:10:00.012Z","note":"Review the day"}}}
+{"jsonrpc":"2.0","id":5,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"working","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3J"}}
+{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3J","line":"Goal: keep this machine useful to its humans. Now: reviewing the day."}}
+{"jsonrpc":"2.0","id":6,"method":"cancel","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3J","reason":"human"}}
+{"jsonrpc":"2.0","id":6,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3J","detail":"Cancelled"}}
+{"jsonrpc":"2.0","id":7,"method":"wake","params":{"reason":"message","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K","payload":{"id":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F44","from":"agent:watcher","to":"founder","subject":"Re: alice said hello","body":"Noted.","sentAt":"2026-11-19T19:11:00Z","replyTo":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F43","correlationId":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41"}}}
+{"jsonrpc":"2.0","id":7,"result":{}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"working","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K"}}
+{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K","line":"Goal: keep this machine useful to its humans. Now: reading a reply from watcher."}}
+{"jsonrpc":"2.0","method":"output","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K","chunk":0,"text":"Noted.","final":true}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K"}}
+{"jsonrpc":"2.0","id":8,"method":"sleep","params":{"reason":"idle","maxSummaryChars":4096}}
+{"jsonrpc":"2.0","id":8,"result":{"summary":"Chatted with alice. Wrote the weekly status note (task done). watcher acknowledged."}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"sleeping"}}
+{"jsonrpc":"2.0","id":9,"method":"shutdown","params":{"reason":"stop","graceMs":5000}}
+{"jsonrpc":"2.0","id":9,"result":{}}

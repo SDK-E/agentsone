@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/event.schema.json",
+  "title": "Event",
+  "description": "An event on the Agents One bus, in CloudEvents 1.0 structured JSON form. Agents One adds five extension attributes. CloudEvents requires extension names of lowercase letters and digits, at most 20 characters, and string, integer or boolean values, so they are flat strings here: sequence, actor, chartscope, causationid, correlationid. Built-in types and their data shapes are listed in events/catalog.json.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "datacontenttype",
+    "data",
+    "sequence",
+    "actor",
+    "chartscope"
+  ],
+  "properties": {
+    "specversion": {
+      "description": "CloudEvents version.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Event id. Unique per source; Agents One makes it globally unique.",
+      "$ref": "common.schema.json#/$defs/EventId"
+    },
+    "source": {
+      "description": "Where the event comes from, as a URI reference: /emitters/<emitter>, /agents/<name>, /daemon or /host.",
+      "type": "string",
+      "format": "uri-reference",
+      "maxLength": 255,
+      "pattern": "^/(daemon|host|emitters/[a-z][a-z0-9-]{0,63}|agents/[a-z][a-z0-9-]{0,30})(/[A-Za-z0-9._~-]+)*$"
+    },
+    "type": {
+      "description": "Event type, agentsone.<emitter>.<event>.",
+      "$ref": "common.schema.json#/$defs/EventType"
+    },
+    "subject": {
+      "description": "What the event is about inside the source, for example a unit name, a path or an agent name.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "time": {
+      "description": "When the occurrence happened.",
+      "$ref": "common.schema.json#/$defs/Timestamp"
+    },
+    "datacontenttype": {
+      "description": "Media type of data. Always JSON.",
+      "const": "application/json"
+    },
+    "dataschema": {
+      "description": "URI of the JSON Schema for data. Built-in events point at their entry in events/catalog.json.",
+      "type": "string",
+      "format": "uri",
+      "maxLength": 512
+    },
+    "data": {
+      "description": "Event payload. Its shape depends on type; see events/catalog.json for built-in types.",
+      "type": "object"
+    },
+    "sequence": {
+      "description": "Daemon bus order: a 20-digit zero-padded decimal number, so string order equals number order (this follows the CloudEvents sequence extension, which is a string). Assigned by the daemon when it writes the event to the bus; strictly increasing per machine.",
+      "type": "string",
+      "pattern": "^[0-9]{20}$"
+    },
+    "actor": {
+      "description": "Who caused the event, <kind>:<name>.",
+      "$ref": "common.schema.json#/$defs/ActorRef"
+    },
+    "chartscope": {
+      "description": "Which part of the org chart the event concerns. Subscriptions and memory rules use it to decide who may see the event.",
+      "$ref": "common.schema.json#/$defs/ChartScope"
+    },
+    "causationid": {
+      "description": "Id of the event, message or task that directly caused this event.",
+      "$ref": "common.schema.json#/$defs/AnyId"
+    },
+    "correlationid": {
+      "description": "Id shared by every event in one chain of work, usually the id of the first event, message or task in the chain.",
+      "$ref": "common.schema.json#/$defs/AnyId"
+    }
+  },
+  "additionalProperties": false
+}

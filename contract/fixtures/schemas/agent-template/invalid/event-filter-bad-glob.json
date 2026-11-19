@@ -1,0 +1,14 @@
+{
+  "name": "helper",
+  "kind": "waker",
+  "isRoot": false,
+  "runner": { "name": "echo", "config": {} },
+  "oneLine": "Goal: help. Now: waiting.",
+  "charter": "",
+  "goals": [],
+  "skills": [],
+  "mcpServers": [],
+  "limits": { "cpuPercent": 50, "memoryMiB": 256, "tasks": 64 },
+  "wake": { "subscriptions": [{ "filter": { "types": ["agentsone.*.failed"] }, "rateLimit": { "maxWakes": 1, "perSeconds": 60 } }] },
+  "schedules": []
+}

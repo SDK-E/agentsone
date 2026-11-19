@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"usage","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3M","model":"provider-a/large-2026-09","weight":"deep","tokensIn":18250,"tokensOut":912,"cacheReadTokens":16000,"costMicroUsd":41230}}

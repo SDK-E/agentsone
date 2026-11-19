@@ -1,0 +1,10 @@
+{
+  "name": "partial",
+  "version": "1.0.0",
+  "description": "Leaves out contents lists.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "agentsone", "ref": "./partial" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "skills": [{ "name": "x", "path": "./skills/x", "description": "x" }] }
+}

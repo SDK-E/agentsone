@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/common.schema.json",
+  "title": "Common",
+  "description": "Shared building blocks used by every other Agents One schema. This file has no root type; reference its $defs. All patterns are RE2-compatible (no lookaround) so Go validators accept them.",
+  "$defs": {
+    "AgentName": {
+      "description": "Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,30}$"
+    },
+    "Ulid": {
+      "description": "A ULID: 26 characters of Crockford base32, upper case. The first 10 encode milliseconds since the Unix epoch, so ids sort by creation time.",
+      "type": "string",
+      "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "AnyId": {
+      "description": "Any prefixed id: a lowercase prefix of 2 to 4 letters, an underscore, and a ULID.",
+      "type": "string",
+      "pattern": "^[a-z]{2,4}_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "EventId": {
+      "description": "Event id, prefix evt_.",
+      "type": "string",
+      "pattern": "^evt_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "MessageId": {
+      "description": "Bus or chat message id, prefix msg_.",
+      "type": "string",
+      "pattern": "^msg_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "TaskId": {
+      "description": "Task id, prefix tsk_.",
+      "type": "string",
+      "pattern": "^tsk_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "TurnId": {
+      "description": "Runner turn id, prefix trn_. The daemon assigns it when it wakes a runner.",
+      "type": "string",
+      "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "MemoryId": {
+      "description": "Memory record id, prefix mem_.",
+      "type": "string",
+      "pattern": "^mem_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "ChatId": {
+      "description": "Chat id, prefix cht_. One chat is one conversation between humans and one agent.",
+      "type": "string",
+      "pattern": "^cht_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "ScheduleId": {
+      "description": "Schedule id, prefix sch_.",
+      "type": "string",
+      "pattern": "^sch_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "Timestamp": {
+      "description": "RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+    },
+    "OneLine": {
+      "description": "One line of plain text: 1 to 255 characters, no line breaks.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "Markdown": {
+      "description": "CommonMark text, up to 64 KiB of characters.",
+      "type": "string",
+      "maxLength": 65536
+    },
+    "Semver": {
+      "description": "Semantic Versioning 2.0.0 version, without a leading v.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "SemverRange": {
+      "description": "A version range in node-semver syntax, for example \">=1.2.0 <2.0.0\" or \"^1.4.0\".",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[0-9A-Za-z.<>=^~*|+ -]+$"
+    },
+    "Sha256Hex": {
+      "description": "SHA-256 digest as 64 lowercase hexadecimal characters.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ActorKind": {
+      "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.",
+      "type": "string",
+      "enum": ["agent", "human", "system", "host"]
+    },
+    "Actor": {
+      "description": "Who did something, as an object (used in records).",
+      "type": "object",
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/ActorKind" },
+        "name": {
+          "description": "Agent name, human user name, or component name such as agentsoned or emitter-auth.",
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_-]{0,31}$"
+        },
+        "uid": {
+          "description": "Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "additionalProperties": false
+    },
+    "ActorRef": {
+      "description": "Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.",
+      "type": "string",
+      "pattern": "^(agent|human|system|host):[a-z_][a-z0-9_-]{0,31}$"
+    },
+    "ChartScope": {
+      "description": "Which part of the org chart something concerns, as one string. machine: the whole machine. team:<root>: the chart branch whose root agent is <root>. agent:<name>: one agent.",
+      "type": "string",
+      "pattern": "^(machine|team:[a-z][a-z0-9-]{0,30}|agent:[a-z][a-z0-9-]{0,30})$"
+    },
+    "EventType": {
+      "description": "Event type: agentsone.<emitter>.<event>, dot-separated lowercase segments, for example agentsone.auth.login.failed.",
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^agentsone\\.[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+    },
+    "EventTypeFilter": {
+      "description": "An event type, or a prefix ending in .* that matches every type below it, for example agentsone.auth.*.",
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^agentsone\\.(\\*|[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*(\\.\\*)?)$"
+    },
+    "PluginPath": {
+      "description": "A file or directory inside a plugin: starts with ./ or ${PLUGIN_ROOT}/, uses forward slashes, and has no segment that starts with a dot, so it cannot escape the plugin root. Claude Code's ${CLAUDE_PLUGIN_ROOT} maps to ${PLUGIN_ROOT}.",
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^(\\./|\\$\\{PLUGIN_ROOT\\}/)([A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*/)*[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*/?$"
+    },
+    "SkillName": {
+      "description": "Agent Skills name: 1 to 64 lowercase letters, digits and single hyphens, not starting or ending with a hyphen. Must equal the skill's directory name.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "PluginName": {
+      "description": "Plugin name in kebab-case: lowercase letter first, then lowercase letters, digits or hyphens, up to 64 characters.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "EnvMap": {
+      "description": "Environment variables for a process. Values may contain ${PLUGIN_ROOT}.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z_][A-Z0-9_]{0,127}$" },
+      "additionalProperties": { "type": "string", "maxLength": 4096 }
+    }
+  }
+}

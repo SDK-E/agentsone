@@ -1,0 +1,12 @@
+{
+  "seq": 1,
+  "time": "2026-11-19T19:00:00Z",
+  "actor": { "kind": "system", "name": "agentsoned", "uid": 0 },
+  "action": "machine.boot",
+  "target": { "kind": "machine", "id": "agentsone-vm" },
+  "outcome": "success",
+  "details": { "version": "0.1.0" },
+  "origin": "inside",
+  "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "hash": "5129ffbd6f7296d70c5409f3e2117fe27d3d53cb19439aa425fc6f2fa59733ec"
+}

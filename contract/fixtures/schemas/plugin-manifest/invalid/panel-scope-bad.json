@@ -1,0 +1,10 @@
+{
+  "name": "greedy-panel",
+  "version": "1.0.0",
+  "description": "Panel asks for a scope in the wrong form.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "agentsone", "ref": "./greedy-panel" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [], "agentTemplates": [], "runners": [], "panels": [{ "name": "greedy", "title": "Greedy", "icon": "./icon.svg", "entry": "./index.html", "scopes": ["*"] }], "themes": [], "emitters": [] }
+}

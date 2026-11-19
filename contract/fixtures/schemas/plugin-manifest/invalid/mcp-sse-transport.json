@@ -1,0 +1,10 @@
+{
+  "name": "old-mcp",
+  "version": "1.0.0",
+  "description": "Uses the deprecated SSE transport.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "mcp-registry", "ref": "io.example/old@1.0.0" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [{ "name": "old", "transport": "sse", "url": "https://old.example.com/sse" }], "skills": [], "agentTemplates": [], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

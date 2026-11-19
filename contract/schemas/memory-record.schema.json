@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/memory-record.schema.json",
+  "title": "MemoryRecord",
+  "description": "One memory. scope private: only the owner reads it. team: every agent in the owner's chart branch (the branch whose root agent is team) reads it. common: every agent reads it. Root agents read all memories. Search is full-text over title, body and tags; there are no embeddings.",
+  "type": "object",
+  "required": [
+    "id",
+    "scope",
+    "owner",
+    "team",
+    "title",
+    "body",
+    "tags",
+    "links",
+    "source",
+    "createdAt",
+    "updatedAt",
+    "revision"
+  ],
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/MemoryId" },
+    "scope": { "type": "string", "enum": ["private", "team", "common"] },
+    "owner": {
+      "description": "Agent that wrote the memory and may change it.",
+      "$ref": "common.schema.json#/$defs/AgentName"
+    },
+    "team": {
+      "description": "Root agent of the owner's chart branch when the memory was written. Decides who reads team memories.",
+      "$ref": "common.schema.json#/$defs/AgentName"
+    },
+    "title": { "$ref": "common.schema.json#/$defs/OneLine" },
+    "body": { "$ref": "common.schema.json#/$defs/Markdown" },
+    "tags": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" }
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/Link" }
+    },
+    "source": { "$ref": "#/$defs/Source" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "revision": {
+      "description": "Starts at 1 and rises by 1 on every change. Writers send the revision they read; a mismatch is a conflict.",
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Link": {
+      "description": "A pointer to something the memory is about. ref is an id for memory, task, event and message; a URL for url; an absolute path for file.",
+      "type": "object",
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["memory", "task", "event", "message", "url", "file"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "title": { "$ref": "common.schema.json#/$defs/OneLine" }
+      },
+      "additionalProperties": false
+    },
+    "Source": {
+      "description": "Where the content came from. ref is the agent or human name, event id, import file or plugin name.",
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["agent", "human", "event", "import", "plugin"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

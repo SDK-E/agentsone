@@ -1,0 +1,12 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F63",
+  "source": "/emitters/weather-station/garden",
+  "type": "agentsone.weather-station.rain.started",
+  "time": "2026-11-19T19:05:00Z",
+  "datacontenttype": "application/json",
+  "data": {},
+  "sequence": "00000000000000000009",
+  "actor": "system:emitter-weather",
+  "chartscope": "agent:gardener"
+}

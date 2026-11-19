@@ -1,0 +1,546 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/events-catalog.schema.json",
+  "version": "1.0.0",
+  "events": [
+    {
+      "type": "agentsone.auth.login.succeeded",
+      "emitter": "auth",
+      "description": "A human or service signed in to the machine.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["user", "method", "remote"],
+        "properties": {
+          "user": { "type": "string", "maxLength": 32 },
+          "method": { "type": "string", "enum": ["password", "oidc", "ssh-key", "console"] },
+          "remote": { "type": "string", "maxLength": 64 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "user": "alice", "method": "password", "remote": "127.0.0.1" }
+    },
+    {
+      "type": "agentsone.auth.login.failed",
+      "emitter": "auth",
+      "description": "A sign-in attempt failed.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["user", "method", "remote", "reason"],
+        "properties": {
+          "user": { "type": "string", "maxLength": 32 },
+          "method": { "type": "string", "enum": ["password", "oidc", "ssh-key", "console"] },
+          "remote": { "type": "string", "maxLength": 64 },
+          "reason": {
+            "type": "string",
+            "enum": ["bad-credentials", "unknown-user", "locked", "expired", "other"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "user": "root",
+        "method": "ssh-key",
+        "remote": "10.0.2.2",
+        "reason": "unknown-user"
+      }
+    },
+    {
+      "type": "agentsone.auth.logout",
+      "emitter": "auth",
+      "description": "A session ended.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["user"],
+        "properties": { "user": { "type": "string", "maxLength": 32 } },
+        "additionalProperties": false
+      },
+      "example": { "user": "alice" }
+    },
+    {
+      "type": "agentsone.services.unit.started",
+      "emitter": "services",
+      "description": "A systemd unit became active.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["unit"],
+        "properties": { "unit": { "type": "string", "maxLength": 256 } },
+        "additionalProperties": false
+      },
+      "example": { "unit": "agent@founder.service" }
+    },
+    {
+      "type": "agentsone.services.unit.stopped",
+      "emitter": "services",
+      "description": "A systemd unit stopped cleanly.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["unit"],
+        "properties": { "unit": { "type": "string", "maxLength": 256 } },
+        "additionalProperties": false
+      },
+      "example": { "unit": "nginx.service" }
+    },
+    {
+      "type": "agentsone.services.unit.failed",
+      "emitter": "services",
+      "description": "A systemd unit entered the failed state.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["unit", "result"],
+        "properties": {
+          "unit": { "type": "string", "maxLength": 256 },
+          "result": { "type": "string", "maxLength": 64 },
+          "exitCode": { "type": "integer" }
+        },
+        "additionalProperties": false
+      },
+      "example": { "unit": "emitter@git.service", "result": "exit-code", "exitCode": 1 }
+    },
+    {
+      "type": "agentsone.disk.usage.high",
+      "emitter": "disk",
+      "description": "A file system crossed its high-usage threshold.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["mount", "usedPercent", "thresholdPercent", "freeBytes"],
+        "properties": {
+          "mount": { "type": "string", "maxLength": 256 },
+          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "freeBytes": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "mount": "/var",
+        "usedPercent": 91,
+        "thresholdPercent": 90,
+        "freeBytes": 1932735283
+      }
+    },
+    {
+      "type": "agentsone.disk.usage.normal",
+      "emitter": "disk",
+      "description": "A file system went back under its high-usage threshold.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["mount", "usedPercent"],
+        "properties": {
+          "mount": { "type": "string", "maxLength": 256 },
+          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "mount": "/var", "usedPercent": 72 }
+    },
+    {
+      "type": "agentsone.load.cpu.high",
+      "emitter": "load",
+      "description": "CPU use stayed above its threshold for the sampling window.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["usedPercent", "thresholdPercent", "windowSeconds", "top"],
+        "properties": {
+          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "windowSeconds": { "type": "integer", "minimum": 1 },
+          "top": {
+            "description": "Units using the most CPU, highest first.",
+            "type": "array",
+            "maxItems": 5,
+            "items": { "type": "string", "maxLength": 256 }
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "usedPercent": 97,
+        "thresholdPercent": 90,
+        "windowSeconds": 60,
+        "top": ["agent@builder.service"]
+      }
+    },
+    {
+      "type": "agentsone.load.memory.high",
+      "emitter": "load",
+      "description": "Memory use stayed above its threshold for the sampling window.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["usedPercent", "thresholdPercent", "availableBytes"],
+        "properties": {
+          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "availableBytes": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "usedPercent": 93, "thresholdPercent": 90, "availableBytes": 301989888 }
+    },
+    {
+      "type": "agentsone.load.normal",
+      "emitter": "load",
+      "description": "CPU and memory use went back under their thresholds.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["cpuPercent", "memoryPercent"],
+        "properties": {
+          "cpuPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "memoryPercent": { "type": "integer", "minimum": 0, "maximum": 100 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "cpuPercent": 35, "memoryPercent": 60 }
+    },
+    {
+      "type": "agentsone.files.created",
+      "emitter": "files",
+      "description": "A file appeared under a watched path.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["path", "watch"],
+        "properties": {
+          "path": { "type": "string", "maxLength": 4096 },
+          "watch": { "type": "string", "maxLength": 4096 },
+          "sizeBytes": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "path": "/srv/inbox/report.csv", "watch": "/srv/inbox", "sizeBytes": 2048 }
+    },
+    {
+      "type": "agentsone.files.modified",
+      "emitter": "files",
+      "description": "A file under a watched path changed.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["path", "watch"],
+        "properties": {
+          "path": { "type": "string", "maxLength": 4096 },
+          "watch": { "type": "string", "maxLength": 4096 },
+          "sizeBytes": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "path": "/etc/agentsone/config.toml",
+        "watch": "/etc/agentsone",
+        "sizeBytes": 812
+      }
+    },
+    {
+      "type": "agentsone.files.deleted",
+      "emitter": "files",
+      "description": "A file under a watched path was removed.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["path", "watch"],
+        "properties": {
+          "path": { "type": "string", "maxLength": 4096 },
+          "watch": { "type": "string", "maxLength": 4096 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "path": "/srv/inbox/report.csv", "watch": "/srv/inbox" }
+    },
+    {
+      "type": "agentsone.git.commit.created",
+      "emitter": "git",
+      "description": "A commit was made in a watched repository.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["repo", "ref", "commit", "author", "summary"],
+        "properties": {
+          "repo": { "type": "string", "maxLength": 4096 },
+          "ref": { "type": "string", "maxLength": 256 },
+          "commit": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+          "author": { "type": "string", "maxLength": 256 },
+          "summary": { "type": "string", "maxLength": 255 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "repo": "/home/agents/builder/site",
+        "ref": "refs/heads/main",
+        "commit": "3f786850e387550fdab836ed7e6dc881de23001b",
+        "author": "builder",
+        "summary": "Add status page"
+      }
+    },
+    {
+      "type": "agentsone.git.ref.updated",
+      "emitter": "git",
+      "description": "A branch or tag in a watched repository moved.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["repo", "ref", "from", "to"],
+        "properties": {
+          "repo": { "type": "string", "maxLength": 4096 },
+          "ref": { "type": "string", "maxLength": 256 },
+          "from": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+          "to": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "repo": "/home/agents/builder/site",
+        "ref": "refs/heads/main",
+        "from": "89e6c98d92887913cadf06b2adb97f26cde4849b",
+        "to": "3f786850e387550fdab836ed7e6dc881de23001b"
+      }
+    },
+    {
+      "type": "agentsone.agents.hired",
+      "emitter": "agents",
+      "description": "An agent hired a new agent below itself.",
+      "chartscope": "team",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "manager", "kind", "isRoot", "template"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "manager": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "kind": { "type": "string", "enum": ["always-on", "chat", "waker"] },
+          "isRoot": { "type": "boolean" },
+          "template": { "type": "string", "maxLength": 128 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "agent": "builder",
+        "manager": "founder",
+        "kind": "always-on",
+        "isRoot": false,
+        "template": "small-seed/builder"
+      }
+    },
+    {
+      "type": "agentsone.agents.edited",
+      "emitter": "agents",
+      "description": "An agent's charter, goals, limits or subscriptions changed.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "fields"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "charter",
+                "goals",
+                "limits",
+                "subscriptions",
+                "schedules",
+                "skills",
+                "mcpServers",
+                "runner",
+                "oneLine"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "builder", "fields": ["goals"] }
+    },
+    {
+      "type": "agentsone.agents.retired",
+      "emitter": "agents",
+      "description": "An agent was retired by an agent above it.",
+      "chartscope": "team",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "by"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "by": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "reason": { "type": "string", "maxLength": 255 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "builder", "by": "founder", "reason": "Work finished" }
+    },
+    {
+      "type": "agentsone.agents.woke",
+      "emitter": "agents",
+      "description": "An agent's runner was woken for a turn.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "reason", "turnId"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "reason": { "type": "string", "enum": ["message", "task", "event", "timer", "chat"] },
+          "turnId": { "type": "string", "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$" }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "agent": "founder",
+        "reason": "chat",
+        "turnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G"
+      }
+    },
+    {
+      "type": "agentsone.agents.slept",
+      "emitter": "agents",
+      "description": "An agent compacted its session and went to sleep.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "summaryChars"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "summaryChars": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "founder", "summaryChars": 1840 }
+    },
+    {
+      "type": "agentsone.agents.errored",
+      "emitter": "agents",
+      "description": "An agent's runner reported an error or stopped answering heartbeats.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "code", "message"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "code": { "type": "integer" },
+          "message": { "type": "string", "maxLength": 255 }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "watcher", "code": -32003, "message": "Heartbeat timeout" }
+    },
+    {
+      "type": "agentsone.agents.budget.exhausted",
+      "emitter": "agents",
+      "description": "An agent's budget share reached zero; model calls fail until it returns.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "pausedTurnId"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "pausedTurnId": {
+            "type": ["string", "null"],
+            "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "builder", "pausedTurnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
+    },
+    {
+      "type": "agentsone.agents.budget.restored",
+      "emitter": "agents",
+      "description": "Budget is available again for an agent; a paused turn may resume.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "pausedTurnId"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "pausedTurnId": {
+            "type": ["string", "null"],
+            "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": { "agent": "builder", "pausedTurnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
+    },
+    {
+      "type": "agentsone.clock.tick",
+      "emitter": "clock",
+      "description": "Wall-clock tick at the start of every minute.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["minute"],
+        "properties": {
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:00Z$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": { "minute": "2026-11-19T19:00:00Z" }
+    },
+    {
+      "type": "agentsone.clock.schedule.fired",
+      "emitter": "clock",
+      "description": "An agent schedule came due.",
+      "chartscope": "agent",
+      "dataSchema": {
+        "type": "object",
+        "required": ["agent", "scheduleId", "name", "due"],
+        "properties": {
+          "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
+          "scheduleId": { "type": "string", "pattern": "^sch_[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
+          "name": { "type": "string", "maxLength": 64 },
+          "due": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "agent": "watcher",
+        "scheduleId": "sch_01JD8X3Q5Y6Z7A8B9C0D1E2F3H",
+        "name": "nightly-review",
+        "due": "2026-11-20T02:00:00Z"
+      }
+    },
+    {
+      "type": "agentsone.webhooks.received",
+      "emitter": "webhooks",
+      "description": "An HTTP request arrived at a registered webhook endpoint.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["hook", "method", "contentType", "bodySha256", "bodyBytes"],
+        "properties": {
+          "hook": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "contentType": { "type": "string", "maxLength": 128 },
+          "bodySha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bodyBytes": { "type": "integer", "minimum": 0 },
+          "body": {
+            "description": "The request body when it is JSON and at most 64 KiB; omitted otherwise.",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "hook": "github-push",
+        "method": "POST",
+        "contentType": "application/json",
+        "bodySha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "bodyBytes": 2,
+        "body": {}
+      }
+    }
+  ]
+}

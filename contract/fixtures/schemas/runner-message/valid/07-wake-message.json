@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":5,"method":"wake","params":{"reason":"message","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3M","payload":{"id":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F44","from":"agent:watcher","to":"founder","subject":"Three failed root logins","body":"From 10.0.2.2 in the last minute.","sentAt":"2026-11-19T19:03:00Z"}}}

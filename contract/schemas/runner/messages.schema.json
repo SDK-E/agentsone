@@ -1,0 +1,868 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/runner/messages.schema.json",
+  "title": "RunnerMessage",
+  "description": "One line on the runner socket: a JSON-RPC 2.0 request, notification or response exchanged between the daemon (agentsoned) and an agent's runner. Requests and notifications are told apart by method. A success response's result is typed per method in the $defs named <Method>Result; match it to its request by id. See runner/PROTOCOL.md and runner/runner.openrpc.json.",
+  "oneOf": [
+    { "$ref": "#/$defs/HelloRequest" },
+    { "$ref": "#/$defs/WakeRequest" },
+    { "$ref": "#/$defs/DeliverRequest" },
+    { "$ref": "#/$defs/CancelRequest" },
+    { "$ref": "#/$defs/SleepRequest" },
+    { "$ref": "#/$defs/ShutdownRequest" },
+    { "$ref": "#/$defs/BusSendRequest" },
+    { "$ref": "#/$defs/TaskDoneRequest" },
+    { "$ref": "#/$defs/StatusNotification" },
+    { "$ref": "#/$defs/OutputNotification" },
+    { "$ref": "#/$defs/UsageNotification" },
+    { "$ref": "#/$defs/ProfileUpdateNotification" },
+    { "$ref": "#/$defs/LogNotification" },
+    { "$ref": "#/$defs/ErrorNotification" },
+    { "$ref": "#/$defs/HeartbeatNotification" },
+    { "$ref": "#/$defs/SuccessResponse" },
+    { "$ref": "#/$defs/ErrorResponse" }
+  ],
+  "$defs": {
+    "JsonRpcVersion": {
+      "description": "JSON-RPC version marker.",
+      "const": "2.0"
+    },
+    "RequestId": {
+      "description": "Request id. Each side numbers its own requests 1, 2, 3 and so on per connection. Strings and fractions are not used.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "ProtocolVersion": {
+      "description": "Runner protocol version, <major>.<minor>. Minor versions only add optional fields or new notifications; a new major version may break.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "Ack": {
+      "description": "Empty result that only confirms the request was accepted.",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+
+    "HelloRequest": {
+      "description": "Runner to daemon, request. First message on a new connection. The result is the welcome.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "hello" },
+        "params": { "$ref": "#/$defs/HelloParams" }
+      },
+      "additionalProperties": false
+    },
+    "HelloParams": {
+      "type": "object",
+      "required": ["protocolVersions", "runner", "capabilities"],
+      "properties": {
+        "protocolVersions": {
+          "description": "Every protocol version the runner speaks, highest first.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ProtocolVersion" }
+        },
+        "runner": { "$ref": "#/$defs/RunnerInfo" },
+        "capabilities": { "$ref": "#/$defs/RunnerCapabilities" }
+      },
+      "additionalProperties": false
+    },
+    "RunnerInfo": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "description": "Runner name as registered by its plugin, for example echo, openai or claude.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$"
+        },
+        "version": { "$ref": "../common.schema.json#/$defs/Semver" }
+      },
+      "additionalProperties": false
+    },
+    "RunnerCapabilities": {
+      "description": "What the runner supports. The daemon never sends a request the runner says it cannot handle.",
+      "type": "object",
+      "required": ["streaming", "cancel", "compaction", "resume"],
+      "properties": {
+        "streaming": {
+          "description": "Sends output in several chunks rather than one final chunk.",
+          "type": "boolean"
+        },
+        "cancel": { "description": "Can stop a turn early on cancel.", "type": "boolean" },
+        "compaction": {
+          "description": "Can compact its session to a summary on sleep.",
+          "type": "boolean"
+        },
+        "resume": { "description": "Can resume a turn paused for budget.", "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "HelloResult": {
+      "description": "The welcome: everything the runner needs to act as its agent.",
+      "type": "object",
+      "required": ["protocolVersion", "agent", "mcp", "model", "session", "config"],
+      "properties": {
+        "protocolVersion": {
+          "description": "The version chosen for this connection: the highest version both sides speak.",
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "agent": { "$ref": "#/$defs/AgentIdentity" },
+        "mcp": { "$ref": "#/$defs/McpEndpoint" },
+        "model": { "$ref": "#/$defs/ModelGateway" },
+        "session": { "$ref": "#/$defs/SessionState" },
+        "config": { "$ref": "#/$defs/RunnerConfig" }
+      },
+      "additionalProperties": false
+    },
+    "AgentIdentity": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "isRoot",
+        "uid",
+        "team",
+        "manager",
+        "oneLine",
+        "charter",
+        "goals"
+      ],
+      "properties": {
+        "name": { "$ref": "../common.schema.json#/$defs/AgentName" },
+        "kind": { "type": "string", "enum": ["always-on", "chat", "waker"] },
+        "isRoot": { "description": "Root agents run as uid 0 with no sandbox.", "type": "boolean" },
+        "uid": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "team": {
+          "description": "Root agent of this agent's chart branch (the agent itself when it is a branch root).",
+          "$ref": "../common.schema.json#/$defs/AgentName"
+        },
+        "manager": {
+          "description": "The agent directly above, or null for the top of the chart.",
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9-]{0,30}$"
+        },
+        "oneLine": {
+          "description": "The last one-line profile the agent published.",
+          "$ref": "../common.schema.json#/$defs/OneLine"
+        },
+        "charter": {
+          "description": "The agent's charter, which it may rewrite. Empty when none.",
+          "$ref": "../common.schema.json#/$defs/Markdown"
+        },
+        "goals": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "../common.schema.json#/$defs/OneLine" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "McpEndpoint": {
+      "description": "How the runner reaches the machine MCP server. All tools go through it.",
+      "oneOf": [{ "$ref": "#/$defs/McpEndpointHttp" }, { "$ref": "#/$defs/McpEndpointStdio" }]
+    },
+    "McpEndpointHttp": {
+      "type": "object",
+      "required": ["transport", "url", "token", "tokenExpiresAt"],
+      "properties": {
+        "transport": { "const": "streamable-http" },
+        "url": {
+          "description": "MCP Streamable HTTP endpoint, for example http://127.0.0.1:7700/mcp.",
+          "type": "string",
+          "format": "uri",
+          "maxLength": 512
+        },
+        "token": { "$ref": "#/$defs/ScopedToken" },
+        "tokenExpiresAt": { "$ref": "../common.schema.json#/$defs/Timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "McpEndpointStdio": {
+      "type": "object",
+      "required": ["transport", "command", "args", "env"],
+      "properties": {
+        "transport": { "const": "stdio" },
+        "command": {
+          "description": "Program to start as the MCP server, usually agentctl.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "args": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "maxLength": 4096 }
+        },
+        "env": {
+          "description": "Extra environment for the MCP process. Carries AGENTSONE_TOKEN when a token is needed.",
+          "$ref": "../common.schema.json#/$defs/EnvMap"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ScopedToken": {
+      "description": "Bearer token scoped to this agent. A secret: runners must never log it, write it to memory or send it on the bus.",
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 4096,
+      "pattern": "^[A-Za-z0-9._~+/=-]+$"
+    },
+    "ModelGateway": {
+      "description": "The model gateway. It speaks an OpenAI-compatible HTTP API, lives in the host tool, and picks the real model. Provider keys never reach the VM.",
+      "type": "object",
+      "required": ["baseUrl", "name", "token", "weights", "defaultWeight"],
+      "properties": {
+        "baseUrl": { "type": "string", "format": "uri", "maxLength": 512 },
+        "name": {
+          "description": "The one model name agents call.",
+          "const": "autoagents/one"
+        },
+        "token": { "$ref": "#/$defs/ScopedToken" },
+        "weights": {
+          "description": "Weight hints the gateway accepts.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Weight" }
+        },
+        "defaultWeight": { "$ref": "#/$defs/Weight" }
+      },
+      "additionalProperties": false
+    },
+    "Weight": {
+      "description": "How hard a model call is. quick: cheap and fast. normal: the default. deep: the strongest model allowed.",
+      "type": "string",
+      "enum": ["quick", "normal", "deep"]
+    },
+    "SessionState": {
+      "type": "object",
+      "required": ["summary", "compactedAt", "pausedTurnId"],
+      "properties": {
+        "summary": {
+          "description": "Compacted summary from the last sleep, or null on first start. The runner starts its session from it.",
+          "type": ["string", "null"],
+          "maxLength": 65536
+        },
+        "compactedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "pausedTurnId": {
+          "description": "Turn paused for budget before this runner process started, or null. A runner without resume capability treats it as finished.",
+          "type": ["string", "null"],
+          "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerConfig": {
+      "type": "object",
+      "required": ["heartbeatIntervalMs", "heartbeatTimeoutMs", "maxLineBytes", "runner"],
+      "properties": {
+        "heartbeatIntervalMs": {
+          "description": "How often the runner sends heartbeat. Default 15000.",
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 300000
+        },
+        "heartbeatTimeoutMs": {
+          "description": "Silence after which the daemon treats the runner as dead and restarts it. Default 45000 (three intervals).",
+          "type": "integer",
+          "minimum": 3000,
+          "maximum": 900000
+        },
+        "maxLineBytes": {
+          "description": "Largest line either side may send, in bytes, including the newline. Default 1048576.",
+          "type": "integer",
+          "minimum": 65536,
+          "maximum": 16777216
+        },
+        "runner": {
+          "description": "Runner-specific settings from the agent template, passed through unchanged.",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "WakeRequest": {
+      "description": "Daemon to runner, request. Starts a turn. The runner answers at once with Ack and then works.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "wake" },
+        "params": { "$ref": "#/$defs/WakeParams" }
+      },
+      "additionalProperties": false
+    },
+    "WakeParams": {
+      "oneOf": [
+        { "$ref": "#/$defs/WakeMessage" },
+        { "$ref": "#/$defs/WakeTask" },
+        { "$ref": "#/$defs/WakeEvent" },
+        { "$ref": "#/$defs/WakeTimer" },
+        { "$ref": "#/$defs/WakeChat" }
+      ]
+    },
+    "WakeMessage": {
+      "type": "object",
+      "required": ["reason", "turnId", "payload"],
+      "properties": {
+        "reason": { "const": "message" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "payload": { "$ref": "#/$defs/BusMessage" }
+      },
+      "additionalProperties": false
+    },
+    "WakeTask": {
+      "type": "object",
+      "required": ["reason", "turnId", "payload"],
+      "properties": {
+        "reason": { "const": "task" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "payload": { "$ref": "#/$defs/Task" }
+      },
+      "additionalProperties": false
+    },
+    "WakeEvent": {
+      "description": "Woken by an event that matched a subscription. When the event type is agentsone.agents.budget.restored and turnId equals a paused turn, the runner resumes that turn where it stopped.",
+      "type": "object",
+      "required": ["reason", "turnId", "payload"],
+      "properties": {
+        "reason": { "const": "event" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "payload": { "$ref": "../event.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    "WakeTimer": {
+      "type": "object",
+      "required": ["reason", "turnId", "payload"],
+      "properties": {
+        "reason": { "const": "timer" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "payload": { "$ref": "#/$defs/TimerFired" }
+      },
+      "additionalProperties": false
+    },
+    "WakeChat": {
+      "type": "object",
+      "required": ["reason", "turnId", "payload"],
+      "properties": {
+        "reason": { "const": "chat" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "payload": { "$ref": "#/$defs/ChatMessage" }
+      },
+      "additionalProperties": false
+    },
+    "BusMessage": {
+      "description": "A message between agents on the bus.",
+      "type": "object",
+      "required": ["id", "from", "to", "subject", "body", "sentAt"],
+      "properties": {
+        "id": { "$ref": "../common.schema.json#/$defs/MessageId" },
+        "from": { "$ref": "../common.schema.json#/$defs/ActorRef" },
+        "to": { "$ref": "../common.schema.json#/$defs/AgentName" },
+        "subject": { "$ref": "../common.schema.json#/$defs/OneLine" },
+        "body": { "$ref": "../common.schema.json#/$defs/Markdown" },
+        "sentAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "replyTo": { "$ref": "../common.schema.json#/$defs/MessageId" },
+        "correlationId": { "$ref": "../common.schema.json#/$defs/AnyId" }
+      },
+      "additionalProperties": false
+    },
+    "ChatMessage": {
+      "description": "A message a human wrote in an agent's chat.",
+      "type": "object",
+      "required": ["id", "chatId", "from", "text", "sentAt"],
+      "properties": {
+        "id": { "$ref": "../common.schema.json#/$defs/MessageId" },
+        "chatId": { "$ref": "../common.schema.json#/$defs/ChatId" },
+        "from": { "$ref": "../common.schema.json#/$defs/ActorRef" },
+        "text": { "$ref": "../common.schema.json#/$defs/Markdown" },
+        "sentAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "routedBy": {
+          "description": "The router agent that assigned this request to this chat, when routed.",
+          "$ref": "../common.schema.json#/$defs/AgentName"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Task": {
+      "type": "object",
+      "required": ["id", "title", "body", "from", "createdAt"],
+      "properties": {
+        "id": { "$ref": "../common.schema.json#/$defs/TaskId" },
+        "title": { "$ref": "../common.schema.json#/$defs/OneLine" },
+        "body": { "$ref": "../common.schema.json#/$defs/Markdown" },
+        "from": { "$ref": "../common.schema.json#/$defs/ActorRef" },
+        "createdAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "due": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "correlationId": { "$ref": "../common.schema.json#/$defs/AnyId" }
+      },
+      "additionalProperties": false
+    },
+    "TimerFired": {
+      "type": "object",
+      "required": ["scheduleId", "name", "due", "firedAt"],
+      "properties": {
+        "scheduleId": { "$ref": "../common.schema.json#/$defs/ScheduleId" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "due": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "firedAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "note": { "$ref": "../common.schema.json#/$defs/OneLine" }
+      },
+      "additionalProperties": false
+    },
+    "WakeResult": { "$ref": "#/$defs/Ack" },
+
+    "DeliverRequest": {
+      "description": "Daemon to runner, request. Hands a bus or chat message to a runner that is already in a turn. The runner answers with Ack once it has taken the message.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "deliver" },
+        "params": { "$ref": "#/$defs/DeliverParams" }
+      },
+      "additionalProperties": false
+    },
+    "DeliverParams": {
+      "oneOf": [{ "$ref": "#/$defs/DeliverBus" }, { "$ref": "#/$defs/DeliverChat" }]
+    },
+    "DeliverBus": {
+      "type": "object",
+      "required": ["kind", "turnId", "message"],
+      "properties": {
+        "kind": { "const": "bus" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "message": { "$ref": "#/$defs/BusMessage" }
+      },
+      "additionalProperties": false
+    },
+    "DeliverChat": {
+      "type": "object",
+      "required": ["kind", "turnId", "message"],
+      "properties": {
+        "kind": { "const": "chat" },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "message": { "$ref": "#/$defs/ChatMessage" }
+      },
+      "additionalProperties": false
+    },
+    "DeliverResult": { "$ref": "#/$defs/Ack" },
+
+    "CancelRequest": {
+      "description": "Daemon to runner, request. Stop a turn. Cancelling a turn that already ended is not an error.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "cancel" },
+        "params": { "$ref": "#/$defs/CancelParams" }
+      },
+      "additionalProperties": false
+    },
+    "CancelParams": {
+      "type": "object",
+      "required": ["turnId", "reason"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "reason": {
+          "type": "string",
+          "enum": ["human", "manager", "freeze", "timeout", "superseded"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "CancelResult": { "$ref": "#/$defs/Ack" },
+
+    "SleepRequest": {
+      "description": "Daemon to runner, request. Compact the session to a summary and go idle. The daemon stores the summary and hands it back in the next welcome.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "sleep" },
+        "params": { "$ref": "#/$defs/SleepParams" }
+      },
+      "additionalProperties": false
+    },
+    "SleepParams": {
+      "type": "object",
+      "required": ["reason", "maxSummaryChars"],
+      "properties": {
+        "reason": { "type": "string", "enum": ["idle", "budget", "freeze", "shutdown"] },
+        "maxSummaryChars": {
+          "description": "Upper bound for the summary length.",
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 65536
+        }
+      },
+      "additionalProperties": false
+    },
+    "SleepResult": {
+      "type": "object",
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "description": "The compacted session, in Markdown, at most maxSummaryChars characters.",
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ShutdownRequest": {
+      "description": "Daemon to runner, request. Stop. The runner answers with Ack, ends any turn, closes the socket and exits with status 0 within graceMs; after that the daemon stops it by force.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "shutdown" },
+        "params": { "$ref": "#/$defs/ShutdownParams" }
+      },
+      "additionalProperties": false
+    },
+    "ShutdownParams": {
+      "type": "object",
+      "required": ["reason", "graceMs"],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": ["stop", "restart", "retire", "update", "freeze", "power"]
+        },
+        "graceMs": { "type": "integer", "minimum": 0, "maximum": 300000 }
+      },
+      "additionalProperties": false
+    },
+    "ShutdownResult": { "$ref": "#/$defs/Ack" },
+
+    "BusSendRequest": {
+      "description": "Runner to daemon, request. Send a message on the bus as this agent.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "bus.send" },
+        "params": { "$ref": "#/$defs/BusSendParams" }
+      },
+      "additionalProperties": false
+    },
+    "BusSendParams": {
+      "type": "object",
+      "required": ["turnId", "to", "subject", "body"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "to": { "$ref": "../common.schema.json#/$defs/AgentName" },
+        "subject": { "$ref": "../common.schema.json#/$defs/OneLine" },
+        "body": { "$ref": "../common.schema.json#/$defs/Markdown" },
+        "replyTo": { "$ref": "../common.schema.json#/$defs/MessageId" },
+        "correlationId": { "$ref": "../common.schema.json#/$defs/AnyId" }
+      },
+      "additionalProperties": false
+    },
+    "BusSendResult": {
+      "type": "object",
+      "required": ["messageId"],
+      "properties": {
+        "messageId": { "$ref": "../common.schema.json#/$defs/MessageId" }
+      },
+      "additionalProperties": false
+    },
+
+    "TaskDoneRequest": {
+      "description": "Runner to daemon, request. Report that work on a task has ended.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "method": { "const": "task.done" },
+        "params": { "$ref": "#/$defs/TaskDoneParams" }
+      },
+      "additionalProperties": false
+    },
+    "TaskDoneParams": {
+      "type": "object",
+      "required": ["turnId", "taskId", "outcome", "summary"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "taskId": { "$ref": "../common.schema.json#/$defs/TaskId" },
+        "outcome": { "type": "string", "enum": ["done", "failed", "declined"] },
+        "summary": { "$ref": "../common.schema.json#/$defs/OneLine" },
+        "details": { "$ref": "../common.schema.json#/$defs/Markdown" }
+      },
+      "additionalProperties": false
+    },
+    "TaskDoneResult": { "$ref": "#/$defs/Ack" },
+
+    "StatusNotification": {
+      "description": "Runner to daemon, notification. The runner's state changed.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "status" },
+        "params": { "$ref": "#/$defs/StatusParams" }
+      },
+      "additionalProperties": false
+    },
+    "StatusParams": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {
+          "description": "idle: ready, no turn running. working: in a turn. sleeping: session compacted, idle until woken. error: cannot work until restarted or woken again.",
+          "type": "string",
+          "enum": ["idle", "working", "sleeping", "error"]
+        },
+        "turnId": {
+          "description": "The turn that is running (working) or that just ended (idle, error).",
+          "$ref": "../common.schema.json#/$defs/TurnId"
+        },
+        "pausedTurnId": {
+          "description": "Set with state idle when a turn is paused for budget and will resume later.",
+          "$ref": "../common.schema.json#/$defs/TurnId"
+        },
+        "detail": { "$ref": "../common.schema.json#/$defs/OneLine" }
+      },
+      "additionalProperties": false
+    },
+
+    "OutputNotification": {
+      "description": "Runner to daemon, notification. A chunk of the turn's text. For a chat turn the daemon shows it in the chat; otherwise it goes to the turn transcript.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "output" },
+        "params": { "$ref": "#/$defs/OutputParams" }
+      },
+      "additionalProperties": false
+    },
+    "OutputParams": {
+      "type": "object",
+      "required": ["turnId", "chunk", "text", "final"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "chatId": {
+          "description": "Set when the text answers a chat.",
+          "$ref": "../common.schema.json#/$defs/ChatId"
+        },
+        "chunk": {
+          "description": "Chunk index within the turn, starting at 0 and rising by 1.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "text": {
+          "description": "Markdown text to append. May be empty on the final chunk.",
+          "type": "string",
+          "maxLength": 65536
+        },
+        "final": {
+          "description": "True on the last chunk of the turn's output.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "UsageNotification": {
+      "description": "Runner to daemon, notification. Model usage for one or more calls in a turn. Feeds the soft per-agent budget; the host gateway keeps the authoritative count.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "usage" },
+        "params": { "$ref": "#/$defs/UsageParams" }
+      },
+      "additionalProperties": false
+    },
+    "UsageParams": {
+      "type": "object",
+      "required": ["turnId", "model", "weight", "tokensIn", "tokensOut", "costMicroUsd"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "model": {
+          "description": "Model the gateway reported for the call (it may differ from autoagents/one).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "weight": { "$ref": "#/$defs/Weight" },
+        "tokensIn": { "type": "integer", "minimum": 0 },
+        "tokensOut": { "type": "integer", "minimum": 0 },
+        "cacheReadTokens": { "type": "integer", "minimum": 0 },
+        "costMicroUsd": {
+          "description": "Cost estimate in millionths of a US dollar, as reported by the gateway.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ProfileUpdateNotification": {
+      "description": "Runner to daemon, notification. The agent's one-line profile: its goal and what it does now. Mandatory at least once in every turn, before the status that ends the turn. The router reads these lines.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "profile.update" },
+        "params": { "$ref": "#/$defs/ProfileUpdateParams" }
+      },
+      "additionalProperties": false
+    },
+    "ProfileUpdateParams": {
+      "type": "object",
+      "required": ["turnId", "line"],
+      "properties": {
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "line": { "$ref": "../common.schema.json#/$defs/OneLine" }
+      },
+      "additionalProperties": false
+    },
+
+    "LogNotification": {
+      "description": "Runner to daemon, notification. A diagnostic line for the agent's journal. Never carries secrets.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "log" },
+        "params": { "$ref": "#/$defs/LogParams" }
+      },
+      "additionalProperties": false
+    },
+    "LogParams": {
+      "type": "object",
+      "required": ["level", "message"],
+      "properties": {
+        "level": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "fields": {
+          "description": "Extra key-value pairs. Keys are lower camelCase.",
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]{0,63}$" },
+          "additionalProperties": { "type": "string", "maxLength": 1024 }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ErrorNotification": {
+      "description": "Runner to daemon, notification. Something went wrong outside a request, for example a failed model call. Uses the same codes as error responses.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "error" },
+        "params": { "$ref": "#/$defs/ErrorParams" }
+      },
+      "additionalProperties": false
+    },
+    "ErrorParams": {
+      "type": "object",
+      "required": ["code", "message", "fatal"],
+      "properties": {
+        "code": { "$ref": "#/$defs/ErrorCode" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "turnId": { "$ref": "../common.schema.json#/$defs/TurnId" },
+        "fatal": {
+          "description": "True when the runner cannot go on and will exit.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "HeartbeatNotification": {
+      "description": "Runner to daemon, notification. Sent every heartbeatIntervalMs, also during turns.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "heartbeat" },
+        "params": { "$ref": "#/$defs/HeartbeatParams" }
+      },
+      "additionalProperties": false
+    },
+    "HeartbeatParams": {
+      "type": "object",
+      "required": ["uptimeMs"],
+      "properties": {
+        "uptimeMs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+
+    "SuccessResponse": {
+      "description": "Answer to a request. The result shape is <Method>Result for the request with the same id.",
+      "type": "object",
+      "required": ["jsonrpc", "id", "result"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": { "$ref": "#/$defs/RequestId" },
+        "result": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "description": "A request failed. id is null only when the request could not be read (parse error, line too large).",
+      "type": "object",
+      "required": ["jsonrpc", "id", "error"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "id": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "error": { "$ref": "#/$defs/ErrorObject" }
+      },
+      "additionalProperties": false
+    },
+    "ErrorObject": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/ErrorCode" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "data": {
+          "description": "Extra detail. For -32002 it is {\"supported\": [versions]}.",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ErrorCode": {
+      "description": "JSON-RPC reserved codes: -32700 parse error, -32600 invalid request (also used for batches, which are not allowed), -32601 method not found, -32602 invalid params, -32603 internal error. Protocol codes (JSON-RPC server range): -32000 out of order (message before handshake, second hello, request for an unsupported capability), -32001 line too large, -32002 unsupported protocol version, -32003 heartbeat timeout. Application codes: 1001 unknown turn, 1002 unknown recipient, 1003 not permitted, 1004 unknown task, 1010 budget exhausted, 1011 resume unavailable, 1020 model unavailable, 1030 rate limited.",
+      "type": "integer",
+      "enum": [
+        -32700, -32600, -32601, -32602, -32603, -32000, -32001, -32002, -32003, 1001, 1002, 1003,
+        1004, 1010, 1011, 1020, 1030
+      ]
+    }
+  }
+}

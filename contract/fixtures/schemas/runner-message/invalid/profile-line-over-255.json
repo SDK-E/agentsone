@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3M","line":"Goal: keep the machine safe. Now: this line is far too long because it keeps going and going with detail that belongs in output rather than in the one-line profile that the router reads for every agent on the machine every single time a human asks something."}}

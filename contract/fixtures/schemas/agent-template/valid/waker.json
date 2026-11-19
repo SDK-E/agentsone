@@ -1,0 +1,20 @@
+{
+  "name": "watcher",
+  "kind": "waker",
+  "isRoot": false,
+  "runner": { "name": "openai", "config": { "maxTurnsPerHour": 20 } },
+  "oneLine": "Goal: notice trouble early. Now: watching sign-ins, disk and load.",
+  "charter": "",
+  "goals": [],
+  "skills": [],
+  "mcpServers": [],
+  "limits": { "cpuPercent": 50, "memoryMiB": 256, "tasks": 64 },
+  "wake": {
+    "subscriptions": [
+      { "filter": { "types": ["agentsone.auth.login.failed"], "source": "/emitters/auth" }, "rateLimit": { "maxWakes": 1, "perSeconds": 60 } },
+      { "filter": { "types": ["agentsone.disk.*", "agentsone.load.*"], "chartscope": "machine" }, "rateLimit": { "maxWakes": 4, "perSeconds": 3600 } },
+      { "filter": { "types": ["agentsone.files.created"], "subjectPrefix": "/srv/inbox/" }, "rateLimit": { "maxWakes": 10, "perSeconds": 600 } }
+    ]
+  },
+  "schedules": [{ "name": "hourly-sweep", "cron": "@hourly", "timezone": "UTC" }]
+}

@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"method":"wake","params":{"reason":"chat","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G","payload":{"id":"msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","from":"human:alice","text":"Please tidy /srv/inbox","sentAt":"2026-11-19T19:00:01Z","routedBy":"router"}}}

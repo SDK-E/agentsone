@@ -1,0 +1,20 @@
+{
+  "name": "No Focus",
+  "version": "1.0.0",
+  "author": { "name": "Someone" },
+  "modes": {
+    "light": {
+      "color": { "background": "#FFFFFF", "surface": "#F6F7F9", "surfaceRaised": "#FFFFFF", "surfaceSunken": "#EEF0F3", "border": "#D9DDE3", "borderStrong": "#7A8394", "text": "#14171F", "textMuted": "#555E6E", "accent": "#2F5BD3", "accentHover": "#2549B0", "onAccent": "#FFFFFF", "accentSubtle": "#DCE6FF", "onAccentSubtle": "#14286B", "alive": "#1E7A3B", "visitor": "#8A3FB8", "visitorSubtle": "#F1E6F8", "onVisitorSubtle": "#3D1659", "success": "#1E7A3B", "warning": "#8A5A00", "danger": "#B3261E", "onDanger": "#FFFFFF", "info": "#0B6E99" },
+      "shadow": { "sm": "none", "md": "none", "lg": "none" }
+    },
+    "dark": {
+      "color": { "background": "#0F1115", "surface": "#171A21", "surfaceRaised": "#1F232C", "surfaceSunken": "#0A0C0F", "border": "#2C313C", "borderStrong": "#6B7385", "text": "#E8EAEE", "textMuted": "#A3ABB9", "accent": "#8AB0FF", "accentHover": "#A9C4FF", "onAccent": "#0F1115", "accentSubtle": "#1E2B4D", "onAccentSubtle": "#DCE6FF", "alive": "#6BD08F", "visitor": "#D4A6F2", "visitorSubtle": "#2E1D3D", "onVisitorSubtle": "#F1E6F8", "success": "#6BD08F", "warning": "#F2C462", "danger": "#FF8A80", "onDanger": "#0F1115", "info": "#6CC6F0", "focus": "#8AB0FF" },
+      "shadow": { "sm": "none", "md": "none", "lg": "none" }
+    }
+  },
+  "typography": { "sans": "system-ui", "mono": "monospace", "scale": { "xs": { "size": "12px", "lineHeight": 1.4 }, "sm": { "size": "14px", "lineHeight": 1.4 }, "md": { "size": "16px", "lineHeight": 1.5 }, "lg": { "size": "20px", "lineHeight": 1.4 }, "xl": { "size": "24px", "lineHeight": 1.3 }, "xxl": { "size": "32px", "lineHeight": 1.2 } }, "weights": { "regular": 400, "medium": 500, "bold": 700 } },
+  "radius": { "sm": "4px", "md": "8px", "lg": "12px", "full": "9999px" },
+  "spacing": { "xs": "4px", "sm": "8px", "md": "16px", "lg": "24px", "xl": "40px" },
+  "motion": { "fastMs": 120, "normalMs": 200, "slowMs": 320, "easing": "ease-out" },
+  "contrastPairs": [{ "fg": "text", "bg": "background", "minRatio": 4.5 }]
+}

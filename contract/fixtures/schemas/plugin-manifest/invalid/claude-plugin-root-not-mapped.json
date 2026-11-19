@@ -1,0 +1,10 @@
+{
+  "name": "unmapped",
+  "version": "1.0.0",
+  "description": "Kept the Claude Code variable instead of mapping it.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "claude-code", "ref": "example-marketplace/unmapped" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [{ "name": "x", "path": "${CLAUDE_PLUGIN_ROOT}/skills/x", "description": "x" }], "agentTemplates": [], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

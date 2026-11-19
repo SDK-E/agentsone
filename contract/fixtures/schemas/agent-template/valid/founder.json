@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/agent-template.schema.json",
+  "name": "founder",
+  "kind": "always-on",
+  "isRoot": true,
+  "runner": { "name": "echo", "config": {} },
+  "oneLine": "Goal: keep this machine useful to its humans. Now: getting to know the machine.",
+  "charter": "I found and grow the society on this machine. I hire agents below me for work humans ask for.",
+  "goals": ["Keep the machine healthy", "Hire agents for the work humans ask for"],
+  "skills": ["hire-an-agent"],
+  "mcpServers": [],
+  "limits": { "cpuPercent": 400, "memoryMiB": 4096, "tasks": 4096 },
+  "wake": {
+    "subscriptions": [
+      { "filter": { "types": ["agentsone.agents.errored", "agentsone.services.unit.failed"] }, "rateLimit": { "maxWakes": 6, "perSeconds": 3600 } }
+    ]
+  },
+  "schedules": [
+    { "name": "morning-review", "cron": "0 8 * * 1-5", "timezone": "Europe/Paris", "note": "Review yesterday and plan today" }
+  ]
+}

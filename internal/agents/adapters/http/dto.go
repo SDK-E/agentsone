@@ -30,7 +30,7 @@ func toAgent(a domain.Agent, team string, line *core.LiveLine) api.Agent {
 		Name: a.Name, DisplayName: a.DisplayName, Kind: api.AgentKind(a.Kind), IsRoot: a.IsRoot,
 		Runner: a.Runner, Manager: optional(a.Manager), Team: team, Role: a.Role, Description: a.Description,
 		State: api.AgentState(a.State), Uid: max(0, a.UID), Home: a.Home, Unit: a.Unit(),
-		Template: optional(a.Template), CreatedAt: a.CreatedAt, CreatedBy: a.CreatedBy, LastTurnAt: a.LastTurnAt,
+		Template: optional(a.Template), CreatedAt: api.Timestamp(a.CreatedAt), CreatedBy: a.CreatedBy, LastTurnAt: optionalTime(a.LastTurnAt),
 	}
 	if a.Limits != nil {
 		out.Limits = &api.AgentLimits{CpuPercent: a.Limits.CPUPercent, MemoryMb: a.Limits.MemoryMB, Tasks: a.Limits.Tasks, Wall: api.WallSoft}
@@ -43,7 +43,15 @@ func toAgent(a domain.Agent, team string, line *core.LiveLine) api.Agent {
 }
 
 func toOneLine(l core.LiveLine) api.AgentOneLine {
-	return api.AgentOneLine{Text: l.Line, UpdatedAt: l.Updated}
+	return api.AgentOneLine{Text: l.Line, UpdatedAt: api.Timestamp(l.Updated)}
+}
+
+func optionalTime(t *time.Time) *api.Timestamp {
+	if t == nil {
+		return nil
+	}
+	ts := api.Timestamp(*t)
+	return &ts
 }
 
 // limitsFrom fills the fields a request leaves out from base.
@@ -85,7 +93,7 @@ func agentUpdate(in api.AgentUpdate, current domain.Agent) domain.Update {
 func toChatMessage(m domain.ChatMessage) api.ChatMessage {
 	return api.ChatMessage{
 		Id: m.ID, Agent: m.Agent, Role: api.ChatRole(m.Role), Author: m.Author, Text: m.Text,
-		AssignmentId: optional(m.AssignmentID), CreatedAt: m.CreatedAt,
+		AssignmentId: optional(m.AssignmentID), CreatedAt: api.Timestamp(m.CreatedAt),
 	}
 }
 
@@ -96,7 +104,7 @@ func toChart(c domain.Chart) api.Chart {
 			updated = a.CreatedAt
 		}
 	}
-	return api.Chart{Roots: toChartNodes(c.Tree()), AgentCount: c.ActiveCount(), UpdatedAt: updated}
+	return api.Chart{Roots: toChartNodes(c.Tree()), AgentCount: c.ActiveCount(), UpdatedAt: api.Timestamp(updated)}
 }
 
 func toChartNodes(nodes []domain.Node) []api.ChartNode {
@@ -116,13 +124,13 @@ func toCharter(c domain.Charter) api.Charter {
 	if by == "" {
 		by = "system:daemon"
 	}
-	return api.Charter{Text: c.Text, Version: c.Version, UpdatedAt: c.UpdatedAt, UpdatedBy: by}
+	return api.Charter{Text: c.Text, Version: c.Version, UpdatedAt: api.Timestamp(c.UpdatedAt), UpdatedBy: by}
 }
 
 func toGoal(g domain.Goal) api.Goal {
 	return api.Goal{
 		Id: g.ID, Owner: g.Owner, Title: g.Title, Detail: g.Detail, Status: api.GoalStatus(g.Status),
-		ParentId: optional(g.ParentID), CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt,
+		ParentId: optional(g.ParentID), CreatedAt: api.Timestamp(g.CreatedAt), UpdatedAt: api.Timestamp(g.UpdatedAt),
 	}
 }
 
@@ -149,7 +157,8 @@ func toBudget(p domain.Pool) api.Budget {
 			Enabled: p.Defence.Enabled, ReservedMicros: p.Defence.ReservedMicros,
 			SpentMicros: p.Defence.SpentMicros, Wall: api.WallHard,
 		},
-		PeriodStart: p.PeriodStart, PeriodEnd: p.PeriodEnd, CheckIntervalSeconds: p.CheckIntervalSeconds, AsOf: p.AsOf,
+		PeriodStart: api.Timestamp(p.PeriodStart), PeriodEnd: api.Timestamp(p.PeriodEnd),
+		CheckIntervalSeconds: p.CheckIntervalSeconds, AsOf: api.Timestamp(p.AsOf),
 	}
 }
 
@@ -171,17 +180,17 @@ func toBudgetSplit(s domain.Split) api.BudgetSplit {
 	for _, n := range s.Nodes() {
 		nodes = append(nodes, toBudgetNode(n))
 	}
-	return api.BudgetSplit{Currency: currency, Nodes: nodes, AsOf: p.AsOf}
+	return api.BudgetSplit{Currency: currency, Nodes: nodes, AsOf: api.Timestamp(p.AsOf)}
 }
 
 func outputFrame(f app.OutputFrame) api.OutputFrame {
-	return api.OutputFrame{Kind: api.OutputFrameKindOutput, Agent: f.Agent, Stream: api.OutputFrameStream(f.Stream), Text: f.Text, Time: f.Time}
+	return api.OutputFrame{Kind: api.OutputFrameKindOutput, Agent: f.Agent, Stream: api.OutputFrameStream(f.Stream), Text: f.Text, Time: api.Timestamp(f.Time)}
 }
 
 func stateFrame(f app.StateFrame) api.StateFrame {
-	return api.StateFrame{Kind: api.StateFrameKindState, Agent: f.Agent, State: api.AgentState(f.State), Time: f.Time}
+	return api.StateFrame{Kind: api.StateFrameKindState, Agent: f.Agent, State: api.AgentState(f.State), Time: api.Timestamp(f.Time)}
 }
 
 func heartbeat(t time.Time) api.Heartbeat {
-	return api.Heartbeat{Kind: api.HeartbeatKindHeartbeat, Time: t.UTC()}
+	return api.Heartbeat{Kind: api.HeartbeatKindHeartbeat, Time: api.Timestamp(t.UTC())}
 }

@@ -49,7 +49,7 @@ func newServer(t *testing.T) *server {
 	mux := http.NewServeMux()
 	opts := core.APIOptions{
 		RequestError: func(w http.ResponseWriter, r *http.Request, err error) {
-			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "invalid", err.Error()))
+			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
 		},
 		ResponseError: core.WriteError,
 	}
@@ -226,9 +226,9 @@ func TestHireAgent_Refusals(t *testing.T) {
 		{"hire above self", "agent:lead", `{"name":"mira","display_name":"M","kind":"chat","runner":"echo","role":"R","manager":"founder"}`, http.StatusForbidden, "not-below-you"},
 		{"human hires", "human:ada", hireBody, http.StatusForbidden, "forbidden"},
 		{"taken name", "agent:lead", `{"name":"ops","display_name":"O","kind":"chat","runner":"echo","role":"R"}`, http.StatusConflict, "conflict"},
-		{"invalid name", "agent:lead", `{"name":"Mira","display_name":"M","kind":"chat","runner":"echo","role":"R"}`, http.StatusBadRequest, "invalid"},
-		{"broken body", "agent:lead", `{"name":`, http.StatusBadRequest, "invalid"},
-		{"no caller", "", hireBody, http.StatusUnauthorized, "unauthorized"},
+		{"invalid name", "agent:lead", `{"name":"Mira","display_name":"M","kind":"chat","runner":"echo","role":"R"}`, http.StatusBadRequest, "validation"},
+		{"broken body", "agent:lead", `{"name":`, http.StatusBadRequest, "validation"},
+		{"no caller", "", hireBody, http.StatusUnauthorized, "unauthenticated"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -3909,6 +3909,7 @@ type Principal struct {
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Problem struct {
 	// Detail Human explanation of this occurrence.
 	Detail *string `json:"detail,omitempty"`
@@ -4797,6 +4798,7 @@ type Unit = string
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type BadRequest = Problem
 
 // Conflict RFC 9457 problem details. Every error response in this API uses
@@ -4824,6 +4826,7 @@ type BadRequest = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Conflict = Problem
 
 // Forbidden RFC 9457 problem details. Every error response in this API uses
@@ -4851,6 +4854,7 @@ type Conflict = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Forbidden = Problem
 
 // Locked RFC 9457 problem details. Every error response in this API uses
@@ -4878,6 +4882,7 @@ type Forbidden = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Locked = Problem
 
 // NotFound RFC 9457 problem details. Every error response in this API uses
@@ -4905,6 +4910,7 @@ type Locked = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type NotFound = Problem
 
 // NotImplemented RFC 9457 problem details. Every error response in this API uses
@@ -4932,6 +4938,7 @@ type NotFound = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type NotImplemented = Problem
 
 // PayloadTooLarge RFC 9457 problem details. Every error response in this API uses
@@ -4959,6 +4966,7 @@ type NotImplemented = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type PayloadTooLarge = Problem
 
 // PaymentRequired RFC 9457 problem details. Every error response in this API uses
@@ -4986,6 +4994,7 @@ type PayloadTooLarge = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type PaymentRequired = Problem
 
 // TooManyRequests RFC 9457 problem details. Every error response in this API uses
@@ -5013,6 +5022,7 @@ type PaymentRequired = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type TooManyRequests = Problem
 
 // Unauthorized RFC 9457 problem details. Every error response in this API uses
@@ -5040,6 +5050,7 @@ type TooManyRequests = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Unauthorized = Problem
 
 // Unavailable RFC 9457 problem details. Every error response in this API uses
@@ -5067,6 +5078,7 @@ type Unauthorized = Problem
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
 // - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+// - `urn:agentsone:problem:method-not-allowed` (405) the path does not accept this method; the `Allow` header lists the methods it accepts. Used outside `/v1`, for example by the web interface server.
 type Unavailable = Problem
 
 // ListAgentTemplatesParams defines parameters for ListAgentTemplates.

@@ -91,6 +91,14 @@ content" warnings.
 
 ## Changelog
 
+### 1.0.4
+
+Additive.
+
+- New problem type `urn:agentsone:problem:method-not-allowed` (405). The `Allow` header lists the
+  accepted methods. No operation declares it: it is for paths outside `/v1`, such as the web
+  interface server.
+
 ### 1.0.3
 
 Additive. Runner protocol 1.1 (the API is unchanged).

@@ -93,6 +93,7 @@ func TestNewPortsUnavailable(t *testing.T) {
 		"CompleteTask": func() error { _, err := p.Tasks.CompleteTask(ctx, "tsk", core.TaskOutcome{}); return err },
 		"Profiles":     func() error { _, err := p.Profiles.Profiles(ctx); return err },
 		"PostChat":     func() error { _, err := p.Chat.PostChat(ctx, "dev", "hi", ""); return err },
+		"Wait":         func() error { return p.Startup.Wait(ctx) },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

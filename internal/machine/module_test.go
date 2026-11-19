@@ -11,6 +11,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/core/moduletest"
 	"github.com/SDK-E/agentsone/internal/machine"
+	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 )
 
 func TestModuleOwnsItsTags(t *testing.T) {
@@ -24,11 +25,35 @@ func TestModuleOwnsItsTags(t *testing.T) {
 	moduletest.AssertEveryTagAnswersNotImplemented(t, m)
 }
 
+func TestNoopSystemOpensTheGateWithoutTouchingTheHost(t *testing.T) {
+	deps, fakes := coretest.NewDeps(t)
+	m := machinetest.New(deps)
+	m.Provide(deps.Ports)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := deps.Ports.Startup.Wait(context.Background()); err != nil {
+		t.Fatalf("startup gate: %v", err)
+	}
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	entries := fakes.Audit.Entries()
+	if len(entries) == 0 || entries[len(entries)-1].Action != "machine.recipe.applied" {
+		t.Fatalf("audit %+v", entries)
+	}
+}
+
 func TestStartReappliesTheRecipeAndNeverBlocks(t *testing.T) {
 	deps, fakes := coretest.NewDeps(t)
 	m := machine.New(deps)
+	m.Provide(deps.Ports)
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatalf("start must not fail on a recipe problem: %v", err)
+	}
+	// The gate opens once the reapply ends, applied or failed.
+	if err := deps.Ports.Startup.Wait(context.Background()); err != nil {
+		t.Fatalf("startup gate: %v", err)
 	}
 	if err := m.Stop(context.Background()); err != nil {
 		t.Fatal(err)

@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,6 +50,11 @@ func (s *Society) Waker() Waker { return Waker{s: s} }
 func (w Waker) Wake(ctx context.Context, agent string, reason core.WakeReason, payload json.RawMessage) error {
 	if err := w.s.canWake(ctx, agent); err != nil {
 		return err
+	}
+	// No runner starts before the machine recipe is back after a start. A
+	// daemon without the machine module has no gate and wakes at once.
+	if err := w.s.ports.Startup.Wait(ctx); err != nil && !errors.Is(err, core.ErrUnavailable) {
+		return fmt.Errorf("wake %s: wait for the machine: %w", agent, err)
 	}
 	if err := w.s.rt.Wake(ctx, agent, reason, payload); err != nil {
 		return fmt.Errorf("wake %s: %w", agent, err)

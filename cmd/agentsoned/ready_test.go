@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"log/slog"
-	"os"
 	"sync"
 	"testing"
 
@@ -50,21 +49,16 @@ func (l *messageLog) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 
-func TestDaemonLogsPlainReadyMessage(t *testing.T) {
-	short, err := os.MkdirTemp("", "a1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(short) })
+func TestDaemon_ReadyLog(t *testing.T) {
 	deps, _ := coretest.NewDeps(t)
-	deps.Config.RuntimeDir = short
+	deps.Config.RuntimeDir = t.TempDir()
 	deps.Config.API.Addr = "127.0.0.1:0"
 	logs, messages := newMessageLog()
 	deps.Log = slog.New(logs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, deps) }()
+	go func() { done <- serveModules(ctx, deps, testModules(t, deps)) }()
 
 	select {
 	case <-logs.ready:

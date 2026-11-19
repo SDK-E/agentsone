@@ -42,6 +42,7 @@ type Module struct {
 	deps     core.Deps
 	settings settings
 	machine  *app.Machine
+	startup  *app.StartupGate
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -49,11 +50,24 @@ type Module struct {
 
 var _ core.Module = (*Module)(nil)
 
-// New builds the machine module on the real container.
-func New(deps core.Deps) *Module {
-	cfg := deps.Config
+// System is the machine's way onto the container: apt, files, /proc,
+// accounts, the recipe store and power. Tests pass machinetest.NoopSystem.
+type System struct {
+	Packages  app.PackageManager
+	Files     app.FileSystem
+	Processes app.ProcessTable
+	Users     app.UserDB
+	Metrics   app.MetricsReader
+	Recipes   app.RecipeStore
+	Baseline  app.BaselineSource
+	Power     app.Power
+	Timer     app.Timer
+}
+
+// RealSystem is the container the daemon runs in.
+func RealSystem(cfg *core.Config, clock core.Clock) System {
 	passwd := system.NewPasswd("/etc/passwd")
-	m := app.New(app.Deps{
+	return System{
 		Packages:  system.NewApt(system.ExecRunner{}),
 		Files:     system.NewFiles(),
 		Processes: system.NewProcs("/proc", passwd, system.Kill),
@@ -61,20 +75,33 @@ func New(deps core.Deps) *Module {
 		Metrics: system.NewMetrics(system.MetricsPaths{
 			Proc: "/proc", CPUStat: "/sys/fs/cgroup/cpu.stat",
 			Mounts: []string{"/", cfg.AgentsHome, cfg.StateDir},
-		}, deps.Clock.Now),
+		}, clock.Now),
 		Recipes:  system.NewRecipeStore(filepath.Join(cfg.StateDir, "recipe")),
 		Baseline: system.NewBaseline(filepath.Join(cfg.LibDir, "baseline-packages.txt")),
 		Power:    system.Power{},
 		Timer:    system.Power{},
-		Audit:    auditPort{deps.Ports},
-		Clock:    deps.Clock,
-		IDs:      deps.IDs,
+	}
+}
+
+// New builds the machine module on the real container.
+func New(deps core.Deps) *Module { return NewWith(deps, RealSystem(deps.Config, deps.Clock)) }
+
+// NewWith builds the machine module on sys.
+func NewWith(deps core.Deps, sys System) *Module {
+	m := app.New(app.Deps{
+		Packages: sys.Packages, Files: sys.Files, Processes: sys.Processes, Users: sys.Users,
+		Metrics: sys.Metrics, Recipes: sys.Recipes, Baseline: sys.Baseline, Power: sys.Power, Timer: sys.Timer,
+		Audit: auditPort{deps.Ports}, Clock: deps.Clock, IDs: deps.IDs,
 	})
-	return &Module{deps: deps, settings: defaultSettings(), machine: m}
+	return &Module{deps: deps, settings: defaultSettings(), machine: m, startup: app.NewStartupGate()}
 }
 
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "machine" }
+
+// Provide makes the startup gate the daemon's Startup port: agent wakes wait
+// on it until the recipe reapply ended.
+func (m *Module) Provide(p *core.Ports) { p.Startup = m.startup }
 
 // API serves the machine tag. Terminals, the net tag (per-agent network
 // rules) and the ide tag answer 501 until their work packages land.
@@ -86,27 +113,29 @@ func (m *Module) API() core.API {
 	}}
 }
 
-// Start reapplies the machine recipe before it returns, so it is done before
-// any agent wakes (agents wake only after every module started). A failure
-// is logged, audited and shown on the machine-recipe service; it never stops
-// the daemon. Then the package worker and the recipe sync start.
-func (m *Module) Start(ctx context.Context) error {
+// Start returns at once: the recipe reapply runs in the background, so the
+// API opens early and the machine-recipe service shows "activating". Agent
+// wakes wait on the startup gate, which opens when the reapply ends. A
+// failure is logged, audited and shown on the machine-recipe service; it
+// opens the gate too and never stops the daemon.
+func (m *Module) Start(context.Context) error {
 	if err := m.deps.Config.Section("machine", &m.settings); err != nil {
 		return fmt.Errorf("machine settings: %w", err)
 	}
-	m.reapply(ctx)
 	bg, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
-	m.wg.Add(2)
+	m.wg.Add(3)
+	m.machine.BeginReapply(bg, m.settings.ReapplyTimeout.Duration, func(rep domain.Report) {
+		defer m.wg.Done()
+		m.logReport(rep)
+		m.startup.Open()
+	})
 	go func() { defer m.wg.Done(); m.machine.Work(bg) }()
 	go func() { defer m.wg.Done(); m.syncLoop(bg) }()
 	return nil
 }
 
-func (m *Module) reapply(ctx context.Context) {
-	rctx, cancel := context.WithTimeout(ctx, m.settings.ReapplyTimeout.Duration)
-	defer cancel()
-	rep := m.machine.Reapply(rctx)
+func (m *Module) logReport(rep domain.Report) {
 	if rep.State == domain.RecipeFailed {
 		m.deps.Log.Warn("machine recipe did not fully apply", "summary", rep.Service().Description)
 		return

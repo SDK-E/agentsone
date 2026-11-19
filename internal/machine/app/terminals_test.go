@@ -97,6 +97,22 @@ func waitExited(t *testing.T, terms *app.Terminals, a domain.Actor, id string) d
 	}
 }
 
+// A custom agent whose caller carries uid 0 or no uid must never get the
+// root account: only humans and root agents run as root.
+func TestOpenRefusesAnAgentThatIsNotRootButClaimsUID0(t *testing.T) {
+	for _, uid := range []int{0, -1} {
+		terms, st, _ := newTerms(t)
+		a := domain.Actor{Kind: domain.ActorAgent, Name: "writer", UID: uid}
+		_, err := terms.Open(ctx(), a, nil, nil, nil)
+		if !errors.Is(err, core.ErrForbidden) {
+			t.Fatalf("uid %d: %v, want forbidden", uid, err)
+		}
+		if len(st.started) != 0 {
+			t.Fatalf("uid %d: a terminal was started", uid)
+		}
+	}
+}
+
 func TestOpenRunsAsTheCaller(t *testing.T) {
 	terms, st, _ := newTerms(t)
 	s, err := terms.Open(ctx(), custom, nil, nil, nil)

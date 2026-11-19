@@ -85,6 +85,11 @@ func (t *Terminals) Open(ctx context.Context, a domain.Actor, command []string, 
 }
 
 func (t *Terminals) userOf(ctx context.Context, a domain.Actor) (domain.MachineUser, error) {
+	if !a.Privileged() && a.UID <= 0 {
+		// Root is for humans and root agents. An agent that is not root and
+		// has no real uid must not fall through to the root account.
+		return domain.MachineUser{}, fmt.Errorf("%s has no Linux user: %w", a.Label(), core.ErrForbidden)
+	}
 	users, err := t.users.List(ctx)
 	if err != nil {
 		return domain.MachineUser{}, fmt.Errorf("list users: %w", err)

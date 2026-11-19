@@ -14,11 +14,27 @@ once. The owner of the freeze is the orchestrator.
 | Generated code | `internal/contract/**`, `runners/sdk/protocol`, `packages/contract-ts/src/generated` |
 | Daemon seams | `internal/core` (module, deps, ports, caller, config, paths, problems), `internal/api/compose.go` |
 | Storage and audit chain | `internal/store`, `internal/auditchain` |
-| Host seam | `internal/host/hostenv` |
+| Edge seam | `internal/edge/edgeenv` |
 | Wiring | `cmd/agentsoned/modules.go`, `cmd/agentsone/main.go`, `scripts/gen.sh` |
 
 Not frozen: adding new fixture variants (`<operationId>.<variant>.json`), and everything inside
 the package a work package owns, as long as it keeps the seams.
+
+## Package map
+
+Agents One ships as a Docker compose stack with three services: `machine` (the daemon,
+`cmd/agentsoned`), `edge` and `control` (both the `agentsone` binary, `cmd/agentsone`, started as
+`agentsone edge` and `agentsone control`). There is no VM and no Mac host tool.
+
+| Service | Packages |
+| --- | --- |
+| machine | `internal/core`, `internal/api`, `internal/store`, `internal/auditchain` and the daemon contexts under `internal/` |
+| edge | `internal/edge` (serve), `internal/edge/net`, `internal/edge/gateway`, `internal/edge/budget`, `internal/edge/audit`, `internal/edge/door` |
+| control | `internal/edge/control` (the control page) |
+
+The edge works in container folders: state in `/var/lib/agentsone-edge`, configuration in
+`/etc/agentsone-edge` (`internal/edge/edgeenv`). Each edge package exports
+`Commands(env *edgeenv.Env) []*cobra.Command`.
 
 ## How the seams fit
 

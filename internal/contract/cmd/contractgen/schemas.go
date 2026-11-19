@@ -169,9 +169,17 @@ func addHeaders(r repo, files []schemaFile) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", rel, err)
 		}
+		if f.dir != commonDir {
+			if b, err = useCommonTimestamp(b, importPath(commonDir)); err != nil {
+				return fmt.Errorf("%s: %w", rel, err)
+			}
+		}
 		if err := r.writeGo(rel, b); err != nil {
 			return err
 		}
 	}
 	return nil
 }
+
+// commonDir holds the shared definitions, including Timestamp itself.
+const commonDir = "internal/contract/common"

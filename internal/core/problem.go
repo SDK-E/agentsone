@@ -9,8 +9,9 @@ import (
 	"net/http"
 )
 
-// ProblemTypeBase prefixes every problem type URI.
-const ProblemTypeBase = "https://agentsone.dev/problems/"
+// ProblemTypeBase prefixes every problem type. The contract spells a type as
+// the URN urn:agentsone:problem:<slug>.
+const ProblemTypeBase = "urn:agentsone:problem:"
 
 // Problem is an RFC 9457 problem details document. It is also an error, so
 // handlers can return it directly.
@@ -49,8 +50,8 @@ var sentinelProblems = []struct {
 	slug   string
 	status int
 }{
-	{ErrInvalid, "invalid", http.StatusBadRequest},
-	{ErrUnauthorized, "unauthorized", http.StatusUnauthorized},
+	{ErrInvalid, "validation", http.StatusBadRequest},
+	{ErrUnauthorized, "unauthenticated", http.StatusUnauthorized},
 	{ErrBudget, "budget-exhausted", http.StatusPaymentRequired},
 	{ErrForbidden, "forbidden", http.StatusForbidden},
 	{ErrNotFound, "not-found", http.StatusNotFound},

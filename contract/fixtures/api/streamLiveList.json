@@ -1,0 +1,40 @@
+{
+  "status": 200,
+  "body": [
+    {
+      "kind": "entry",
+      "entry": {
+        "agent": "builder",
+        "display_name": "Builder",
+        "kind": "chat",
+        "state": "waking",
+        "team": "founder",
+        "role": "Builder",
+        "one_line": null
+      }
+    },
+    {
+      "kind": "entry",
+      "entry": {
+        "agent": "builder",
+        "display_name": "Builder",
+        "kind": "chat",
+        "state": "working",
+        "team": "founder",
+        "role": "Builder",
+        "one_line": {
+          "text": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy.",
+          "updated_at": "2026-11-19T18:38:55Z"
+        }
+      }
+    },
+    {
+      "kind": "heartbeat",
+      "time": "2026-11-19T18:39:10Z"
+    },
+    {
+      "kind": "removed",
+      "agent": "scribe"
+    }
+  ]
+}

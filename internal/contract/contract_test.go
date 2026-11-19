@@ -217,7 +217,7 @@ func TestAPIFixturesMatchTheContract(t *testing.T) {
 	for op, variants := range fixtures {
 		for variant, f := range variants {
 			if streams[op] && f.Status < 300 {
-				checkStreamFixture(t, f)
+				checkStreamFixture(t, v, op, f)
 				continue
 			}
 			if err := v.ValidateJSONResponse(op, f.Status, f.Body); err != nil {
@@ -228,17 +228,19 @@ func TestAPIFixturesMatchTheContract(t *testing.T) {
 }
 
 // checkStreamFixture checks a stream fixture: its body is the list of
-// events the stream sends.
-func checkStreamFixture(t *testing.T, f contracttest.APIFixture) {
+// frames the stream sends, each valid against the frame schema of the operation.
+func checkStreamFixture(t *testing.T, v *contracttest.Validator, op string, f contracttest.APIFixture) {
 	t.Helper()
 	var docs []json.RawMessage
 	if err := json.Unmarshal(f.Body, &docs); err != nil {
-		t.Errorf("%s: a stream fixture body must be a JSON array of events: %v", filepath.Base(f.File), err)
+		t.Errorf("%s: a stream fixture body must be a JSON array of frames: %v", filepath.Base(f.File), err)
 		return
 	}
-	set := schemaSet(t)
+	if len(docs) == 0 {
+		t.Errorf("%s: a stream fixture needs at least one frame", filepath.Base(f.File))
+	}
 	for i, doc := range docs {
-		if err := set.Validate(eventSchema, doc); err != nil {
+		if err := v.ValidateStreamFrame(op, doc); err != nil {
 			t.Errorf("%s[%d]: %v", filepath.Base(f.File), i, err)
 		}
 	}

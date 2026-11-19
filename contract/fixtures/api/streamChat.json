@@ -1,0 +1,43 @@
+{
+  "status": 200,
+  "body": [
+    {
+      "kind": "message",
+      "message": {
+        "id": "cht_01JD7ZK3M00000000000000004",
+        "agent": "builder",
+        "role": "human",
+        "author": "human:ada",
+        "text": "Can you also add a short page about the internet allow list?",
+        "assignment_id": null,
+        "created_at": "2026-11-19T18:40:02Z"
+      }
+    },
+    {
+      "kind": "delta",
+      "message_id": "cht_01JD7ZK3M00000000000000005",
+      "text": "Yes. I will "
+    },
+    {
+      "kind": "delta",
+      "message_id": "cht_01JD7ZK3M00000000000000005",
+      "text": "add it next to the budget page."
+    },
+    {
+      "kind": "heartbeat",
+      "time": "2026-11-19T18:40:17Z"
+    },
+    {
+      "kind": "message",
+      "message": {
+        "id": "cht_01JD7ZK3M00000000000000005",
+        "agent": "builder",
+        "role": "agent",
+        "author": "agent:builder",
+        "text": "Yes. I will add it next to the budget page.",
+        "assignment_id": null,
+        "created_at": "2026-11-19T18:40:09Z"
+      }
+    }
+  ]
+}

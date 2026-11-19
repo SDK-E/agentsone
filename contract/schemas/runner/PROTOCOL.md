@@ -1,4 +1,8 @@
-# Runner protocol 1.0
+# Runner protocol 1.1
+
+Version 1.1 adds one daemon-to-runner notification, `credentials.update` (see [Credentials](#credentials)).
+Everything else is version 1.0. A runner that speaks only 1.0 keeps working: the daemon never sends it
+`credentials.update`.
 
 A runner is the program that thinks for one agent. The daemon, `agentsoned`, starts one runner process per
 agent (in the agent's cgroup `/agents/<id>`) and talks to it over this protocol. Tools never travel over this
@@ -37,6 +41,7 @@ guide byte for byte, apart from timing values.
 | `cancel` | daemon to runner | request | Stop a turn. |
 | `sleep` | daemon to runner | request | Compact the session to a summary and go idle. |
 | `shutdown` | daemon to runner | request | Stop the process. |
+| `credentials.update` | daemon to runner | notification | Fresh gateway and MCP tokens (1.1 only). |
 | `bus.send` | runner to daemon | request | Send a message to another agent. |
 | `task.done` | runner to daemon | request | Report that work on a task ended. |
 | `status` | runner to daemon | notification | State changed: idle, working, sleeping or error. |
@@ -103,6 +108,27 @@ runner starts it after the current turn ends.
   runner process; sleeping costs nothing.
 - `shutdown` asks the runner to stop. The runner answers with an empty result, ends any turn, closes the
   socket and exits with status 0 within `graceMs` milliseconds. After that the daemon stops it by force.
+
+## Credentials
+
+Gateway and MCP tokens are short lived (the gateway token lives 15 minutes). On a connection that
+negotiated 1.1 or later, the daemon sends the notification `credentials.update` before the current tokens
+expire, at least 60 seconds ahead, and again each time it issues new ones:
+
+```text
+D> {"jsonrpc":"2.0","method":"credentials.update","params":{"gatewayToken":"...","gatewayTokenExpiresAt":"2026-11-19T19:30:00Z","mcpToken":"...","mcpTokenExpiresAt":"2026-11-19T19:30:00Z"}}
+```
+
+- There is no response. The runner must not reply, and must not stop a running turn.
+- `gatewayToken` replaces `model.token` from the welcome. `mcpToken` replaces `mcp.token` (streamable-http) or
+  the `AGENTSONE_TOKEN` value in `mcp.env` (stdio).
+- The runner uses the latest token for every new model call and every new MCP request. A call that is
+  already in flight finishes with the token it started with. A stdio MCP server reads its token at start, so
+  the runner restarts it with the new value between turns or tool calls.
+- The runner never logs these tokens or stores them anywhere except memory of the process, as with the
+  welcome tokens.
+- A runner that negotiated 1.0 never receives this notification and keeps the tokens of its welcome. A
+  runner that lists `1.1` in `hello` must handle the notification.
 
 ## Heartbeats
 
@@ -196,6 +222,9 @@ driven by a fake daemon; "daemon" rules are checked against the daemon driven by
 | R2 | runner | A `wake` with reason `event`, type `agentsone.agents.budget.restored` and the paused `turnId` resumes that turn: same `turnId`, no new `profile.update` required, and it ends as in T4. |
 | R3 | runner | A runner with capability `resume: false` answers that `wake` with error 1011. |
 | P1 | daemon | `profile.update.line` is stored as the agent's one-line in the live list; a turn without one is recorded as a fault. |
+| K1 | daemon | `credentials.update` is sent only on a connection that negotiated 1.1 or later, and at least 60 seconds before the tokens in use expire. |
+| K2 | runner | After `credentials.update`, the next model call carries `gatewayToken` and the next MCP request carries `mcpToken`; the runner sends no response and the running turn is not interrupted. |
+| K3 | runner | A runner that negotiated 1.0 and a runner that receives no `credentials.update` behave as in 1.0. |
 
 ## Example session
 
@@ -266,6 +295,16 @@ R> {"jsonrpc":"2.0","id":8,"result":{"summary":"Chatted with alice. Wrote the we
 R> {"jsonrpc":"2.0","method":"status","params":{"state":"sleeping"}}
 D> {"jsonrpc":"2.0","id":9,"method":"shutdown","params":{"reason":"stop","graceMs":5000}}
 R> {"jsonrpc":"2.0","id":9,"result":{}}
+```
+
+A 1.1 connection adds credential refreshes. The lines are in
+[`../../fixtures/schemas/runner-message/transcript-1.1.ndjson`](../../fixtures/schemas/runner-message/transcript-1.1.ndjson):
+
+```text
+R> {"jsonrpc":"2.0","id":1,"method":"hello","params":{"protocolVersions":["1.1","1.0"],"runner":{"name":"echo","version":"1.1.0"},"capabilities":{"streaming":true,"cancel":true,"compaction":true,"resume":true}}}
+D> {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"1.1", ...the welcome as above...}}
+R> {"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}
+D> {"jsonrpc":"2.0","method":"credentials.update","params":{"gatewayToken":"test-gateway-token-founder-0002","gatewayTokenExpiresAt":"2026-11-19T19:30:00Z","mcpToken":"test-mcp-token-founder-0002","mcpTokenExpiresAt":"2026-11-19T19:30:00Z"}}
 ```
 
 The tokens shown are test values. Values that depend on time (`uptimeMs`, timestamps) and the gateway

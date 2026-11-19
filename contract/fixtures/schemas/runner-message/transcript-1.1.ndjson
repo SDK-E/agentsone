@@ -1,0 +1,7 @@
+{"jsonrpc":"2.0","id":1,"method":"hello","params":{"protocolVersions":["1.1","1.0"],"runner":{"name":"echo","version":"1.1.0"},"capabilities":{"streaming":true,"cancel":true,"compaction":true,"resume":true}}}
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"1.1","agent":{"name":"founder","kind":"always-on","isRoot":true,"uid":0,"team":"founder","manager":null,"oneLine":"Goal: keep this machine useful to its humans. Now: starting up.","charter":"I found and grow the society on this machine.","goals":["Keep the machine healthy","Hire agents for the work humans ask for"]},"mcp":{"transport":"streamable-http","url":"http://127.0.0.1:7700/mcp","token":"test-mcp-token-founder-0001","tokenExpiresAt":"2026-11-19T19:15:00Z"},"model":{"baseUrl":"http://edge:4000/v1","name":"autoagents/one","token":"test-gateway-token-founder-0001","weights":["quick","normal","deep"],"defaultWeight":"normal"},"session":{"summary":null,"compactedAt":null,"pausedTurnId":null},"config":{"heartbeatIntervalMs":15000,"heartbeatTimeoutMs":45000,"maxLineBytes":1048576,"runner":{}}}}
+{"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}
+{"jsonrpc":"2.0","method":"credentials.update","params":{"gatewayToken":"test-gateway-token-founder-0002","gatewayTokenExpiresAt":"2026-11-19T19:30:00Z","mcpToken":"test-mcp-token-founder-0002","mcpTokenExpiresAt":"2026-11-19T19:30:00Z"}}
+{"jsonrpc":"2.0","method":"heartbeat","params":{"uptimeMs":15002}}
+{"jsonrpc":"2.0","id":2,"method":"shutdown","params":{"reason":"stop","graceMs":5000}}
+{"jsonrpc":"2.0","id":2,"result":{}}

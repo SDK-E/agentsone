@@ -2,8 +2,8 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "Agents One runner protocol",
-    "version": "1.0.0",
-    "description": "JSON-RPC 2.0 between the daemon (agentsoned) and one agent runner, one JSON message per line over the Unix socket named by AGENTSONE_RUNNER_SOCKET. Both sides send requests, so each method carries x-direction: daemon-to-runner or runner-to-daemon. A method without result is a notification and has no id. Protocol version 1.0. The authoritative message shapes are in messages.schema.json; x-params-schema names the full params type of each method. Read PROTOCOL.md for framing, handshake order, heartbeats, errors and resume.",
+    "version": "1.1.0",
+    "description": "JSON-RPC 2.0 between the daemon (agentsoned) and one agent runner, one JSON message per line over the Unix socket named by AGENTSONE_RUNNER_SOCKET. Both sides send requests, so each method carries x-direction: daemon-to-runner or runner-to-daemon. A method without result is a notification and has no id. Protocol version 1.1: version 1.0 plus the credentials.update notification (x-since 1.1). The authoritative message shapes are in messages.schema.json; x-params-schema names the full params type of each method. Read PROTOCOL.md for framing, handshake order, heartbeats, errors and resume.",
     "license": { "name": "MIT", "url": "https://opensource.org/license/mit" }
   },
   "servers": [
@@ -161,6 +161,36 @@
         }
       ],
       "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } }
+    },
+    {
+      "name": "credentials.update",
+      "summary": "Fresh gateway and MCP tokens (protocol 1.1).",
+      "x-direction": "daemon-to-runner",
+      "x-since": "1.1",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/CredentialsUpdateParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "gatewayToken",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/ScopedToken" }
+        },
+        {
+          "name": "gatewayTokenExpiresAt",
+          "required": true,
+          "schema": { "type": "string", "format": "date-time" }
+        },
+        {
+          "name": "mcpToken",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/ScopedToken" }
+        },
+        {
+          "name": "mcpTokenExpiresAt",
+          "required": true,
+          "schema": { "type": "string", "format": "date-time" }
+        }
+      ]
     },
     {
       "name": "status",

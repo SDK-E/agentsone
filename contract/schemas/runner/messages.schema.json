@@ -19,6 +19,7 @@
     { "$ref": "#/$defs/LogNotification" },
     { "$ref": "#/$defs/ErrorNotification" },
     { "$ref": "#/$defs/HeartbeatNotification" },
+    { "$ref": "#/$defs/CredentialsUpdateNotification" },
     { "$ref": "#/$defs/SuccessResponse" },
     { "$ref": "#/$defs/ErrorResponse" }
   ],
@@ -822,6 +823,35 @@
       "required": ["uptimeMs"],
       "properties": {
         "uptimeMs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+
+    "CredentialsUpdateNotification": {
+      "description": "Daemon to runner, notification. Since protocol 1.1: fresh gateway and MCP tokens, sent before the old ones expire. The runner uses the latest tokens for every new model call and MCP request. There is no response. The daemon sends it only on a connection that negotiated 1.1 or later.",
+      "type": "object",
+      "required": ["jsonrpc", "method", "params"],
+      "properties": {
+        "jsonrpc": { "$ref": "#/$defs/JsonRpcVersion" },
+        "method": { "const": "credentials.update" },
+        "params": { "$ref": "#/$defs/CredentialsUpdateParams" }
+      },
+      "additionalProperties": false
+    },
+    "CredentialsUpdateParams": {
+      "type": "object",
+      "required": ["gatewayToken", "gatewayTokenExpiresAt", "mcpToken", "mcpTokenExpiresAt"],
+      "properties": {
+        "gatewayToken": {
+          "description": "Replaces model.token from the welcome.",
+          "$ref": "#/$defs/ScopedToken"
+        },
+        "gatewayTokenExpiresAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
+        "mcpToken": {
+          "description": "Replaces the MCP token: mcp.token for streamable-http, the AGENTSONE_TOKEN value in mcp.env for stdio.",
+          "$ref": "#/$defs/ScopedToken"
+        },
+        "mcpTokenExpiresAt": { "$ref": "../common.schema.json#/$defs/Timestamp" }
       },
       "additionalProperties": false
     },

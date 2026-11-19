@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/auth"
+	contract "github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/core/moduletest"
@@ -86,6 +87,20 @@ func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
+// specVersion is the version of the embedded contract.
+func specVersion(t *testing.T) string {
+	t.Helper()
+	var doc struct {
+		Info struct {
+			Version string `json:"version"`
+		} `json:"info"`
+	}
+	if err := json.Unmarshal(contract.Spec, &doc); err != nil || doc.Info.Version == "" {
+		t.Fatalf("contract version %q: %v", doc.Info.Version, err)
+	}
+	return doc.Info.Version
+}
+
 const firstHuman = `{"name":"ada","display_name":"Ada","password":"correct horse battery"}`
 
 func TestFirstBoot_CreateFirstHumanThenSignIn(t *testing.T) {
@@ -93,7 +108,7 @@ func TestFirstBoot_CreateFirstHumanThenSignIn(t *testing.T) {
 	d := start(t)
 	rec := d.call(core.Anonymous, http.MethodGet, "/v1/setup", "", "")
 	want(t, rec, http.StatusOK)
-	if !strings.Contains(rec.Body.String(), `"phase":"needs-human"`) || !strings.Contains(rec.Body.String(), `"contract_version":"1.0.0"`) {
+	if !strings.Contains(rec.Body.String(), `"phase":"needs-human"`) || !strings.Contains(rec.Body.String(), `"contract_version":"`+specVersion(t)+`"`) {
 		t.Fatalf("status %s", rec.Body)
 	}
 	want(t, d.call(core.Anonymous, http.MethodPost, "/v1/setup/first-human", firstHuman, ""), http.StatusCreated)

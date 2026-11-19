@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+#
+# Template of /etc/agentsone/config.toml, installed as
+# /usr/lib/agentsone/config.toml. The entrypoint copies it on every start and
+# adds the [edge] table when AGENTSONE_EDGE_IP is set. Every key not set
+# here keeps the daemon's default (see internal/core/config.go).
+
+[api]
+# Listen on every container address: loopback for agents and tools inside,
+# and the inner network address for the web door in edge. The daemon refuses
+# callers from other addresses than loopback and [edge] trusted_proxies.
+addr = "0.0.0.0:7700"

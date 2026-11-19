@@ -17,7 +17,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
-func TestDaemonServesEveryUnbuiltOperationAs501OnTheSocket(t *testing.T) {
+func TestDaemon_ServesItsModulesOnTheSocket(t *testing.T) {
 	short, err := os.MkdirTemp("", "a1")
 	if err != nil {
 		t.Fatal(err)
@@ -32,10 +32,17 @@ func TestDaemonServesEveryUnbuiltOperationAs501OnTheSocket(t *testing.T) {
 	go func() { done <- serve(ctx, deps) }()
 
 	client := unixClient(deps.Config.SocketPath())
+	// An operation a module implements answers 2xx.
 	resp := waitFor(t, client, "http://agentsoned/v1/agents")
 	_ = resp.Body.Close() // test response body
-	if resp.StatusCode != http.StatusNotImplemented {
-		t.Fatalf("status %d", resp.StatusCode)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		t.Fatalf("GET /v1/agents status %d, want 2xx", resp.StatusCode)
+	}
+	// A path outside the API is not found.
+	resp = waitFor(t, client, "http://agentsoned/v1/no-such-resource")
+	_ = resp.Body.Close() // test response body
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET /v1/no-such-resource status %d, want 404", resp.StatusCode)
 	}
 	cancel()
 	if err := <-done; err != nil {

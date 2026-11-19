@@ -15,7 +15,10 @@ package web_test
 //	http://127.0.0.1:7792  empty: nothing allowed, no keys, no budget
 //	http://127.0.0.1:7793  loaded: a typical stack
 //	http://127.0.0.1:7794  error: the edge does not answer
-//	http://127.0.0.1:7795  long text and frozen
+//	http://127.0.0.1:7795  long text, frozen, and a refusal shown in the allow list
+//	http://127.0.0.1:7796  sign in
+//
+// 7793 also shows a saved key's result in the providers section.
 
 import (
 	"context"
@@ -31,6 +34,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/control/adapters/web"
 	"github.com/SDK-E/agentsone/internal/edge/control/app"
 	"github.com/SDK-E/agentsone/internal/edge/control/controltest"
+	"github.com/SDK-E/agentsone/internal/edge/control/domain"
 )
 
 // previewPassphrase signs in to the preview. It is a test value for the fake edge only.
@@ -45,6 +49,7 @@ func TestPreview(t *testing.T) {
 		"127.0.0.1:7793": loaded,
 		"127.0.0.1:7794": func(e *controltest.Edge) { loaded(e); e.Err = controltest.ErrDown },
 		"127.0.0.1:7795": long,
+		"127.0.0.1:7796": func(*controltest.Edge) {},
 	}
 	for addr, seed := range states {
 		creds := &controltest.Credentials{}
@@ -60,8 +65,13 @@ func TestPreview(t *testing.T) {
 			t.Fatal(err)
 		}
 		h := web.New(web.Options{Auth: auth, Powers: powers, Log: log})
-		if !strings.HasSuffix(addr, "7791") {
-			h = signedIn(t, auth, h)
+		switch {
+		case strings.HasSuffix(addr, "7793"):
+			h = signedIn(t, auth, h, domain.Flash{Kind: domain.FlashDone, Text: "The key is saved in the edge. Its fingerprint is f427e5fd.", Where: "models"})
+		case strings.HasSuffix(addr, "7795"):
+			h = signedIn(t, auth, h, domain.Flash{Kind: domain.FlashError, Text: "This name is already on the list.", Where: "allow"})
+		case !strings.HasSuffix(addr, "7791") && !strings.HasSuffix(addr, "7796"):
+			h = signedIn(t, auth, h, domain.Flash{})
 		}
 		srv := &http.Server{Handler: h, ReadHeaderTimeout: time.Second}
 		go func() { _ = srv.Serve(ln) }()
@@ -70,9 +80,9 @@ func TestPreview(t *testing.T) {
 	<-t.Context().Done()
 }
 
-// signedIn lets a browser without a cookie (a headless screenshot) in as a signed-in visitor.
-// Preview only: the page itself has no such door.
-func signedIn(t *testing.T, auth *app.Auth, next http.Handler) http.Handler {
+// signedIn lets a browser without a cookie (a headless screenshot) in as a signed-in visitor,
+// with flash shown on every page. Preview only: the page itself has no such door.
+func signedIn(t *testing.T, auth *app.Auth, next http.Handler, flash domain.Flash) http.Handler {
 	v, err := auth.Visit(t.Context(), "")
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +94,9 @@ func signedIn(t *testing.T, auth *app.Auth, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(r.Cookies()) == 0 {
 			r.AddCookie(&http.Cookie{Name: "agentsone_control", Value: sess.ID}) // #nosec G124 -- preview only
+			if flash.Text != "" {
+				auth.SetFlash(sess.ID, flash)
+			}
 		}
 		next.ServeHTTP(w, r)
 	})

@@ -253,12 +253,12 @@ func matchExpression(text string) string {
 	return strings.Join(words, " ")
 }
 
-func truncate(s string, max int) string {
+func truncate(s string, limit int) string {
 	r := []rune(s)
-	if len(r) <= max {
+	if len(r) <= limit {
 		return s
 	}
-	return string(r[:max])
+	return string(r[:limit])
 }
 
 type scanner interface{ Scan(dest ...any) error }

@@ -510,6 +510,90 @@ func TestCallerGoneDoesNotTripBreaker(t *testing.T) {
 	}
 }
 
+func TestCountTokensGoesToClaudeWithoutCharging(t *testing.T) {
+	r := newRig(t, 0) // no budget at all: counting is free
+	r.upstream.answers["anthropic"] = []scripted{{status: 200, body: `{"input_tokens":42}`}}
+	res, err := r.router.CountTokens(context.Background(), gatewayapp.CountRequest{
+		Weight: routing.Normal, Body: []byte(`{"model":"autoagents/one","messages":[]}`),
+	})
+	if err != nil {
+		t.Fatalf("CountTokens: %v", err)
+	}
+	if got := drain(t, res); got != `{"input_tokens":42}` || res.Model.ID != "claude-sonnet-5-5" {
+		t.Fatalf("result %+v body %q", res.Model, got)
+	}
+	c := r.upstream.calls[0]
+	if c.Op != gatewayapp.OpCountTokens || c.API != routing.APIAnthropic || c.Key != "test-key-a" {
+		t.Fatalf("upstream call = %+v", c)
+	}
+	if st := r.budget.state(); st.Spent != 0 || st.Reserved != 0 {
+		t.Fatalf("counting changed the budget: %+v", st)
+	}
+}
+
+func TestCountTokensFailsOverAndLeavesHealthAlone(t *testing.T) {
+	cat := testCatalog()
+	cat.Models = append(cat.Models, routing.Model{
+		Provider: "anthropic2", ID: "claude-dear", Tier: routing.Normal, Family: "claude",
+		InputPerMTok: price("9"), OutputPerMTok: price("9"),
+	})
+	cat.Providers = append(cat.Providers, routing.Provider{ID: "anthropic2", APIs: []routing.API{routing.APIAnthropic}, Enabled: true})
+	r := newRig(t, 0)
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{cat}, Keys: fakeKeys{}, Upstream: r.upstream,
+		Budget: r.budget, Breaker: r.breaker, Clock: r.clock,
+	})
+	r.upstream.answers["anthropic"] = []scripted{{status: 503, body: "down"}}
+	r.upstream.answers["anthropic2"] = []scripted{{status: 200, body: `{"input_tokens":7}`}}
+	res, err := r.router.CountTokens(context.Background(), gatewayapp.CountRequest{Weight: routing.Normal, Body: []byte(`{}`)})
+	if err != nil {
+		t.Fatalf("CountTokens: %v", err)
+	}
+	_ = drain(t, res)
+	if res.Model.Provider != "anthropic2" {
+		t.Fatalf("served by %s", res.Model.Provider)
+	}
+	if r.breaker.State("anthropic", r.clock.now) != routing.BreakerClosed {
+		t.Fatal("a count call changed provider health")
+	}
+}
+
+func TestCountTokensErrors(t *testing.T) {
+	r := newRig(t, 0)
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{routing.Catalog{}}, Keys: fakeKeys{}, Upstream: r.upstream,
+		Budget: r.budget, Breaker: r.breaker, Clock: r.clock,
+	})
+	if _, err := r.router.CountTokens(context.Background(), gatewayapp.CountRequest{Weight: routing.Normal}); !errors.Is(err, gatewayapp.ErrNoRoute) {
+		t.Fatalf("error = %v, want ErrNoRoute", err)
+	}
+	r2 := newRig(t, 0)
+	r2.upstream.answers["anthropic"] = []scripted{{err: errors.New("timeout")}}
+	_, err := r2.router.CountTokens(context.Background(), gatewayapp.CountRequest{Weight: routing.Normal, Body: []byte(`{}`)})
+	var up *gatewayapp.UpstreamError
+	if !errors.As(err, &up) {
+		t.Fatalf("error = %v, want UpstreamError", err)
+	}
+	r3 := newRig(t, 0)
+	r3.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{testCatalog()}, Keys: brokenKeys{}, Upstream: r3.upstream,
+		Budget: r3.budget, Breaker: r3.breaker, Clock: r3.clock,
+	})
+	if _, err := r3.router.CountTokens(context.Background(), gatewayapp.CountRequest{Weight: routing.Normal, Body: []byte(`{}`)}); !errors.As(err, &up) {
+		t.Fatalf("error = %v, want UpstreamError", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r4 := newRig(t, 0)
+	r4.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{testCatalog()}, Keys: fakeKeys{}, Upstream: cancelUpstream{},
+		Budget: r4.budget, Breaker: r4.breaker, Clock: r4.clock,
+	})
+	if _, err := r4.router.CountTokens(ctx, gatewayapp.CountRequest{Weight: routing.Normal, Body: []byte(`{}`)}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+}
+
 func TestNoRoute(t *testing.T) {
 	r := newRig(t, 10*usd)
 	r.router = gatewayapp.NewRouter(gatewayapp.Deps{

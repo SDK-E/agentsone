@@ -76,8 +76,21 @@ type Clock interface {
 	Now() time.Time
 }
 
+// Op is what an upstream call does.
+type Op int
+
+// Upstream operations.
+const (
+	// OpGenerate asks the model for an answer; it costs money.
+	OpGenerate Op = iota
+	// OpCountTokens asks the Messages API to count a request's input tokens;
+	// it is free.
+	OpCountTokens
+)
+
 // UpstreamCall is one call to one provider.
 type UpstreamCall struct {
+	Op       Op
 	Provider routing.ProviderID
 	API      routing.API
 	Model    string
@@ -309,6 +322,56 @@ func (b *settlingBody) Close() error {
 		b.err = errors.Join(b.rc.Close(), b.settle())
 	})
 	return b.err
+}
+
+// CountRequest asks for a Messages request's input token count.
+type CountRequest struct {
+	Weight routing.Weight
+	Body   []byte
+	Header http.Header
+}
+
+// CountTokens passes a token count request to the Claude model the same call
+// would be routed to. Counting is free, so no budget is reserved, and its
+// answers do not change provider health or use a half-open probe; providers
+// that fail are skipped for the next.
+func (r *Router) CountTokens(ctx context.Context, req CountRequest) (*CallResult, error) {
+	now := r.d.Clock.Now()
+	ranked := routing.Rank(r.d.Catalog.Catalog(), routing.Request{Engine: routing.APIAnthropic, Weight: req.Weight},
+		func(p routing.ProviderID) bool { return r.d.Breaker.State(p, now) == routing.BreakerClosed })
+	if len(ranked) == 0 {
+		return nil, ErrNoRoute
+	}
+	var lastErr error
+	lastStatus := 0
+	for i, m := range ranked {
+		if i >= r.d.Limits.MaxAttempts {
+			break
+		}
+		key, err := r.d.Keys.Get(ctx, m.Provider)
+		if err != nil && !errors.Is(err, ErrKeyNotFound) {
+			lastErr = err
+			continue
+		}
+		resp, err := r.d.Upstream.Call(ctx, UpstreamCall{
+			Op: OpCountTokens, Provider: m.Provider, API: routing.APIAnthropic, Model: m.ID,
+			Key: key, Body: req.Body, Header: req.Header,
+		})
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			lastErr, lastStatus = err, 0
+			continue
+		}
+		if providerFailed(resp.Status) {
+			_ = resp.Body.Close()
+			lastErr, lastStatus = fmt.Errorf("provider %s answered %d", m.Provider, resp.Status), resp.Status
+			continue
+		}
+		return &CallResult{Model: m, Status: resp.Status, Header: resp.Header, Body: resp.Body}, nil
+	}
+	return nil, &UpstreamError{Status: lastStatus, Err: lastErr}
 }
 
 // BudgetView is what a caller may know about its budget.

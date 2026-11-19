@@ -107,6 +107,9 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 	if cfg.KeyRequired && call.Key == "" {
 		return nil, fmt.Errorf("%w: %s", gatewayapp.ErrKeyRequired, call.Provider)
 	}
+	if call.Op == gatewayapp.OpCountTokens && call.API != routing.APIAnthropic {
+		return nil, fmt.Errorf("%w: token counting needs the Messages API", ErrAPINotOffered)
+	}
 	var url string
 	switch call.API {
 	case routing.APIAnthropic:
@@ -122,7 +125,7 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildURL(url, call.API), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildURL(url, call.API, call.Op), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("providers: build request: %w", err)
 	}
@@ -150,7 +153,9 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 	if err != nil {
 		return nil, fmt.Errorf("providers: call %s: %w", call.Provider, err)
 	}
-	t := newTap(resp.Body, isEventStream(resp.Header.Get("Content-Type")), resp.StatusCode < 300)
+	// Count answers carry no usage; errors neither.
+	tapOn := resp.StatusCode < 300 && call.Op == gatewayapp.OpGenerate
+	t := newTap(resp.Body, isEventStream(resp.Header.Get("Content-Type")), tapOn)
 	return &gatewayapp.UpstreamResponse{
 		Status: resp.StatusCode,
 		Header: resp.Header,
@@ -159,8 +164,11 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 	}, nil
 }
 
-func buildURL(base string, api routing.API) string {
+func buildURL(base string, api routing.API, op gatewayapp.Op) string {
 	base = strings.TrimRight(base, "/")
+	if op == gatewayapp.OpCountTokens {
+		return base + "/messages/count_tokens"
+	}
 	if api == routing.APIAnthropic {
 		return base + "/messages"
 	}
@@ -180,6 +188,13 @@ func rewrite(call gatewayapp.UpstreamCall, cfg Config) ([]byte, error) {
 		return nil, ErrBadBody
 	}
 	m["model"] = mustJSON(call.Model)
+	if call.Op == gatewayapp.OpCountTokens {
+		// count_tokens takes the request without generation settings.
+		delete(m, "max_tokens")
+		delete(m, "stream")
+		delete(m, "stream_options")
+		return json.Marshal(m)
+	}
 	limit := mustJSON(call.MaxOutputTokens)
 	if call.API == routing.APIAnthropic {
 		m["max_tokens"] = limit

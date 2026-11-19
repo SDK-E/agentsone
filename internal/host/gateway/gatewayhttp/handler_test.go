@@ -35,6 +35,7 @@ func (fakeClock) Now() time.Time { return now }
 type fakeRouter struct {
 	mu     sync.Mutex
 	got    []gatewayapp.CallRequest
+	counts []gatewayapp.CountRequest
 	result *gatewayapp.CallResult
 	err    error
 	view   gatewayapp.BudgetView
@@ -57,6 +58,13 @@ func (f *fakeRouter) Call(_ context.Context, req gatewayapp.CallRequest) (*gatew
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.got = append(f.got, req)
+	return f.result, f.err
+}
+
+func (f *fakeRouter) CountTokens(_ context.Context, req gatewayapp.CountRequest) (*gatewayapp.CallResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.counts = append(f.counts, req)
 	return f.result, f.err
 }
 
@@ -200,6 +208,41 @@ func TestAnthropicEndpointAcceptsAPIKeyHeader(t *testing.T) {
 	if got.Engine != routing.APIAnthropic || !got.Caller.Defence || got.MaxOutputTokens != 256 ||
 		got.Header.Get("Anthropic-Version") != "2026-10-21" {
 		t.Fatalf("call request = %+v", got)
+	}
+}
+
+func TestCountTokensPassesThrough(t *testing.T) {
+	r := &fakeRouter{}
+	answer(r, 200, "application/json", `{"input_tokens":99}`)
+	srv := server(t, r)
+	resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages/count_tokens",
+		`{"model":"autoagents/one:deep","messages":[]}`,
+		map[string]string{"X-Api-Key": token(t, false, now.Add(time.Hour)), "Anthropic-Beta": "b1"})
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 || string(body) != `{"input_tokens":99}` {
+		t.Fatalf("status %d body %q", resp.StatusCode, body)
+	}
+	if len(r.got) != 0 || len(r.counts) != 1 {
+		t.Fatalf("calls %d counts %d; counting must not be a paid call", len(r.got), len(r.counts))
+	}
+	if c := r.counts[0]; c.Weight != routing.Deep || c.Header.Get("Anthropic-Beta") != "b1" {
+		t.Fatalf("count request = %+v", c)
+	}
+	if !r.closed {
+		t.Fatal("answer body not closed")
+	}
+}
+
+func TestCountTokensRefusals(t *testing.T) {
+	srv := server(t, &fakeRouter{err: gatewayapp.ErrNoRoute})
+	if resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages/count_tokens", `{"model":"autoagents/one"}`, nil); resp.StatusCode != 401 {
+		t.Fatalf("no token: status %d", resp.StatusCode)
+	}
+	if resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages/count_tokens", `{"model":"claude-x"}`, bearer(t)); resp.StatusCode != 400 {
+		t.Fatalf("bad model: status %d", resp.StatusCode)
+	}
+	if resp := do(t, srv, http.MethodPost, "/anthropic/v1/messages/count_tokens", `{"model":"autoagents/one"}`, bearer(t)); resp.StatusCode != 503 {
+		t.Fatalf("no route: status %d", resp.StatusCode)
 	}
 }
 

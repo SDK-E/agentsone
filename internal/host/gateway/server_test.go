@@ -233,6 +233,43 @@ func TestAnthropicStreamIsChargedFromItsUsageEvents(t *testing.T) {
 	}
 }
 
+func TestCountTokensWorksWithNoBudget(t *testing.T) {
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/messages/count_tokens" || r.Header.Get("X-Api-Key") != "test-claude-key" {
+			http.Error(w, "wrong call", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"input_tokens":321}`)
+	}))
+	defer fake.Close()
+	dir := t.TempDir()
+	cfg := gatewayconfig.File{
+		Limits: gatewayconfig.Default().Limits,
+		Providers: []gatewayconfig.Provider{{
+			ID: "anthropic", Enabled: true, AnthropicBaseURL: fake.URL + "/v1", KeyRequired: true,
+			Models: []gatewayconfig.Model{{ID: "claude-haiku-5-5", Tier: "quick", Family: "claude", Input: "0.10", Output: "0.50"}},
+		}},
+	}
+	if err := gatewayconfig.Save(filepath.Join(dir, gatewayconfig.FileName), cfg); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
+	srv, err := gateway.Open(context.Background(), gateway.Options{
+		DataDir: dir, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, stop := serve(t, srv)
+	defer stop()
+	status, body := post(t, base+"/anthropic/v1/messages/count_tokens", agentToken(t, srv, now),
+		`{"model":"autoagents/one","messages":[{"role":"user","content":"hi"}]}`)
+	if status != 200 || body != `{"input_tokens":321}` {
+		t.Fatalf("status %d body %q", status, body)
+	}
+}
+
 func TestListenVMUsesTheGatewayAddress(t *testing.T) {
 	var gotNet, gotAddr string
 	ln, err := gateway.ListenVM(func(network, addr string) (net.Listener, error) {

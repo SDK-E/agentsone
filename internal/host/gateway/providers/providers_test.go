@@ -189,6 +189,46 @@ func TestAnthropicStreamingCapturesStartAndDeltaUsage(t *testing.T) {
 	}
 }
 
+func TestAnthropicCountTokens(t *testing.T) {
+	srv, got := fakeProvider(t, 200, "application/json", `{"input_tokens":1234}`)
+	c := client(providers.Config{ID: "anthropic", AnthropicBaseURL: srv.URL + "/v1", KeyRequired: true})
+	resp, err := c.Call(context.Background(), gatewayapp.UpstreamCall{
+		Op: gatewayapp.OpCountTokens, Provider: "anthropic", API: routing.APIAnthropic, Model: "claude-sonnet-5-5", Key: "k",
+		Body:   []byte(`{"model":"autoagents/one","max_tokens":10,"stream":true,"messages":[{"role":"user","content":"hi"}]}`),
+		Header: http.Header{"Anthropic-Beta": {"token-counting"}},
+	})
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	if body := readAll(t, resp); body != `{"input_tokens":1234}` {
+		t.Fatalf("body = %q", body)
+	}
+	if got.path != "/v1/messages/count_tokens" || got.header.Get("X-Api-Key") != "k" || got.header.Get("Anthropic-Beta") != "token-counting" {
+		t.Fatalf("path %q headers %v", got.path, got.header)
+	}
+	if got.body["model"] != "claude-sonnet-5-5" {
+		t.Fatalf("model not rewritten: %v", got.body)
+	}
+	for _, field := range []string{"max_tokens", "stream", "stream_options"} {
+		if _, has := got.body[field]; has {
+			t.Fatalf("%s sent to count_tokens: %v", field, got.body)
+		}
+	}
+	if _, ok := resp.Usage(); ok {
+		t.Fatal("a count answer reported usage")
+	}
+}
+
+func TestCountTokensNeedsTheMessagesAPI(t *testing.T) {
+	c := client(providers.Config{ID: "openai-only", OpenAIBaseURL: "http://127.0.0.1:1"})
+	_, err := c.Call(context.Background(), gatewayapp.UpstreamCall{
+		Op: gatewayapp.OpCountTokens, Provider: "openai-only", API: routing.APIOpenAI, Body: []byte(`{}`),
+	})
+	if !errors.Is(err, providers.ErrAPINotOffered) {
+		t.Fatalf("error = %v, want ErrAPINotOffered", err)
+	}
+}
+
 func TestUsageUnknownWhenStreamCutShort(t *testing.T) {
 	answer := "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n"
 	srv, _ := fakeProvider(t, 200, "text/event-stream", answer)

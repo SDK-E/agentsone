@@ -8,6 +8,9 @@
 //	GET  /v1/models              lists the one model, autoagents/one
 //	POST /anthropic/v1/messages  Anthropic Messages, for the Claude engine through
 //	                             ANTHROPIC_BASE_URL; routed only to Claude models
+//	POST /anthropic/v1/messages/count_tokens
+//	                             token counting for the Claude engine; free, so
+//	                             not charged to the budget
 //	GET  /v1/budget              the caller's budget, for paused runners to poll
 //
 // Every request carries an agent gateway token, as "Authorization: Bearer" or,
@@ -66,6 +69,7 @@ const (
 // Router is the part of the gateway application the handlers use.
 type Router interface {
 	Call(ctx context.Context, req gatewayapp.CallRequest) (*gatewayapp.CallResult, error)
+	CountTokens(ctx context.Context, req gatewayapp.CountRequest) (*gatewayapp.CallResult, error)
 	Budget(c ledger.Caller) gatewayapp.BudgetView
 }
 
@@ -101,6 +105,7 @@ func New(o Options) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.call(routing.APIOpenAI)))
 	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.call(routing.APIAnthropic)))
+	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.countTokens))
 	mux.HandleFunc("GET /v1/models", h.authed(false, h.models))
 	mux.HandleFunc("GET /v1/budget", h.authed(false, h.budget))
 	return mux
@@ -140,31 +145,57 @@ type callFields struct {
 	MaxCompletionTokens int64  `json:"max_completion_tokens"`
 }
 
+// readCall reads and checks a model request. On failure it has already
+// written the problem answer and returns ok false.
+func (h *handler) readCall(w http.ResponseWriter, r *http.Request) (body []byte, f callFields, weight routing.Weight, ok bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxRequestBytes))
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			h.problem(w, http.StatusRequestEntityTooLarge, ProblemTooLarge, "Request too large",
+				"The request body is over "+strconv.Itoa(MaxRequestBytes)+" bytes.", nil)
+			return nil, f, "", false
+		}
+		h.problem(w, http.StatusBadRequest, ProblemBadRequest, "Request not read", err.Error(), nil)
+		return nil, f, "", false
+	}
+	if err := json.Unmarshal(body, &f); err != nil {
+		h.problem(w, http.StatusBadRequest, ProblemBadRequest, "Request is not valid JSON", err.Error(), nil)
+		return nil, f, "", false
+	}
+	weight, err = routing.ResolveWeight(f.Model, r.Header.Get(WeightHeader))
+	if errors.Is(err, routing.ErrBadWeight) {
+		h.problem(w, http.StatusBadRequest, ProblemBadWeight, "Unknown weight", err.Error(), nil)
+		return nil, f, "", false
+	}
+	if err != nil {
+		h.problem(w, http.StatusBadRequest, ProblemUnknownModel, "Unknown model", err.Error(), nil)
+		return nil, f, "", false
+	}
+	return body, f, weight, true
+}
+
+// countTokens passes a Messages token count to a Claude model. Counting is
+// free, so it is not charged to the budget.
+func (h *handler) countTokens(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims) {
+	body, _, weight, ok := h.readCall(w, r)
+	if !ok {
+		return
+	}
+	res, err := h.o.Router.CountTokens(r.Context(), gatewayapp.CountRequest{
+		Weight: weight, Body: body, Header: passHeaders(r.Header),
+	})
+	if err != nil {
+		h.callError(w, err)
+		return
+	}
+	h.relay(w, c, res)
+}
+
 func (h *handler) call(engine routing.API) authedFunc {
 	return func(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims) {
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxRequestBytes))
-		if err != nil {
-			var tooBig *http.MaxBytesError
-			if errors.As(err, &tooBig) {
-				h.problem(w, http.StatusRequestEntityTooLarge, ProblemTooLarge, "Request too large",
-					"The request body is over "+strconv.Itoa(MaxRequestBytes)+" bytes.", nil)
-				return
-			}
-			h.problem(w, http.StatusBadRequest, ProblemBadRequest, "Request not read", err.Error(), nil)
-			return
-		}
-		var f callFields
-		if err := json.Unmarshal(body, &f); err != nil {
-			h.problem(w, http.StatusBadRequest, ProblemBadRequest, "Request is not valid JSON", err.Error(), nil)
-			return
-		}
-		weight, err := routing.ResolveWeight(f.Model, r.Header.Get(WeightHeader))
-		if errors.Is(err, routing.ErrBadWeight) {
-			h.problem(w, http.StatusBadRequest, ProblemBadWeight, "Unknown weight", err.Error(), nil)
-			return
-		}
-		if err != nil {
-			h.problem(w, http.StatusBadRequest, ProblemUnknownModel, "Unknown model", err.Error(), nil)
+		body, f, weight, ok := h.readCall(w, r)
+		if !ok {
 			return
 		}
 		maxOut := f.MaxCompletionTokens

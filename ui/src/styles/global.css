@@ -314,23 +314,54 @@ ul.notice {
   border-radius: var(--radius-md);
 }
 
-.topbar__who {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+.account {
+  position: relative;
   min-width: 0;
 }
 
-.visitor-chip {
-  padding: var(--space-xs) var(--space-md);
+.account__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  max-width: 16rem;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
-  background: var(--color-visitor-subtle);
-  color: var(--color-on-visitor-subtle);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
   font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.account__toggle:hover {
+  background: var(--color-surface-sunken);
+}
+
+.account__toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.account__name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 16rem;
+}
+
+.account__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-xs));
+  z-index: 5;
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 14rem;
+  padding: var(--space-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Page */
@@ -879,12 +910,8 @@ ul.notice {
     white-space: nowrap;
   }
 
-  .visitor-chip {
-    max-width: 10rem;
-  }
-
-  .topbar .button {
-    white-space: nowrap;
+  .account__toggle {
+    max-width: 12rem;
   }
 
   .page {

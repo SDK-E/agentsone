@@ -21,6 +21,8 @@ describe("ChatView", () => {
     expect(items).toHaveLength(3);
     expect(within(human).getByText(/^You/)).toBeVisible();
     expect(within(agent).getByText(/^Builder/)).toBeVisible();
+    // The locale's own hour format: "6:20 PM", never "06:20 PM".
+    expect(within(agent).getByText(/^[1-9]\d?:\d\d\sPM$/)).toBeVisible();
     expect(system).toHaveTextContent('builder created task "Budget walls page"');
   });
 
@@ -38,7 +40,7 @@ describe("ChatView", () => {
     expect(await screen.findByText("Thanks")).toBeVisible();
   });
 
-  it("labels the budget wall as hard and held on the host", async () => {
+  it("labels the budget wall as hard and held by the control page", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();
     api.sendError = problem(402, "Budget used up");
@@ -48,10 +50,10 @@ describe("ChatView", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Budget used up");
-    expect(alert).toHaveTextContent("This is a hard wall, held on the host.");
+    expect(alert).toHaveTextContent("This is a hard wall, held by the control page.");
   });
 
-  it("says a frozen agent is released with the host tool", async () => {
+  it("says a frozen agent is released from the control page", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();
     api.sendError = problem(423, "Frozen");
@@ -59,7 +61,7 @@ describe("ChatView", () => {
 
     await user.type(await screen.findByRole("textbox", { name: "Message Builder" }), "Hi{Enter}");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Release it with the host tool");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Release it from the control page");
   });
 
   it("shows a reply as the agent writes it, then the finished message", async () => {

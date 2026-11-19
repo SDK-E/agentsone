@@ -20,6 +20,7 @@ describe("Panels", () => {
       "Memory",
       "Plugins",
       "IDE",
+      "Desktop",
       "Machine",
       "Audit",
       "Settings",
@@ -52,7 +53,7 @@ describe("Panels", () => {
     const user = userEvent.setup();
     renderWith(<PanelsArea />);
 
-    for (const name of ["Memory", "Plugins", "IDE", "Machine", "Audit"]) {
+    for (const name of ["Memory", "Plugins", "IDE", "Desktop", "Machine", "Audit"]) {
       await user.click(screen.getByRole("tab", { name }));
       expect(await screen.findByRole("heading", { name })).toBeVisible();
     }

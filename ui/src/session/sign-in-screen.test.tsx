@@ -46,7 +46,8 @@ describe("Sign in and sign out", () => {
     const user = userEvent.setup();
     const { api } = renderApp("/");
 
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(await screen.findByRole("button", { name: "Account, Ada Lovelace" }));
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeVisible();
     expect(api.calls).toContain("deleteSession");

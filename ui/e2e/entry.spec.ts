@@ -73,6 +73,7 @@ test("sign in, then home", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.getByRole("heading", { name: "Ask the society" })).toBeVisible();
+  await page.getByRole("button", { name: "Account, Ada Lovelace" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   clean();

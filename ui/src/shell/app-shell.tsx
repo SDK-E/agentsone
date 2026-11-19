@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate } from "react-router";
 
 import { isSignedOut, useMe, useSetupStatus, useSignOut } from "../session/session";
+import { AccountMenu } from "./account-menu";
 import { Brand } from "./brand";
 import { LoadError, Loading } from "./status";
 
@@ -50,28 +51,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/" className="topbar__home" aria-label={t("shell.home")}>
           <Brand />
         </Link>
-        <div className="topbar__who">
-          {human && (
-            <p className="visitor-chip">
-              <span className="visually-hidden">{t("shell.visiting")} </span>
-              {human.display_name}
-            </p>
-          )}
-          <button
-            type="button"
-            className="button button--quiet"
-            disabled={signOut.isPending}
-            onClick={() => {
-              signOut.mutate(undefined, {
-                onSettled: () => {
-                  void navigate("/sign-in");
-                },
-              });
-            }}
-          >
-            {t("shell.signOut")}
-          </button>
-        </div>
+        <AccountMenu
+          name={human?.display_name ?? t("shell.someone")}
+          signingOut={signOut.isPending}
+          onSignOut={() => {
+            signOut.mutate(undefined, {
+              onSettled: () => {
+                void navigate("/sign-in");
+              },
+            });
+          }}
+        />
       </header>
       <main id="main" tabIndex={-1} className="page">
         {children}

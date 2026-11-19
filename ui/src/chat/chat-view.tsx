@@ -161,11 +161,11 @@ function Message({
   me: string | undefined;
   agentName: string;
 }) {
-  const { t } = useTranslation();
-  const time = new Date(message.created_at).toLocaleTimeString("en", {
-    hour: "2-digit",
+  const { t, i18n } = useTranslation();
+  const time = new Intl.DateTimeFormat(i18n.language, {
+    hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(new Date(message.created_at));
   if (message.role === "system") {
     return (
       <li className="message message--system">

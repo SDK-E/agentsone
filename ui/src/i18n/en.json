@@ -4,7 +4,9 @@
   "shell": {
     "skip": "Skip to main content",
     "home": "Agents One, home",
-    "visiting": "Visiting:",
+    "account": "Account, {{name}}",
+    "someone": "Account",
+    "visitingAs": "Visiting as {{name}}",
     "signOut": "Sign out"
   },
   "status": {
@@ -50,7 +52,7 @@
       "passwordRule_one": "The password needs at least {{count}} character.",
       "passwordRule_other": "The password needs at least {{count}} characters.",
       "confirmRule": "The two passwords are not the same.",
-      "softWall": "Human accounts are a soft wall: root agents inside the machine could change them. Powers that must hold, like the budget and the internet, are held on the host.",
+      "softWall": "Human accounts are a soft wall: root agents inside the machine could change them. Powers that must hold, like the budget and the internet, are held by the control page.",
       "submit": "Create account",
       "pending": "Creating your account…",
       "failed": "The account could not be created. Try again."
@@ -155,8 +157,8 @@
     }
   },
   "walls": {
-    "budget": "The budget is used up. Agents pause until you add more with the host tool. This is a hard wall, held on the host.",
-    "frozen": "This agent is frozen. Release it with the host tool, which holds this power."
+    "budget": "The budget is used up. Agents pause until you add more from the control page. This is a hard wall, held by the control page.",
+    "frozen": "This agent is frozen. Release it from the control page, which holds this power."
   },
   "panels": {
     "label": "Panels",
@@ -180,17 +182,21 @@
       "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from."
     },
     "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
+    "desktop": {
+      "label": "Desktop",
+      "about": "The machine's full desktop, right here in the browser."
+    },
     "machine": {
       "label": "Machine",
-      "about": "Processes, services, packages, users and files. Some powers are held on the host."
+      "about": "Processes, services, packages, users and files. Some powers are held by the control page."
     },
     "audit": {
       "label": "Audit",
-      "about": "The record of what happened. What the host saw is proof; records from inside are testimony."
+      "about": "The record of what happened. What the control page saw is proof; records from inside are testimony."
     },
     "settings": {
       "label": "Settings",
-      "about": "More settings arrive here: your account, model providers and the web door, which are held on the host."
+      "about": "More settings arrive here: your account, model providers and the web door, which are held by the control page."
     }
   }
 }

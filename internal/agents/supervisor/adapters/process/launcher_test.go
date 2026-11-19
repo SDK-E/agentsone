@@ -210,6 +210,24 @@ func TestLauncher_ReportsSoftLimitsWithoutCgroup(t *testing.T) {
 	}
 }
 
+// A custom agent's runner that cannot start fails Start itself: on Linux
+// the launch helper reports why before the runner would have run.
+func TestLauncher_FailsStartOfCustomRunnerThatCannotRun(t *testing.T) {
+	t.Parallel()
+	s := spec(t, "serve", "/nonexistent")
+	s.Account = domain.AccountFor("founder", false)
+	s.Limits = domain.Limits{TasksMax: 64}
+	s.Exec.Path = filepath.Join(t.TempDir(), "missing-runner")
+	l := &process.Launcher{Log: quiet}
+	_ = l.Install(t.Context(), s)
+	if err := l.Start(t.Context(), "founder"); err == nil || !strings.Contains(err.Error(), "missing-runner") {
+		t.Fatalf("Start error = %v, want one naming the missing runner", err)
+	}
+	if l.Running("founder") {
+		t.Fatal("a runner that never started is reported running")
+	}
+}
+
 func TestLauncher_PredictsModeBeforeStart(t *testing.T) {
 	t.Parallel()
 	custom := spec(t, "serve", "/nonexistent")

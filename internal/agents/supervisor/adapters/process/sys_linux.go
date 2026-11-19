@@ -5,78 +5,102 @@
 package process
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"syscall"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 )
 
+// selfExe is the running binary; it holds the launch helper.
+const selfExe = "/proc/self/exe"
+
 // sysState is what prepare set up for one process.
 type sysState struct {
-	cgroup  string // the agent's cgroup directory, or ""
-	isRoot  bool
-	stopped bool // the child stops at exec until afterStart releases it
+	cgroup string // the agent's cgroup directory, or ""
+	mode   domain.LimitMode
+	report *os.File // read end of the helper's report pipe, or nil
+	write  *os.File // the daemon's copy of its write end, or nil
 }
 
-// prepare sets a custom agent's credentials and makes its runner stop right
-// after exec, before its first instruction (PTRACE_TRACEME). afterStart then
-// moves it into its cgroup and sets its rlimits, and only then lets it run,
-// so it never runs unlimited. clone3 with CLONE_INTO_CGROUP would do the
-// same, but Docker's default seccomp profile answers clone3 with ENOSYS.
+// prepare turns cmd into a start of the launch helper for a custom agent:
+// the helper joins the agent's cgroup, lowers its rlimits and drops to its
+// user before it execs the runner, all in the same process. A root agent's
+// runner starts directly, without limits.
 func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState, error) {
-	st := &sysState{isRoot: spec.Account.IsRoot}
+	st := &sysState{mode: domain.LimitsNone}
 	if spec.Account.IsRoot {
 		return st, nil
 	}
+	plan := launchPlan{UID: -1, GID: -1, NoFile: DefaultNoFile, NProc: uint64(max(spec.Limits.TasksMax, 0)),
+		Path: cmd.Path, Args: cmd.Args[1:]}
 	if os.Geteuid() == 0 {
 		uid, gid, err := ids(spec.Account)
 		if err != nil {
 			return nil, err
 		}
-		// Groups is set so the runner keeps none of the daemon's groups.
-		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid, Groups: []uint32{gid}}
+		plan.UID, plan.GID = uid, gid
 	}
-	cmd.SysProcAttr.Ptrace = true
-	st.stopped = true
-	if cgroupRoot == "" || spec.Limits == (domain.Limits{}) {
-		return st, nil
+	if spec.Limits != (domain.Limits{}) {
+		st.mode = domain.LimitsSoft
+		if dir := agentCgroup(cgroupRoot, spec); dir != "" {
+			st.cgroup, st.mode, plan.Cgroup = dir, domain.LimitsHard, dir
+		} else if spec.Limits.MemoryMaxBytes > 0 {
+			// Without a cgroup, address space is the closest memory limit.
+			plan.AS = uint64(spec.Limits.MemoryMaxBytes)
+		}
 	}
-	dir := filepath.Join(cgroupRoot, spec.Agent)
-	if err := os.Mkdir(dir, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 -- cgroupfs directory
-		return st, nil // not writable: soft limits
+	r, w, err := os.Pipe()
+	if err != nil {
+		st.cleanup()
+		return nil, fmt.Errorf("report pipe: %w", err)
 	}
-	if err := writeLimits(dir, spec.Limits); err != nil {
-		_ = os.Remove(dir)
-		return st, nil
-	}
-	st.cgroup = dir
+	st.report, st.write = r, w
+	cmd.Path = selfExe
+	cmd.Args = append([]string{LaunchArgv0}, plan.args()...)
+	cmd.ExtraFiles = []*os.File{w} // the helper's file descriptor 3
 	return st, nil
 }
 
-func ids(a domain.Account) (uint32, uint32, error) {
+// agentCgroup creates the agent's cgroup with its limits under root, or
+// returns "" when root is unset or not writable: then limits are soft.
+func agentCgroup(root string, spec domain.UnitSpec) string {
+	if root == "" {
+		return ""
+	}
+	dir := filepath.Join(root, spec.Agent)
+	if err := os.Mkdir(dir, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 -- cgroupfs directory
+		return ""
+	}
+	if err := writeLimits(dir, spec.Limits); err != nil {
+		_ = os.Remove(dir)
+		return ""
+	}
+	return dir
+}
+
+func ids(a domain.Account) (int, int, error) {
 	u, err := user.Lookup(a.User)
 	if err != nil {
 		return 0, 0, fmt.Errorf("look up user %s: %w", a.User, err)
 	}
-	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	uid, err := strconv.Atoi(u.Uid)
 	if err != nil {
 		return 0, 0, fmt.Errorf("uid of %s: %w", a.User, err)
 	}
-	gid, err := strconv.ParseUint(u.Gid, 10, 32)
+	gid, err := strconv.Atoi(u.Gid)
 	if err != nil {
 		return 0, 0, fmt.Errorf("gid of %s: %w", a.User, err)
 	}
 	if uid == 0 {
 		return 0, 0, fmt.Errorf("custom agent user %s has uid 0", a.User)
 	}
-	return uint32(uid), uint32(gid), nil
+	return uid, gid, nil
 }
 
 func writeLimits(dir string, l domain.Limits) error {
@@ -106,48 +130,39 @@ func writeLimits(dir string, l domain.Limits) error {
 	return nil
 }
 
-// afterStart runs while a custom agent's runner is stopped at exec: it
-// moves the runner into its cgroup, sets its rlimits and releases it. It
-// must run on the OS thread that started the child (the tracer). With a
-// cgroup the limits are hard; with rlimits only they are soft.
-func (st *sysState) afterStart(pid int, l domain.Limits) (domain.LimitMode, error) {
-	if st.isRoot {
-		return domain.LimitsNone, nil
+// errLaunch is a launch helper that failed before the runner started.
+var errLaunch = errors.New("launch helper failed")
+
+// afterStart waits until the launch helper has exec'd the runner (the
+// report pipe closes with no data) or failed (the pipe carries why). It
+// returns how the runner's limits hold.
+func (st *sysState) afterStart() (domain.LimitMode, error) {
+	if st.report == nil {
+		return st.mode, nil
 	}
-	if st.stopped {
-		var ws syscall.WaitStatus
-		if _, err := syscall.Wait4(pid, &ws, syscall.WALL|syscall.WUNTRACED, nil); err != nil {
-			return "", fmt.Errorf("wait for runner stop: %w", err)
-		}
-		defer func() { _ = syscall.PtraceDetach(pid) }()
+	_ = st.write.Close() // else the pipe never reads EOF
+	st.write = nil
+	msg, err := io.ReadAll(st.report)
+	_ = st.report.Close()
+	st.report = nil
+	if err != nil {
+		return "", fmt.Errorf("read launch report: %w", err)
 	}
-	if st.cgroup != "" {
-		if err := os.WriteFile(filepath.Join(st.cgroup, "cgroup.procs"), []byte(strconv.Itoa(pid)), 0o644); err != nil { // #nosec G306 -- cgroupfs control file
-			_ = syscall.Kill(pid, syscall.SIGKILL)
-			return "", fmt.Errorf("move runner into %s: %w", st.cgroup, err)
-		}
+	if len(msg) > 0 {
+		return "", fmt.Errorf("%w: %s", errLaunch, msg)
 	}
-	set := func(res int, v uint64) { _ = unix.Prlimit(pid, res, &unix.Rlimit{Cur: v, Max: v}, nil) }
-	set(unix.RLIMIT_CORE, 0)
-	set(unix.RLIMIT_NOFILE, DefaultNoFile)
-	if l.TasksMax > 0 {
-		set(unix.RLIMIT_NPROC, uint64(l.TasksMax))
-	}
-	if st.cgroup == "" && l.MemoryMaxBytes > 0 {
-		set(unix.RLIMIT_AS, uint64(l.MemoryMaxBytes))
-	}
-	switch {
-	case l == (domain.Limits{}):
-		return domain.LimitsNone, nil
-	case st.cgroup != "":
-		return domain.LimitsHard, nil
-	default:
-		return domain.LimitsSoft, nil
-	}
+	return st.mode, nil
 }
 
-// cleanup removes the agent's cgroup once its processes are gone.
+// cleanup closes what start did not use and removes the agent's cgroup
+// once its processes are gone.
 func (st *sysState) cleanup() {
+	for _, f := range []**os.File{&st.report, &st.write} {
+		if *f != nil {
+			_ = (*f).Close()
+			*f = nil
+		}
+	}
 	if st.cgroup != "" {
 		_ = os.Remove(st.cgroup)
 	}

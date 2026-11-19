@@ -12,17 +12,15 @@ import (
 
 // sysState is empty off Linux: the daemon only runs agents on Linux, and
 // other systems run runners unconfined for development.
-type sysState struct{ isRoot bool }
+type sysState struct{ mode domain.LimitMode }
 
 func prepare(_ *exec.Cmd, spec domain.UnitSpec, _ string) (*sysState, error) {
-	return &sysState{isRoot: spec.Account.IsRoot}, nil
+	if spec.Account.IsRoot || spec.Limits == (domain.Limits{}) {
+		return &sysState{mode: domain.LimitsNone}, nil
+	}
+	return &sysState{mode: domain.LimitsSoft}, nil
 }
 
-func (st *sysState) afterStart(_ int, l domain.Limits) (domain.LimitMode, error) {
-	if st.isRoot || l == (domain.Limits{}) {
-		return domain.LimitsNone, nil
-	}
-	return domain.LimitsSoft, nil
-}
+func (st *sysState) afterStart() (domain.LimitMode, error) { return st.mode, nil }
 
 func (*sysState) cleanup() {}

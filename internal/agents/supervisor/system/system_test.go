@@ -281,6 +281,27 @@ func TestCgroup_HoldsCPUSpinnerAtQuota(t *testing.T) {
 	}
 }
 
+// The runner is in its cgroup, limited and unprivileged from its first
+// instruction: the shell's first command reads its own /proc/self files
+// with builtins, so no child process does the reading.
+func TestLaunchHelper_RunnerStartsInsideItsCgroupAsItsUser(t *testing.T) {
+	root := requireCgroups(t)
+	acc := agentUser(t, "aotest-iris", 200107)
+	limits := domain.Limits{TasksMax: 64}
+	script := `read -r cg < /proc/self/cgroup; while read -r k v rest; do [ "$k" = Uid: ] && uid=$v; done < /proc/self/status; ` +
+		`while read -r a b c rest; do [ "$a $b" = "Max processes" ] && np=$c; done < /proc/self/limits; ` +
+		`echo "$cg uid=$uid nproc=$np pid=$$" > "$OUT"; exec sleep 600`
+	l, out := run(t, acc, script, limits, root)
+
+	got := readFifo(t, out)
+	t.Logf("proof launch: runner's first command read %q (mechanism: /proc/self/exe %s joins cgroup.procs, lowers rlimits, setgroups/setgid/setuid, execve runner; no clone3, no ptrace) mode=%s",
+		got, process.LaunchArgv0, l.Mode(acc.User))
+	want := "0::/" + process.AgentsCgroup + "/aotest-iris uid=200107 nproc=64"
+	if !strings.HasPrefix(got, want+" pid=") || l.Mode(acc.User) != domain.LimitsHard {
+		t.Fatalf("runner saw %q mode %s; want prefix %q and hard", got, l.Mode(acc.User), want)
+	}
+}
+
 func TestSocket_IsPrivateToTheAgentUser(t *testing.T) {
 	agentUser(t, "aotest-lyra", 200106)
 	dir, err := os.MkdirTemp("", "ao")

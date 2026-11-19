@@ -44,7 +44,7 @@ func brokenService(t *testing.T, licence app.LicenceSource) *app.Service {
 	b := broken{memory.New()}
 	svc, err := app.New(app.Deps{
 		Clock: clock, Rand: &authtest.Counter{}, Argon2: authtest.Cheap, Sessions: b, Tokens: b, Humans: b, Setup: b,
-		Licence: licence, Events: coretest.NewEvents(clock, coretest.NewIDs()), Audit: coretest.NewAudit(),
+		Licence: licence, Events: coretest.NewEvents(clock, coretest.NewIDs()), Audit: coretest.NewAudit(), Seed: coretest.NewSeed(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -89,6 +89,41 @@ func TestEngineLicence_UnavailableWithoutALicenceFile(t *testing.T) {
 	}
 	if _, err := svc.AcceptEngineLicence(context.Background(), authtest.Human("ada"), "v1", true); !errors.Is(err, core.ErrUnavailable) {
 		t.Fatalf("accept: err %v", err)
+	}
+}
+
+// seedAnswer is a seed port that always fails with err.
+type seedAnswer struct{ err error }
+
+func (s seedAnswer) SeedInstalled(context.Context) (bool, error) { return false, s.err }
+
+// withSeed is a working service whose seed port is seed.
+func withSeed(t *testing.T, seed core.SeedStatus) *app.Service {
+	t.Helper()
+	clock := coretest.NewClock(coretest.Epoch)
+	store := memory.New()
+	svc, err := app.New(app.Deps{
+		Clock: clock, Rand: &authtest.Counter{}, Argon2: authtest.Cheap, Sessions: store, Tokens: store, Humans: store, Setup: store,
+		Licence: authtest.DefaultLicence, Events: coretest.NewEvents(clock, coretest.NewIDs()), Audit: coretest.NewAudit(), Seed: seed,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+func TestSetupStatus_SeedNotInstalledWhileTheAgentsModuleIsAway(t *testing.T) {
+	t.Parallel()
+	st, err := withSeed(t, seedAnswer{core.ErrUnavailable}).SetupStatus(context.Background())
+	if err != nil || st.SeedInstalled {
+		t.Fatalf("status %+v err %v", st, err)
+	}
+}
+
+func TestSetupStatus_ReportsASeedFailure(t *testing.T) {
+	t.Parallel()
+	if _, err := withSeed(t, seedAnswer{errDisk}).SetupStatus(context.Background()); !errors.Is(err, errDisk) {
+		t.Fatalf("err %v, want the seed error", err)
 	}
 }
 

@@ -126,6 +126,22 @@ func TestFirstBoot_CreateFirstHumanThenSignIn(t *testing.T) {
 	}
 }
 
+func TestSetupStatus_ShowsTheSeed(t *testing.T) {
+	t.Parallel()
+	d := start(t)
+	rec := d.call(core.Anonymous, http.MethodGet, "/v1/setup", "", "")
+	want(t, rec, http.StatusOK)
+	if !strings.Contains(rec.Body.String(), `"seed_installed":false`) {
+		t.Fatalf("before seeding: %s", rec.Body)
+	}
+	d.fakes.Seed.SetInstalled(true)
+	rec = d.call(core.Anonymous, http.MethodGet, "/v1/setup", "", "")
+	want(t, rec, http.StatusOK)
+	if !strings.Contains(rec.Body.String(), `"seed_installed":true`) {
+		t.Fatalf("after seeding: %s", rec.Body)
+	}
+}
+
 func TestCreateSession_SetsASecureCookieThroughTheEdge(t *testing.T) {
 	t.Parallel()
 	d := start(t)

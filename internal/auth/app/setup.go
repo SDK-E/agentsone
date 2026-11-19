@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/SDK-E/agentsone/internal/auth/domain"
@@ -31,6 +32,9 @@ type SetupStatus struct {
 	FirstHumanCreated bool
 	LicenceAccepted   bool
 	Engine            domain.EngineFetch
+	// SeedInstalled is true once the Small Seed's founder, router and
+	// waker exist. It does not change the phase.
+	SeedInstalled bool
 }
 
 // LicenceView is the engine licence and whether it was accepted.
@@ -53,7 +57,11 @@ func (s *Service) SetupStatus(ctx context.Context) (SetupStatus, error) {
 	if err != nil {
 		return SetupStatus{}, err
 	}
-	st := SetupStatus{FirstHumanCreated: len(hs) > 0, LicenceAccepted: accepted, Engine: fetch}
+	seeded, err := s.d.Seed.SeedInstalled(ctx)
+	if err != nil && !errors.Is(err, core.ErrUnavailable) {
+		return SetupStatus{}, fmt.Errorf("setup status: seed: %w", err)
+	}
+	st := SetupStatus{FirstHumanCreated: len(hs) > 0, LicenceAccepted: accepted, Engine: fetch, SeedInstalled: seeded && err == nil}
 	switch {
 	case !st.FirstHumanCreated:
 		st.Phase = PhaseNeedsHuman

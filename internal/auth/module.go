@@ -50,7 +50,7 @@ func New(deps core.Deps) *Module {
 		Argon2:   domain.Argon2Params{Time: settings.Argon2TimeCost, Memory: settings.Argon2MemoryKiB, Threads: settings.Argon2Threads},
 		Sessions: repo, Tokens: repo, Humans: repo, Setup: repo,
 		Licence: licencefile.New(filepath.Join(deps.Config.LibDir, "engine", "licence.json")),
-		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports},
+		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports}, Seed: lateSeed{deps.Ports},
 	})
 	if err != nil {
 		panic(fmt.Sprintf("auth: %v", err))
@@ -86,6 +86,12 @@ type lateAudit struct{ p *core.Ports }
 
 func (l lateAudit) Append(ctx context.Context, e core.AuditEntry) error {
 	return l.p.Audit.Append(ctx, e) //nolint:wrapcheck // pass-through to the audit port
+}
+
+type lateSeed struct{ p *core.Ports }
+
+func (l lateSeed) SeedInstalled(ctx context.Context) (bool, error) {
+	return l.p.Seed.SeedInstalled(ctx) //nolint:wrapcheck // pass-through to the seed port
 }
 
 type lateAgents struct{ p *core.Ports }

@@ -59,6 +59,7 @@ type Env struct {
 	Store   *memory.Store
 	Events  *coretest.Events
 	Audit   *coretest.Audit
+	Seed    *coretest.Seed
 }
 
 // DefaultLicence is the licence every Env serves.
@@ -70,14 +71,15 @@ func New() *Env {
 	store := memory.New()
 	events := coretest.NewEvents(clock, coretest.NewIDs())
 	audit := coretest.NewAudit()
+	seed := coretest.NewSeed()
 	svc, err := app.New(app.Deps{
 		Clock: clock, Rand: &Counter{}, Argon2: Cheap, Sessions: store, Tokens: store, Humans: store, Setup: store,
-		Licence: DefaultLicence, Events: events, Audit: audit,
+		Licence: DefaultLicence, Events: events, Audit: audit, Seed: seed,
 	})
 	if err != nil {
 		panic(err) // the counter never fails; a failure here is a bug in the test kit
 	}
-	return &Env{Service: svc, Clock: clock, Store: store, Events: events, Audit: audit}
+	return &Env{Service: svc, Clock: clock, Store: store, Events: events, Audit: audit, Seed: seed}
 }
 
 // Human returns a signed-in human caller.

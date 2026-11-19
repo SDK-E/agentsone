@@ -12,6 +12,8 @@ internal/contract/api/openapi.json
 # Playwright run output from ui/.
 test-results
 screenshots
+# Go html/template pages: prettier cannot parse template actions inside tags.
+internal/edge/control/adapters/web/templates
 # Markdown, YAML and shell are checked by their own linters.
 *.md
 .github

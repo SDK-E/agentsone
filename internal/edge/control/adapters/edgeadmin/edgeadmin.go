@@ -134,9 +134,9 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) err
 }
 
 func unwrapURL(err error) error {
-	var ue *url.Error
-	if errors.As(err, &ue) {
-		return ue.Err
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return urlErr.Err
 	}
 	return err
 }

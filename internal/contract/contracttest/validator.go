@@ -157,6 +157,33 @@ func (v *Validator) ValidateJSONResponse(operationID string, status int, body []
 	return v.ValidateResponse(operationID, status, mediaType, body)
 }
 
+// ValidateStreamFrame checks one frame of a Server-Sent Events operation
+// against the schema its 200 response declares for text/event-stream. A stream
+// fixture is a list of such frames.
+func (v *Validator) ValidateStreamFrame(operationID string, frame []byte) error {
+	op, ok := v.ops[operationID]
+	if !ok {
+		return fmt.Errorf("operation %q is not in the contract", operationID)
+	}
+	respPtr, resp, err := v.response(op, 200)
+	if err != nil {
+		return err
+	}
+	content, _ := resp["content"].(map[string]any)
+	media, ok := content["text/event-stream"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s does not declare a text/event-stream response", operationID)
+	}
+	if _, hasSchema := media["schema"]; !hasSchema {
+		return fmt.Errorf("%s declares no frame schema for its stream", operationID)
+	}
+	schema, err := v.schema(respPtr + "/content/" + escape("text/event-stream") + "/schema")
+	if err != nil {
+		return fmt.Errorf("%s: %w", operationID, err)
+	}
+	return validateBody(schema, operationID, 200, frame)
+}
+
 func firstJSONMediaType(content map[string]any) (string, bool) {
 	if _, ok := content["application/json"]; ok {
 		return "application/json", true

@@ -33,7 +33,7 @@ func toEvent(e core.Event) api.Event {
 		Data:            dataMap(e.Data),
 	}
 	if e.Time != nil {
-		out.Time = e.Time.UTC()
+		out.Time = stamp(*e.Time)
 	}
 	out.Subject = optional(e.Subject)
 	out.Dataschema = optional(e.DataSchema)
@@ -95,7 +95,7 @@ func toEmitter(e domain.Emitter) api.Emitter {
 		Id: e.ID, Name: e.Name, Kind: api.EmitterKind(e.Kind), Description: e.Description,
 		EventTypes: nonNil(e.EventTypes), Enabled: e.Enabled, Owner: e.Owner,
 		Unit: optional(e.Unit), PluginId: optional(e.PluginID), WebhookPath: optional(e.WebhookPath),
-		CreatedAt: e.CreatedAt.UTC(), LastEventAt: utc(e.LastEventAt),
+		CreatedAt: stamp(e.CreatedAt), LastEventAt: stampPtr(e.LastEventAt),
 	}
 }
 
@@ -117,12 +117,25 @@ func toRegistration(r api.EmitterRegister) domain.Registration {
 	return reg
 }
 
-func utc(t *time.Time) *time.Time {
+// stamp converts a time to the contract's timestamp, which writes UTC.
+func stamp(t time.Time) api.Timestamp { return api.Timestamp(t.UTC()) }
+
+// stampPtr converts an optional time to an optional contract timestamp.
+func stampPtr(t *time.Time) *api.Timestamp {
 	if t == nil {
 		return nil
 	}
-	u := t.UTC()
-	return &u
+	s := stamp(*t)
+	return &s
+}
+
+// timePtr converts an optional contract timestamp to an optional time.
+func timePtr(s *api.Timestamp) *time.Time {
+	if s == nil {
+		return nil
+	}
+	t := time.Time(*s)
+	return &t
 }
 
 func nonNil(s []string) []string {
@@ -215,7 +228,7 @@ func toTrigger(t domain.Trigger) (api.Trigger, error) {
 		Id: t.ID, Name: t.Name, Owner: t.Owner, Filter: fromFilter(t.Filter), Action: action,
 		WakeRate: api.WakeRate{Max: t.Rate.Max, PerSeconds: t.Rate.PerSeconds}, Enabled: t.Enabled,
 		FiredCount: t.FiredCount, DroppedCount: t.DroppedCount,
-		CreatedAt: t.CreatedAt.UTC(), LastFiredAt: utc(t.LastFiredAt),
+		CreatedAt: stamp(t.CreatedAt), LastFiredAt: stampPtr(t.LastFiredAt),
 	}, nil
 }
 

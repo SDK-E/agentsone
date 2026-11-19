@@ -113,7 +113,7 @@ func TestStreamEvents_SendsAHeartbeatOnEveryTick(t *testing.T) {
 	if err := json.Unmarshal([]byte(f.Data), &hb); err != nil || hb.Kind != "heartbeat" || f.ID != "" {
 		t.Fatalf("heartbeat frame = %+v, %v", f, err)
 	}
-	if !hb.Time.Equal(e.clock.Now()) {
+	if !time.Time(hb.Time).Equal(e.clock.Now()) {
 		t.Fatalf("heartbeat time = %v, want the clock time %v", hb.Time, e.clock.Now())
 	}
 }

@@ -160,7 +160,7 @@ func (h *Events) ListEvents(ctx context.Context, req eventsapi.ListEventsRequest
 	if p.Actor != nil {
 		f.Actors = []string{*p.Actor}
 	}
-	f.Since, f.Until = p.Since, p.Until
+	f.Since, f.Until = timePtr(p.Since), timePtr(p.Until)
 	after, err := afterSequence(p.AfterSequence, p.Cursor)
 	if err != nil {
 		return nil, err

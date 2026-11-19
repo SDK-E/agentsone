@@ -84,7 +84,7 @@ func (r *frameReader) writeEvent(e core.Event) {
 }
 
 func (r *frameReader) writeHeartbeat() {
-	raw, err := json.Marshal(api.Heartbeat{Kind: api.HeartbeatKind("heartbeat"), Time: r.clock.Now().UTC()})
+	raw, err := json.Marshal(api.Heartbeat{Kind: api.HeartbeatKind("heartbeat"), Time: stamp(r.clock.Now())})
 	if err != nil {
 		return
 	}

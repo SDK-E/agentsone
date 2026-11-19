@@ -8,15 +8,16 @@ Thank you for helping. This page is the short version. Fuller guides will live i
 contract/                 schemas, OpenAPI, fixtures
 cmd/                      agentsoned, agentctl, agentsone
 internal/                 daemon packages (api, auth, core, store, agents, bus, ...)
-internal/edge/            edge packages (net, gateway, budget, audit, door, control)
+internal/edge/            edge and control packages (net, gateway, budget, audit, door, control)
 runners/                  sdk, echo, openai, claude
 packages/contract-ts/     generated TypeScript types
 ui/                       shell, theme system, home, panels, panel plugin host
 plugins/                  small-seed, agents-one-theme, sample-mcp
 emitters/                 auth, services, disk-load, files, git, clock, webhook
-image/                    mkosi configuration, units, kiosk, first boot, boot splash
-brand/                    mark, colours, type, splash, README art
-docs/guides/              human, builder, agent, contributor
+image/                    Dockerfiles for machine and edge, entry point, desktop, first start
+compose.yaml              the stack: machine, edge, control
+brand/                    mark, colours, type, README art
+docs/                     architecture.md, deploy/, guides/ (human, builder, agent, contributor)
 e2e/  .github/workflows/
 ```
 
@@ -120,11 +121,13 @@ libraries are not allowed. [TESTING.md](TESTING.md) has the full rules and the c
 | memory scope | Who may read a memory record: private, team or common. Root agents read all. |
 | plugin | An installable bundle: MCP servers, skills, agent templates, runners, panels or themes. |
 | runner | The program that runs one agent and speaks the runner protocol to the daemon. |
-| budget wall | A spending limit. Hard walls live in the host tool; soft walls inside the VM. |
+| budget wall | A spending limit. Hard walls live in `edge`; soft walls inside `machine`. |
 | defence slice | Budget reserved for wakers and security work. It can be switched off. |
-| freeze | A host lever that stops all agents, one team or one agent, until released. |
-| rescue | Restoring the host's last good boot copy of the VM disk. |
-| door | The host's way in: the HTTPS web door for humans and the vsock door API for the host tool. |
+| freeze | A lever that stops all agents, one team or one agent, until released. Freeze all is held by `edge`; the others are soft. |
+| rescue | Restarting the container. The system returns to the image and the machine recipe reapplies what agents added. |
+| door | The web door: how humans reach `machine`, through `edge`. |
+| edge | The service that holds the human-only walls: internet filter, model gateway, budget, audit sink. |
+| control | The service with the human-only page. It reaches `edge` through an admin socket. |
 
 ## Pull request flow
 

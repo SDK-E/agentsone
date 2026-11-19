@@ -22,10 +22,10 @@ How to read it:
 | Adapters | Real SQLite, `httptest`, shared contract suites | `testing`, `httptest` | every `go test` |
 | Contract | Fixtures, drift, runner conformance | schema validators, `make check-gen` | every `go test`, CI |
 | Integration | Daemon in-process, API over a Unix socket | `testing`, `httptest` | every `go test` |
-| System | Linux users, cgroups, systemd, nftables, PAM | `testing` with build tags | Linux CI or the booted VM |
+| System | Linux users, cgroups, the container recipe | `testing` with build tags | Linux CI or a container |
 | UI component and page | User-visible behaviour, accessibility | Vitest, Testing Library, axe | `pnpm test` |
 | UI pages in a browser | Every page, every state, theme and width | Playwright, axe | CI, with screenshots |
-| End to end | Boot the image and run the verification script | QEMU, `e2e/` | CI on `main` |
+| End to end | `docker compose up`, then run the verification script | Docker Compose, `e2e/` | CI on `main` |
 
 ## A. Process
 
@@ -344,7 +344,7 @@ tests need no root and no Linux features, so they run with every `go test` and c
 ### B6. System (Linux only)
 
 Anything that depends on the Linux kernel or its services is proven by a real test: users, cgroup
-limits, systemd units, nftables rules, PAM.
+limits, agent user creation.
 
 - **B6a.** System tests start with both build constraints and live in a package of their own:
 
@@ -354,14 +354,14 @@ limits, systemd units, nftables rules, PAM.
   package system_test
   ```
 
-- **B6b.** They run in CI on Linux, or inside the booted VM, with
+- **B6b.** They run in CI on Linux, or inside the `machine` container, with
   `go test -tags integration -race ./...`.
 - **B6c.** They are never replaced by a mock as proof. A fake behind a port is fine for testing
   logic. The claim "this agent cannot exceed its memory limit" is only proven by a test that tries
   it on a real cgroup.
 - **B6d.** They need root. When they do not have it they fail with a clear message. They do not
   skip, because a skipped test proves nothing.
-- **B6e.** They remove what they create (users, cgroups, tables) in `t.Cleanup`.
+- **B6e.** They remove what they create (users, cgroups) in `t.Cleanup`.
 
 ### B7. UI
 
@@ -455,8 +455,8 @@ for (const state of ["empty", "loaded", "error", "long-text"] as const) {
 
 ### B8. End to end
 
-CI on `main` boots the image in QEMU and runs the verification script in `e2e/`: first-boot user,
-login, a bus message, an echo chat, the allow list, the budget wall, freeze and release, and the
+CI on `main` runs `docker compose up` on an Ubuntu runner and then the verification script in
+`e2e/`: the first-visit setup page, login, a bus message, an echo chat, the allow list, the budget wall, freeze and release, and the
 rest of the list in the project specification. A change to behaviour that this script covers
 updates the script in the same pull request. Full end-to-end runs only on `main`, not on every
 pull request.

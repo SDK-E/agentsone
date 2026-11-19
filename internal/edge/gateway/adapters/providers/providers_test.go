@@ -96,8 +96,8 @@ func TestOpenAINonStreaming(t *testing.T) {
 }
 
 func TestOpenAIStreamingAsksForUsageAndCapturesIt(t *testing.T) {
-	answer := "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n" +
-		"data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}],\"usage\":null}\n\n" +
+	answer := "data: {\"choices\":[{\"delta\":{\"content\":\"Good \"}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"content\":\"day\"}}],\"usage\":null}\n\n" +
 		"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":2}}\n\n" +
 		"data: [DONE]\n\n"
 	srv, got := fakeProvider(t, 200, "text/event-stream", answer)

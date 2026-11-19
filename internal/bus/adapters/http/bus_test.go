@@ -68,7 +68,7 @@ func TestCreateChannel_Refusals(t *testing.T) {
 	}
 }
 
-func TestGetChannel_AnswersNotFoundForAnotherBranchsTeamChannel(t *testing.T) {
+func TestGetChannel_AnswersNotFoundForTheTeamChannelOfAnotherBranch(t *testing.T) {
 	e := newEnv(t)
 	createChannel(t, e, builder, "team.founder", "team")
 

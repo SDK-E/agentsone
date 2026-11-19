@@ -118,21 +118,21 @@ func TestOutput_StreamsDeltasThenStoresTheReply(t *testing.T) {
 	t.Cleanup(cancel)
 	frames := e.society.Hub().Subscribe(ctx, "dev", app.StreamChat)
 
-	for i, part := range []string{"Hel", "lo"} {
+	for i, part := range []string{"Good ", "day"} {
 		if err := e.society.Output(ctx, "dev", app.OutputChunk{TurnID: "trn_1", ChatID: "cht_1", Index: i, Text: part, Final: i == 1}); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	first, second, stored := receive(t, frames), receive(t, frames), receive(t, frames)
-	if first.Delta == nil || second.Delta == nil || first.Delta.Text+second.Delta.Text != "Hello" {
+	if first.Delta == nil || second.Delta == nil || first.Delta.Text+second.Delta.Text != "Good day" {
 		t.Fatalf("deltas %+v %+v", first.Delta, second.Delta)
 	}
-	if stored.Message == nil || stored.Message.Message.Text != "Hello" || stored.Message.Message.Role != domain.ChatAgent || stored.Message.Message.ID != first.Delta.MessageID {
+	if stored.Message == nil || stored.Message.Message.Text != "Good day" || stored.Message.Message.Role != domain.ChatAgent || stored.Message.Message.ID != first.Delta.MessageID {
 		t.Fatalf("stored frame %+v", stored.Message)
 	}
 	list, _ := e.repo.ListChat(ctx, "dev", "", 10)
-	if len(list) != 1 || list[0].Text != "Hello" {
+	if len(list) != 1 || list[0].Text != "Good day" {
 		t.Fatalf("history %+v", list)
 	}
 }

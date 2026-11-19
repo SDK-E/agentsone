@@ -4,9 +4,11 @@ package app
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -33,12 +35,34 @@ type Service struct {
 	d        Deps
 	mu       sync.Mutex
 	throttle *domain.Throttle
+	// decoy is a hash of a random password, checked for unknown names.
+	decoy string
+	// humansMu serialises account creation so account numbers stay unique.
+	humansMu sync.Mutex
 }
 
 var _ core.TokenIssuer = (*Service)(nil)
 
 // New builds the service.
-func New(d Deps) *Service { return &Service{d: d, throttle: domain.NewThrottle()} }
+func New(d Deps) (*Service, error) {
+	decoyPassword, err := randomPassword(d.Rand)
+	if err != nil {
+		return nil, err
+	}
+	decoy, err := domain.HashPassword(d.Rand, d.Argon2, decoyPassword)
+	if err != nil {
+		return nil, fmt.Errorf("decoy hash: %w", err)
+	}
+	return &Service{d: d, throttle: domain.NewThrottle(), decoy: decoy}, nil
+}
+
+func randomPassword(rand io.Reader) (string, error) {
+	b := make([]byte, 24)
+	if _, err := io.ReadFull(rand, b); err != nil {
+		return "", fmt.Errorf("decoy password: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}
 
 // SignIn checks name and password and starts a session. It returns the
 // cookie secret, which is never stored.
@@ -47,12 +71,15 @@ func (s *Service) SignIn(ctx context.Context, name, password, remote string) (do
 	if err := s.checkThrottle(name, now); err != nil {
 		return domain.Session{}, "", domain.Human{}, err
 	}
-	// Always run the password check so an unknown name takes as long as a
-	// known one.
-	authErr := s.d.Auth.Authenticate(ctx, name, password)
 	h, err := s.d.Humans.Human(ctx, name)
-	if err == nil {
-		err = authErr
+	hash := h.PasswordHash
+	if err != nil {
+		// Check against a throwaway hash so an unknown name takes as long
+		// as a known one.
+		hash = s.decoy
+	}
+	if !domain.VerifyPassword(hash, password) && err == nil {
+		err = core.ErrUnauthorized
 	}
 	if err != nil {
 		s.failSignIn(ctx, name, remote, now, err)

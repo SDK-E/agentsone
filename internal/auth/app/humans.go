@@ -10,6 +10,9 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
+// firstUID is the account number of the first human.
+const firstUID = 1000
+
 // NewHuman is an account to create.
 type NewHuman struct {
 	Name        string
@@ -27,7 +30,7 @@ type HumanChange struct {
 // human power. Agents, plugins and system callers are refused.
 func requireHuman(by core.Caller) error {
 	if by.Kind != core.CallerHuman || by.Name == "" {
-		return fmt.Errorf("only a signed-in human may manage humans: %w", core.ErrForbidden)
+		return fmt.Errorf("only a signed-in human may do this: %w", core.ErrForbidden)
 	}
 	return nil
 }
@@ -50,11 +53,13 @@ func (s *Service) GetHuman(ctx context.Context, name string) (domain.Human, erro
 	return h, nil
 }
 
-// CreateHuman adds a human account: a Linux user in the humans group.
+// CreateHuman adds a human account.
 func (s *Service) CreateHuman(ctx context.Context, by core.Caller, n NewHuman) (domain.Human, error) {
 	if err := requireHuman(by); err != nil {
 		return domain.Human{}, err
 	}
+	s.humansMu.Lock()
+	defer s.humansMu.Unlock()
 	h, err := s.addHuman(ctx, n)
 	if err != nil {
 		return domain.Human{}, err
@@ -63,25 +68,32 @@ func (s *Service) CreateHuman(ctx context.Context, by core.Caller, n NewHuman) (
 	return h, nil
 }
 
+// addHuman runs with humansMu held.
 func (s *Service) addHuman(ctx context.Context, n NewHuman) (domain.Human, error) {
 	if err := domain.CheckHumanName(n.Name); err != nil {
 		return domain.Human{}, err
 	}
-	if _, err := s.d.Humans.Human(ctx, n.Name); err == nil {
-		return domain.Human{}, fmt.Errorf("human %s exists: %w", n.Name, core.ErrConflict)
-	}
-	uid, err := s.d.Accounts.CreateUser(ctx, n.Name, n.Password)
+	hash, err := domain.HashPassword(s.d.Rand, s.d.Argon2, n.Password)
 	if err != nil {
-		return domain.Human{}, fmt.Errorf("create user %s: %w", n.Name, err)
+		return domain.Human{}, fmt.Errorf("human %s: %w", n.Name, err)
 	}
-	h := domain.Human{Name: n.Name, DisplayName: n.DisplayName, UID: uid, CreatedAt: s.d.Clock.Now()}
+	all, err := s.d.Humans.ListHumans(ctx)
+	if err != nil {
+		return domain.Human{}, fmt.Errorf("add human: %w", err)
+	}
+	uid := firstUID
+	for _, h := range all {
+		uid = max(uid, h.UID+1)
+	}
+	h := domain.Human{Name: n.Name, DisplayName: n.DisplayName, UID: uid, PasswordHash: hash, CreatedAt: s.d.Clock.Now()}
 	if err := s.d.Humans.AddHuman(ctx, h); err != nil {
 		return domain.Human{}, fmt.Errorf("store human %s: %w", n.Name, err)
 	}
 	return h, nil
 }
 
-// UpdateHuman changes a human's display name or password.
+// UpdateHuman changes a human's display name or password. A new password
+// ends every session of that human.
 func (s *Service) UpdateHuman(ctx context.Context, by core.Caller, name string, c HumanChange) (domain.Human, error) {
 	if err := requireHuman(by); err != nil {
 		return domain.Human{}, err
@@ -90,19 +102,20 @@ func (s *Service) UpdateHuman(ctx context.Context, by core.Caller, name string, 
 	if err != nil {
 		return domain.Human{}, fmt.Errorf("update human: %w", err)
 	}
-	if c.Password != nil {
-		if err := s.d.Accounts.SetPassword(ctx, name, *c.Password); err != nil {
-			return domain.Human{}, fmt.Errorf("set password of %s: %w", name, err)
-		}
-		// A new password ends every old sign-in.
-		if err := s.d.Sessions.DeleteHumanSessions(ctx, name); err != nil {
-			return domain.Human{}, fmt.Errorf("end sessions of %s: %w", name, err)
-		}
-	}
 	if c.DisplayName != nil {
 		h.DisplayName = *c.DisplayName
-		if err := s.d.Humans.UpdateHuman(ctx, h); err != nil {
+	}
+	if c.Password != nil {
+		if h.PasswordHash, err = domain.HashPassword(s.d.Rand, s.d.Argon2, *c.Password); err != nil {
 			return domain.Human{}, fmt.Errorf("update human %s: %w", name, err)
+		}
+	}
+	if err := s.d.Humans.UpdateHuman(ctx, h); err != nil {
+		return domain.Human{}, fmt.Errorf("update human %s: %w", name, err)
+	}
+	if c.Password != nil {
+		if err := s.d.Sessions.DeleteHumanSessions(ctx, name); err != nil {
+			return domain.Human{}, fmt.Errorf("end sessions of %s: %w", name, err)
 		}
 	}
 	s.audit(ctx, by, "human.update", "human:"+name)
@@ -115,6 +128,8 @@ func (s *Service) DeleteHuman(ctx context.Context, by core.Caller, name string) 
 	if err := requireHuman(by); err != nil {
 		return err
 	}
+	s.humansMu.Lock()
+	defer s.humansMu.Unlock()
 	if _, err := s.d.Humans.Human(ctx, name); err != nil {
 		return fmt.Errorf("delete human: %w", err)
 	}
@@ -124,9 +139,6 @@ func (s *Service) DeleteHuman(ctx context.Context, by core.Caller, name string) 
 	}
 	if len(all) == 1 {
 		return fmt.Errorf("%s is the last human: %w", name, core.ErrConflict)
-	}
-	if err := s.d.Accounts.DeleteUser(ctx, name); err != nil {
-		return fmt.Errorf("delete user %s: %w", name, err)
 	}
 	if err := s.d.Sessions.DeleteHumanSessions(ctx, name); err != nil {
 		return fmt.Errorf("end sessions of %s: %w", name, err)

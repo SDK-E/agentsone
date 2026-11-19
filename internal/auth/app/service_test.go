@@ -66,12 +66,9 @@ func TestSignIn_RejectsAWrongPassword(t *testing.T) {
 	}
 }
 
-func TestSignIn_RejectsALinuxUserWhoIsNotAHuman(t *testing.T) {
+func TestSignIn_RejectsAnUnknownName(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")
-	if _, err := env.Accounts.CreateUser(context.Background(), "svc", password); err != nil {
-		t.Fatal(err)
-	}
 	if _, _, _, err := env.Service.SignIn(context.Background(), "svc", password, ""); !errors.Is(err, core.ErrUnauthorized) {
 		t.Fatalf("err %v", err)
 	}

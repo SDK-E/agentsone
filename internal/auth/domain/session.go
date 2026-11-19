@@ -19,11 +19,16 @@ const SessionTTL = 12 * time.Hour
 // humanName is the contract's HumanName pattern. Fixed lookup table.
 var humanName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
 
-// Human is a human account: a Linux user in the humans group.
+// Human is a human account, kept in core.db. Humans are not Linux users:
+// the container's /etc resets on every restart.
 type Human struct {
 	Name        string
 	DisplayName string
-	UID         int
+	// UID is a stable account number from 1000 up, shown in the contract's
+	// Human.uid. It is not a Linux uid.
+	UID int
+	// PasswordHash is an argon2id PHC string. It never leaves this context.
+	PasswordHash string
 	CreatedAt   time.Time
 	// LastLoginAt is zero before the first sign-in.
 	LastLoginAt time.Time
@@ -39,7 +44,7 @@ func CheckHumanName(name string) error {
 
 // Caller is the identity of a request signed in as h.
 func (h Human) Caller() core.Caller {
-	return core.Caller{Kind: core.CallerHuman, Name: h.Name, UID: h.UID}
+	return core.Caller{Kind: core.CallerHuman, Name: h.Name, UID: -1}
 }
 
 // Session is a server-side sign-in. The cookie holds a random secret; only

@@ -44,7 +44,7 @@ func must(t *testing.T, err error) {
 }
 
 func ada() domain.Human {
-	return domain.Human{Name: "ada", DisplayName: "Ada", UID: 1000, CreatedAt: t0}
+	return domain.Human{Name: "ada", DisplayName: "Ada", UID: 1000, PasswordHash: "$argon2id$x", CreatedAt: t0}
 }
 
 func humansRoundTrip(t *testing.T, r Repo) {
@@ -62,12 +62,15 @@ func humansRoundTrip(t *testing.T, r Repo) {
 		t.Fatalf("by uid %+v", byUID)
 	}
 	h := ada()
-	h.DisplayName, h.LastLoginAt = "Ada L.", t0.Add(time.Hour)
+	h.DisplayName, h.LastLoginAt, h.PasswordHash = "Ada L.", t0.Add(time.Hour), "$argon2id$y"
 	must(t, r.UpdateHuman(ctx, h))
 	all, err := r.ListHumans(ctx)
 	must(t, err)
-	if len(all) != 2 || all[0].Name != "ada" || all[0].DisplayName != "Ada L." || !all[0].LastLoginAt.Equal(h.LastLoginAt) {
+	if len(all) != 2 || all[0].Name != "ada" {
 		t.Fatalf("list %+v", all)
+	}
+	if diff := cmp.Diff(h, all[0]); diff != "" {
+		t.Fatalf("updated human (-want +got):\n%s", diff)
 	}
 	must(t, r.DeleteHuman(ctx, "bob"))
 	if _, err := r.Human(ctx, "bob"); !errors.Is(err, core.ErrNotFound) {

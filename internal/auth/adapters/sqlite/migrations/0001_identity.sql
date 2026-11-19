@@ -3,6 +3,7 @@ CREATE TABLE auth_humans (
     name          TEXT    PRIMARY KEY,
     display_name  TEXT    NOT NULL,
     uid           INTEGER NOT NULL UNIQUE,
+    password_hash TEXT    NOT NULL,
     created_at    TEXT    NOT NULL,
     last_login_at TEXT
 ) STRICT;

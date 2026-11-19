@@ -185,8 +185,8 @@ func (r *Repository) RevokeToken(ctx context.Context, id string, at time.Time) e
 
 // AddHuman stores a new human.
 func (r *Repository) AddHuman(ctx context.Context, h domain.Human) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO auth_humans (name, display_name, uid, created_at, last_login_at) VALUES (?, ?, ?, ?, ?)`,
-		h.Name, h.DisplayName, h.UID, formatTime(h.CreatedAt), nullTime(h.LastLoginAt))
+	_, err := r.db.ExecContext(ctx, `INSERT INTO `+humanTable+` (`+humanColumns+`) VALUES (?, ?, ?, ?, ?, ?)`,
+		h.Name, h.DisplayName, h.UID, h.PasswordHash, formatTime(h.CreatedAt), nullTime(h.LastLoginAt))
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			return fmt.Errorf("human %s: %w", h.Name, core.ErrConflict)
@@ -196,13 +196,16 @@ func (r *Repository) AddHuman(ctx context.Context, h domain.Human) error {
 	return nil
 }
 
-const humanColumns = `name, display_name, uid, created_at, last_login_at`
+const (
+	humanTable   = `auth_humans`
+	humanColumns = `name, display_name, uid, password_hash, created_at, last_login_at`
+)
 
 func scanHuman(row interface{ Scan(...any) error }) (domain.Human, error) {
 	var h domain.Human
 	var created string
 	var last sql.NullString
-	if err := row.Scan(&h.Name, &h.DisplayName, &h.UID, &created, &last); err != nil {
+	if err := row.Scan(&h.Name, &h.DisplayName, &h.UID, &h.PasswordHash, &created, &last); err != nil {
 		return domain.Human{}, err
 	}
 	var err error
@@ -254,10 +257,11 @@ func (r *Repository) ListHumans(ctx context.Context) ([]domain.Human, error) {
 	return out, nil
 }
 
-// UpdateHuman replaces a stored human's display name and last sign-in.
+// UpdateHuman replaces a stored human's display name, password hash and
+// last sign-in.
 func (r *Repository) UpdateHuman(ctx context.Context, h domain.Human) error {
-	res, err := r.db.ExecContext(ctx, `UPDATE auth_humans SET display_name = ?, last_login_at = ? WHERE name = ?`,
-		h.DisplayName, nullTime(h.LastLoginAt), h.Name)
+	res, err := r.db.ExecContext(ctx, `UPDATE auth_humans SET display_name = ?, password_hash = ?, last_login_at = ? WHERE name = ?`,
+		h.DisplayName, h.PasswordHash, nullTime(h.LastLoginAt), h.Name)
 	if err != nil {
 		return fmt.Errorf("update human: %w", err)
 	}

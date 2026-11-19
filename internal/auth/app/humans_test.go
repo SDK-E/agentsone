@@ -21,8 +21,11 @@ func TestCreateHuman_AddsALinuxUserAndAnAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h.UID != 1001 || !env.Accounts.HasUser("bob") {
+	if h.UID != 1001 {
 		t.Fatalf("human %+v", h)
+	}
+	if _, _, _, err := env.Service.SignIn(context.Background(), "bob", password, ""); err != nil {
+		t.Fatalf("new human cannot sign in: %v", err)
 	}
 	hs, _ := env.Service.ListHumans(context.Background())
 	if len(hs) != 2 {
@@ -43,8 +46,8 @@ func TestCreateHuman_IsAHumanPowerOnly(t *testing.T) {
 			t.Errorf("%s: err %v", name, err)
 		}
 	}
-	if env.Accounts.HasUser("bob") {
-		t.Fatal("user created by a non-human")
+	if _, err := env.Service.GetHuman(context.Background(), "bob"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("account created by a non-human: %v", err)
 	}
 }
 
@@ -68,15 +71,22 @@ func TestCreateHuman_RejectsAnInvalidName(t *testing.T) {
 	}
 }
 
-func TestCreateHuman_ReportsALinuxFailure(t *testing.T) {
+func TestCreateHuman_RejectsAShortPassword(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")
-	env.Accounts.Fail = errors.New("useradd exited 9")
-	if _, err := env.Service.CreateHuman(context.Background(), authtest.Human("ada"), bob()); err == nil {
-		t.Fatal("no error")
+	n := bob()
+	n.Password = "short"
+	if _, err := env.Service.CreateHuman(context.Background(), authtest.Human("ada"), n); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("err %v", err)
 	}
-	if _, err := env.Service.GetHuman(context.Background(), "bob"); !errors.Is(err, core.ErrNotFound) {
-		t.Fatalf("account stored without user: %v", err)
+}
+
+func TestUpdateHuman_RejectsAShortPassword(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	short := "short"
+	if _, err := env.Service.UpdateHuman(context.Background(), authtest.Human("ada"), "ada", app.HumanChange{Password: &short}); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("err %v", err)
 	}
 }
 
@@ -139,8 +149,8 @@ func TestDeleteHuman_RemovesTheAccountAndItsSessions(t *testing.T) {
 	if err := env.Service.DeleteHuman(ctx, authtest.Human("ada"), "bob"); err != nil {
 		t.Fatal(err)
 	}
-	if env.Accounts.HasUser("bob") {
-		t.Fatal("Linux user kept")
+	if _, err := env.Service.GetHuman(ctx, "bob"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("account kept: %v", err)
 	}
 	if _, err := env.Service.SessionCaller(ctx, secret); !errors.Is(err, core.ErrUnauthorized) {
 		t.Fatalf("session kept: %v", err)

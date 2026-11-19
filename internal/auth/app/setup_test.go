@@ -55,8 +55,8 @@ func TestCreateFirstHuman_RefusedOnceAHumanExists(t *testing.T) {
 	if _, err := env.Service.CreateFirstHuman(context.Background(), bob()); !errors.Is(err, core.ErrConflict) {
 		t.Fatalf("err %v", err)
 	}
-	if env.Accounts.HasUser("bob") {
-		t.Fatal("second user created")
+	if _, err := env.Service.GetHuman(context.Background(), "bob"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("second human created: %v", err)
 	}
 }
 

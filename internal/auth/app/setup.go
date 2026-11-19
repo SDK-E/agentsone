@@ -70,6 +70,8 @@ func (s *Service) SetupStatus(ctx context.Context) (SetupStatus, error) {
 // CreateFirstHuman creates the first account on first boot. Once any human
 // exists it answers core.ErrConflict, so it cannot be used to add more.
 func (s *Service) CreateFirstHuman(ctx context.Context, n NewHuman) (domain.Human, error) {
+	s.humansMu.Lock()
+	defer s.humansMu.Unlock()
 	hs, err := s.d.Humans.ListHumans(ctx)
 	if err != nil {
 		return domain.Human{}, fmt.Errorf("first human: %w", err)

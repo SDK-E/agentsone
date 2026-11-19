@@ -1,91 +1,27 @@
 // SPDX-License-Identifier: MIT
 
 // Package authtest holds hand-written fakes for the identity context's
-// ports and a builder for a service wired to them.
+// ports, a builder for a service wired to them, and the repository
+// contract suite.
 package authtest
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/SDK-E/agentsone/internal/auth/adapters/memory"
 	"github.com/SDK-E/agentsone/internal/auth/app"
+	"github.com/SDK-E/agentsone/internal/auth/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
-// Accounts is a fake Linux user database that also checks passwords.
-type Accounts struct {
-	mu        sync.Mutex
-	passwords map[string]string
-	nextUID   int
-	// Fail makes every change fail with this error when set.
-	Fail error
-}
+// Cheap are argon2id costs that keep tests fast. Production uses
+// domain.DefaultArgon2.
+var Cheap = domain.Argon2Params{Time: 1, Memory: 64, Threads: 1}
 
-var (
-	_ app.Accounts      = (*Accounts)(nil)
-	_ app.Authenticator = (*Accounts)(nil)
-)
-
-// NewAccounts returns an empty user database whose first uid is 1000.
-func NewAccounts() *Accounts { return &Accounts{passwords: map[string]string{}, nextUID: 1000} }
-
-// CreateUser adds a user.
-func (a *Accounts) CreateUser(_ context.Context, name, password string) (int, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.Fail != nil {
-		return 0, a.Fail
-	}
-	if _, ok := a.passwords[name]; ok {
-		return 0, fmt.Errorf("user %s: %w", name, core.ErrConflict)
-	}
-	a.passwords[name] = password
-	a.nextUID++
-	return a.nextUID - 1, nil
-}
-
-// SetPassword changes a password.
-func (a *Accounts) SetPassword(_ context.Context, name, password string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.Fail != nil {
-		return a.Fail
-	}
-	a.passwords[name] = password
-	return nil
-}
-
-// DeleteUser removes a user.
-func (a *Accounts) DeleteUser(_ context.Context, name string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.Fail != nil {
-		return a.Fail
-	}
-	delete(a.passwords, name)
-	return nil
-}
-
-// HasUser reports whether the Linux user exists.
-func (a *Accounts) HasUser(name string) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	_, ok := a.passwords[name]
-	return ok
-}
-
-// Authenticate checks the password.
-func (a *Accounts) Authenticate(_ context.Context, name, password string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if p, ok := a.passwords[name]; !ok || p != password {
-		return fmt.Errorf("pam %s: %w", name, core.ErrUnauthorized)
-	}
-	return nil
-}
+// Password is a valid password for test accounts.
+const Password = "correct horse battery"
 
 // Licence is a fixed engine licence.
 type Licence struct{ Engine, Version, Text string }
@@ -118,12 +54,11 @@ func (c *Counter) Read(p []byte) (int, error) {
 
 // Env is a service with its fakes.
 type Env struct {
-	Service  *app.Service
-	Clock    *coretest.Clock
-	Store    *memory.Store
-	Accounts *Accounts
-	Events   *coretest.Events
-	Audit    *coretest.Audit
+	Service *app.Service
+	Clock   *coretest.Clock
+	Store   *memory.Store
+	Events  *coretest.Events
+	Audit   *coretest.Audit
 }
 
 // DefaultLicence is the licence every Env serves.
@@ -133,20 +68,20 @@ var DefaultLicence = Licence{Engine: "claude-code", Version: "2026-11", Text: "L
 func New() *Env {
 	clock := coretest.NewClock(coretest.Epoch)
 	store := memory.New()
-	accounts := NewAccounts()
 	events := coretest.NewEvents(clock, coretest.NewIDs())
 	audit := coretest.NewAudit()
-	svc := app.New(app.Deps{
-		Clock: clock, Rand: &Counter{}, Sessions: store, Tokens: store, Humans: store, Setup: store,
-		Auth: accounts, Accounts: accounts, Licence: DefaultLicence, Events: events, Audit: audit,
+	svc, err := app.New(app.Deps{
+		Clock: clock, Rand: &Counter{}, Argon2: Cheap, Sessions: store, Tokens: store, Humans: store, Setup: store,
+		Licence: DefaultLicence, Events: events, Audit: audit,
 	})
-	return &Env{Service: svc, Clock: clock, Store: store, Accounts: accounts, Events: events, Audit: audit}
+	if err != nil {
+		panic(err) // the counter never fails; a failure here is a bug in the test kit
+	}
+	return &Env{Service: svc, Clock: clock, Store: store, Events: events, Audit: audit}
 }
 
 // Human returns a signed-in human caller.
-func Human(name string) core.Caller {
-	return core.Caller{Kind: core.CallerHuman, Name: name, UID: 1000}
-}
+func Human(name string) core.Caller { return core.Caller{Kind: core.CallerHuman, Name: name, UID: -1} }
 
 // Agent returns a root agent caller.
 func Agent(name string) core.Caller {

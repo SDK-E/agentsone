@@ -55,10 +55,10 @@ func TestCheckHumanName_FollowsTheContractPattern(t *testing.T) {
 	}
 }
 
-func TestHuman_CallerIsAHumanWithoutRoot(t *testing.T) {
+func TestHuman_CallerIsAHumanWithoutRootOrLinuxUID(t *testing.T) {
 	t.Parallel()
 	c := domain.Human{Name: "ada", UID: 1000}.Caller()
-	if c.Kind != core.CallerHuman || c.Name != "ada" || c.UID != 1000 || c.IsRoot {
+	if c.Kind != core.CallerHuman || c.Name != "ada" || c.UID != -1 || c.IsRoot {
 		t.Fatalf("caller %+v", c)
 	}
 }

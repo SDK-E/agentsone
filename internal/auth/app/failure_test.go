@@ -26,9 +26,11 @@ func (broken) ListHumans(context.Context) ([]domain.Human, error) { return nil, 
 func (broken) Human(context.Context, string) (domain.Human, error) {
 	return domain.Human{}, errDisk
 }
-func (broken) SaveToken(context.Context, domain.Token) error           { return errDisk }
-func (broken) Token(context.Context, string) (domain.Token, error)     { return domain.Token{}, errDisk }
-func (broken) Session(context.Context, string) (domain.Session, error) { return domain.Session{}, errDisk }
+func (broken) SaveToken(context.Context, domain.Token) error       { return errDisk }
+func (broken) Token(context.Context, string) (domain.Token, error) { return domain.Token{}, errDisk }
+func (broken) Session(context.Context, string) (domain.Session, error) {
+	return domain.Session{}, errDisk
+}
 func (broken) Licence(context.Context) (domain.Licence, bool, error) {
 	return domain.Licence{}, false, errDisk
 }

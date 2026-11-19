@@ -78,8 +78,11 @@ func TestProxy_ReplacesForwardingAndIdentityHeaders(t *testing.T) {
 	if v := got.Get("X-Forwarded-Proto"); v != "https" {
 		t.Errorf("X-Forwarded-Proto = %q, want https (upgrade claim kept)", v)
 	}
+	if v := got.Values("X-Forwarded-Host"); len(v) != 1 || v[0] != strings.TrimPrefix(u, "http://") {
+		t.Errorf("X-Forwarded-Host = %q, want only the door address the client used", v)
+	}
 	for _, name := range []string{
-		"X-Forwarded-Host", "Forwarded", "X-Real-Ip", "X-Remote-User", "Remote-User",
+		"Forwarded", "X-Real-Ip", "X-Remote-User", "Remote-User",
 		"X-Auth-Request-User", "X-Forwarded-User",
 	} {
 		if v := got.Values(name); len(v) != 0 {
@@ -88,6 +91,25 @@ func TestProxy_ReplacesForwardingAndIdentityHeaders(t *testing.T) {
 	}
 	if got.Get("Cookie") != "session=abc" {
 		t.Errorf("Cookie = %q, want the daemon session passed on", got.Get("Cookie"))
+	}
+}
+
+func TestProxy_ForwardsTheHostTheBrowserUsed(t *testing.T) {
+	t.Parallel()
+	seen := make(chan [2]string, 1)
+	u := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		seen <- [2]string{r.Host, r.Header.Get("X-Forwarded-Host")}
+	}))
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, u+"/v1/setup/first-human", nil)
+	req.Host = "agents.example.test"
+	res := do(t, req)
+	defer func() { _ = res.Body.Close() }()
+	got := <-seen
+	if got[1] != "agents.example.test" {
+		t.Errorf("X-Forwarded-Host = %q, want the Host the browser sent", got[1])
+	}
+	if got[0] == "agents.example.test" {
+		t.Errorf("Host = %q, want the machine's own address: the daemon reads the browser's host only from the door", got[0])
 	}
 }
 

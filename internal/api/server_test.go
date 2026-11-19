@@ -115,6 +115,36 @@ func TestNewServer_RejectsAnEdgeThatIsNotOneAddress(t *testing.T) {
 	}
 }
 
+func TestNewServer_RejectsAPublicURLThatIsNotAnOrigin(t *testing.T) {
+	t.Parallel()
+	for _, bad := range []string{"agents.example.test", "ftp://agents.example.test", "https://", "https://agents.example.test/app", "https://agents.example.test?x=1"} {
+		deps, _ := coretest.NewDeps(t)
+		cfg, err := core.ParseConfig([]byte("[api]\npublic_url = \"" + bad + "\"\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		deps.Config = &cfg
+		if _, err := api.NewServer(nil, deps); err == nil {
+			t.Errorf("public_url %q accepted", bad)
+		}
+	}
+}
+
+func TestNewServer_AcceptsAPublicURLOrigin(t *testing.T) {
+	t.Parallel()
+	for _, good := range []string{"https://agents.example.test", "https://agents.example.test/", "http://10.0.0.5:7780"} {
+		deps, _ := coretest.NewDeps(t)
+		cfg, err := core.ParseConfig([]byte("[api]\npublic_url = \"" + good + "\"\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		deps.Config = &cfg
+		if _, err := api.NewServer(nil, deps); err != nil {
+			t.Errorf("public_url %q refused: %v", good, err)
+		}
+	}
+}
+
 func TestServer_HandlerIsTheComposedModulesWithoutIdentityRules(t *testing.T) {
 	t.Parallel()
 	deps, _ := coretest.NewDeps(t)

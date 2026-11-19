@@ -10,3 +10,8 @@
 # and the inner network address for the web door in edge. The daemon refuses
 # callers from other addresses than loopback and [edge] trusted_proxies.
 addr = "0.0.0.0:7700"
+# The origin humans open the interface at, such as "https://agents.example.com".
+# When set, only this origin may send state-changing browser requests (and
+# open terminals). Unset, it is the address the web door was reached at, as
+# the edge reports it in X-Forwarded-Host.
+# public_url = "https://agents.example.com"

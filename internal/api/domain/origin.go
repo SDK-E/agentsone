@@ -10,6 +10,9 @@ type OriginCheck struct {
 	Method string
 	// Origin is the Origin header.
 	Origin string
+	// Scheme, when set, is the scheme the Origin must have too: the
+	// configured public URL's, or the one the edge says the browser used.
+	Scheme string
 	// FetchSite is the Sec-Fetch-Site header.
 	FetchSite string
 	// Host is the Host the request was sent to.
@@ -27,9 +30,19 @@ func SameOrigin(c OriginCheck) bool {
 	if c.Origin == "" {
 		return c.FetchSite == "same-origin"
 	}
-	u, err := url.Parse(c.Origin)
+	return OriginMatches(c.Origin, c.Host, c.Scheme)
+}
+
+// OriginMatches reports whether an Origin header names the host the request
+// was sent to, and the scheme too when scheme is set. A malformed or
+// opaque ("null") origin never matches.
+func OriginMatches(origin, host, scheme string) bool {
+	u, err := url.Parse(origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Path != "" || u.RawQuery != "" {
 		return false
 	}
-	return u.Host == c.Host
+	if scheme != "" && u.Scheme != scheme {
+		return false
+	}
+	return u.Host == host
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -34,6 +35,7 @@ var echo = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Caller", string(c.Kind)+":"+c.Name)
 	w.Header().Set("X-Via", r.Header.Get(httpadapter.ViaHeader))
 	w.Header().Set("X-Remote", r.RemoteAddr)
+	w.Header().Set("X-Host", r.Host)
 	w.WriteHeader(http.StatusOK)
 })
 
@@ -47,11 +49,18 @@ var tcp = httpadapter.TCPIdentity{
 
 type req struct {
 	method, path, remote, cookie, bearer, origin string
-	headers                                      map[string]string
+	// host is the Host header the daemon receives; empty keeps example.com.
+	host    string
+	headers map[string]string
 }
 
-func send(q req) *httptest.ResponseRecorder {
+func send(q req) *httptest.ResponseRecorder { return sendTo(tcp, q) }
+
+func sendTo(h http.Handler, q req) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(q.method, q.path, nil)
+	if q.host != "" {
+		r.Host = q.host
+	}
 	r.RemoteAddr = q.remote
 	if r.RemoteAddr == "" {
 		r.RemoteAddr = "127.0.0.1:5000"
@@ -69,7 +78,7 @@ func send(q req) *httptest.ResponseRecorder {
 		r.Header.Set(k, v)
 	}
 	rec := httptest.NewRecorder()
-	tcp.ServeHTTP(rec, r)
+	h.ServeHTTP(rec, r)
 	return rec
 }
 
@@ -219,6 +228,147 @@ func TestTCPIdentity_SameOriginThroughTheEdgeUsesTheHostTheEdgeSends(t *testing.
 	rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", cookie: "aos_good", origin: "https://example.com", headers: forged})
 	if rec.Code != 200 {
 		t.Fatalf("got %d: %s", rec.Code, rec.Body)
+	}
+}
+
+// The web door sends the daemon's own address as Host and the address the browser used as
+// X-Forwarded-Host.
+var door = map[string]string{"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Proto": "http", "X-Forwarded-Host": "127.0.0.1:7780"}
+
+func TestTCPIdentity_SameOriginThroughTheDoorUsesTheForwardedHost(t *testing.T) {
+	t.Parallel()
+	rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: "http://127.0.0.1:7780", headers: door})
+	if rec.Code != 200 || rec.Header().Get("X-Host") != "127.0.0.1:7780" {
+		t.Fatalf("got %d host %q: %s; want 200 with the forwarded host", rec.Code, rec.Header().Get("X-Host"), rec.Body)
+	}
+}
+
+func TestTCPIdentity_RefusesAForeignOriginThroughTheDoor(t *testing.T) {
+	t.Parallel()
+	rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: "http://evil.test", headers: door})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("got %d: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestTCPIdentity_IgnoresAForwardedHostFromInsideTheMachine(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{"X-Forwarded-Host": "evil.test"}
+	for _, remote := range []string{"127.0.0.1:4000", machineIP + ":4000"} {
+		rec := send(req{method: "POST", path: "/v1/agents", remote: remote, host: "127.0.0.1:7700", cookie: "aos_good", origin: "http://evil.test", headers: h})
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("from %s: got %d, want the forged host ignored and the origin refused: %s", remote, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestTCPIdentity_KeepsTheHostWhenTheForwardedHostIsMalformed(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{"X-Forwarded-Host": "evil.test/path"}
+	rec := send(req{method: "GET", path: "/v1/setup", remote: "172.18.0.2:4000", host: "machine:7700", headers: h})
+	if rec.Header().Get("X-Host") != "machine:7700" {
+		t.Fatalf("host %q, want machine:7700", rec.Header().Get("X-Host"))
+	}
+}
+
+// behindTLS is the web door behind a platform that ends TLS: the browser opened
+// https://agents.example.test.
+var behindTLS = map[string]string{"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "agents.example.test"}
+
+func TestTCPIdentity_ThroughTheDoorTheOriginSchemeIsTheForwardedProto(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, origin string
+		status       int
+	}{
+		{"https page behind TLS", "https://agents.example.test", 200},
+		{"same host over plain http", "http://agents.example.test", 403},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: c.origin, headers: behindTLS})
+			if rec.Code != c.status {
+				t.Fatalf("got %d, want %d: %s", rec.Code, c.status, rec.Body)
+			}
+		})
+	}
+}
+
+func TestTCPIdentity_IgnoresAForwardedProtoFromInsideTheMachine(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{"X-Forwarded-Proto": "https"}
+	rec := send(req{method: "POST", path: "/v1/agents", host: "127.0.0.1:7700", cookie: "aos_good", origin: "http://127.0.0.1:7700", headers: h})
+	if rec.Code != 200 {
+		t.Fatalf("got %d, want the forged scheme ignored: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestTCPIdentity_TerminalWebSocketsFollowTheSameOriginRule(t *testing.T) {
+	t.Parallel()
+	upgrade := func(extra map[string]string) map[string]string {
+		h := map[string]string{"Upgrade": "websocket", "Connection": "Upgrade"}
+		for k, v := range extra {
+			h[k] = v
+		}
+		return h
+	}
+	cases := []struct {
+		name, origin string
+		headers      map[string]string
+		status       int
+	}{
+		{"same origin through the door", "http://127.0.0.1:7780", upgrade(door), 200},
+		{"https page behind TLS", "https://agents.example.test", upgrade(behindTLS), 200},
+		{"plain http page behind TLS", "http://agents.example.test", upgrade(behindTLS), 403},
+		{"another site", "http://evil.test", upgrade(door), 403},
+		{"a program, no Origin", "", upgrade(door), 200},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			rec := send(req{method: "GET", path: "/v1/machine/pty/pty_1/socket", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: c.origin, headers: c.headers})
+			if rec.Code != c.status {
+				t.Fatalf("got %d, want %d: %s", rec.Code, c.status, rec.Body)
+			}
+		})
+	}
+}
+
+// public is the daemon with [api] public_url set.
+var public = httpadapter.TCPIdentity{
+	Verify: verify, EdgeIPs: []netip.Addr{netip.MustParseAddr("172.18.0.2")},
+	IsOwn:  func(a netip.Addr) bool { return a == netip.MustParseAddr(machineIP) },
+	Public: &url.URL{Scheme: "https", Host: "agents.example.test"},
+}.Wrap(echo)
+
+func TestTCPIdentity_WithAPublicURLOnlyThatOriginPasses(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, origin string
+		status       int
+	}{
+		{"the public URL", "https://agents.example.test", 200},
+		{"the door address", "http://127.0.0.1:7780", 403},
+		{"the public host over http", "http://agents.example.test", 403},
+		{"a foreign origin", "https://evil.test", 403},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			rec := sendTo(public, req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: c.origin, headers: door})
+			if rec.Code != c.status {
+				t.Fatalf("got %d, want %d: %s", rec.Code, c.status, rec.Body)
+			}
+		})
+	}
+}
+
+func TestTCPIdentity_WithAPublicURLTheRequestHostIsThePublicHost(t *testing.T) {
+	t.Parallel()
+	rec := sendTo(public, req{method: "GET", path: "/v1/setup", remote: "172.18.0.2:4000", host: "machine:7700", headers: door})
+	if rec.Header().Get("X-Host") != "agents.example.test" {
+		t.Fatalf("host %q, want agents.example.test (terminal WebSockets compare the Origin to it)", rec.Header().Get("X-Host"))
 	}
 }
 

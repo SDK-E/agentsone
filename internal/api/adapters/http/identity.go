@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strings"
 
 	"github.com/SDK-E/agentsone/internal/api/domain"
@@ -85,6 +86,8 @@ type TCPIdentity struct {
 	// IsOwn reports the machine's own addresses. They count as local and
 	// are never trusted as the edge, even if configured.
 	IsOwn func(netip.Addr) bool
+	// Public is the configured public origin ([api] public_url), or nil.
+	Public *url.URL
 }
 
 // identityHeaders are dropped from every request: a human is known only by
@@ -109,6 +112,21 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 			core.WriteError(w, r, err)
 			return
 		}
+		// The origin the interface is served at is what the browser's Origin must
+		// match, here and in the terminal WebSocket check: the configured public
+		// URL when there is one, else the host place found and, from the edge,
+		// the scheme the browser used.
+		scheme := ""
+		if fromEdge {
+			scheme = forwardedScheme(r.Header.Get("X-Forwarded-Proto"))
+		}
+		if t.Public != nil {
+			r.Host, scheme = t.Public.Host, t.Public.Scheme
+		}
+		if origin := r.Header.Get("Origin"); isWebSocket(r) && origin != "" && !domain.OriginMatches(origin, r.Host, scheme) {
+			core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden", "cross-origin WebSocket refused"))
+			return
+		}
 		if isFirstHuman(r) && !fromEdge {
 			refuseFirstHuman(w, r)
 			return
@@ -116,7 +134,7 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 		value, fromCookie := credential(r)
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !isBearer(r) {
 			if !domain.SameOrigin(domain.OriginCheck{
-				Method: r.Method, Origin: r.Header.Get("Origin"), FetchSite: r.Header.Get("Sec-Fetch-Site"), Host: r.Host,
+				Method: r.Method, Origin: r.Header.Get("Origin"), FetchSite: r.Header.Get("Sec-Fetch-Site"), Host: r.Host, Scheme: scheme,
 			}) && !isPublicNonBrowser(r) {
 				core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden", "cross-origin request refused"))
 				return
@@ -145,8 +163,9 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 
 // place checks where the request came from. Loopback and the machine's own
 // addresses are local: forwarded headers from them are dropped. The edge
-// proxy, matched by exact address, is believed about two things only: the
-// client address and the scheme. Anyone else is refused.
+// proxy, matched by exact address, is believed about three things only: the
+// client address, the scheme and the host the browser used (the web door
+// sends the daemon's own address as Host). Anyone else is refused.
 // The second result is true when the peer is the edge itself.
 func (t TCPIdentity) place(r *http.Request) (*http.Request, bool, error) {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
@@ -155,6 +174,8 @@ func (t TCPIdentity) place(r *http.Request) (*http.Request, bool, error) {
 	}
 	addr := ap.Addr().Unmap()
 	local := addr.IsLoopback() || (t.IsOwn != nil && t.IsOwn(addr))
+	forwardedHost := r.Header.Get("X-Forwarded-Host")
+	r.Header.Del("X-Forwarded-Host")
 	if local || !t.isEdge(addr) {
 		r.Header.Del("X-Forwarded-For")
 		r.Header.Del("X-Forwarded-Proto")
@@ -165,6 +186,9 @@ func (t TCPIdentity) place(r *http.Request) (*http.Request, bool, error) {
 	}
 	if client := lastForwarded(r.Header.Get("X-Forwarded-For")); client.IsValid() {
 		r.RemoteAddr = netip.AddrPortFrom(client, 0).String()
+	}
+	if host, ok := hostOnly(lastEntry(forwardedHost)); ok {
+		r.Host = host
 	}
 	if r.Header.Get("X-Forwarded-Proto") == "https" {
 		r.Header.Set(ViaHeader, "edge")
@@ -196,12 +220,46 @@ func (t TCPIdentity) isEdge(a netip.Addr) bool {
 // lastForwarded is the address the trusted proxy itself saw: the last
 // entry. Earlier entries are client-supplied and not trusted.
 func lastForwarded(h string) netip.Addr {
-	parts := strings.Split(h, ",")
-	a, err := netip.ParseAddr(strings.TrimSpace(parts[len(parts)-1]))
+	a, err := netip.ParseAddr(lastEntry(h))
 	if err != nil {
 		return netip.Addr{}
 	}
 	return a
+}
+
+// lastEntry is the last comma-separated entry of a forwarded header: the one
+// the trusted proxy itself set.
+func lastEntry(h string) string {
+	parts := strings.Split(h, ",")
+	return strings.TrimSpace(parts[len(parts)-1])
+}
+
+// forwardedScheme is the scheme the edge says the browser used, or "" when
+// it says nothing usable.
+func forwardedScheme(h string) string {
+	switch s := lastEntry(h); s {
+	case "http", "https":
+		return s
+	}
+	return ""
+}
+
+// isWebSocket reports a WebSocket upgrade. GET passes the CSRF check, so a
+// browser's Origin on an upgrade is checked on its own.
+func isWebSocket(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+}
+
+// hostOnly accepts a bare host or host:port, nothing more.
+func hostOnly(h string) (string, bool) {
+	if h == "" {
+		return "", false
+	}
+	u, err := url.Parse("http://" + h)
+	if err != nil || u.Host != h || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	return h, true
 }
 
 // credential returns the bearer token, else the session cookie.

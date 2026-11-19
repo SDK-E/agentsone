@@ -40,9 +40,14 @@ type pendingRequest struct {
 
 func transcriptLines(t *testing.T) [][]byte {
 	t.Helper()
-	raw, err := os.ReadFile(contractPath(t, "fixtures/schemas/runner-message/transcript.ndjson")) // #nosec G304 -- contract fixture
+	return transcriptFileLines(t, "transcript.ndjson")
+}
+
+func transcriptFileLines(t *testing.T, name string) [][]byte {
+	t.Helper()
+	raw, err := os.ReadFile(contractPath(t, "fixtures/schemas/runner-message/"+name)) // #nosec G304 -- contract fixture
 	if os.IsNotExist(err) {
-		t.Skip("contract/fixtures/schemas/runner-message/transcript.ndjson does not exist yet")
+		t.Skip("contract/fixtures/schemas/runner-message/" + name + " does not exist yet")
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -109,6 +114,23 @@ func TestRunnerTranscript(t *testing.T) {
 	lines := transcriptLines(t)
 	for _, err := range checkTranscript(schemaSet(t), lines) {
 		t.Error(err)
+	}
+}
+
+func TestRunnerTranscript11(t *testing.T) {
+	lines := transcriptFileLines(t, "transcript-1.1.ndjson")
+	for _, err := range checkTranscript(schemaSet(t), lines) {
+		t.Error(err)
+	}
+	found := false
+	for _, l := range lines {
+		var msg rpcLine
+		if json.Unmarshal(l, &msg) == nil && msg.Method == "credentials.update" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("transcript-1.1.ndjson has no credentials.update")
 	}
 }
 

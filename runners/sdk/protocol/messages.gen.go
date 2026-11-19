@@ -169,6 +169,37 @@ type ChatMessage struct {
 	Text common.Markdown `json:"text"`
 }
 
+// Daemon to runner, notification. Since protocol 1.1: fresh gateway and MCP
+// tokens, sent before the old ones expire. The runner uses the latest tokens for
+// every new model call and MCP request. There is no response. The daemon sends it
+// only on a connection that negotiated 1.1 or later.
+type CredentialsUpdateNotification struct {
+	// Jsonrpc corresponds to the JSON schema field "jsonrpc".
+	Jsonrpc JsonRpcVersion `json:"jsonrpc"`
+
+	// Method corresponds to the JSON schema field "method".
+	Method interface{} `json:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params CredentialsUpdateParams `json:"params"`
+}
+
+type CredentialsUpdateParams struct {
+	// Replaces model.token from the welcome.
+	GatewayToken ScopedToken `json:"gatewayToken"`
+
+	// GatewayTokenExpiresAt corresponds to the JSON schema field
+	// "gatewayTokenExpiresAt".
+	GatewayTokenExpiresAt common.Timestamp `json:"gatewayTokenExpiresAt"`
+
+	// Replaces the MCP token: mcp.token for streamable-http, the AGENTSONE_TOKEN
+	// value in mcp.env for stdio.
+	McpToken ScopedToken `json:"mcpToken"`
+
+	// McpTokenExpiresAt corresponds to the JSON schema field "mcpTokenExpiresAt".
+	McpTokenExpiresAt common.Timestamp `json:"mcpTokenExpiresAt"`
+}
+
 type DeliverBus struct {
 	// Kind corresponds to the JSON schema field "kind".
 	Kind interface{} `json:"kind"`

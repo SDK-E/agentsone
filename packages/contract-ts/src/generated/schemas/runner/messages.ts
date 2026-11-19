@@ -20,6 +20,7 @@ export type RunnerMessage =
   | LogNotification
   | ErrorNotification
   | HeartbeatNotification
+  | CredentialsUpdateNotification
   | SuccessResponse
   | ErrorResponse;
 /**
@@ -777,6 +778,32 @@ export interface HeartbeatNotification {
 }
 export interface HeartbeatParams {
   uptimeMs: number;
+}
+/**
+ * Daemon to runner, notification. Since protocol 1.1: fresh gateway and MCP tokens, sent before the old ones expire. The runner uses the latest tokens for every new model call and MCP request. There is no response. The daemon sends it only on a connection that negotiated 1.1 or later.
+ */
+export interface CredentialsUpdateNotification {
+  jsonrpc: JsonRpcVersion;
+  method: "credentials.update";
+  params: CredentialsUpdateParams;
+}
+export interface CredentialsUpdateParams {
+  /**
+   * Replaces model.token from the welcome.
+   */
+  gatewayToken: string;
+  /**
+   * RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
+   */
+  gatewayTokenExpiresAt: string;
+  /**
+   * Replaces the MCP token: mcp.token for streamable-http, the AGENTSONE_TOKEN value in mcp.env for stdio.
+   */
+  mcpToken: string;
+  /**
+   * RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
+   */
+  mcpTokenExpiresAt: string;
 }
 /**
  * Answer to a request. The result shape is <Method>Result for the request with the same id.

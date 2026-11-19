@@ -67,6 +67,10 @@ difference, and CI runs it.
   when missing or wrong), ends the human's other sessions and rotates the caller's cookie (a reset
   of another human ends all that human's sessions); `deleteMemory` is open to humans,
   who cannot edit memory.
+- Runner protocol version: 1.1 since contract 1.0.3. Minor versions only add optional fields or
+  notifications (see "Version negotiation" in `schemas/runner/PROTOCOL.md`). 1.1 adds
+  `credentials.update`; `transcript.ndjson` stays the 1.0 transcript and `transcript-1.1.ndjson`
+  covers 1.1.
 - A parameter, response, request body or header component that shares its name with a schema is
   renamed for code generation only (`Cursor` becomes `CursorParameter`).
 

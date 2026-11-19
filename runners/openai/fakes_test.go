@@ -61,7 +61,7 @@ func newGateway(t testing.TB, respond func(gwRequest) reply) *fakeGateway {
 	t.Helper()
 	g := &fakeGateway{respond: respond, spent: map[string]bool{}}
 	g.srv = httptest.NewServer(http.HandlerFunc(g.serve))
-	t.Cleanup(g.srv.Close)
+	t.Cleanup(func() { g.srv.CloseClientConnections(); g.srv.Close() })
 	return g
 }
 
@@ -199,7 +199,7 @@ func newMCP(t testing.TB, wantToken string) *fakeMCP {
 		}
 		handler.ServeHTTP(w, r)
 	}))
-	t.Cleanup(f.srv.Close)
+	t.Cleanup(func() { f.srv.CloseClientConnections(); f.srv.Close() })
 	return f
 }
 

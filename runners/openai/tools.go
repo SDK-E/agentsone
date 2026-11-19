@@ -43,7 +43,7 @@ func DialMCP(ctx context.Context, m sdk.MCP, client *http.Client) (ToolBox, erro
 	}
 	hc.Transport = bearer{token: m.Token, next: base}
 	c := mcp.NewClient(&mcp.Implementation{Name: "agentsone-runner-openai", Version: Version}, nil)
-	session, err := c.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: m.URL, HTTPClient: &hc, MaxRetries: -1}, nil)
+	session, err := c.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: m.URL, HTTPClient: &hc, MaxRetries: -1, DisableStandaloneSSE: true}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("connect to MCP endpoint: %w", err)
 	}

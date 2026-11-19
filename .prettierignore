@@ -5,6 +5,7 @@ bin
 mkosi.output
 pnpm-lock.yaml
 contract/fixtures
+contract/vendor
 packages/contract-ts/src/generated
 internal/contract/api/openapi.json
 .claude/worktrees

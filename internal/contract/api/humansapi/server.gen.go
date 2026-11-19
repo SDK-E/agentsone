@@ -322,6 +322,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListHumansRequestObject struct {
@@ -374,6 +376,22 @@ func (response ListHumans401ApplicationProblemPlusJSONResponse) VisitListHumansR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHumans501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListHumans501ApplicationProblemPlusJSONResponse) VisitListHumansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -464,6 +482,22 @@ func (response CreateHuman409ApplicationProblemPlusJSONResponse) VisitCreateHuma
 	return err
 }
 
+type CreateHuman501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateHuman501ApplicationProblemPlusJSONResponse) VisitCreateHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteHumanRequestObject struct {
 	HumanName HumanNameParameter `json:"human_name"`
 }
@@ -544,6 +578,22 @@ func (response DeleteHuman409ApplicationProblemPlusJSONResponse) VisitDeleteHuma
 	return err
 }
 
+type DeleteHuman501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteHuman501ApplicationProblemPlusJSONResponse) VisitDeleteHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHumanRequestObject struct {
 	HumanName HumanNameParameter `json:"human_name"`
 }
@@ -594,6 +644,22 @@ func (response GetHuman404ApplicationProblemPlusJSONResponse) VisitGetHumanRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHuman501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetHuman501ApplicationProblemPlusJSONResponse) VisitGetHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -681,6 +747,22 @@ func (response UpdateHuman404ApplicationProblemPlusJSONResponse) VisitUpdateHuma
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateHuman501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateHuman501ApplicationProblemPlusJSONResponse) VisitUpdateHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

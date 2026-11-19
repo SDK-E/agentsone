@@ -240,6 +240,8 @@ type BadRequestApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListRunnersRequestObject struct {
@@ -296,6 +298,22 @@ func (response ListRunners401ApplicationProblemPlusJSONResponse) VisitListRunner
 	return err
 }
 
+type ListRunners501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListRunners501ApplicationProblemPlusJSONResponse) VisitListRunnersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetRunnerRequestObject struct {
 	RunnerName RunnerName `json:"runner_name"`
 }
@@ -346,6 +364,22 @@ func (response GetRunner404ApplicationProblemPlusJSONResponse) VisitGetRunnerRes
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRunner501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRunner501ApplicationProblemPlusJSONResponse) VisitGetRunnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

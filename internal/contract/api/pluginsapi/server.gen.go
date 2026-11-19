@@ -547,6 +547,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type UnavailableApplicationProblemPlusJSONResponse Problem
@@ -601,6 +603,22 @@ func (response SearchPluginCatalog401ApplicationProblemPlusJSONResponse) VisitSe
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchPluginCatalog501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SearchPluginCatalog501ApplicationProblemPlusJSONResponse) VisitSearchPluginCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -675,6 +693,22 @@ func (response ListPluginSources401ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type ListPluginSources501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPluginSources501ApplicationProblemPlusJSONResponse) VisitListPluginSourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPluginsRequestObject struct {
 	Params ListPluginsParams
 }
@@ -725,6 +759,22 @@ func (response ListPlugins401ApplicationProblemPlusJSONResponse) VisitListPlugin
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPlugins501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPlugins501ApplicationProblemPlusJSONResponse) VisitListPluginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -831,6 +881,22 @@ func (response InstallPlugin409ApplicationProblemPlusJSONResponse) VisitInstallP
 	return err
 }
 
+type InstallPlugin501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response InstallPlugin501ApplicationProblemPlusJSONResponse) VisitInstallPluginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type InstallPlugin503ApplicationProblemPlusJSONResponse struct {
 	UnavailableApplicationProblemPlusJSONResponse
 }
@@ -927,6 +993,22 @@ func (response UninstallPlugin409ApplicationProblemPlusJSONResponse) VisitUninst
 	return err
 }
 
+type UninstallPlugin501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response UninstallPlugin501ApplicationProblemPlusJSONResponse) VisitUninstallPluginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPluginRequestObject struct {
 	PluginId PluginIdParameter `json:"plugin_id"`
 }
@@ -977,6 +1059,22 @@ func (response GetPlugin404ApplicationProblemPlusJSONResponse) VisitGetPluginRes
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlugin501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPlugin501ApplicationProblemPlusJSONResponse) VisitGetPluginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1051,6 +1149,22 @@ func (response DisablePlugin404ApplicationProblemPlusJSONResponse) VisitDisableP
 	return err
 }
 
+type DisablePlugin501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response DisablePlugin501ApplicationProblemPlusJSONResponse) VisitDisablePluginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type EnablePluginRequestObject struct {
 	PluginId PluginIdParameter `json:"plugin_id"`
 }
@@ -1117,6 +1231,22 @@ func (response EnablePlugin404ApplicationProblemPlusJSONResponse) VisitEnablePlu
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnablePlugin501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response EnablePlugin501ApplicationProblemPlusJSONResponse) VisitEnablePluginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1220,6 +1350,22 @@ func (response IssuePanelToken409ApplicationProblemPlusJSONResponse) VisitIssueP
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssuePanelToken501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response IssuePanelToken501ApplicationProblemPlusJSONResponse) VisitIssuePanelTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

@@ -1621,13 +1621,13 @@ func (e Wall) Valid() bool {
 
 // Actor Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 // `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 // `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 //
 // Examples: agent:founder
 type Actor = string
 
-// ActorKind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
+// ActorKind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
 type ActorKind string
 
 // ActorRef Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.
@@ -1640,7 +1640,7 @@ type Agent struct {
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -1692,7 +1692,9 @@ type Agent struct {
 	Template *string `json:"template"`
 
 	// Uid Linux uid. 0 for root agents.
-	Uid  int    `json:"uid"`
+	Uid int `json:"uid"`
+
+	// Unit The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.
 	Unit string `json:"unit"`
 }
 
@@ -1727,8 +1729,8 @@ type AgentCreate struct {
 // `waker` watches events and wakes others. Every kind sleeps when idle; sleeping costs nothing.
 type AgentKind string
 
-// AgentLimits Linux cgroup limits for `agent@<name>.service`. Root agents run without a sandbox and have no
-// limits. Wall is soft: a root agent can change cgroups inside the VM.
+// AgentLimits Linux cgroup limits for the agent's cgroup `/agents/<id>`. Root agents run without a sandbox
+// and have no limits. Wall is soft: a root agent can change cgroups inside the machine container.
 type AgentLimits struct {
 	// CpuPercent systemd `CPUQuota`, percent of one core.
 	CpuPercent int `json:"cpu_percent"`
@@ -1739,8 +1741,9 @@ type AgentLimits struct {
 	// Tasks systemd `TasksMax`.
 	Tasks int `json:"tasks"`
 
-	// Wall How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-	// be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+	// Wall How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+	// cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+	// a root agent can bypass it.
 	Wall Wall `json:"wall"`
 }
 
@@ -1762,7 +1765,7 @@ type AgentList struct {
 // AgentName Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 type AgentName = string
 
-// AgentNetRules Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall.
+// AgentNetRules Per-agent narrowing of the allow list, enforced by nftables by uid inside the machine container. SOFT wall.
 type AgentNetRules struct {
 	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Agent AgentName `json:"agent"`
@@ -1776,7 +1779,7 @@ type AgentNetRules struct {
 
 	// UpdatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -1824,14 +1827,14 @@ type AgentPrincipal struct {
 	Kind   AgentPrincipalKind `json:"kind"`
 	Scopes []Scope            `json:"scopes"`
 
-	// Via `peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token.
+	// Via `peer-credentials` when identified on the Unix socket by uid and cgroup `/agents/<id>`; `token` for a bearer token.
 	Via AgentPrincipalVia `json:"via"`
 }
 
 // AgentPrincipalKind defines model for AgentPrincipal.Kind.
 type AgentPrincipalKind string
 
-// AgentPrincipalVia `peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token.
+// AgentPrincipalVia `peer-credentials` when identified on the Unix socket by uid and cgroup `/agents/<id>`; `token` for a bearer token.
 type AgentPrincipalVia string
 
 // AgentState defines model for AgentState.
@@ -1906,8 +1909,8 @@ type AllowEntry struct {
 	Reason string `json:"reason"`
 }
 
-// AllowList Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS
-// only for these names. Read-only inside the VM; humans change it on the host.
+// AllowList Internet allow list owned by the edge. HARD wall: the edge's internet filter answers DNS
+// only for these names. Read-only inside the machine container; humans change it through the edge.
 type AllowList struct {
 	// AsOf RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	AsOf     Timestamp         `json:"as_of"`
@@ -1954,7 +1957,7 @@ type Assignment struct {
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -1980,7 +1983,7 @@ type AssignmentId = string
 
 // AuditAck defines model for AuditAck.
 type AuditAck struct {
-	// HeadHash Hash of record `up_to_seq` as the host computed it. A mismatch returns 409.
+	// HeadHash Hash of record `up_to_seq` as the edge computed it. A mismatch returns 409.
 	HeadHash string `json:"head_hash"`
 	UpToSeq  int64  `json:"up_to_seq"`
 }
@@ -1992,7 +1995,7 @@ type AuditAckResult struct {
 
 // AuditActor Who did something, as an object (used in audit records). The one-string form is ActorRef.
 type AuditActor struct {
-	// Kind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
+	// Kind Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
 	Kind ActorKind `json:"kind"`
 
 	// Name Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID).
@@ -2006,7 +2009,7 @@ type AuditActor struct {
 type AuditFrame struct {
 	Kind AuditFrameKind `json:"kind"`
 
-	// Record One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+	// Record One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the machine container have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the edge as written and the edge keeps its own copy. Records written by the edge have origin host (the value keeps its name) and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
 	Record AuditRecord `json:"record"`
 }
 
@@ -2021,7 +2024,7 @@ type AuditList struct {
 	NextCursor *Cursor `json:"next_cursor"`
 }
 
-// AuditRecord One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+// AuditRecord One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the machine container have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the edge as written and the edge keeps its own copy. Records written by the edge have origin host (the value keeps its name) and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
 type AuditRecord struct {
 	// Action What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.
 	Action string `json:"action"`
@@ -2035,7 +2038,7 @@ type AuditRecord struct {
 	// Hash SHA-256 digest as 64 lowercase hexadecimal characters.
 	Hash Sha256Hex `json:"hash"`
 
-	// Origin inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).
+	// Origin inside: written by the daemon in the machine container (testimony). host: written by the edge (proof).
 	Origin AuditRecordOrigin `json:"origin"`
 
 	// Outcome success: it happened. failure: it was tried and failed. denied: a rule refused it.
@@ -2054,7 +2057,7 @@ type AuditRecord struct {
 	Time Timestamp `json:"time"`
 }
 
-// AuditRecordOrigin inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).
+// AuditRecordOrigin inside: written by the daemon in the machine container (testimony). host: written by the edge (proof).
 type AuditRecordOrigin string
 
 // AuditRecordOutcome success: it happened. failure: it was tried and failed. denied: a rule refused it.
@@ -2065,8 +2068,9 @@ type AuditStreamFrame struct {
 	union json.RawMessage
 }
 
-// AuditVerification Result of re-hashing the chain inside the VM. Records from inside are testimony: a root
-// agent could rewrite the local chain. Compare `head_hash` with the host's copy for proof.
+// AuditVerification Result of re-hashing the chain inside the machine container. Records from inside are
+// testimony: a root agent could rewrite the local chain. Compare `head_hash` with the edge's
+// copy for proof.
 type AuditVerification struct {
 	// BrokenAtSeq First record whose hash does not match, or null.
 	BrokenAtSeq *int64 `json:"broken_at_seq"`
@@ -2074,7 +2078,7 @@ type AuditVerification struct {
 	FromSeq     int64  `json:"from_seq"`
 	HeadHash    string `json:"head_hash"`
 
-	// HostAckedSeq Highest sequence the host audit sink has acknowledged.
+	// HostAckedSeq Highest sequence the edge's audit sink has acknowledged.
 	HostAckedSeq int64 `json:"host_acked_seq"`
 	Ok           bool  `json:"ok"`
 	ToSeq        int64 `json:"to_seq"`
@@ -2099,10 +2103,11 @@ type Author struct {
 // BoxShadow defines model for BoxShadow.
 type BoxShadow = string
 
-// Budget The human's total budget as pushed by the host gateway. The total is a HARD wall: the
-// gateway on the Mac refuses model calls past it, whatever happens inside the VM.
+// Budget The human's total budget as pushed by the edge's model gateway. The total is a HARD wall: the
+// gateway in the edge service refuses model calls past it, whatever happens inside the machine
+// container.
 type Budget struct {
-	// AsOf When the host last pushed this state.
+	// AsOf When the edge last pushed this state.
 	AsOf Timestamp `json:"as_of"`
 
 	// CheckIntervalSeconds How often the gateway checks usage in chunks.
@@ -2111,7 +2116,7 @@ type Budget struct {
 	// Currency Examples: USD
 	Currency string `json:"currency"`
 
-	// Defence Budget reserved for wakers and security work. The human can switch it off on the host.
+	// Defence Budget reserved for wakers and security work. The human can switch it off through the edge.
 	Defence DefenceSlice `json:"defence"`
 
 	// PeriodEnd RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
@@ -2137,7 +2142,7 @@ type BudgetAllocationSet struct {
 	AllocatedMicros *int64 `json:"allocated_micros"`
 }
 
-// BudgetNode One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a
+// BudgetNode One agent's share. The split is a SOFT wall: the daemon enforces it inside the machine container, and a
 // root agent can bypass it. Only the total is hard.
 type BudgetNode struct {
 	// Agent Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
@@ -2182,7 +2187,7 @@ type BusMessage struct {
 
 	// From Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -2270,7 +2275,7 @@ type Channel struct {
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -2368,7 +2373,7 @@ type Charter struct {
 
 	// UpdatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -2408,7 +2413,7 @@ type ChatMessage struct {
 
 	// Author Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -2600,14 +2605,15 @@ type CreateTaskActionKind string
 // Cursor Opaque cursor for the next page, or null when this is the last page.
 type Cursor = string
 
-// DefenceSlice Budget reserved for wakers and security work. The human can switch it off on the host.
+// DefenceSlice Budget reserved for wakers and security work. The human can switch it off through the edge.
 type DefenceSlice struct {
 	Enabled        bool  `json:"enabled"`
 	ReservedMicros int64 `json:"reserved_micros"`
 	SpentMicros    int64 `json:"spent_micros"`
 
-	// Wall How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-	// be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+	// Wall How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+	// cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+	// a root agent can bypass it.
 	Wall Wall `json:"wall"`
 }
 
@@ -2660,7 +2666,7 @@ type Emitter struct {
 
 	// Owner Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -2934,7 +2940,7 @@ type FontStack = string
 // FontWeight defines model for FontWeight.
 type FontWeight int
 
-// Freeze An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.
+// Freeze An active freeze. `all` is a HARD wall: the edge also stops model calls and traffic.
 // `team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.
 type Freeze struct {
 	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
@@ -2948,8 +2954,9 @@ type Freeze struct {
 	// Target Agent (or head of team) for `team` and `agent`; null for `all`.
 	Target *string `json:"target"`
 
-	// Wall How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-	// be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+	// Wall How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+	// cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+	// a root agent can bypass it.
 	Wall Wall `json:"wall"`
 }
 
@@ -3079,7 +3086,7 @@ type HostDefencePush struct {
 }
 
 // Human A human account. Human accounts are Linux users checked through PAM. The wall is soft:
-// a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+// a root agent inside the machine container can change Linux accounts; the edge is the hard record.
 type Human struct {
 	// CreatedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	CreatedAt Timestamp `json:"created_at"`
@@ -3123,7 +3130,7 @@ type HumanName = string
 // HumanPrincipal defines model for HumanPrincipal.
 type HumanPrincipal struct {
 	// Human A human account. Human accounts are Linux users checked through PAM. The wall is soft:
-	// a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+	// a root agent inside the machine container can change Linux accounts; the edge is the hard record.
 	Human  Human              `json:"human"`
 	Kind   HumanPrincipalKind `json:"kind"`
 	Scopes []Scope            `json:"scopes"`
@@ -3207,7 +3214,7 @@ type IssuedToken struct {
 
 	// Subject Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -3431,7 +3438,7 @@ type McpServer struct {
 	union json.RawMessage
 }
 
-// McpServerHttp A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.
+// McpServerHttp A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list.
 type McpServerHttp struct {
 	// Headers Fixed request headers. Never literal secrets; use ${user_config.KEY}-style values resolved by the daemon at start.
 	Headers   *map[string]string `json:"headers,omitempty"`
@@ -3732,7 +3739,7 @@ type Plugin struct {
 
 	// InstalledBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -3827,7 +3834,7 @@ type PluginSource struct {
 	Id   PluginSourceId `json:"id"`
 	Name string         `json:"name"`
 
-	// Url Where the catalog is read from. The host must be on the allow list.
+	// Url Where the catalog is read from. The host name must be on the edge's allow list.
 	Url string `json:"url"`
 }
 
@@ -3853,7 +3860,7 @@ type PowerAction struct {
 
 	// RequestedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -3878,14 +3885,14 @@ type Principal struct {
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -3893,6 +3900,7 @@ type Principal struct {
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Problem struct {
 	// Detail Human explanation of this occurrence.
 	Detail *string `json:"detail,omitempty"`
@@ -3917,7 +3925,7 @@ type Problem struct {
 
 // Process defines model for Process.
 type Process struct {
-	// Agent Agent whose cgroup holds the process.
+	// Agent Agent whose cgroup `/agents/<id>` holds the process.
 	Agent *string `json:"agent"`
 
 	// Command Full command line.
@@ -4044,7 +4052,7 @@ type Runner struct {
 	Description string `json:"description"`
 	DisplayName string `json:"display_name"`
 
-	// Model Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`.
+	// Model Model name the runner calls through the edge's model gateway, `autoagents/one`; null for `echo`.
 	Model *string `json:"model"`
 
 	// Name Examples: echo
@@ -4092,7 +4100,7 @@ type Schedule struct {
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -4154,7 +4162,7 @@ type SemverRange = string
 type Service struct {
 	ActiveState ServiceActiveState `json:"active_state"`
 
-	// Agent Agent for `agent@<name>.service` units.
+	// Agent Agent that owns the unit, for agent units.
 	Agent       *string `json:"agent"`
 	Description string  `json:"description"`
 	Enabled     bool    `json:"enabled"`
@@ -4186,7 +4194,7 @@ type Session struct {
 	ExpiresAt Timestamp `json:"expires_at"`
 
 	// Human A human account. Human accounts are Linux users checked through PAM. The wall is soft:
-	// a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+	// a root agent inside the machine container can change Linux accounts; the edge is the hard record.
 	Human Human `json:"human"`
 }
 
@@ -4334,7 +4342,7 @@ type Task struct {
 
 	// CreatedBy Who did something, as `<kind>:<name>`, the same form as the event `actor`:
 	// `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-	// `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+	// `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
 	// `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
 	//
 	//
@@ -4666,8 +4674,9 @@ type WakeRequest struct {
 	TaskId *TaskId `json:"task_id,omitempty"`
 }
 
-// Wall How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-// be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+// Wall How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+// cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+// a root agent can bypass it.
 type Wall string
 
 // WebhookAccepted defines model for WebhookAccepted.
@@ -4761,14 +4770,14 @@ type Unit = string
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4776,6 +4785,7 @@ type Unit = string
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type BadRequest = Problem
 
 // Conflict RFC 9457 problem details. Every error response in this API uses
@@ -4787,14 +4797,14 @@ type BadRequest = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4802,6 +4812,7 @@ type BadRequest = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Conflict = Problem
 
 // Forbidden RFC 9457 problem details. Every error response in this API uses
@@ -4813,14 +4824,14 @@ type Conflict = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4828,6 +4839,7 @@ type Conflict = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Forbidden = Problem
 
 // Locked RFC 9457 problem details. Every error response in this API uses
@@ -4839,14 +4851,14 @@ type Forbidden = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4854,6 +4866,7 @@ type Forbidden = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Locked = Problem
 
 // NotFound RFC 9457 problem details. Every error response in this API uses
@@ -4865,14 +4878,14 @@ type Locked = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4880,7 +4893,35 @@ type Locked = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type NotFound = Problem
+
+// NotImplemented RFC 9457 problem details. Every error response in this API uses
+// `application/problem+json` with this body. `type` is a stable URN from
+// the list below; clients branch on `type`, never on `title` or `detail`.
+//
+// - `urn:agentsone:problem:validation` (400) request body or query is invalid; see `errors`.
+// - `urn:agentsone:problem:unauthenticated` (401) no valid session, token or peer identity.
+// - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
+// - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
+// - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
+// - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
+// - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
+// - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
+// - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
+// - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
+// - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
+// - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
+// - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
+// - `urn:agentsone:problem:budget-exhausted` (402) the budget for this caller or the total is spent.
+// - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
+// - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
+// - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
+type NotImplemented = Problem
 
 // PayloadTooLarge RFC 9457 problem details. Every error response in this API uses
 // `application/problem+json` with this body. `type` is a stable URN from
@@ -4891,14 +4932,14 @@ type NotFound = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4906,6 +4947,7 @@ type NotFound = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type PayloadTooLarge = Problem
 
 // PaymentRequired RFC 9457 problem details. Every error response in this API uses
@@ -4917,14 +4959,14 @@ type PayloadTooLarge = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4932,6 +4974,7 @@ type PayloadTooLarge = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type PaymentRequired = Problem
 
 // TooManyRequests RFC 9457 problem details. Every error response in this API uses
@@ -4943,14 +4986,14 @@ type PaymentRequired = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4958,6 +5001,7 @@ type PaymentRequired = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type TooManyRequests = Problem
 
 // Unauthorized RFC 9457 problem details. Every error response in this API uses
@@ -4969,14 +5013,14 @@ type TooManyRequests = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -4984,6 +5028,7 @@ type TooManyRequests = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Unauthorized = Problem
 
 // Unavailable RFC 9457 problem details. Every error response in this API uses
@@ -4995,14 +5040,14 @@ type Unauthorized = Problem
 // - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
 // - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
 // - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-// - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+// - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+// - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
 // - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
 // - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
 // - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
 // - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
 // - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+// - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
 // - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
 // - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
 // - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -5010,6 +5055,7 @@ type Unauthorized = Problem
 // - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
 // - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
 // - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+// - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
 type Unavailable = Problem
 
 // ListAgentTemplatesParams defines parameters for ListAgentTemplates.
@@ -5193,7 +5239,7 @@ type ListHumansParams struct {
 
 // ListFilesParams defines parameters for ListFiles.
 type ListFilesParams struct {
-	// Path Absolute path inside the VM.
+	// Path Absolute path inside the machine container.
 	Path FilePath `form:"path" json:"path"`
 
 	// Cursor Opaque cursor from a previous page's `next_cursor`.
@@ -5205,14 +5251,14 @@ type ListFilesParams struct {
 
 // DeleteFileParams defines parameters for DeleteFile.
 type DeleteFileParams struct {
-	// Path Absolute path inside the VM.
+	// Path Absolute path inside the machine container.
 	Path      FilePath `form:"path" json:"path"`
 	Recursive *bool    `form:"recursive,omitempty" json:"recursive,omitempty"`
 }
 
 // ReadFileParams defines parameters for ReadFile.
 type ReadFileParams struct {
-	// Path Absolute path inside the VM.
+	// Path Absolute path inside the machine container.
 	Path FilePath `form:"path" json:"path"`
 }
 

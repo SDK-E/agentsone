@@ -56,7 +56,7 @@ AgentPrincipal:
     via:
       type: string
       enum: [peer-credentials, token]
-      description: "`peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token."
+      description: "`peer-credentials` when identified on the Unix socket by uid and cgroup `/agents/<id>`; `token` for a bearer token."
     scopes:
       type: array
       items:
@@ -140,7 +140,7 @@ Human:
   required: [name, display_name, uid, created_at, last_login_at]
   description: |
     A human account. Human accounts are Linux users checked through PAM. The wall is soft:
-    a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+    a root agent inside the machine container can change Linux accounts; the edge is the hard record.
   properties:
     name:
       $ref: "./common.yaml#/HumanName"

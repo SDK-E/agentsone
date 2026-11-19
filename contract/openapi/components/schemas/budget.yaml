@@ -9,7 +9,7 @@ BudgetState:
 
 DefenceSlice:
   type: object
-  description: Budget reserved for wakers and security work. The human can switch it off on the host.
+  description: Budget reserved for wakers and security work. The human can switch it off through the edge.
   required: [enabled, reserved_micros, spent_micros, wall]
   properties:
     enabled:
@@ -28,8 +28,9 @@ DefenceSlice:
 Budget:
   type: object
   description: |
-    The human's total budget as pushed by the host gateway. The total is a HARD wall: the
-    gateway on the Mac refuses model calls past it, whatever happens inside the VM.
+    The human's total budget as pushed by the edge's model gateway. The total is a HARD wall: the
+    gateway in the edge service refuses model calls past it, whatever happens inside the machine
+    container.
   required:
     [
       currency,
@@ -78,12 +79,12 @@ Budget:
       description: How often the gateway checks usage in chunks.
     as_of:
       $ref: "./common.yaml#/Timestamp"
-      description: When the host last pushed this state.
+      description: When the edge last pushed this state.
 
 BudgetNode:
   type: object
   description: |
-    One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a
+    One agent's share. The split is a SOFT wall: the daemon enforces it inside the machine container, and a
     root agent can bypass it. Only the total is hard.
   required: [agent, manager, allocated_micros, spent_micros, remaining_micros, state, wall]
   properties:
@@ -153,8 +154,8 @@ AllowEntry:
 AllowList:
   type: object
   description: |
-    Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS
-    only for these names. Read-only inside the VM; humans change it on the host.
+    Internet allow list owned by the edge. HARD wall: the edge's internet filter answers DNS
+    only for these names. Read-only inside the machine container; humans change it through the edge.
   required: [version, entries, wall, read_only, as_of]
   properties:
     version:
@@ -180,7 +181,7 @@ NetMode:
 
 AgentNetRules:
   type: object
-  description: Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall.
+  description: Per-agent narrowing of the allow list, enforced by nftables by uid inside the machine container. SOFT wall.
   required: [agent, mode, allow, wall, updated_at, updated_by]
   properties:
     agent:

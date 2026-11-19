@@ -13,14 +13,14 @@ Problem:
     - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
     - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
     - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-    - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-    - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+    - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+    - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
     - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
     - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
     - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
     - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
     - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-    - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+    - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
     - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
     - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
     - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -28,6 +28,7 @@ Problem:
     - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
     - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
     - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+    - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
   required: [type, title, status]
   properties:
     type:
@@ -96,7 +97,7 @@ Actor:
   description: |
     Who did something, as `<kind>:<name>`, the same form as the event `actor`:
     `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-    `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+    `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
     `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
   examples: ["agent:founder"]
 
@@ -104,8 +105,9 @@ Wall:
   type: string
   enum: [hard, soft]
   description: |
-    How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-    be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+    How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+    cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+    a root agent can bypass it.
 
 Cursor:
   type: [string, "null"]

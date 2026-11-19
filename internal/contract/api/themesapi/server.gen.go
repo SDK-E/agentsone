@@ -328,6 +328,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type PayloadTooLargeApplicationProblemPlusJSONResponse Problem
 
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
@@ -365,6 +367,22 @@ func (response GetThemeSelection401ApplicationProblemPlusJSONResponse) VisitGetT
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetThemeSelection501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetThemeSelection501ApplicationProblemPlusJSONResponse) VisitGetThemeSelectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -439,6 +457,22 @@ func (response SetThemeSelection404ApplicationProblemPlusJSONResponse) VisitSetT
 	return err
 }
 
+type SetThemeSelection501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SetThemeSelection501ApplicationProblemPlusJSONResponse) VisitSetThemeSelectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListThemesRequestObject struct {
 	Params ListThemesParams
 }
@@ -489,6 +523,22 @@ func (response ListThemes401ApplicationProblemPlusJSONResponse) VisitListThemesR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListThemes501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListThemes501ApplicationProblemPlusJSONResponse) VisitListThemesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -579,6 +629,22 @@ func (response ImportTheme413ApplicationProblemPlusJSONResponse) VisitImportThem
 	return err
 }
 
+type ImportTheme501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ImportTheme501ApplicationProblemPlusJSONResponse) VisitImportThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteThemeRequestObject struct {
 	ThemeId ThemeIdParameter `json:"theme_id"`
 }
@@ -659,6 +725,22 @@ func (response DeleteTheme409ApplicationProblemPlusJSONResponse) VisitDeleteThem
 	return err
 }
 
+type DeleteTheme501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTheme501ApplicationProblemPlusJSONResponse) VisitDeleteThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetThemeRequestObject struct {
 	ThemeId ThemeIdParameter `json:"theme_id"`
 }
@@ -709,6 +791,22 @@ func (response GetTheme404ApplicationProblemPlusJSONResponse) VisitGetThemeRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTheme501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetTheme501ApplicationProblemPlusJSONResponse) VisitGetThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

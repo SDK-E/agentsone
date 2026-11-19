@@ -44,7 +44,7 @@
         }
       },
       "FilePath": {
-        "description": "Absolute path inside the VM.",
+        "description": "Absolute path inside the machine container.",
         "in": "query",
         "name": "path",
         "required": true,
@@ -255,7 +255,7 @@
             }
           }
         },
-        "description": "Frozen by the host (`urn:agentsone:problem:frozen`)."
+        "description": "Frozen by the edge (`urn:agentsone:problem:frozen`)."
       },
       "NotFound": {
         "content": {
@@ -266,6 +266,16 @@
           }
         },
         "description": "Not found or not visible to the caller (`urn:agentsone:problem:not-found`)."
+      },
+      "NotImplemented": {
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "The operation is in the contract but this daemon does not serve it yet (`urn:agentsone:problem:not-implemented`)."
       },
       "PayloadTooLarge": {
         "content": {
@@ -329,7 +339,7 @@
     },
     "schemas": {
       "Actor": {
-        "description": "Who did something, as `<kind>:<name>`, the same form as the event `actor`:\n`agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example\n`system:daemon`, `system:disk`), `host:<part>` for the host tool (for example\n`host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.\n",
+        "description": "Who did something, as `<kind>:<name>`, the same form as the event `actor`:\n`agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example\n`system:daemon`, `system:disk`), `host:<part>` for the edge (for example\n`host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.\n",
         "examples": [
           "agent:founder"
         ],
@@ -337,7 +347,7 @@
         "type": "string"
       },
       "ActorKind": {
-        "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
+        "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
         "enum": [
           "agent",
           "human",
@@ -452,6 +462,7 @@
             "type": "integer"
           },
           "unit": {
+            "description": "The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.",
             "pattern": "^agent@[a-z][a-z0-9-]{0,30}\\.service$",
             "type": "string"
           }
@@ -540,7 +551,7 @@
         "type": "string"
       },
       "AgentLimits": {
-        "description": "Linux cgroup limits for `agent@<name>.service`. Root agents run without a sandbox and have no\nlimits. Wall is soft: a root agent can change cgroups inside the VM.\n",
+        "description": "Linux cgroup limits for the agent's cgroup `/agents/<id>`. Root agents run without a sandbox\nand have no limits. Wall is soft: a root agent can change cgroups inside the machine container.\n",
         "properties": {
           "cpu_percent": {
             "description": "systemd `CPUQuota`, percent of one core.",
@@ -613,7 +624,7 @@
         "type": "string"
       },
       "AgentNetRules": {
-        "description": "Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall.",
+        "description": "Per-agent narrowing of the allow list, enforced by nftables by uid inside the machine container. SOFT wall.",
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/AgentName"
@@ -744,7 +755,7 @@
             "type": "array"
           },
           "via": {
-            "description": "`peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token.",
+            "description": "`peer-credentials` when identified on the Unix socket by uid and cgroup `/agents/<id>`; `token` for a bearer token.",
             "enum": [
               "peer-credentials",
               "token"
@@ -1104,7 +1115,7 @@
         "type": "object"
       },
       "AllowList": {
-        "description": "Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS\nonly for these names. Read-only inside the VM; humans change it on the host.\n",
+        "description": "Internet allow list owned by the edge. HARD wall: the edge's internet filter answers DNS\nonly for these names. Read-only inside the machine container; humans change it through the edge.\n",
         "properties": {
           "as_of": {
             "$ref": "#/components/schemas/Timestamp"
@@ -1241,7 +1252,7 @@
         "additionalProperties": false,
         "properties": {
           "head_hash": {
-            "description": "Hash of record `up_to_seq` as the host computed it. A mismatch returns 409.",
+            "description": "Hash of record `up_to_seq` as the edge computed it. A mismatch returns 409.",
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
@@ -1397,7 +1408,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
+        "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the machine container have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the edge as written and the edge keeps its own copy. Records written by the edge have origin host (the value keeps its name) and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
         "properties": {
           "action": {
             "description": "What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.",
@@ -1417,7 +1428,7 @@
             "$ref": "#/components/schemas/Sha256Hex"
           },
           "origin": {
-            "description": "inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).",
+            "description": "inside: written by the daemon in the machine container (testimony). host: written by the edge (proof).",
             "enum": [
               "inside",
               "host"
@@ -1482,7 +1493,7 @@
         ]
       },
       "AuditVerification": {
-        "description": "Result of re-hashing the chain inside the VM. Records from inside are testimony: a root\nagent could rewrite the local chain. Compare `head_hash` with the host's copy for proof.\n",
+        "description": "Result of re-hashing the chain inside the machine container. Records from inside are\ntestimony: a root agent could rewrite the local chain. Compare `head_hash` with the edge's\ncopy for proof.\n",
         "properties": {
           "broken_at_seq": {
             "description": "First record whose hash does not match, or null.",
@@ -1507,7 +1518,7 @@
             "type": "string"
           },
           "host_acked_seq": {
-            "description": "Highest sequence the host audit sink has acknowledged.",
+            "description": "Highest sequence the edge's audit sink has acknowledged.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1583,11 +1594,11 @@
         "type": "string"
       },
       "Budget": {
-        "description": "The human's total budget as pushed by the host gateway. The total is a HARD wall: the\ngateway on the Mac refuses model calls past it, whatever happens inside the VM.\n",
+        "description": "The human's total budget as pushed by the edge's model gateway. The total is a HARD wall: the\ngateway in the edge service refuses model calls past it, whatever happens inside the machine\ncontainer.\n",
         "properties": {
           "as_of": {
             "$ref": "#/components/schemas/Timestamp",
-            "description": "When the host last pushed this state."
+            "description": "When the edge last pushed this state."
           },
           "check_interval_seconds": {
             "description": "How often the gateway checks usage in chunks.",
@@ -1667,7 +1678,7 @@
         "type": "object"
       },
       "BudgetNode": {
-        "description": "One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a\nroot agent can bypass it. Only the total is hard.\n",
+        "description": "One agent's share. The split is a SOFT wall: the daemon enforces it inside the machine container, and a\nroot agent can bypass it. Only the total is hard.\n",
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/AgentName"
@@ -2669,7 +2680,7 @@
         ]
       },
       "DefenceSlice": {
-        "description": "Budget reserved for wakers and security work. The human can switch it off on the host.",
+        "description": "Budget reserved for wakers and security work. The human can switch it off through the edge.",
         "properties": {
           "enabled": {
             "type": "boolean"
@@ -3495,7 +3506,7 @@
         "type": "integer"
       },
       "Freeze": {
-        "description": "An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.\n`team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.\n",
+        "description": "An active freeze. `all` is a HARD wall: the edge also stops model calls and traffic.\n`team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.\n",
         "properties": {
           "created_at": {
             "$ref": "#/components/schemas/Timestamp"
@@ -3825,7 +3836,7 @@
         "type": "object"
       },
       "Human": {
-        "description": "A human account. Human accounts are Linux users checked through PAM. The wall is soft:\na root agent inside the VM can change Linux accounts; the host tool is the hard record.\n",
+        "description": "A human account. Human accounts are Linux users checked through PAM. The wall is soft:\na root agent inside the machine container can change Linux accounts; the edge is the hard record.\n",
         "properties": {
           "created_at": {
             "$ref": "#/components/schemas/Timestamp"
@@ -4629,7 +4640,7 @@
       },
       "McpServerHttp": {
         "additionalProperties": false,
-        "description": "A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.",
+        "description": "A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list.",
         "properties": {
           "headers": {
             "additionalProperties": {
@@ -5778,7 +5789,7 @@
           },
           "McpServerHttp": {
             "additionalProperties": false,
-            "description": "A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.",
+            "description": "A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list.",
             "properties": {
               "headers": {
                 "additionalProperties": {
@@ -5984,7 +5995,7 @@
             "type": "string"
           },
           "url": {
-            "description": "Where the catalog is read from. The host must be on the allow list.",
+            "description": "Where the catalog is read from. The host name must be on the edge's allow list.",
             "format": "uri",
             "type": "string"
           }
@@ -6073,7 +6084,7 @@
         ]
       },
       "Problem": {
-        "description": "RFC 9457 problem details. Every error response in this API uses\n`application/problem+json` with this body. `type` is a stable URN from\nthe list below; clients branch on `type`, never on `title` or `detail`.\n\n- `urn:agentsone:problem:validation` (400) request body or query is invalid; see `errors`.\n- `urn:agentsone:problem:unauthenticated` (401) no valid session, token or peer identity.\n- `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.\n- `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.\n- `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.\n- `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.\n- `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.\n- `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.\n- `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.\n- `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.\n- `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.\n- `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.\n- `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.\n- `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.\n- `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.\n- `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.\n- `urn:agentsone:problem:budget-exhausted` (402) the budget for this caller or the total is spent.\n- `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.\n- `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.\n- `urn:agentsone:problem:internal` (500) unexpected daemon error.\n",
+        "description": "RFC 9457 problem details. Every error response in this API uses\n`application/problem+json` with this body. `type` is a stable URN from\nthe list below; clients branch on `type`, never on `title` or `detail`.\n\n- `urn:agentsone:problem:validation` (400) request body or query is invalid; see `errors`.\n- `urn:agentsone:problem:unauthenticated` (401) no valid session, token or peer identity.\n- `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.\n- `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.\n- `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.\n- `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.\n- `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).\n- `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.\n- `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.\n- `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.\n- `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.\n- `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.\n- `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.\n- `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.\n- `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.\n- `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.\n- `urn:agentsone:problem:budget-exhausted` (402) the budget for this caller or the total is spent.\n- `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.\n- `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.\n- `urn:agentsone:problem:internal` (500) unexpected daemon error.\n- `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.\n",
         "properties": {
           "detail": {
             "description": "Human explanation of this occurrence.",
@@ -6119,7 +6130,7 @@
       "Process": {
         "properties": {
           "agent": {
-            "description": "Agent whose cgroup holds the process.",
+            "description": "Agent whose cgroup `/agents/<id>` holds the process.",
             "pattern": "^[a-z][a-z0-9-]{0,30}$",
             "type": [
               "string",
@@ -6423,7 +6434,7 @@
             "type": "string"
           },
           "model": {
-            "description": "Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`.",
+            "description": "Model name the runner calls through the edge's model gateway, `autoagents/one`; null for `echo`.",
             "type": [
               "string",
               "null"
@@ -6684,7 +6695,7 @@
             "$ref": "#/components/schemas/ServiceActiveState"
           },
           "agent": {
-            "description": "Agent for `agent@<name>.service` units.",
+            "description": "Agent that owns the unit, for agent units.",
             "pattern": "^[a-z][a-z0-9-]{0,30}$",
             "type": [
               "string",
@@ -8334,7 +8345,7 @@
         "type": "object"
       },
       "Wall": {
-        "description": "How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot\nbe bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.\n",
+        "description": "How strongly a limit holds. `hard` is enforced by the edge outside the machine container and\ncannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;\na root agent can bypass it.\n",
         "enum": [
           "hard",
           "soft"
@@ -8367,11 +8378,11 @@
         "type": "apiKey"
       },
       "hostDoor": {
-        "description": "Transport identity on the door listener (vsock port 7701). Only connections from the\nhost (vsock CID 2) are accepted. No TLS and no token; the `host` group is reachable\nonly this way. Code generators should send nothing for this scheme.\n",
+        "description": "Transport identity of the edge service. Only connections from the edge's inner network\naddress (the daemon's `[edge] trusted_proxies` setting) are accepted. No TLS and no\ntoken; the `host` group is reachable only this way. The scheme keeps its name `hostDoor`.\nCode generators should send nothing for this scheme.\n",
         "type": "mutualTLS"
       },
       "peerCredentials": {
-        "description": "Transport identity on the Unix socket `/run/agentsone/api.sock`. No TLS and no token:\nthe daemon reads `SO_PEERCRED` (pid, uid) and the caller's cgroup, which must be\n`agent@<name>.service`. Code generators should send nothing for this scheme.\n",
+        "description": "Transport identity on the Unix socket `/run/agentsone/api.sock`. No TLS and no token:\nthe daemon reads `SO_PEERCRED` (pid, uid) and the caller's cgroup, which must be\n`/agents/<id>`. Code generators should send nothing for this scheme.\n",
         "type": "mutualTLS"
       },
       "webhookSignature": {
@@ -8387,14 +8398,14 @@
       "name": "Agents One",
       "url": "https://github.com/SDK-E/agentsone"
     },
-    "description": "REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event\nstreams, one WebSocket terminal channel and the machine MCP endpoint.\n\n## Callers and identity\n- **Humans** log in with their Linux password (PAM) and carry the `agentsone_session` cookie.\n- **Agents** call over the Unix socket `/run/agentsone/api.sock`. The daemon reads the\n  socket peer credentials (`SO_PEERCRED`) and the caller's cgroup `agent@<name>.service`,\n  so several uid-0 root agents stay distinct. No token is needed on the socket.\n- **Bearer tokens** are scoped: agent tokens (for tools outside the socket) and panel\n  plugin tokens (for sandboxed panel frames).\n- **The host tool** on the Mac calls the `host` group over vsock only.\n\n## Conventions\n- Times are RFC 3339 in UTC. Ids are a type prefix plus a ULID (`tsk_`, `evt_`, `msg_`,\n  `mem_`, `plg_`, `sch_`, `trg_`, `aud_`, `gol_`, `cht_`, `asg_`, `emt_`, `tok_`, `pty_`,\n  `thm_`, `frz_`, `job_`). Agent and human names are Linux usernames.\n- Lists use cursor pagination: `cursor` and `limit` in, `{items, next_cursor}` out.\n- Errors are RFC 9457 `application/problem+json` with stable `urn:agentsone:problem:*` types.\n- Every limit shown carries `wall`: `hard` (held by the host tool outside the VM) or `soft`\n  (held by the daemon inside the VM; a root agent can bypass it).\n- Streams are `text/event-stream`. Each SSE message has `id`, `event` equal to the frame\n  `kind`, and `data` holding one JSON frame of the documented schema. A `heartbeat` frame\n  is sent every 15 seconds. Reconnect with `Last-Event-ID`. The `x-stream` extension on\n  each stream names its frame schema.\n",
+    "description": "REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event\nstreams, one WebSocket terminal channel and the machine MCP endpoint.\n\n## Callers and identity\n- **Humans** log in with their Linux password (PAM) and carry the `agentsone_session` cookie.\n- **Agents** call over the Unix socket `/run/agentsone/api.sock`. The daemon reads the\n  socket peer credentials (`SO_PEERCRED`) and the caller's cgroup `/agents/<id>`,\n  so several uid-0 root agents stay distinct. No token is needed on the socket.\n- **Bearer tokens** are scoped: agent tokens (for tools outside the socket) and panel\n  plugin tokens (for sandboxed panel frames).\n- **The edge** is the `edge` service of the compose stack (the web door, the model gateway,\n  the budget and the audit sink). It forwards human requests from the web door as a trusted\n  proxy and is the only caller of the `host` group.\n\n## Conventions\n- Times are RFC 3339 in UTC. Ids are a type prefix plus a ULID (`tsk_`, `evt_`, `msg_`,\n  `mem_`, `plg_`, `sch_`, `trg_`, `aud_`, `gol_`, `cht_`, `asg_`, `emt_`, `tok_`, `pty_`,\n  `thm_`, `frz_`, `job_`). Agent and human names are Linux usernames.\n- Lists use cursor pagination: `cursor` and `limit` in, `{items, next_cursor}` out.\n- Errors are RFC 9457 `application/problem+json` with stable `urn:agentsone:problem:*` types.\n- Every limit shown carries `wall`: `hard` (held by the edge, outside the machine container)\n  or `soft` (held by the daemon inside the machine container; a root agent can bypass it).\n- Streams are `text/event-stream`. Each SSE message has `id`, `event` equal to the frame\n  `kind`, and `data` holding one JSON frame of the documented schema. A `heartbeat` frame\n  is sent every 15 seconds. Reconnect with `Last-Event-ID`. The `x-stream` extension on\n  each stream names its frame schema.\n",
     "license": {
       "identifier": "MIT",
       "name": "MIT"
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "openapi": "3.1.1",
   "paths": {
@@ -8426,6 +8437,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List agent templates",
@@ -8504,6 +8518,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List agents",
@@ -8512,7 +8529,7 @@
         ]
       },
       "post": {
-        "description": "Creates the agent's Linux user, home and `agent@<name>.service`, below the caller. Only\nroot agents may create root agents. No approval gate; the hire is audited.\n",
+        "description": "Creates the agent's Linux user, home and cgroup `/agents/<id>`, below the caller. Only\nroot agents may create root agents. No approval gate; the hire is audited.\n",
         "operationId": "hireAgent",
         "requestBody": {
           "content": {
@@ -8549,6 +8566,9 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Hire an agent",
@@ -8576,6 +8596,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Retire an agent",
@@ -8602,6 +8625,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get an agent",
@@ -8615,7 +8641,7 @@
         }
       ],
       "patch": {
-        "description": "Edits an agent below the caller. Limits are a soft wall (cgroups inside the VM).",
+        "description": "Edits an agent below the caller. Limits are a soft wall (cgroups inside the machine container).",
         "operationId": "updateAgent",
         "requestBody": {
           "content": {
@@ -8652,6 +8678,9 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Edit an agent",
@@ -8691,6 +8720,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List chat messages",
@@ -8744,6 +8776,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Send a chat message",
@@ -8777,6 +8812,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream an agent's chat",
@@ -8815,6 +8853,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get an agent's one-line",
@@ -8862,6 +8903,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Set your one-line",
@@ -8898,6 +8942,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream an agent's output",
@@ -8957,6 +9004,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Put an agent to sleep",
@@ -9006,6 +9056,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Issue an agent token",
@@ -9064,6 +9117,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Wake an agent",
@@ -9074,7 +9130,7 @@
     },
     "/audit": {
       "get": {
-        "description": "Lists audit records in sequence order. Records from inside the VM are hash-chained testimony.",
+        "description": "Lists audit records in sequence order. Records from inside the machine container are hash-chained testimony.",
         "operationId": "listAuditRecords",
         "parameters": [
           {
@@ -9128,6 +9184,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List audit records",
@@ -9158,6 +9217,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream audit records",
@@ -9173,7 +9235,7 @@
     },
     "/audit/verify": {
       "post": {
-        "description": "Re-hashes the chain in the given range and reports the first break. Compare the head hash with the host's copy for proof.",
+        "description": "Re-hashes the chain in the given range and reports the first break. Compare the head hash with the edge's copy for proof.",
         "operationId": "verifyAuditChain",
         "requestBody": {
           "content": {
@@ -9201,6 +9263,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Verify the audit chain",
@@ -9211,7 +9276,7 @@
     },
     "/budget": {
       "get": {
-        "description": "Returns the human's total budget as last pushed by the host gateway. The total is a hard\nwall held outside the VM; it can only be changed on the host.\n",
+        "description": "Returns the human's total budget as last pushed by the edge's model gateway. The total is a\nhard wall held outside the machine container; it can only be changed through the edge.\n",
         "operationId": "getBudget",
         "responses": {
           "200": {
@@ -9226,6 +9291,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -9281,6 +9349,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Set an agent's allocation",
@@ -9291,7 +9362,7 @@
     },
     "/budget/split": {
       "get": {
-        "description": "Returns every agent's share down the chart. The split is a soft wall enforced inside the VM.",
+        "description": "Returns every agent's share down the chart. The split is a soft wall enforced inside the machine container.",
         "operationId": "getBudgetSplit",
         "responses": {
           "200": {
@@ -9306,6 +9377,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the budget split",
@@ -9342,6 +9416,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List channels",
@@ -9381,6 +9458,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Create a channel",
@@ -9409,6 +9489,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a channel",
@@ -9482,6 +9565,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List bus messages",
@@ -9527,6 +9613,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Send a bus message",
@@ -9569,6 +9658,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream bus messages",
@@ -9599,6 +9691,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the org chart",
@@ -9646,6 +9741,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Move an agent in the chart",
@@ -9671,6 +9769,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the charter",
@@ -9713,6 +9814,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Rewrite the charter",
@@ -9749,6 +9853,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List emitters",
@@ -9791,6 +9898,12 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "summary": "Register an emitter",
@@ -9819,6 +9932,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get an emitter",
@@ -9860,6 +9976,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "summary": "Disable an emitter",
@@ -9896,6 +10018,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "summary": "Enable an emitter",
@@ -9995,6 +10123,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Query events",
@@ -10040,6 +10171,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Publish an event",
@@ -10088,6 +10222,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream events",
@@ -10145,6 +10282,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List goals",
@@ -10184,6 +10324,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Set a goal",
@@ -10208,6 +10351,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a goal",
@@ -10234,6 +10380,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a goal",
@@ -10281,6 +10430,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Edit a goal",
@@ -10291,7 +10443,7 @@
     },
     "/host/allow-list": {
       "put": {
-        "description": "The host pushes the current internet allow list so the interface and agents can read it.",
+        "description": "The edge pushes the current internet allow list so the interface and agents can read it.",
         "operationId": "syncAllowList",
         "requestBody": {
           "content": {
@@ -10315,6 +10467,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10329,14 +10484,14 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
     },
     "/host/audit": {
       "get": {
-        "description": "The host audit sink pulls records after its last acknowledged sequence, in order.",
+        "description": "The edge's audit sink pulls records after its last acknowledged sequence, in order.",
         "operationId": "pullAuditRecords",
         "parameters": [
           {
@@ -10372,6 +10527,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10386,14 +10544,14 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
     },
     "/host/audit/ack": {
       "post": {
-        "description": "The host confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.",
+        "description": "The edge confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.",
         "operationId": "ackAuditRecords",
         "requestBody": {
           "content": {
@@ -10427,6 +10585,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10441,7 +10602,7 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
@@ -10472,6 +10633,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10486,7 +10650,7 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
@@ -10522,6 +10686,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10535,7 +10702,7 @@
         ]
       },
       "post": {
-        "description": "Freezes agents. Scope `all` is a hard wall (the host also stops model calls and traffic);\n`team` and `agent` are soft (the daemon stops those units).\n",
+        "description": "Freezes agents. Scope `all` is a hard wall (the edge also stops model calls and traffic);\n`team` and `agent` are soft (the daemon stops those units).\n",
         "operationId": "applyFreeze",
         "requestBody": {
           "content": {
@@ -10569,6 +10736,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10583,14 +10753,14 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
     },
     "/host/gateway-secret": {
       "put": {
-        "description": "The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.",
+        "description": "The edge sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.",
         "operationId": "setGatewaySecret",
         "requestBody": {
           "content": {
@@ -10614,6 +10784,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10628,14 +10801,14 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
     },
     "/host/health": {
       "get": {
-        "description": "Returns daemon health for the host tool's watchdog and status command.",
+        "description": "Returns daemon health for the edge's watchdog and status command.",
         "operationId": "getDoorHealth",
         "responses": {
           "200": {
@@ -10653,6 +10826,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10667,7 +10843,7 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
@@ -10708,6 +10884,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10722,7 +10901,7 @@
       },
       "servers": [
         {
-          "description": "Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.",
+          "description": "The daemon's door, reachable only from the edge service; the daemon refuses every other caller.",
           "url": "http://agentsone-door/v1"
         }
       ]
@@ -10755,6 +10934,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List humans",
@@ -10763,7 +10945,7 @@
         ]
       },
       "post": {
-        "description": "Human-only. Creates a Linux user with a PAM password. Soft wall: a root agent could change\nLinux accounts, so the host tool keeps the hard record.\n",
+        "description": "Human-only. Creates a Linux user with a PAM password. Soft wall: a root agent could change\nLinux accounts, so the edge keeps the hard record.\n",
         "operationId": "createHuman",
         "requestBody": {
           "content": {
@@ -10797,6 +10979,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10829,6 +11014,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10860,6 +11048,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a human",
@@ -10907,6 +11098,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -10937,6 +11131,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get IDE status",
@@ -10962,6 +11159,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the official build download state",
@@ -11001,6 +11201,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -11030,6 +11233,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stop a human's IDE server",
@@ -11056,6 +11262,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a human's IDE server",
@@ -11090,6 +11299,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Start a human's IDE server",
@@ -11135,6 +11347,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List a folder",
@@ -11179,6 +11394,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a file or folder",
@@ -11219,6 +11437,9 @@
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Read a file",
@@ -11264,6 +11485,9 @@
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Write a file",
@@ -11274,7 +11498,7 @@
     },
     "/machine/metrics": {
       "get": {
-        "description": "Returns a snapshot of CPU, memory, disk, network and load inside the VM.",
+        "description": "Returns a snapshot of CPU, memory, disk, network and load inside the machine container.",
         "operationId": "getMachineMetrics",
         "responses": {
           "200": {
@@ -11289,6 +11513,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get machine metrics",
@@ -11335,6 +11562,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List installed packages",
@@ -11374,6 +11604,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Install a package",
@@ -11405,6 +11638,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Remove a package",
@@ -11420,7 +11656,7 @@
     },
     "/machine/power/reboot": {
       "post": {
-        "description": "Schedules a reboot of the VM. Agents may reboot. Shutdown and start are human-only powers\nheld by the host tool on the Mac and are not part of this API.\n",
+        "description": "Schedules a reboot of the machine container. Agents may reboot. Shutdown and start are\nhuman-only powers held by the compose stack and are not part of this API.\n",
         "operationId": "rebootMachine",
         "requestBody": {
           "content": {
@@ -11454,9 +11690,12 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
-        "summary": "Reboot the VM",
+        "summary": "Reboot the machine",
         "tags": [
           "machine"
         ]
@@ -11507,6 +11746,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List processes",
@@ -11549,6 +11791,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Signal a process",
@@ -11585,6 +11830,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List terminal sessions",
@@ -11627,6 +11875,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Open a terminal session",
@@ -11651,6 +11902,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Close a terminal session",
@@ -11677,6 +11931,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a terminal session",
@@ -11735,6 +11992,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Connect to a terminal",
@@ -11753,7 +12013,7 @@
     },
     "/machine/services": {
       "get": {
-        "description": "Lists systemd units, including `agent@<name>.service` and `emitter@<id>.service`.",
+        "description": "Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).",
         "operationId": "listServices",
         "parameters": [
           {
@@ -11787,6 +12047,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List services",
@@ -11826,6 +12089,9 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Restart a service",
@@ -11865,6 +12131,9 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Start a service",
@@ -11901,6 +12170,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stop a service",
@@ -11937,6 +12209,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List Linux users",
@@ -11966,6 +12241,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "End an MCP session",
@@ -12006,6 +12284,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Listen for MCP server messages",
@@ -12066,6 +12347,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Send an MCP message",
@@ -12127,6 +12411,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List memory records",
@@ -12169,6 +12456,9 @@
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Write a memory record",
@@ -12223,6 +12513,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Search memory",
@@ -12247,6 +12540,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a memory record",
@@ -12273,6 +12569,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a memory record",
@@ -12314,6 +12613,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List per-agent network rules",
@@ -12342,6 +12644,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get an agent's network rules",
@@ -12389,6 +12694,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Set an agent's network rules",
@@ -12399,7 +12707,7 @@
     },
     "/net/allow-list": {
       "get": {
-        "description": "Returns the allow list synced from the host. Read-only here and a hard wall; humans change it on the host.",
+        "description": "Returns the allow list synced from the edge. Read-only here and a hard wall; humans change it through the edge.",
         "operationId": "getAllowList",
         "responses": {
           "200": {
@@ -12414,6 +12722,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the internet allow list",
@@ -12476,6 +12787,9 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
           "503": {
             "$ref": "#/components/responses/Unavailable"
           }
@@ -12514,6 +12828,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List plugin sources",
@@ -12566,6 +12883,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List installed plugins",
@@ -12612,6 +12932,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
           "503": {
             "$ref": "#/components/responses/Unavailable"
           }
@@ -12641,6 +12964,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Uninstall a plugin",
@@ -12667,6 +12993,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a plugin",
@@ -12708,6 +13037,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Disable a plugin",
@@ -12744,6 +13076,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Enable a plugin",
@@ -12796,6 +13131,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -12829,6 +13167,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get an assignment",
@@ -12870,6 +13211,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List the live list",
@@ -12900,6 +13244,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream the live list",
@@ -12953,6 +13300,9 @@
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
           "503": {
             "$ref": "#/components/responses/Unavailable"
           }
@@ -12991,6 +13341,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List runners",
@@ -13019,6 +13372,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a runner",
@@ -13069,6 +13425,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List schedules",
@@ -13111,6 +13470,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Create a schedule",
@@ -13135,6 +13497,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a schedule",
@@ -13161,6 +13526,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a schedule",
@@ -13208,6 +13576,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Update a schedule",
@@ -13226,6 +13597,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -13281,6 +13655,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [],
@@ -13307,6 +13684,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the current caller",
@@ -13332,6 +13712,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -13376,6 +13759,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -13391,7 +13777,7 @@
     },
     "/setup": {
       "get": {
-        "description": "Where first boot stands. Open to anyone on loopback so the kiosk can show the right first screen.",
+        "description": "Where first boot stands. Open to anyone on loopback and through the edge's web door, so the interface can show the right first screen.",
         "operationId": "getSetupStatus",
         "responses": {
           "200": {
@@ -13406,6 +13792,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -13435,6 +13824,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the engine download status",
@@ -13460,6 +13852,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get the Claude engine licence",
@@ -13502,6 +13897,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -13545,6 +13943,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [],
@@ -13606,6 +14007,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List tasks",
@@ -13643,11 +14047,17 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Create a task",
@@ -13678,6 +14088,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Stream task updates",
@@ -13711,6 +14124,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a task",
@@ -13761,6 +14177,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Edit a task",
@@ -13816,6 +14235,9 @@
           },
           "423": {
             "$ref": "#/components/responses/Locked"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Assign a task",
@@ -13855,6 +14277,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Cancel a task",
@@ -13907,6 +14332,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Complete a task",
@@ -13943,6 +14371,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List themes",
@@ -13985,6 +14416,9 @@
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Import a theme",
@@ -14012,6 +14446,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a theme",
@@ -14038,6 +14475,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a theme",
@@ -14067,6 +14507,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Revoke a token",
@@ -14117,6 +14560,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "List triggers",
@@ -14156,6 +14602,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Create a trigger",
@@ -14180,6 +14629,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Delete a trigger",
@@ -14206,6 +14658,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Get a trigger",
@@ -14253,6 +14708,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "summary": "Update a trigger",
@@ -14306,6 +14764,9 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         },
         "security": [
@@ -14333,11 +14794,11 @@
   ],
   "servers": [
     {
-      "description": "Loopback TCP inside the VM, used by the kiosk interface and the web door.",
+      "description": "TCP on port 7700. Loopback inside the machine container serves tools and interfaces there;\nthe inner network address serves the web door in the edge service. The daemon refuses every\nother address.\n",
       "url": "http://127.0.0.1:7700/v1"
     },
     {
-      "description": "HTTP over the Unix socket `/run/agentsone/api.sock` (percent-encoded socket path as the\nhost, the usual `http+unix` form). Agents use this; they are identified by peer\ncredentials and cgroup, with no token.\n",
+      "description": "HTTP over the Unix socket `/run/agentsone/api.sock` (percent-encoded socket path as the\nhost, the usual `http+unix` form). Agents use this; they are identified by peer\ncredentials and cgroup `/agents/<id>`, with no token.\n",
       "url": "http+unix://%2Frun%2Fagentsone%2Fapi.sock/v1"
     }
   ],
@@ -14351,7 +14812,7 @@
       "name": "session"
     },
     {
-      "description": "Human accounts. Soft wall; the host tool keeps the hard record.",
+      "description": "Human accounts. Soft wall; the edge keeps the hard record.",
       "name": "humans"
     },
     {
@@ -14403,7 +14864,7 @@
       "name": "runners"
     },
     {
-      "description": "Total budget from the host (hard) and its split down the chart (soft).",
+      "description": "Total budget from the edge (hard) and its split down the chart (soft).",
       "name": "budget"
     },
     {
@@ -14431,7 +14892,7 @@
       "name": "mcp"
     },
     {
-      "description": "Door API for the host tool on the Mac, over vsock only.",
+      "description": "Door API for the edge service. Only the edge calls it (the tag keeps its name `host`).",
       "name": "host"
     }
   ]

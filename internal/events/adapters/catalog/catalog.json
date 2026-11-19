@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/events-catalog.schema.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "events": [
     {
       "type": "agentsone.auth.login.succeeded",
@@ -540,6 +540,161 @@
         "body_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "body_bytes": 2,
         "body": {}
+      }
+    },
+    {
+      "type": "agentsone.setup.first-human.created",
+      "emitter": "setup",
+      "description": "The first human account was created during first-boot setup.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["human"],
+        "properties": { "human": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" } },
+        "additionalProperties": false
+      },
+      "example": { "human": "alice" }
+    },
+    {
+      "type": "agentsone.setup.licence.accepted",
+      "emitter": "setup",
+      "description": "A human accepted the Claude engine licence during first-boot setup.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["engine", "version", "accepted_by"],
+        "properties": {
+          "engine": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "accepted_by": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" }
+        },
+        "additionalProperties": false
+      },
+      "example": { "engine": "claude-code", "version": "2026-11-01", "accepted_by": "alice" }
+    },
+    {
+      "type": "agentsone.plugin.installed",
+      "emitter": "plugin",
+      "description": "A plugin was installed.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["plugin_id", "name", "version", "kinds", "source", "enabled"],
+        "properties": {
+          "plugin_id": { "type": "string", "pattern": "^plg_[0-9A-HJKMNP-TV-Z]{26}$" },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+          "version": { "type": "string", "maxLength": 64 },
+          "kinds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "mcp-server",
+                "skill",
+                "agent-template",
+                "runner",
+                "panel",
+                "theme",
+                "emitter"
+              ]
+            }
+          },
+          "source": {
+            "type": "string",
+            "enum": ["claude-code", "agentsone", "agent-skills", "mcp-registry"]
+          },
+          "enabled": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "plugin_id": "plg_01JD8X3Q5Y6Z7A8B9C0D1E2F3G",
+        "name": "pretty-diff",
+        "version": "1.2.0",
+        "kinds": ["panel", "skill"],
+        "source": "agentsone",
+        "enabled": true
+      }
+    },
+    {
+      "type": "agentsone.plugin.removed",
+      "emitter": "plugin",
+      "description": "A plugin was uninstalled.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["plugin_id", "name", "version"],
+        "properties": {
+          "plugin_id": { "type": "string", "pattern": "^plg_[0-9A-HJKMNP-TV-Z]{26}$" },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+          "version": { "type": "string", "maxLength": 64 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "plugin_id": "plg_01JD8X3Q5Y6Z7A8B9C0D1E2F3G",
+        "name": "pretty-diff",
+        "version": "1.2.0"
+      }
+    },
+    {
+      "type": "agentsone.plugin.enabled",
+      "emitter": "plugin",
+      "description": "A plugin was enabled.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["plugin_id", "name"],
+        "properties": {
+          "plugin_id": { "type": "string", "pattern": "^plg_[0-9A-HJKMNP-TV-Z]{26}$" },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" }
+        },
+        "additionalProperties": false
+      },
+      "example": { "plugin_id": "plg_01JD8X3Q5Y6Z7A8B9C0D1E2F3G", "name": "pretty-diff" }
+    },
+    {
+      "type": "agentsone.plugin.disabled",
+      "emitter": "plugin",
+      "description": "A plugin was disabled.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["plugin_id", "name"],
+        "properties": {
+          "plugin_id": { "type": "string", "pattern": "^plg_[0-9A-HJKMNP-TV-Z]{26}$" },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" }
+        },
+        "additionalProperties": false
+      },
+      "example": { "plugin_id": "plg_01JD8X3Q5Y6Z7A8B9C0D1E2F3G", "name": "pretty-diff" }
+    },
+    {
+      "type": "agentsone.plugin.failed",
+      "emitter": "plugin",
+      "description": "A plugin failed to install, start or stay healthy.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["name", "stage", "reason"],
+        "properties": {
+          "plugin_id": {
+            "description": "Absent when the install failed before the plugin got an id.",
+            "type": "string",
+            "pattern": "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+          "stage": { "type": "string", "enum": ["install", "enable", "run", "uninstall"] },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 255 }
+        },
+        "additionalProperties": false
+      },
+      "example": {
+        "name": "pretty-diff",
+        "stage": "install",
+        "reason": "manifest names a path outside the plugin root"
       }
     }
   ]

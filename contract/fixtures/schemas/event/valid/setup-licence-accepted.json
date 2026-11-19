@@ -1,0 +1,14 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F62",
+  "source": "/emitters/setup",
+  "type": "agentsone.setup.licence.accepted",
+  "subject": "alice",
+  "time": "2026-11-19T19:03:00.000Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/events/catalog.json",
+  "data": { "engine": "claude-code", "version": "2026-11-01", "accepted_by": "alice" },
+  "sequence": "00000000000000000008",
+  "actor": "human:alice",
+  "chartscope": "machine"
+}

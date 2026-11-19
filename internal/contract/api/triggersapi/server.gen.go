@@ -333,6 +333,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListTriggersRequestObject struct {
@@ -385,6 +387,22 @@ func (response ListTriggers401ApplicationProblemPlusJSONResponse) VisitListTrigg
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTriggers501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTriggers501ApplicationProblemPlusJSONResponse) VisitListTriggersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -459,6 +477,22 @@ func (response CreateTrigger403ApplicationProblemPlusJSONResponse) VisitCreateTr
 	return err
 }
 
+type CreateTrigger501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTrigger501ApplicationProblemPlusJSONResponse) VisitCreateTriggerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteTriggerRequestObject struct {
 	TriggerId TriggerIdParameter `json:"trigger_id"`
 }
@@ -523,6 +557,22 @@ func (response DeleteTrigger404ApplicationProblemPlusJSONResponse) VisitDeleteTr
 	return err
 }
 
+type DeleteTrigger501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTrigger501ApplicationProblemPlusJSONResponse) VisitDeleteTriggerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetTriggerRequestObject struct {
 	TriggerId TriggerIdParameter `json:"trigger_id"`
 }
@@ -573,6 +623,22 @@ func (response GetTrigger404ApplicationProblemPlusJSONResponse) VisitGetTriggerR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTrigger501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetTrigger501ApplicationProblemPlusJSONResponse) VisitGetTriggerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -660,6 +726,22 @@ func (response UpdateTrigger404ApplicationProblemPlusJSONResponse) VisitUpdateTr
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTrigger501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateTrigger501ApplicationProblemPlusJSONResponse) VisitUpdateTriggerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

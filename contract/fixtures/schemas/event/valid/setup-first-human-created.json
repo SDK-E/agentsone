@@ -1,0 +1,14 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F65",
+  "source": "/emitters/setup",
+  "type": "agentsone.setup.first-human.created",
+  "subject": "alice",
+  "time": "2026-11-19T19:02:30.000Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/events/catalog.json",
+  "data": { "human": "alice" },
+  "sequence": "00000000000000000011",
+  "actor": "human:alice",
+  "chartscope": "machine"
+}

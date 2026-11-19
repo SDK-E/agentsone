@@ -615,7 +615,7 @@ export interface EnvMap {
   [k: string]: string;
 }
 /**
- * A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.
+ * A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list.
  *
  * This interface was referenced by `PluginManifest`'s JSON-Schema
  * via the `definition` "McpServerHttp".

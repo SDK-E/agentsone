@@ -438,6 +438,9 @@ export interface TimerFired {
    * Schedule id, prefix sch_.
    */
   scheduleId: string;
+  /**
+   * The schedule's name: 1 to 80 characters, as in the API.
+   */
   name: string;
   /**
    * RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
@@ -448,7 +451,7 @@ export interface TimerFired {
    */
   firedAt: string;
   /**
-   * One line of plain text: 1 to 255 characters, no line breaks.
+   * The schedule's message: up to 2000 characters, as in the API.
    */
   note?: string;
 }
@@ -679,7 +682,7 @@ export interface OutputParams {
   final: boolean;
 }
 /**
- * Runner to daemon, notification. Model usage for one or more calls in a turn. Feeds the soft per-agent budget; the host gateway keeps the authoritative count.
+ * Runner to daemon, notification. Model usage for one or more calls in a turn. Feeds the soft per-agent budget; the edge's gateway keeps the authoritative count.
  */
 export interface UsageNotification {
   jsonrpc: JsonRpcVersion;

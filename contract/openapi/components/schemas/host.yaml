@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Host door: used only by the host tool on the Mac over vsock.
+# Door schemas (tag `host`): used only by the edge service.
 GatewaySecret:
   type: object
   additionalProperties: false
@@ -21,7 +21,7 @@ FreezeScope:
 Freeze:
   type: object
   description: |
-    An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.
+    An active freeze. `all` is a HARD wall: the edge also stops model calls and traffic.
     `team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.
   required: [id, scope, target, reason, wall, created_at]
   properties:
@@ -149,7 +149,7 @@ AuditAck:
     head_hash:
       type: string
       pattern: "^[0-9a-f]{64}$"
-      description: Hash of record `up_to_seq` as the host computed it. A mismatch returns 409.
+      description: Hash of record `up_to_seq` as the edge computed it. A mismatch returns 409.
 
 AuditAckResult:
   type: object

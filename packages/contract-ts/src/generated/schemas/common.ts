@@ -114,7 +114,7 @@ export type SemverRange = string;
  */
 export type Sha256Hex = string;
 /**
- * Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
+ * Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
  *
  * This interface was referenced by `Common`'s JSON-Schema
  * via the `definition` "ActorKind".

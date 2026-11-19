@@ -37,7 +37,7 @@ export interface paths {
     put?: never;
     /**
      * Hire an agent
-     * @description Creates the agent's Linux user, home and `agent@<name>.service`, below the caller. Only
+     * @description Creates the agent's Linux user, home and cgroup `/agents/<id>`, below the caller. Only
      *     root agents may create root agents. No approval gate; the hire is audited.
      */
     post: operations["hireAgent"];
@@ -73,7 +73,7 @@ export interface paths {
     head?: never;
     /**
      * Edit an agent
-     * @description Edits an agent below the caller. Limits are a soft wall (cgroups inside the VM).
+     * @description Edits an agent below the caller. Limits are a soft wall (cgroups inside the machine container).
      */
     patch: operations["updateAgent"];
     trace?: never;
@@ -251,7 +251,7 @@ export interface paths {
     };
     /**
      * List audit records
-     * @description Lists audit records in sequence order. Records from inside the VM are hash-chained testimony.
+     * @description Lists audit records in sequence order. Records from inside the machine container are hash-chained testimony.
      */
     get: operations["listAuditRecords"];
     put?: never;
@@ -293,7 +293,7 @@ export interface paths {
     put?: never;
     /**
      * Verify the audit chain
-     * @description Re-hashes the chain in the given range and reports the first break. Compare the head hash with the host's copy for proof.
+     * @description Re-hashes the chain in the given range and reports the first break. Compare the head hash with the edge's copy for proof.
      */
     post: operations["verifyAuditChain"];
     delete?: never;
@@ -311,8 +311,8 @@ export interface paths {
     };
     /**
      * Get the total budget
-     * @description Returns the human's total budget as last pushed by the host gateway. The total is a hard
-     *     wall held outside the VM; it can only be changed on the host.
+     * @description Returns the human's total budget as last pushed by the edge's model gateway. The total is a
+     *     hard wall held outside the machine container; it can only be changed through the edge.
      */
     get: operations["getBudget"];
     put?: never;
@@ -354,7 +354,7 @@ export interface paths {
     };
     /**
      * Get the budget split
-     * @description Returns every agent's share down the chart. The split is a soft wall enforced inside the VM.
+     * @description Returns every agent's share down the chart. The split is a soft wall enforced inside the machine container.
      */
     get: operations["getBudgetSplit"];
     put?: never;
@@ -718,7 +718,7 @@ export interface paths {
     get?: never;
     /**
      * Sync the allow list
-     * @description The host pushes the current internet allow list so the interface and agents can read it.
+     * @description The edge pushes the current internet allow list so the interface and agents can read it.
      */
     put: operations["syncAllowList"];
     post?: never;
@@ -737,7 +737,7 @@ export interface paths {
     };
     /**
      * Pull audit records
-     * @description The host audit sink pulls records after its last acknowledged sequence, in order.
+     * @description The edge's audit sink pulls records after its last acknowledged sequence, in order.
      */
     get: operations["pullAuditRecords"];
     put?: never;
@@ -759,7 +759,7 @@ export interface paths {
     put?: never;
     /**
      * Acknowledge audit records
-     * @description The host confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.
+     * @description The edge confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.
      */
     post: operations["ackAuditRecords"];
     delete?: never;
@@ -803,7 +803,7 @@ export interface paths {
     put?: never;
     /**
      * Freeze all, a team or an agent
-     * @description Freezes agents. Scope `all` is a hard wall (the host also stops model calls and traffic);
+     * @description Freezes agents. Scope `all` is a hard wall (the edge also stops model calls and traffic);
      *     `team` and `agent` are soft (the daemon stops those units).
      */
     post: operations["applyFreeze"];
@@ -823,7 +823,7 @@ export interface paths {
     get?: never;
     /**
      * Set the gateway secret
-     * @description The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.
+     * @description The edge sends a fresh key on every boot. The daemon signs agents' model gateway tokens with it (HMAC), and the gateway checks them. The key is never returned.
      */
     put: operations["setGatewaySecret"];
     post?: never;
@@ -842,7 +842,7 @@ export interface paths {
     };
     /**
      * Door health
-     * @description Returns daemon health for the host tool's watchdog and status command.
+     * @description Returns daemon health for the edge's watchdog and status command.
      */
     get: operations["getDoorHealth"];
     put?: never;
@@ -889,7 +889,7 @@ export interface paths {
     /**
      * Create a human
      * @description Human-only. Creates a Linux user with a PAM password. Soft wall: a root agent could change
-     *     Linux accounts, so the host tool keeps the hard record.
+     *     Linux accounts, so the edge keeps the hard record.
      */
     post: operations["createHuman"];
     delete?: never;
@@ -1059,7 +1059,7 @@ export interface paths {
     };
     /**
      * Get machine metrics
-     * @description Returns a snapshot of CPU, memory, disk, network and load inside the VM.
+     * @description Returns a snapshot of CPU, memory, disk, network and load inside the machine container.
      */
     get: operations["getMachineMetrics"];
     put?: never;
@@ -1126,9 +1126,9 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Reboot the VM
-     * @description Schedules a reboot of the VM. Agents may reboot. Shutdown and start are human-only powers
-     *     held by the host tool on the Mac and are not part of this API.
+     * Reboot the machine
+     * @description Schedules a reboot of the machine container. Agents may reboot. Shutdown and start are
+     *     human-only powers held by the compose stack and are not part of this API.
      */
     post: operations["rebootMachine"];
     delete?: never;
@@ -1264,7 +1264,7 @@ export interface paths {
     };
     /**
      * List services
-     * @description Lists systemd units, including `agent@<name>.service` and `emitter@<id>.service`.
+     * @description Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).
      */
     get: operations["listServices"];
     put?: never;
@@ -1520,7 +1520,7 @@ export interface paths {
     };
     /**
      * Get the internet allow list
-     * @description Returns the allow list synced from the host. Read-only here and a hard wall; humans change it on the host.
+     * @description Returns the allow list synced from the edge. Read-only here and a hard wall; humans change it through the edge.
      */
     get: operations["getAllowList"];
     put?: never;
@@ -1946,7 +1946,7 @@ export interface paths {
     };
     /**
      * Get first-boot status
-     * @description Where first boot stands. Open to anyone on loopback so the kiosk can show the right first screen.
+     * @description Where first boot stands. Open to anyone on loopback and through the edge's web door, so the interface can show the right first screen.
      */
     get: operations["getSetupStatus"];
     put?: never;
@@ -2319,13 +2319,13 @@ export interface components {
     /**
      * @description Who did something, as `<kind>:<name>`, the same form as the event `actor`:
      *     `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
-     *     `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+     *     `system:daemon`, `system:disk`), `host:<part>` for the edge (for example
      *     `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
      * @example agent:founder
      */
     Actor: string;
     /**
-     * @description Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
+     * @description Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).
      * @enum {string}
      */
     ActorKind: "agent" | "human" | "system" | "host" | "plugin";
@@ -2365,6 +2365,7 @@ export interface components {
       template: string | null;
       /** @description Linux uid. 0 for root agents. */
       uid: number;
+      /** @description The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`. */
       unit: string;
     };
     /** @description Hire an agent. The new agent sits below the caller unless `manager` names another agent below the caller. */
@@ -2392,8 +2393,8 @@ export interface components {
      */
     AgentKind: "always-on" | "chat" | "waker";
     /**
-     * @description Linux cgroup limits for `agent@<name>.service`. Root agents run without a sandbox and have no
-     *     limits. Wall is soft: a root agent can change cgroups inside the VM.
+     * @description Linux cgroup limits for the agent's cgroup `/agents/<id>`. Root agents run without a sandbox
+     *     and have no limits. Wall is soft: a root agent can change cgroups inside the machine container.
      */
     AgentLimits: {
       /** @description systemd `CPUQuota`, percent of one core. */
@@ -2415,7 +2416,7 @@ export interface components {
     };
     /** @description Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent. */
     AgentName: string;
-    /** @description Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall. */
+    /** @description Per-agent narrowing of the allow list, enforced by nftables by uid inside the machine container. SOFT wall. */
     AgentNetRules: {
       agent: components["schemas"]["AgentName"];
       allow: string[];
@@ -2452,7 +2453,7 @@ export interface components {
       kind: "agent";
       scopes: components["schemas"]["Scope"][];
       /**
-       * @description `peer-credentials` when identified on the Unix socket by uid and cgroup; `token` for a bearer token.
+       * @description `peer-credentials` when identified on the Unix socket by uid and cgroup `/agents/<id>`; `token` for a bearer token.
        * @enum {string}
        */
       via: "peer-credentials" | "token";
@@ -2515,8 +2516,8 @@ export interface components {
       reason: string;
     };
     /**
-     * @description Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS
-     *     only for these names. Read-only inside the VM; humans change it on the host.
+     * @description Internet allow list owned by the edge. HARD wall: the edge's internet filter answers DNS
+     *     only for these names. Read-only inside the machine container; humans change it through the edge.
      */
     AllowList: {
       as_of: components["schemas"]["Timestamp"];
@@ -2560,7 +2561,7 @@ export interface components {
     /** @description Router assignment id, `asg_` plus a ULID. */
     AssignmentId: string;
     AuditAck: {
-      /** @description Hash of record `up_to_seq` as the host computed it. A mismatch returns 409. */
+      /** @description Hash of record `up_to_seq` as the edge computed it. A mismatch returns 409. */
       head_hash: string;
       /** Format: int64 */
       up_to_seq: number;
@@ -2591,7 +2592,7 @@ export interface components {
     };
     /**
      * AuditRecord
-     * @description One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
+     * @description One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the machine container have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the edge as written and the edge keeps its own copy. Records written by the edge have origin host (the value keeps its name) and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.
      */
     AuditRecord: {
       /** @description What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown. */
@@ -2601,7 +2602,7 @@ export interface components {
       details: Record<string, never>;
       hash: components["schemas"]["Sha256Hex"];
       /**
-       * @description inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).
+       * @description inside: written by the daemon in the machine container (testimony). host: written by the edge (proof).
        * @enum {string}
        */
       origin: "inside" | "host";
@@ -2618,8 +2619,9 @@ export interface components {
     };
     AuditStreamFrame: components["schemas"]["AuditFrame"] | components["schemas"]["Heartbeat"];
     /**
-     * @description Result of re-hashing the chain inside the VM. Records from inside are testimony: a root
-     *     agent could rewrite the local chain. Compare `head_hash` with the host's copy for proof.
+     * @description Result of re-hashing the chain inside the machine container. Records from inside are
+     *     testimony: a root agent could rewrite the local chain. Compare `head_hash` with the edge's
+     *     copy for proof.
      */
     AuditVerification: {
       /**
@@ -2634,7 +2636,7 @@ export interface components {
       head_hash: string;
       /**
        * Format: int64
-       * @description Highest sequence the host audit sink has acknowledged.
+       * @description Highest sequence the edge's audit sink has acknowledged.
        */
       host_acked_seq: number;
       ok: boolean;
@@ -2657,11 +2659,12 @@ export interface components {
     };
     BoxShadow: string;
     /**
-     * @description The human's total budget as pushed by the host gateway. The total is a HARD wall: the
-     *     gateway on the Mac refuses model calls past it, whatever happens inside the VM.
+     * @description The human's total budget as pushed by the edge's model gateway. The total is a HARD wall: the
+     *     gateway in the edge service refuses model calls past it, whatever happens inside the machine
+     *     container.
      */
     Budget: {
-      /** @description When the host last pushed this state. */
+      /** @description When the edge last pushed this state. */
       as_of: components["schemas"]["Timestamp"];
       /** @description How often the gateway checks usage in chunks. */
       check_interval_seconds: number;
@@ -2688,7 +2691,7 @@ export interface components {
       allocated_micros: number | null;
     };
     /**
-     * @description One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a
+     * @description One agent's share. The split is a SOFT wall: the daemon enforces it inside the machine container, and a
      *     root agent can bypass it. Only the total is hard.
      */
     BudgetNode: {
@@ -3000,7 +3003,7 @@ export interface components {
     };
     /** @description Opaque cursor for the next page, or null when this is the last page. */
     Cursor: string | null;
-    /** @description Budget reserved for wakers and security work. The human can switch it off on the host. */
+    /** @description Budget reserved for wakers and security work. The human can switch it off through the edge. */
     DefenceSlice: {
       enabled: boolean;
       /** Format: int64 */
@@ -3262,7 +3265,7 @@ export interface components {
     /** @enum {integer} */
     FontWeight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
     /**
-     * @description An active freeze. `all` is a HARD wall: the host also stops model calls and traffic.
+     * @description An active freeze. `all` is a HARD wall: the edge also stops model calls and traffic.
      *     `team` and `agent` are SOFT: the daemon stops those units, a root agent could restart them.
      */
     Freeze: {
@@ -3359,7 +3362,7 @@ export interface components {
     };
     /**
      * @description A human account. Human accounts are Linux users checked through PAM. The wall is soft:
-     *     a root agent inside the VM can change Linux accounts; the host tool is the hard record.
+     *     a root agent inside the machine container can change Linux accounts; the edge is the hard record.
      */
     Human: {
       created_at: components["schemas"]["Timestamp"];
@@ -3584,7 +3587,7 @@ export interface components {
     /** @description CommonMark text, up to 64 KiB of characters. */
     Markdown: string;
     McpServer: components["schemas"]["McpServerStdio"] | components["schemas"]["McpServerHttp"];
-    /** @description A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list. */
+    /** @description A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list. */
     McpServerHttp: {
       /** @description Fixed request headers. Never literal secrets; use ${user_config.KEY}-style values resolved by the daemon at start. */
       headers?: {
@@ -3860,7 +3863,7 @@ export interface components {
       name: string;
       /**
        * Format: uri
-       * @description Where the catalog is read from. The host must be on the allow list.
+       * @description Where the catalog is read from. The host name must be on the edge's allow list.
        */
       url: string;
     };
@@ -3897,14 +3900,14 @@ export interface components {
      *     - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
      *     - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
      *     - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
-     *     - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
-     *     - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+     *     - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the edge.
+     *     - `urn:agentsone:problem:host-only` (403) only the edge service may call this (the slug keeps its name).
      *     - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
      *     - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
      *     - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
      *     - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
      *     - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
-     *     - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+     *     - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the edge.
      *     - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
      *     - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
      *     - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
@@ -3912,6 +3915,7 @@ export interface components {
      *     - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
      *     - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
      *     - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+     *     - `urn:agentsone:problem:not-implemented` (501) the operation is in the contract but this daemon does not serve it yet.
      */
     Problem: {
       /** @description Human explanation of this occurrence. */
@@ -3932,7 +3936,7 @@ export interface components {
       type: string;
     };
     Process: {
-      /** @description Agent whose cgroup holds the process. */
+      /** @description Agent whose cgroup `/agents/<id>` holds the process. */
       agent: string | null;
       /** @description Full command line. */
       command: string;
@@ -4015,7 +4019,7 @@ export interface components {
       builtin: boolean;
       description: string;
       display_name: string;
-      /** @description Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`. */
+      /** @description Model name the runner calls through the edge's model gateway, `autoagents/one`; null for `echo`. */
       model: string | null;
       /** @example echo */
       name: string;
@@ -4089,7 +4093,7 @@ export interface components {
     SemverRange: string;
     Service: {
       active_state: components["schemas"]["ServiceActiveState"];
-      /** @description Agent for `agent@<name>.service` units. */
+      /** @description Agent that owns the unit, for agent units. */
       agent: string | null;
       description: string;
       enabled: boolean;
@@ -4445,8 +4449,9 @@ export interface components {
       task_id?: components["schemas"]["TaskId"];
     };
     /**
-     * @description How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
-     *     be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+     * @description How strongly a limit holds. `hard` is enforced by the edge outside the machine container and
+     *     cannot be bypassed from inside. `soft` is enforced by the daemon inside the machine container;
+     *     a root agent can bypass it.
      * @enum {string}
      */
     Wall: "hard" | "soft";
@@ -4482,7 +4487,7 @@ export interface components {
         "application/problem+json": components["schemas"]["Problem"];
       };
     };
-    /** @description Frozen by the host (`urn:agentsone:problem:frozen`). */
+    /** @description Frozen by the edge (`urn:agentsone:problem:frozen`). */
     Locked: {
       headers: {
         [name: string]: unknown;
@@ -4493,6 +4498,15 @@ export interface components {
     };
     /** @description Not found or not visible to the caller (`urn:agentsone:problem:not-found`). */
     NotFound: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
+    /** @description The operation is in the contract but this daemon does not serve it yet (`urn:agentsone:problem:not-implemented`). */
+    NotImplemented: {
       headers: {
         [name: string]: unknown;
       };
@@ -4555,7 +4569,7 @@ export interface components {
     /** @description Opaque cursor from a previous page's `next_cursor`. */
     Cursor: string;
     EmitterId: components["schemas"]["EmitterId"];
-    /** @description Absolute path inside the VM. */
+    /** @description Absolute path inside the machine container. */
     FilePath: string;
     GoalId: components["schemas"]["GoalId"];
     HumanName: components["schemas"]["HumanName"];
@@ -4612,6 +4626,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listAgents: {
@@ -4646,6 +4661,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   hireAgent: {
@@ -4675,6 +4691,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getAgent: {
@@ -4699,6 +4716,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   retireAgent: {
@@ -4723,6 +4741,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateAgent: {
@@ -4754,6 +4773,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listChatMessages: {
@@ -4784,6 +4804,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   sendChatMessage: {
@@ -4816,6 +4837,7 @@ export interface operations {
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamChat: {
@@ -4843,6 +4865,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getAgentOneLine: {
@@ -4867,6 +4890,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   setAgentOneLine: {
@@ -4897,6 +4921,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamAgentOutput: {
@@ -4925,6 +4950,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   sleepAgent: {
@@ -4955,6 +4981,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   issueAgentToken: {
@@ -4985,6 +5012,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   wakeAgent: {
@@ -5018,6 +5046,7 @@ export interface operations {
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listAuditRecords: {
@@ -5049,6 +5078,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamAudit: {
@@ -5073,6 +5103,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   verifyAuditChain: {
@@ -5099,6 +5130,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getBudget: {
@@ -5120,6 +5152,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -5152,6 +5185,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getBudgetSplit: {
@@ -5173,6 +5207,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listChannels: {
@@ -5200,6 +5235,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createChannel: {
@@ -5227,6 +5263,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getChannel: {
@@ -5251,6 +5288,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listBusMessages: {
@@ -5282,6 +5320,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   sendBusMessage: {
@@ -5311,6 +5350,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamBus: {
@@ -5339,6 +5379,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getChart: {
@@ -5360,6 +5401,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   moveAgent: {
@@ -5389,6 +5431,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getCharter: {
@@ -5410,6 +5453,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateCharter: {
@@ -5438,6 +5482,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listEmitters: {
@@ -5465,6 +5510,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   registerEmitter: {
@@ -5493,6 +5539,8 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
+      503: components["responses"]["Unavailable"];
     };
   };
   getEmitter: {
@@ -5517,6 +5565,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   disableEmitter: {
@@ -5542,6 +5591,8 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
+      503: components["responses"]["Unavailable"];
     };
   };
   enableEmitter: {
@@ -5567,6 +5618,8 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
+      503: components["responses"]["Unavailable"];
     };
   };
   listEvents: {
@@ -5603,6 +5656,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   publishEvent: {
@@ -5632,6 +5686,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       413: components["responses"]["PayloadTooLarge"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamEvents: {
@@ -5660,6 +5715,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listGoals: {
@@ -5689,6 +5745,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createGoal: {
@@ -5716,6 +5773,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getGoal: {
@@ -5740,6 +5798,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteGoal: {
@@ -5763,6 +5822,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateGoal: {
@@ -5793,6 +5853,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   syncAllowList: {
@@ -5818,6 +5879,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   pullAuditRecords: {
@@ -5845,6 +5907,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   ackAuditRecords: {
@@ -5873,6 +5936,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   pushBudgetState: {
@@ -5898,6 +5962,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listFreezes: {
@@ -5926,6 +5991,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   applyFreeze: {
@@ -5954,6 +6020,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   setGatewaySecret: {
@@ -5979,6 +6046,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getDoorHealth: {
@@ -6001,6 +6069,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   releaseFreeze: {
@@ -6029,6 +6098,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listHumans: {
@@ -6056,6 +6126,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createHuman: {
@@ -6084,6 +6155,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getHuman: {
@@ -6108,6 +6180,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteHuman: {
@@ -6132,6 +6205,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateHuman: {
@@ -6162,6 +6236,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getIdeStatus: {
@@ -6183,6 +6258,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getOfficialIdeDownload: {
@@ -6204,6 +6280,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   startOfficialIdeDownload: {
@@ -6231,6 +6308,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getIdeServer: {
@@ -6255,6 +6333,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   startIdeServer: {
@@ -6280,6 +6359,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   stopIdeServer: {
@@ -6303,12 +6383,13 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listFiles: {
     parameters: {
       query: {
-        /** @description Absolute path inside the VM. */
+        /** @description Absolute path inside the machine container. */
         path: components["parameters"]["FilePath"];
         /** @description Opaque cursor from a previous page's `next_cursor`. */
         cursor?: components["parameters"]["Cursor"];
@@ -6334,12 +6415,13 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   readFile: {
     parameters: {
       query: {
-        /** @description Absolute path inside the VM. */
+        /** @description Absolute path inside the machine container. */
         path: components["parameters"]["FilePath"];
       };
       header?: never;
@@ -6362,6 +6444,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       413: components["responses"]["PayloadTooLarge"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   writeFile: {
@@ -6391,12 +6474,13 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       413: components["responses"]["PayloadTooLarge"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteFile: {
     parameters: {
       query: {
-        /** @description Absolute path inside the VM. */
+        /** @description Absolute path inside the machine container. */
         path: components["parameters"]["FilePath"];
         recursive?: boolean;
       };
@@ -6418,6 +6502,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getMachineMetrics: {
@@ -6439,6 +6524,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listPackages: {
@@ -6468,6 +6554,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   installPackage: {
@@ -6495,6 +6582,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   removePackage: {
@@ -6520,6 +6608,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   rebootMachine: {
@@ -6548,6 +6637,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listProcesses: {
@@ -6577,6 +6667,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   signalProcess: {
@@ -6605,6 +6696,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listPtySessions: {
@@ -6632,6 +6724,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createPtySession: {
@@ -6660,6 +6753,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getPtySession: {
@@ -6684,6 +6778,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   closePtySession: {
@@ -6707,6 +6802,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   connectPty: {
@@ -6748,6 +6844,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listServices: {
@@ -6776,6 +6873,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   restartService: {
@@ -6803,6 +6901,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   startService: {
@@ -6830,6 +6929,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   stopService: {
@@ -6856,6 +6956,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listMachineUsers: {
@@ -6883,6 +6984,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   mcpListen: {
@@ -6913,6 +7015,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   mcpPost: {
@@ -6953,6 +7056,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   mcpEndSession: {
@@ -6977,6 +7081,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listMemory: {
@@ -7007,6 +7112,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   writeMemory: {
@@ -7035,6 +7141,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       413: components["responses"]["PayloadTooLarge"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   searchMemory: {
@@ -7064,6 +7171,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getMemory: {
@@ -7088,6 +7196,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteMemory: {
@@ -7111,6 +7220,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listAgentNetRules: {
@@ -7138,6 +7248,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getAgentNetRules: {
@@ -7162,6 +7273,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   setAgentNetRules: {
@@ -7192,6 +7304,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getAllowList: {
@@ -7213,6 +7326,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   searchPluginCatalog: {
@@ -7243,6 +7357,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -7271,6 +7386,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listPlugins: {
@@ -7300,6 +7416,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   installPlugin: {
@@ -7329,6 +7446,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -7354,6 +7472,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   uninstallPlugin: {
@@ -7378,6 +7497,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   disablePlugin: {
@@ -7403,6 +7523,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   enablePlugin: {
@@ -7428,6 +7549,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   issuePanelToken: {
@@ -7459,6 +7581,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getAssignment: {
@@ -7483,6 +7606,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listLiveList: {
@@ -7510,6 +7634,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamLiveList: {
@@ -7534,6 +7659,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   routeRequest: {
@@ -7563,6 +7689,7 @@ export interface operations {
       402: components["responses"]["PaymentRequired"];
       404: components["responses"]["NotFound"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -7591,6 +7718,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getRunner: {
@@ -7615,6 +7743,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listSchedules: {
@@ -7644,6 +7773,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createSchedule: {
@@ -7672,6 +7802,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getSchedule: {
@@ -7696,6 +7827,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteSchedule: {
@@ -7719,6 +7851,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateSchedule: {
@@ -7749,6 +7882,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createSession: {
@@ -7779,6 +7913,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       409: components["responses"]["Conflict"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteSession: {
@@ -7798,6 +7933,7 @@ export interface operations {
         content?: never;
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getMe: {
@@ -7819,6 +7955,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getThemeSelection: {
@@ -7840,6 +7977,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   setThemeSelection: {
@@ -7867,6 +8005,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getSetupStatus: {
@@ -7888,6 +8027,7 @@ export interface operations {
         };
       };
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
       503: components["responses"]["Unavailable"];
     };
   };
@@ -7910,6 +8050,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getEngineLicence: {
@@ -7931,6 +8072,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   acceptEngineLicence: {
@@ -7959,6 +8101,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createFirstHuman: {
@@ -7985,6 +8128,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listTasks: {
@@ -8015,6 +8159,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createTask: {
@@ -8041,8 +8186,10 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   streamTasks: {
@@ -8067,6 +8214,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getTask: {
@@ -8091,6 +8239,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateTask: {
@@ -8122,6 +8271,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   assignTask: {
@@ -8154,6 +8304,7 @@ export interface operations {
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
       423: components["responses"]["Locked"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   cancelTask: {
@@ -8180,6 +8331,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   completeTask: {
@@ -8211,6 +8363,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listThemes: {
@@ -8238,6 +8391,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   importTheme: {
@@ -8266,6 +8420,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       409: components["responses"]["Conflict"];
       413: components["responses"]["PayloadTooLarge"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getTheme: {
@@ -8290,6 +8445,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteTheme: {
@@ -8314,6 +8470,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       409: components["responses"]["Conflict"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   revokeToken: {
@@ -8337,6 +8494,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   listTriggers: {
@@ -8366,6 +8524,7 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   createTrigger: {
@@ -8393,6 +8552,7 @@ export interface operations {
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   getTrigger: {
@@ -8417,6 +8577,7 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   deleteTrigger: {
@@ -8440,6 +8601,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   updateTrigger: {
@@ -8470,6 +8632,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
     };
   };
   receiveWebhook: {
@@ -8501,6 +8664,7 @@ export interface operations {
       404: components["responses"]["NotFound"];
       413: components["responses"]["PayloadTooLarge"];
       429: components["responses"]["TooManyRequests"];
+      501: components["responses"]["NotImplemented"];
     };
   };
 }

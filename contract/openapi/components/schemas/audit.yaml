@@ -28,8 +28,9 @@ AuditVerifyRequest:
 AuditVerification:
   type: object
   description: |
-    Result of re-hashing the chain inside the VM. Records from inside are testimony: a root
-    agent could rewrite the local chain. Compare `head_hash` with the host's copy for proof.
+    Result of re-hashing the chain inside the machine container. Records from inside are
+    testimony: a root agent could rewrite the local chain. Compare `head_hash` with the edge's
+    copy for proof.
   required: [ok, checked, from_seq, to_seq, head_hash, broken_at_seq, host_acked_seq, verified_at]
   properties:
     ok:
@@ -57,7 +58,7 @@ AuditVerification:
       type: integer
       format: int64
       minimum: 0
-      description: Highest sequence the host audit sink has acknowledged.
+      description: Highest sequence the edge's audit sink has acknowledged.
     verified_at:
       $ref: "./common.yaml#/Timestamp"
 

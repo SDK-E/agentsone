@@ -27,7 +27,7 @@ humans:
     summary: Create a human
     description: |
       Human-only. Creates a Linux user with a PAM password. Soft wall: a root agent could change
-      Linux accounts, so the host tool keeps the hard record.
+      Linux accounts, so the edge keeps the hard record.
     security:
       - cookieAuth: []
     requestBody:

@@ -142,8 +142,8 @@ const ManifestSourceKindMcpRegistry ManifestSourceKind = "mcp-registry"
 
 type McpServer interface{}
 
-// A remote MCP server reached over Streamable HTTP. Its host must be on the host
-// tool's allow list.
+// A remote MCP server reached over Streamable HTTP. Its host name must be on the
+// edge's allow list.
 type McpServerHttp struct {
 	// Fixed request headers. Never literal secrets; use ${user_config.KEY}-style
 	// values resolved by the daemon at start.

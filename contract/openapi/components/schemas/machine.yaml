@@ -119,7 +119,7 @@ Process:
     agent:
       type: [string, "null"]
       pattern: "^[a-z][a-z0-9-]{0,30}$"
-      description: Agent whose cgroup holds the process.
+      description: Agent whose cgroup `/agents/<id>` holds the process.
 
 ProcessList:
   type: object
@@ -167,7 +167,7 @@ Service:
     agent:
       type: [string, "null"]
       pattern: "^[a-z][a-z0-9-]{0,30}$"
-      description: Agent for `agent@<name>.service` units.
+      description: Agent that owns the unit, for agent units.
 
 ServiceList:
   type: object

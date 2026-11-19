@@ -11,11 +11,12 @@ import common "github.com/SDK-E/agentsone/internal/contract/common"
 // Canonicalization Scheme) form of the whole record with the hash property removed
 // (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64
 // zeros; every later record has seq one higher than the record before it and
-// prev_hash equal to that record's hash. Records written inside the VM have origin
-// inside and are testimony: real root inside can rewrite them, so they are shipped
-// to the host as written and the host keeps its own copy. Records written by the
-// host tool have origin host and are proof. Keep details free of floating-point
-// numbers so every language canonicalises them the same way.
+// prev_hash equal to that record's hash. Records written inside the machine
+// container have origin inside and are testimony: real root inside can rewrite
+// them, so they are shipped to the edge as written and the edge keeps its own
+// copy. Records written by the edge have origin host (the value keeps its name)
+// and are proof. Keep details free of floating-point numbers so every language
+// canonicalises them the same way.
 type AuditRecord struct {
 	// What was done, as dotted lowercase words: <area>.<verb>, for example
 	// agent.hire, memory.write, plugin.install, budget.set, net.allow,
@@ -31,8 +32,8 @@ type AuditRecord struct {
 	// Hash corresponds to the JSON schema field "hash".
 	Hash common.Sha256Hex `json:"hash"`
 
-	// inside: written by the daemon in the VM (testimony). host: written by the host
-	// tool (proof).
+	// inside: written by the daemon in the machine container (testimony). host:
+	// written by the edge (proof).
 	Origin AuditRecordOrigin `json:"origin"`
 
 	// success: it happened. failure: it was tried and failed. denied: a rule refused

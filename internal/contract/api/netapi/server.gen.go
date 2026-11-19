@@ -290,6 +290,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListAgentNetRulesRequestObject struct {
@@ -346,6 +348,22 @@ func (response ListAgentNetRules401ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type ListAgentNetRules501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListAgentNetRules501ApplicationProblemPlusJSONResponse) VisitListAgentNetRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAgentNetRulesRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 }
@@ -396,6 +414,22 @@ func (response GetAgentNetRules404ApplicationProblemPlusJSONResponse) VisitGetAg
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentNetRules501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetAgentNetRules501ApplicationProblemPlusJSONResponse) VisitGetAgentNetRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -487,6 +521,22 @@ func (response SetAgentNetRules404ApplicationProblemPlusJSONResponse) VisitSetAg
 	return err
 }
 
+type SetAgentNetRules501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SetAgentNetRules501ApplicationProblemPlusJSONResponse) VisitSetAgentNetRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAllowListRequestObject struct {
 }
 
@@ -520,6 +570,22 @@ func (response GetAllowList401ApplicationProblemPlusJSONResponse) VisitGetAllowL
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowList501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetAllowList501ApplicationProblemPlusJSONResponse) VisitGetAllowListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

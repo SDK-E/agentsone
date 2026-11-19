@@ -46,6 +46,20 @@ func TestNetworkRulesAndIDEAreNotHereYet(t *testing.T) {
 	}
 }
 
+func TestNoopSystemRefusesTerminalsInsteadOfStartingShells(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	mux := moduletest.Mount(machinetest.New(deps))
+	human := core.Caller{Kind: core.CallerHuman, Name: "alice", UID: -1}
+	req := httptest.NewRequest(http.MethodPost, "/v1/machine/pty", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(core.WithCaller(req.Context(), human))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("open on a machine with no terminals: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestNoopSystemOpensTheGateWithoutTouchingTheHost(t *testing.T) {
 	deps, fakes := coretest.NewDeps(t)
 	m := machinetest.New(deps)

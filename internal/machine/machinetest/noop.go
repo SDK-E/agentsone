@@ -20,7 +20,7 @@ import (
 // stored in memory, so a reapply ends at once and opens the startup gate.
 func NoopSystem() machine.System {
 	return machine.System{
-		Packages: Packages{}, Files: Files{}, Processes: Processes{}, Users: Users{},
+		Packages: Packages{}, Files: Files{}, Processes: Processes{}, Users: Users{}, Pty: Pty{},
 		Metrics: Metrics{}, Recipes: &Recipes{}, Baseline: Baseline{}, Power: Power{}, Timer: Power{},
 	}
 }
@@ -89,6 +89,14 @@ type Users struct{}
 // List returns root.
 func (Users) List(context.Context) ([]domain.MachineUser, error) {
 	return []domain.MachineUser{{Name: "root", Home: "/root", Shell: "/bin/sh", Kind: domain.UserSystem}}, nil
+}
+
+// Pty starts no shell: a test that needs a terminal brings its own starter.
+type Pty struct{}
+
+// Start refuses.
+func (Pty) Start(context.Context, domain.PtySpec, int, int, string) (app.PtyProcess, error) {
+	return nil, fmt.Errorf("the no-op machine has no terminals: %w", core.ErrUnavailable)
 }
 
 // Metrics reads an idle one-core machine.

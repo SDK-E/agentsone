@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 [default]
-extend-ignore-re = ["[0-9a-f]{40}"]
+# Commit hashes, and Unicode code points such as U+02BA-02BC in font unicode-range lists.
+extend-ignore-re = ["[0-9a-f]{40}", "U\\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?"]
 
 [default.extend-words]
 agentsone = "agentsone"

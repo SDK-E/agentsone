@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Agents One boot splash, light, 1280 by 800. The mark sits in the centre inside one quiet ring. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" role="img" aria-labelledby="title">
+  <title id="title">Agents One is starting</title>
+  <rect width="1280" height="800" fill="#F7F7F4"/>
+  <circle cx="640" cy="400" r="168" fill="none" stroke="#E8E8E3" stroke-width="2"/>
+  <g transform="translate(560 320) scale(2.5)">
+    <path d="M53.92 30.08A22 22 0 1 1 33.92 10.08" fill="none" stroke="#137267" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="47.56" cy="16.44" r="7" fill="#C27A12"/>
+  </g>
+</svg>

@@ -213,6 +213,20 @@ func TestAttachOneClientAtATime(t *testing.T) {
 	}
 }
 
+func TestAttachedClientLearnsTheExitCode(t *testing.T) {
+	terms, st, _ := newTerms(t)
+	s, _ := terms.Open(ctx(), human, nil, nil, nil)
+	conn, err := terms.Attach(ctx(), human, s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.last().exit <- 7
+	<-conn.Done()
+	if code := conn.ExitCode(); code != 7 {
+		t.Fatalf("exit code %d", code)
+	}
+}
+
 func TestCloseAll(t *testing.T) {
 	terms, st, _ := newTerms(t)
 	_, _ = terms.Open(ctx(), human, nil, nil, nil)

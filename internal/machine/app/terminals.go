@@ -42,8 +42,9 @@ type Terminals struct {
 }
 
 type terminal struct {
-	s domain.PtySession
-	p PtyProcess
+	s    domain.PtySession
+	p    PtyProcess
+	done chan struct{} // closed when the program ends
 }
 
 // NewTerminals returns an empty terminal table.
@@ -76,9 +77,10 @@ func (t *Terminals) Open(ctx context.Context, a domain.Actor, command []string, 
 		ID: t.ids.New("pty"), Owner: a.Label(), UID: u.UID, User: u.Name,
 		Spec: spec, Created: now, LastActive: now,
 	}
-	t.terms[s.ID] = &terminal{s: s, p: p}
+	term := &terminal{s: s, p: p, done: make(chan struct{})}
+	t.terms[s.ID] = term
 	t.order = append(t.order, s.ID)
-	go t.wait(s.ID, p)
+	go t.wait(term)
 	return s, nil
 }
 
@@ -96,13 +98,12 @@ func (t *Terminals) userOf(ctx context.Context, a domain.Actor) (domain.MachineU
 	return domain.MachineUser{}, fmt.Errorf("%s has no Linux user: %w", a.Label(), core.ErrForbidden)
 }
 
-func (t *Terminals) wait(id string, p PtyProcess) {
-	code := p.Wait()
+func (t *Terminals) wait(term *terminal) {
+	code := term.p.Wait()
 	t.mu.Lock()
-	defer t.mu.Unlock()
-	if term, ok := t.terms[id]; ok {
-		term.s.Exited, term.s.ExitCode = true, &code
-	}
+	term.s.Exited, term.s.ExitCode = true, &code
+	t.mu.Unlock()
+	close(term.done)
 }
 
 func (t *Terminals) sessionsLocked() []domain.PtySession {
@@ -205,29 +206,42 @@ func (t *Terminals) Attach(_ context.Context, a domain.Actor, id string) (*PtyCo
 		return nil, fmt.Errorf("terminal %s already has a client: %w", id, core.ErrConflict)
 	}
 	term.s.Connected = true
-	return &PtyConn{t: t, id: id, p: term.p}, nil
+	return &PtyConn{t: t, id: id, term: term}, nil
 }
 
 // PtyConn is the attached client's side of a terminal.
 type PtyConn struct {
-	t  *Terminals
-	id string
-	p  PtyProcess
+	t    *Terminals
+	id   string
+	term *terminal
+}
+
+// Done is closed when the program ends.
+func (c *PtyConn) Done() <-chan struct{} { return c.term.done }
+
+// ExitCode is the program's exit code once Done is closed, -1 before.
+func (c *PtyConn) ExitCode() int {
+	c.t.mu.Lock()
+	defer c.t.mu.Unlock()
+	if c.term.s.ExitCode == nil {
+		return -1
+	}
+	return *c.term.s.ExitCode
 }
 
 // Read reads terminal output.
-func (c *PtyConn) Read(b []byte) (int, error) { return c.p.Read(b) }
+func (c *PtyConn) Read(b []byte) (int, error) { return c.term.p.Read(b) }
 
 // Write sends input to the terminal.
 func (c *PtyConn) Write(b []byte) (int, error) {
 	c.touch(nil)
-	return c.p.Write(b)
+	return c.term.p.Write(b)
 }
 
 // Resize changes the terminal size.
 func (c *PtyConn) Resize(cols, rows int) error {
 	c.touch(func(s *domain.PtySession) { s.Spec.Cols, s.Spec.Rows = cols, rows })
-	return c.p.Resize(cols, rows)
+	return c.term.p.Resize(cols, rows)
 }
 
 // Release lets another client connect; the idle timeout starts now.

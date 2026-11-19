@@ -52,12 +52,14 @@ func (*Module) Name() string { return "agents" }
 // supervisor's output sink, the host door's budget push).
 func (m *Module) Society() *app.Society { return m.society }
 
-// Provide sets the Agents, Waker, Budget and Freezer ports.
+// Provide sets the Agents, Waker, Budget, Freezer, Profiles and Chat ports.
 func (m *Module) Provide(p *core.Ports) {
 	p.Agents = m.society.Directory()
 	p.Waker = m.society.Waker()
 	p.Budget = m.society.Budget()
 	p.Freezer = m.society.Freezer()
+	p.Profiles = m.society.Profiles()
+	p.Chat = m.society.ChatPoster()
 }
 
 // Migrate creates the society tables.

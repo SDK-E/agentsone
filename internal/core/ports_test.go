@@ -91,6 +91,8 @@ func TestNewPortsUnavailable(t *testing.T) {
 		"Get":          func() error { _, err := p.Templates.Get(ctx, "tpl"); return err },
 		"GetTask":      func() error { _, err := p.Tasks.GetTask(ctx, "tsk"); return err },
 		"CompleteTask": func() error { _, err := p.Tasks.CompleteTask(ctx, "tsk", core.TaskOutcome{}); return err },
+		"Profiles":     func() error { _, err := p.Profiles.Profiles(ctx); return err },
+		"PostChat":     func() error { _, err := p.Chat.PostChat(ctx, "dev", "hi", ""); return err },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

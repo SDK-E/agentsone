@@ -161,7 +161,38 @@ func TestTemplates(t *testing.T) {
 
 func TestFakesFillNewPorts(t *testing.T) {
 	f, p := coretest.NewFakes()
-	if p.Bus != f.Bus || p.Freezer != f.Freezer || p.Tokens != f.Tokens || p.Templates != f.Templates {
+	if p.Bus != f.Bus || p.Freezer != f.Freezer || p.Tokens != f.Tokens || p.Templates != f.Templates ||
+		p.Profiles != f.Profiles || p.Chat != f.Chat {
 		t.Fatal("new ports not wired to fakes")
+	}
+}
+
+func TestProfiles_ListsSortedByName(t *testing.T) {
+	p := coretest.NewProfiles()
+	p.Add(core.AgentProfile{Name: "router", Role: "Router", Kind: core.AgentChat, State: "sleeping", Team: "router", Template: "small-seed/router"})
+	p.Add(core.AgentProfile{Name: "founder", Kind: core.AgentAlwaysOn, State: "awake", Team: "founder"})
+
+	got, err := p.Profiles(context.Background())
+
+	if err != nil || len(got) != 2 || got[0].Name != "founder" || got[1].Template != "small-seed/router" {
+		t.Fatalf("profiles %+v %v", got, err)
+	}
+}
+
+func TestChat_RecordsPostsWithTheCallerAsAuthor(t *testing.T) {
+	c := coretest.NewChat(coretest.NewIDs())
+	ctx := core.WithCaller(context.Background(), core.Caller{Kind: core.CallerHuman, Name: "ada"})
+
+	id, err := c.PostChat(ctx, "dev", "Please fix the login", "asg_1")
+	if err != nil || !strings.HasPrefix(id, "cht_") {
+		t.Fatalf("PostChat() = %q %v", id, err)
+	}
+
+	want := coretest.ChatPost{ID: id, Agent: "dev", Text: "Please fix the login", AssignmentID: "asg_1", Author: "human:ada"}
+	if got := c.Posts(); len(got) != 1 || got[0] != want {
+		t.Fatalf("posts %+v, want %+v", got, want)
+	}
+	if _, err := c.PostChat(ctx, "dev", "", ""); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("empty text error = %v, want %v", err, core.ErrInvalid)
 	}
 }

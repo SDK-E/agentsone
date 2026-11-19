@@ -29,6 +29,8 @@ type Fakes struct {
 	Freezer   *Freezer
 	Tokens    *Tokens
 	Templates *Templates
+	Profiles  *Profiles
+	Chat      *Chat
 }
 
 // NewFakes returns fresh fakes and Ports wired to them.
@@ -50,6 +52,8 @@ func NewFakes() (*Fakes, *core.Ports) {
 		Freezer:   NewFreezer(),
 		Tokens:    NewTokens(clock, ids),
 		Templates: NewTemplates(),
+		Profiles:  NewProfiles(),
+		Chat:      NewChat(ids),
 	}
 	return f, f.Ports()
 }
@@ -60,6 +64,7 @@ func (f *Fakes) Ports() *core.Ports {
 		Agents: f.Agents, Waker: f.Waker, Events: f.Events, Subscribe: f.Events,
 		Tasks: f.Tasks, Audit: f.Audit, Live: f.Live, Budget: f.Budget, Runners: f.Runners,
 		Bus: f.Bus, Freezer: f.Freezer, Tokens: f.Tokens, Templates: f.Templates,
+		Profiles: f.Profiles, Chat: f.Chat,
 	}
 }
 

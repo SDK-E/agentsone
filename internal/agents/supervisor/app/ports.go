@@ -99,6 +99,17 @@ type UsageRecorder interface {
 	RecordUsage(ctx context.Context, agent string, u Usage) error
 }
 
+// AgentStates hears when an agent's runner cannot run and when it runs
+// again (the society context, internal/agents/app), so the agent's status
+// can say why it stopped.
+type AgentStates interface {
+	// RunnerFailed says the runner cannot start or stopped with an error.
+	// reason is one plain sentence for a human, never an error's detail.
+	RunnerFailed(ctx context.Context, agent, reason string) error
+	// RunnerRunning says the runner finished its handshake and is ready.
+	RunnerRunning(ctx context.Context, agent string) error
+}
+
 // RunnerConn is the daemon's half of one runner connection.
 type RunnerConn interface {
 	Call(ctx context.Context, method string, params, result any) error
@@ -152,4 +163,6 @@ type Deps struct {
 	Summaries SummaryStore
 	Usage     UsageRecorder
 	Config    Config
+	// States hears runner failures and recoveries; nil hears nothing.
+	States AgentStates
 }

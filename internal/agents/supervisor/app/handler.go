@@ -108,6 +108,7 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 	}
 	gw, err := s.gatewayToken(ctx, h.agent)
 	if err != nil {
+		s.runnerFailed(ctx, h.agent, gatewayReason(err))
 		return protocol.HelloResult{}, err
 	}
 
@@ -189,7 +190,9 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 		s.mu.Unlock()
 		return domain.ErrOutOfOrder
 	}
+	welcomed := r.session.State() == domain.StateWelcomed
 	out, err := r.session.Status(st)
+	ready := err == nil && welcomed && r.session.State() == domain.StateIdle
 	var held []wakeRequest
 	var turns []string
 	if err == nil && r.session.State() == domain.StateIdle && len(r.pending) > 0 {
@@ -205,8 +208,12 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 	if out.MissingProfile {
 		s.audit(ctx, ActionTurnFault, "agent:"+h.agent, map[string]any{"turnId": out.EndedTurn, "fault": "no profile.update"})
 	}
+	if ready {
+		s.runnerRunning(ctx, h.agent)
+	}
 	if out.Failed {
 		s.audit(ctx, ActionRunnerError, "agent:"+h.agent, map[string]any{"turnId": out.EndedTurn, "state": "error"})
+		s.runnerFailed(ctx, h.agent, ReasonRunnerError)
 	}
 	if len(held) > 0 {
 		// Calls wait for answers that this read loop delivers, so send from

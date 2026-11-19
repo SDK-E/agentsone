@@ -101,6 +101,9 @@ type Agent struct {
 	CreatedAt  time.Time
 	CreatedBy  string
 	LastTurnAt *time.Time
+	// StateReason says in plain words why State is failed. The runner
+	// supervisor reports it; it is not stored.
+	StateReason string
 }
 
 // Active reports whether the agent is still part of the society.

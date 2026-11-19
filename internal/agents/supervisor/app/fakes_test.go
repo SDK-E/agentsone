@@ -5,6 +5,7 @@ package app_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -115,6 +116,7 @@ type sink struct {
 	mu     sync.Mutex
 	chunks []app.OutputChunk
 	usage  []app.Usage
+	states []string
 }
 
 func (s *sink) Output(_ context.Context, _ string, c app.OutputChunk) error {
@@ -128,6 +130,26 @@ func (s *sink) RecordUsage(_ context.Context, _ string, u app.Usage) error {
 	defer s.mu.Unlock()
 	s.usage = append(s.usage, u)
 	return nil
+}
+
+// RunnerFailed and RunnerRunning record what the society would hear, as
+// "failed <agent>: <reason>" and "running <agent>".
+func (s *sink) RunnerFailed(_ context.Context, agent, reason string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.states = append(s.states, "failed "+agent+": "+reason)
+	return nil
+}
+func (s *sink) RunnerRunning(_ context.Context, agent string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.states = append(s.states, "running "+agent)
+	return nil
+}
+func (s *sink) heard() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.states)
 }
 
 type summaries struct {
@@ -219,7 +241,7 @@ func newWorld(t *testing.T) *world {
 	w.sup = app.New(app.Deps{
 		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
 		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
-		Config: app.DefaultConfig(),
+		Config: app.DefaultConfig(), States: w.sink,
 	})
 	return w
 }

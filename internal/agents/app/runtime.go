@@ -35,6 +35,8 @@ type StateFrame struct {
 	Agent string
 	State domain.State
 	Time  time.Time
+	// Reason says in plain words why State is failed; empty otherwise.
+	Reason string
 }
 
 // Waker is the society's core.Waker port: it refuses retired, frozen and

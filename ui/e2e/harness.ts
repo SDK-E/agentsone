@@ -34,7 +34,7 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["GET", /^\/v1\/settings\/theme$/, "getThemeSelection"],
   ["PUT", /^\/v1\/settings\/theme$/, "setThemeSelection"],
   ["GET", /^\/v1\/themes\/[^/]+$/, "getTheme"],
-  // juno: monitor, tasks and audit
+  // monitor, tasks and audit
   ["GET", /^\/v1\/budget$/, "getBudget"],
   ["GET", /^\/v1\/budget\/split$/, "getBudgetSplit"],
   ["GET", /^\/v1\/machine\/metrics$/, "getMachineMetrics"],
@@ -45,6 +45,23 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["GET", /^\/v1\/schedules$/, "listSchedules"],
   ["GET", /^\/v1\/audit$/, "listAuditRecords"],
   ["POST", /^\/v1\/audit\/verify$/, "verifyAuditChain"],
+  // memory, plugins, settings
+  ["GET", /^\/v1\/memory$/, "listMemory"],
+  ["GET", /^\/v1\/memory\/search$/, "searchMemory"],
+  ["GET", /^\/v1\/memory\/[^/]+$/, "getMemory"],
+  ["DELETE", /^\/v1\/memory\/[^/]+$/, "deleteMemory"],
+  ["GET", /^\/v1\/plugins$/, "listPlugins"],
+  ["POST", /^\/v1\/plugins$/, "installPlugin"],
+  ["DELETE", /^\/v1\/plugins\/[^/]+$/, "uninstallPlugin"],
+  ["POST", /^\/v1\/plugins\/[^/]+\/enable$/, "enablePlugin"],
+  ["POST", /^\/v1\/plugins\/[^/]+\/disable$/, "disablePlugin"],
+  ["GET", /^\/v1\/plugin-sources$/, "listPluginSources"],
+  ["GET", /^\/v1\/plugin-catalog$/, "searchPluginCatalog"],
+  ["GET", /^\/v1\/humans$/, "listHumans"],
+  ["POST", /^\/v1\/humans$/, "createHuman"],
+  ["PATCH", /^\/v1\/humans\/[^/]+$/, "updateHuman"],
+  ["DELETE", /^\/v1\/humans\/[^/]+$/, "deleteHuman"],
+  ["GET", /^\/v1\/themes$/, "listThemes"],
 ];
 
 function operationOf(method: string, path: string): string | undefined {

@@ -57,6 +57,24 @@ export interface TaskFilter {
   assignee?: string;
 }
 
+// taro: memory/plugins/settings
+export type MemoryRecord = S["MemoryRecord"];
+export type MemoryScope = S["MemoryScope"];
+export type MemoryHit = S["MemoryHit"];
+export type Plugin = S["Plugin"];
+export type PluginKind = S["PluginKind"];
+export type PluginSource = S["PluginSource"];
+export type PluginSourceId = S["PluginSourceId"];
+export type CatalogEntry = S["CatalogEntry"];
+export type HumanCreate = S["HumanCreate"];
+export type HumanUpdate = S["HumanUpdate"];
+
+/** One page of a list, with the cursor for the next page (null on the last page). */
+export interface Page<T> {
+  items: T[];
+  next_cursor: string | null;
+}
+
 /** A failed API call. Carries the RFC 9457 problem when the daemon sent one. */
 export class ApiError extends Error {
   readonly status: number;
@@ -99,7 +117,7 @@ export interface Api {
   setThemeSelection(update: Partial<ThemeSelection>): Promise<ThemeSelection>;
   getTheme(id: string): Promise<InstalledTheme>;
   listFreezes(): Promise<Freeze[]>;
-  // juno: monitor/tasks/audit
+  // monitor, tasks and audit
   getBudget(): Promise<Budget>;
   getBudgetSplit(): Promise<BudgetSplit>;
   getMachineMetrics(): Promise<MachineMetrics>;
@@ -111,6 +129,32 @@ export interface Api {
   /** Records come oldest first: ask for those after a sequence number to reach the newest. */
   listAuditRecords(query?: AuditQuery): Promise<Page<AuditRecord>>;
   verifyAuditChain(): Promise<AuditVerification>;
+
+  // memory, plugins and settings
+  listMemory(query: { scope?: MemoryScope; cursor?: string }): Promise<Page<MemoryRecord>>;
+  searchMemory(query: {
+    q: string;
+    scope?: MemoryScope;
+    cursor?: string;
+  }): Promise<Page<MemoryHit>>;
+  deleteMemory(id: string): Promise<void>;
+  listPlugins(query?: { kind?: PluginKind; cursor?: string }): Promise<Page<Plugin>>;
+  listPluginSources(): Promise<PluginSource[]>;
+  searchPluginCatalog(query: {
+    q?: string;
+    source?: PluginSourceId;
+    kind?: PluginKind;
+    cursor?: string;
+  }): Promise<Page<CatalogEntry>>;
+  installPlugin(body: { source: PluginSourceId; ref: string }): Promise<Plugin>;
+  uninstallPlugin(id: string): Promise<void>;
+  enablePlugin(id: string): Promise<Plugin>;
+  disablePlugin(id: string): Promise<Plugin>;
+  listHumans(): Promise<Human[]>;
+  createHuman(body: HumanCreate): Promise<Human>;
+  updateHuman(name: string, body: HumanUpdate): Promise<Human>;
+  deleteHuman(name: string): Promise<void>;
+  listThemes(): Promise<InstalledTheme[]>;
 }
 
 interface Result<T> {
@@ -199,7 +243,7 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
     getTheme: async (id) =>
       unwrap(await client.GET("/themes/{theme_id}", { params: { path: { theme_id: id } } })),
     listFreezes: async () => unwrap(await client.GET("/host/freezes")).items,
-    // juno: monitor/tasks/audit
+    // monitor, tasks and audit
     getBudget: async () => unwrap(await client.GET("/budget")),
     getBudgetSplit: async () => unwrap(await client.GET("/budget/split")),
     getMachineMetrics: async () => unwrap(await client.GET("/machine/metrics")),
@@ -232,5 +276,70 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
         }),
       ),
     verifyAuditChain: async () => unwrap(await client.POST("/audit/verify", { body: {} })),
+
+    // memory, plugins and settings
+    listMemory: async ({ scope, cursor }) =>
+      unwrap(
+        await client.GET("/memory", {
+          params: { query: { ...(scope && { scope }), ...(cursor && { cursor }) } },
+        }),
+      ),
+    searchMemory: async ({ q, scope, cursor }) =>
+      unwrap(
+        await client.GET("/memory/search", {
+          params: { query: { q, ...(scope && { scope }), ...(cursor && { cursor }) } },
+        }),
+      ),
+    deleteMemory: async (id) => {
+      unwrap(await client.DELETE("/memory/{memory_id}", { params: { path: { memory_id: id } } }));
+    },
+    listPlugins: async ({ kind, cursor } = {}) =>
+      unwrap(
+        await client.GET("/plugins", {
+          params: { query: { ...(kind && { kind }), ...(cursor && { cursor }) } },
+        }),
+      ),
+    listPluginSources: async () => unwrap(await client.GET("/plugin-sources", {})).items,
+    searchPluginCatalog: async ({ q, source, kind, cursor }) =>
+      unwrap(
+        await client.GET("/plugin-catalog", {
+          params: {
+            query: {
+              ...(q && { q }),
+              ...(source && { source }),
+              ...(kind && { kind }),
+              ...(cursor && { cursor }),
+            },
+          },
+        }),
+      ),
+    installPlugin: async ({ source, ref }) =>
+      unwrap(await client.POST("/plugins", { body: { source, ref, enable: true } })),
+    uninstallPlugin: async (id) => {
+      unwrap(await client.DELETE("/plugins/{plugin_id}", { params: { path: { plugin_id: id } } }));
+    },
+    enablePlugin: async (id) =>
+      unwrap(
+        await client.POST("/plugins/{plugin_id}/enable", { params: { path: { plugin_id: id } } }),
+      ),
+    disablePlugin: async (id) =>
+      unwrap(
+        await client.POST("/plugins/{plugin_id}/disable", { params: { path: { plugin_id: id } } }),
+      ),
+    listHumans: async () => unwrap(await client.GET("/humans", {})).items,
+    createHuman: async (body) => unwrap(await client.POST("/humans", { body })),
+    updateHuman: async (name, body) =>
+      unwrap(
+        await client.PATCH("/humans/{human_name}", {
+          params: { path: { human_name: name } },
+          body,
+        }),
+      ),
+    deleteHuman: async (name) => {
+      unwrap(
+        await client.DELETE("/humans/{human_name}", { params: { path: { human_name: name } } }),
+      );
+    },
+    listThemes: async () => unwrap(await client.GET("/themes", {})).items,
   };
 }

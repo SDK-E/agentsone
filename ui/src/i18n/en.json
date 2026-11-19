@@ -313,11 +313,179 @@
     },
     "memory": {
       "label": "Memory",
-      "about": "What the society remembers: private, team and common memory, searchable."
+      "about": "What the society remembers: private, team and common memory, searchable.",
+      "lead": "Notes the agents wrote for themselves, their team or everyone. You can read all of them.",
+      "scopeLabel": "Who can read",
+      "scope": {
+        "all": "All",
+        "private": "Private",
+        "team": "Team",
+        "common": "Common"
+      },
+      "scopeAbout": {
+        "private": "Only the agent that wrote it reads it.",
+        "team": "Every agent on the writer's team reads it.",
+        "common": "Every agent reads it."
+      },
+      "searchLabel": "Search memory",
+      "searchPlaceholder": "Words, titles or tags",
+      "searchSubmit": "Search",
+      "searchClear": "Clear search",
+      "loading": "Opening the notebooks…",
+      "listLabel": "Memory notes, newest first",
+      "resultsLabel": "Search results, best match first",
+      "resultsFor": "Results for “{{q}}”",
+      "by": "Written by {{name}}",
+      "updated": "Updated",
+      "showMore": "Show more",
+      "loadingMore": "Loading more…",
+      "empty": {
+        "title": "Nothing remembered yet",
+        "body": "Agents write notes here as they work. Private, team and common notes all show up in this list."
+      },
+      "emptyScope": {
+        "title": "No {{scope}} notes yet",
+        "body": "Pick another group above, or wait for the agents to write one."
+      },
+      "noResults": {
+        "title": "Nothing found",
+        "body": "No note matches “{{q}}”. Try fewer words or different ones."
+      },
+      "pickOne": "Pick a note to read it.",
+      "back": "Back to the list",
+      "detail": {
+        "writer": "Written by",
+        "readers": "Who can read it",
+        "team": "{{scope}}. Team of {{team}}.",
+        "source": "Where it came from",
+        "created": "First written",
+        "changed": "Last changed",
+        "version": "Version {{count}}",
+        "tags": "Tags",
+        "links": "Related",
+        "noText": "This note has no text."
+      },
+      "source": {
+        "agent": "Written by an agent",
+        "human": "Written by a person",
+        "event": "Made from an event",
+        "import": "Imported from a file",
+        "plugin": "Came with a plugin"
+      },
+      "link": {
+        "memory": "Another note",
+        "task": "Task",
+        "event": "Event",
+        "message": "Message",
+        "url": "Web page",
+        "file": "File"
+      },
+      "change": "Ask {{name}} to change it",
+      "changeHint": "Agents change their own notes. Ask the writer in chat.",
+      "delete": {
+        "start": "Delete this note",
+        "confirm": "Delete this note for good? Nobody can bring it back.",
+        "yes": "Delete for good",
+        "no": "Keep it",
+        "pending": "Deleting…",
+        "done": "Note deleted",
+        "failed": "The note could not be deleted. Try again."
+      }
     },
     "plugins": {
       "label": "Plugins",
-      "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from."
+      "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from.",
+      "lead": "Plugins add tools, skills, agent templates, panels and themes. You and the agents can install them.",
+      "installed": {
+        "title": "Installed",
+        "listLabel": "Installed plugins",
+        "filterLabel": "Show installed",
+        "allKinds": "All kinds",
+        "loading": "Looking at what is installed…",
+        "showMore": "Show more installed plugins",
+        "loadingMore": "Loading more…",
+        "empty": {
+          "title": "No plugins installed",
+          "body": "Install one from the list below. Agents can install plugins too, and they show up here."
+        }
+      },
+      "kind": {
+        "mcp-server": "MCP server",
+        "skill": "Skill",
+        "agent-template": "Agent template",
+        "runner": "Runner",
+        "panel": "Interface panel",
+        "theme": "Theme",
+        "emitter": "Event source"
+      },
+      "source": {
+        "claude-code": "Claude Code format",
+        "agentsone": "Agents One format",
+        "agent-skills": "Agent Skills",
+        "mcp-registry": "MCP registry"
+      },
+      "by": {
+        "human": "Installed by {{name}}",
+        "agent": "Installed by agent {{name}}",
+        "system": "Installed by the system",
+        "host": "Installed by the system",
+        "plugin": "Installed by another plugin",
+        "other": "Installed by {{name}}"
+      },
+      "byAgent": "Installed by an agent",
+      "on": "On",
+      "off": "Off",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "turnOnLabel": "Turn on {{name}}",
+      "turnOffLabel": "Turn off {{name}}",
+      "turningOn": "Turning on…",
+      "turningOff": "Turning off…",
+      "remove": "Remove",
+      "removeLabel": "Remove {{name}}",
+      "removeConfirm": "Remove {{name}}? It takes along everything it added, like tools, skills and panels.",
+      "removeYes": "Remove for good",
+      "removeNo": "Keep it",
+      "removing": "Removing…",
+      "removed": "{{name}} was removed",
+      "health": {
+        "degraded": "Needs attention",
+        "degradedAdvice": "It works, but part of it is failing. Turn it off and on again, or remove it if it keeps happening.",
+        "failed": "Not working",
+        "failedAdvice": "It is not running. Turn it off and on again, or remove it if it keeps happening."
+      },
+      "changeFailed": "The change did not go through. Try again.",
+      "version": "Version {{version}}",
+      "find": {
+        "title": "Find more",
+        "lead": "Look through the plugin sources, then install what you need.",
+        "searchLabel": "Search plugins",
+        "searchPlaceholder": "Name or what it does",
+        "searchSubmit": "Search",
+        "searchClear": "Clear search",
+        "sourceLabel": "Source",
+        "allSources": "All sources",
+        "kindLabel": "Kind",
+        "listLabel": "Plugins you can install",
+        "loading": "Looking through the sources…",
+        "showMore": "Show more plugins to install",
+        "loadingMore": "Loading more…",
+        "empty": {
+          "title": "Nothing to install",
+          "body": "No plugin matches. Try another source or fewer words."
+        },
+        "unreachable": "The sources could not be reached.",
+        "unreachableRetry": "Try again",
+        "allowHint": "Plugin sources are reached through the internet allow list. It is kept on the control page.",
+        "installed": "Installed",
+        "install": "Install",
+        "installLabel": "Install {{name}}",
+        "installing": "Installing…",
+        "done": "{{name}} is installed",
+        "by": "By {{publisher}}",
+        "homepage": "Home page",
+        "failed": "The plugin was not installed. Try again."
+      }
     },
     "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
     "desktop": {
@@ -387,7 +555,83 @@
     },
     "settings": {
       "label": "Settings",
-      "about": "More settings arrive here: your account, model providers and the web door, which are held by the control page."
+      "about": "Your account, the people who can sign in, the theme and the Claude engine.",
+      "look": {
+        "title": "Look and feel",
+        "themeLabel": "Theme",
+        "themeHint": "Install a theme from the Plugins panel to add more.",
+        "saveFailed": "The theme was not saved. Try again."
+      },
+      "account": {
+        "title": "Your account",
+        "name": "Name",
+        "displayName": "Display name",
+        "saveName": "Save name",
+        "savingName": "Saving…",
+        "nameSaved": "Name saved",
+        "nameFailed": "The name was not saved. Try again.",
+        "passwordTitle": "Change your password",
+        "newPassword": "New password",
+        "confirmPassword": "New password again",
+        "passwordHint": "At least 12 characters. Changing your password signs you out everywhere else.",
+        "passwordRule_one": "The password needs at least {{count}} character.",
+        "passwordRule_other": "The password needs at least {{count}} characters.",
+        "confirmRule": "The two passwords are not the same.",
+        "changePassword": "Change password",
+        "changingPassword": "Changing…",
+        "passwordChanged": "Password changed. Other places you were signed in are signed out now.",
+        "passwordFailed": "The password was not changed. Try again.",
+        "notHuman": "Accounts belong to people. You are not signed in as a person here."
+      },
+      "people": {
+        "title": "People",
+        "lead": "People who can sign in to this machine. Only people can add or remove people. Agents cannot.",
+        "listLabel": "People",
+        "you": "You",
+        "lastSignedIn": "Last signed in",
+        "never": "Never signed in",
+        "loading": "Looking up the people…",
+        "remove": "Remove",
+        "removeLabel": "Remove {{name}}",
+        "removeConfirm": "Remove {{name}}? They can no longer sign in.",
+        "removeYes": "Remove for good",
+        "removeNo": "Keep them",
+        "removing": "Removing…",
+        "removed": "{{name}} was removed",
+        "removeFailed": "The person was not removed. Try again.",
+        "added": "{{name}} was added",
+        "empty": {
+          "title": "Nobody is listed",
+          "body": "People you add appear here."
+        },
+        "add": {
+          "title": "Add a person",
+          "name": "Name",
+          "nameHint": "Lowercase letters, digits and dashes. Starts with a letter. For example grace.",
+          "displayName": "Display name",
+          "password": "Password",
+          "confirm": "Password again",
+          "nameRule": "The name must start with a letter and use only lowercase letters, digits and dashes.",
+          "displayNameRule": "Add a display name, for example Grace Hopper.",
+          "passwordRule_one": "The password needs at least {{count}} character.",
+          "passwordRule_other": "The password needs at least {{count}} characters.",
+          "confirmRule": "The two passwords are not the same.",
+          "submit": "Add person",
+          "pending": "Adding…",
+          "failed": "The person was not added. Try again."
+        }
+      },
+      "engine": {
+        "title": "Claude engine",
+        "loading": "Checking the Claude engine…",
+        "accepted": "Accepted by {{name}}",
+        "acceptedUnknown": "Accepted",
+        "version": "Licence version {{version}}.",
+        "notAccepted": "The Claude engine needs its licence accepted before it downloads. Nothing downloads before you accept.",
+        "readLicence": "Read the licence",
+        "acceptFailed": "The licence could not be accepted. Try again."
+      },
+      "control": "The internet allow list, model keys, the total budget and Freeze all live on the control page, not here."
     }
   }
 }

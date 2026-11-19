@@ -22,7 +22,15 @@ import tasksList from "../../../contract/fixtures/api/listTasks.json";
 import verification from "../../../contract/fixtures/api/verifyAuditChain.json";
 import theme from "../../../contract/fixtures/api/getTheme.json";
 import chat from "../../../contract/fixtures/api/listChatMessages.json";
+import humans from "../../../contract/fixtures/api/listHumans.json";
 import live from "../../../contract/fixtures/api/listLiveList.json";
+import memory from "../../../contract/fixtures/api/listMemory.json";
+import memoryLong from "../../../contract/fixtures/api/listMemory.long-text.json";
+import pluginSources from "../../../contract/fixtures/api/listPluginSources.json";
+import plugins from "../../../contract/fixtures/api/listPlugins.json";
+import themes from "../../../contract/fixtures/api/listThemes.json";
+import memoryHits from "../../../contract/fixtures/api/searchMemory.json";
+import catalog from "../../../contract/fixtures/api/searchPluginCatalog.json";
 import route from "../../../contract/fixtures/api/routeRequest.json";
 import routeError from "../../../contract/fixtures/api/routeRequest.error.json";
 import {
@@ -35,25 +43,31 @@ import {
   type AuditVerification,
   type Budget,
   type BudgetSplit,
-  type MachineMetrics,
-  type Page,
-  type Schedule,
-  type Task,
-  type TaskCreate,
-  type TaskFilter,
-  type TaskStreamFrame,
+  type CatalogEntry,
   type ChartNode,
   type ChatMessage,
   type ChatStreamFrame,
   type EngineFetchStatus,
   type EngineLicence,
   type Freeze,
+  type Human,
   type InstalledTheme,
   type LiveEntry,
   type LiveStreamFrame,
+  type MachineMetrics,
+  type MemoryHit,
+  type MemoryRecord,
+  type Page,
+  type Plugin,
+  type PluginSource,
   type Principal,
+  type Schedule,
   type SetupStatus,
   type StreamHandlers,
+  type Task,
+  type TaskCreate,
+  type TaskFilter,
+  type TaskStreamFrame,
 } from "../api/api";
 import { AppProviders, AppRoutes } from "../app/app";
 
@@ -68,7 +82,7 @@ export const fixtures = {
   licence: licence.body as EngineLicence,
   engineFetch: engineFetch.body as EngineFetchStatus,
   theme: theme.body as InstalledTheme,
-  // juno: monitor/tasks/audit
+  // monitor, tasks and audit
   budget: budget.body as Budget,
   split: budgetSplit.body as BudgetSplit,
   metrics: machineMetrics.body satisfies MachineMetrics,
@@ -78,7 +92,23 @@ export const fixtures = {
   // The generated type of `details` is `Record<string, never>`; the fixtures carry real values.
   audit: auditList.body.items as unknown as AuditRecord[],
   verification: verification.body as AuditVerification,
+  // memory, plugins and settings
+  memory: memory.body.items as MemoryRecord[],
+  memoryLong: memoryLong.body.items as MemoryRecord[],
+  memoryHits: memoryHits.body.items as MemoryHit[],
+  plugins: plugins.body.items as Plugin[],
+  pluginSources: pluginSources.body.items as PluginSource[],
+  catalog: catalog.body.items as CatalogEntry[],
+  humans: humans.body.items as Human[],
+  themes: themes.body.items as InstalledTheme[],
 };
+
+/** Cut a list into pages the way the daemon does: the cursor is where the next page starts. */
+function paged<T>(items: T[], cursor: string | undefined, size: number): Page<T> {
+  const start = cursor === undefined ? 0 : Number(cursor);
+  const end = start + size;
+  return { items: items.slice(start, end), next_cursor: end < items.length ? String(end) : null };
+}
 
 /** A failed call as the daemon reports it: an RFC 9457 problem. */
 export const problem = (status: number, title: string, detail?: string) =>
@@ -137,13 +167,29 @@ export class FakeApi implements Api {
       last_login_at: null,
     });
   };
-  getEngineLicence = () => Promise.resolve({ ...fixtures.licence, accepted: false });
+  /** The engine licence; not accepted until a test or the person accepts it. */
+  licence: EngineLicence | ApiError = {
+    ...fixtures.licence,
+    accepted: false,
+    accepted_at: null,
+    accepted_by: null,
+  };
+  engine: EngineFetchStatus | ApiError = fixtures.engineFetch;
+  getEngineLicence = () => this.settle(this.licence);
   acceptEngineLicence = (version: string) => {
     this.calls.push(`acceptEngineLicence ${version}`);
     this.setup = { ...this.setup, phase: "fetching-engine", engine: fixtures.engineFetch };
+    if (!(this.licence instanceof ApiError)) {
+      this.licence = {
+        ...this.licence,
+        accepted: true,
+        accepted_at: "2026-11-19T20:00:00Z",
+        accepted_by: "ada",
+      };
+    }
     return Promise.resolve(fixtures.engineFetch);
   };
-  getEngineFetchStatus = () => Promise.resolve(fixtures.engineFetch);
+  getEngineFetchStatus = () => this.settle(this.engine);
   createSession = (name: string) => {
     this.calls.push(`createSession ${name}`);
     if (name === "wrong") {
@@ -182,17 +228,21 @@ export class FakeApi implements Api {
   streamChat = (_agent: string, h: StreamHandlers<ChatStreamFrame>) => this.chatStream.open(h);
   streamAgentOutput = (_agent: string, h: StreamHandlers<AgentOutputFrame>) =>
     this.outputStream.open(h);
-  getThemeSelection = () =>
-    Promise.resolve({ theme_id: fixtures.theme.id, mode: "system" as const });
-  setThemeSelection = (update: { mode?: "system" | "light" | "dark" }) => {
-    this.calls.push(`setThemeSelection ${update.mode ?? ""}`);
-    return Promise.resolve({ theme_id: fixtures.theme.id, mode: update.mode ?? "system" });
+  selection: { theme_id: string; mode: "system" | "light" | "dark" } = {
+    theme_id: fixtures.theme.id,
+    mode: "system",
   };
+  getThemeSelection = () => Promise.resolve({ ...this.selection });
+  setThemeSelection = (update: { theme_id?: string; mode?: "system" | "light" | "dark" }) =>
+    this.change(`setThemeSelection ${update.mode ?? ""}${update.theme_id ?? ""}`, () => {
+      this.selection = { ...this.selection, ...update };
+      return { ...this.selection };
+    });
   getTheme = () => Promise.resolve(fixtures.theme);
   freezes: Freeze[] = [];
   listFreezes = () => Promise.resolve(this.freezes);
 
-  // juno: monitor/tasks/audit
+  // monitor, tasks and audit
   budget: Budget | ApiError = fixtures.budget;
   split: BudgetSplit | ApiError = fixtures.split;
   metrics: MachineMetrics | ApiError = fixtures.metrics;
@@ -250,6 +300,152 @@ export class FakeApi implements Api {
     this.calls.push("verifyAuditChain");
     return this.settle(this.verification);
   };
+
+  // memory, plugins and settings
+  pageSize = 1000;
+  memory: MemoryRecord[] | ApiError = [...fixtures.memory];
+  memoryHits: MemoryHit[] = [...fixtures.memoryHits];
+  plugins: Plugin[] | ApiError = [...fixtures.plugins];
+  pluginSources: PluginSource[] | ApiError = [...fixtures.pluginSources];
+  catalog: CatalogEntry[] | ApiError = [...fixtures.catalog];
+  humans: Human[] | ApiError = [...fixtures.humans];
+  themes: InstalledTheme[] = [fixtures.theme];
+  /** The next change (install, delete, turn off and so on) fails with this. */
+  mutationError: ApiError | undefined;
+
+  private change<T>(call: string, run: () => T): Promise<T> {
+    this.calls.push(call);
+    if (this.mutationError) return Promise.reject(this.mutationError);
+    try {
+      return Promise.resolve(run());
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  listMemory = ({ scope, cursor }: { scope?: string; cursor?: string }) =>
+    this.settle(this.memory).then((all) =>
+      paged(
+        all.filter((m) => scope === undefined || m.scope === scope),
+        cursor,
+        this.pageSize,
+      ),
+    );
+  searchMemory = ({ q, scope, cursor }: { q: string; scope?: string; cursor?: string }) => {
+    this.calls.push(`searchMemory ${q}`);
+    return Promise.resolve(
+      paged(
+        this.memoryHits.filter((h) => scope === undefined || h.record.scope === scope),
+        cursor,
+        this.pageSize,
+      ),
+    );
+  };
+  deleteMemory = (id: string) =>
+    this.change(`deleteMemory ${id}`, () => {
+      if (!(this.memory instanceof ApiError)) this.memory = this.memory.filter((m) => m.id !== id);
+    });
+  listPlugins = ({ kind, cursor }: { kind?: string; cursor?: string } = {}) =>
+    this.settle(this.plugins).then((all) =>
+      paged(
+        all.filter((p) => kind === undefined || p.kinds.some((k) => k === kind)),
+        cursor,
+        this.pageSize,
+      ),
+    );
+  listPluginSources = () => this.settle(this.pluginSources);
+  searchPluginCatalog = ({
+    q,
+    source,
+    cursor,
+  }: {
+    q?: string;
+    source?: string;
+    kind?: string;
+    cursor?: string;
+  }) => {
+    this.calls.push(`searchPluginCatalog ${q ?? ""} ${source ?? ""}`.trimEnd());
+    return this.settle(this.catalog).then((all) =>
+      paged(
+        all.filter(
+          (e) =>
+            (source === undefined || e.source === source) &&
+            (q === undefined || q === "" || `${e.name} ${e.summary}`.includes(q)),
+        ),
+        cursor,
+        this.pageSize,
+      ),
+    );
+  };
+  private findPlugin(id: string): Plugin {
+    const found =
+      this.plugins instanceof ApiError ? undefined : this.plugins.find((p) => p.id === id);
+    if (!found) throw problem(404, "Not found", `No plugin ${id} is installed.`);
+    return found;
+  }
+  private setEnabled(id: string, enabled: boolean): Plugin {
+    const next = { ...this.findPlugin(id), enabled };
+    if (!(this.plugins instanceof ApiError)) {
+      this.plugins = this.plugins.map((p) => (p.id === id ? next : p));
+    }
+    return next;
+  }
+  installPlugin = ({ source, ref }: { source: string; ref: string }) =>
+    this.change(`installPlugin ${source} ${ref}`, () => {
+      const entry = fixtures.plugins[0];
+      if (!entry) throw new Error("no plugin fixture");
+      const installed: Plugin = {
+        ...entry,
+        id: `plg_01JD7ZK3M0000000000000009${String(this.calls.length % 10)}`,
+        name: ref.split("/").pop() ?? ref,
+        installed_by: "human:ada",
+        enabled: true,
+      };
+      if (!(this.plugins instanceof ApiError)) this.plugins = [...this.plugins, installed];
+      if (!(this.catalog instanceof ApiError)) {
+        this.catalog = this.catalog.map((e) => (e.ref === ref ? { ...e, installed: true } : e));
+      }
+      return installed;
+    });
+  uninstallPlugin = (id: string) =>
+    this.change(`uninstallPlugin ${id}`, () => {
+      this.findPlugin(id);
+      if (!(this.plugins instanceof ApiError))
+        this.plugins = this.plugins.filter((p) => p.id !== id);
+    });
+  enablePlugin = (id: string) => this.change(`enablePlugin ${id}`, () => this.setEnabled(id, true));
+  disablePlugin = (id: string) =>
+    this.change(`disablePlugin ${id}`, () => this.setEnabled(id, false));
+  listHumans = () => this.settle(this.humans);
+  createHuman = (body: { name: string; display_name: string; password: string }) =>
+    this.change(`createHuman ${body.name}`, () => {
+      const created: Human = {
+        name: body.name,
+        display_name: body.display_name,
+        uid: 1002,
+        created_at: "2026-11-19T20:00:00Z",
+        last_login_at: null,
+      };
+      if (!(this.humans instanceof ApiError)) this.humans = [...this.humans, created];
+      return created;
+    });
+  updateHuman = (name: string, body: { display_name?: string; password?: string }) =>
+    this.change(`updateHuman ${name} ${Object.keys(body).join(",")}`, (): Human => {
+      const list = this.humans instanceof ApiError ? fixtures.humans : this.humans;
+      const base = list.find((h) => h.name === name) ?? fixtures.humans[0];
+      if (!base) throw new Error("no human fixture");
+      const next = { ...base, name, display_name: body.display_name ?? base.display_name };
+      if (!(this.humans instanceof ApiError)) {
+        this.humans = this.humans.map((h) => (h.name === name ? next : h));
+      }
+      return next;
+    });
+  deleteHuman = (name: string) =>
+    this.change(`deleteHuman ${name}`, () => {
+      if (!(this.humans instanceof ApiError))
+        this.humans = this.humans.filter((h) => h.name !== name);
+    });
+  listThemes = () => Promise.resolve(this.themes);
 }
 
 function meHuman() {

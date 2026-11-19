@@ -59,7 +59,7 @@ func TestPreview(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var h http.Handler = web.New(web.Options{Auth: auth, Powers: powers, Log: log})
+		h := web.New(web.Options{Auth: auth, Powers: powers, Log: log})
 		if !strings.HasSuffix(addr, "7791") {
 			h = signedIn(t, auth, h)
 		}

@@ -632,11 +632,19 @@ func TestAnyPage_WhenTheCredentialStoreDoesNotAnswerIsUnavailable(t *testing.T) 
 	}
 }
 
-func TestStatic_ServesTheStyleSheet(t *testing.T) {
+func TestStatic_ServesTheStyleSheetUnderAnAddressThatChangesWithIt(t *testing.T) {
 	t.Parallel()
-	rec := newRig(t).browser(t).get("/static/control.css")
+	b := newRig(t).browser(t)
+	page := b.get("/setup").Body.String()
+	m := regexp.MustCompile(`href="(/static/control\.css\?v=[0-9a-f]{8})"`).FindStringSubmatch(page)
+	if m == nil {
+		t.Fatalf("the page links no versioned style sheet:\n%s", page)
+	}
+
+	rec := b.get(m[1])
+
 	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
-		t.Fatalf("GET /static/control.css = %d %q", rec.Code, rec.Header().Get("Content-Type"))
+		t.Fatalf("GET %s = %d %q", m[1], rec.Code, rec.Header().Get("Content-Type"))
 	}
 }
 

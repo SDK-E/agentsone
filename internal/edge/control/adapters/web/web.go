@@ -7,7 +7,9 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -61,14 +63,23 @@ type server struct {
 // New returns the control page handler.
 func New(o Options) http.Handler {
 	s := &server{auth: o.Auth, powers: o.Powers, log: o.Log, trusted: o.TrustedProxies}
+	var static fs.FS
+	css, err := staticFS.ReadFile("static/control.css")
+	if err != nil {
+		panic(err) // the embedded file is part of the binary
+	}
+	sum := sha256.Sum256(css)
+	// The style sheet's address changes with its content, so a browser never keeps an old one.
+	cssPath := "/static/control.css?v=" + hex.EncodeToString(sum[:4])
 	s.pages = template.Must(template.New("pages").Funcs(template.FuncMap{
+		"css":     func() string { return cssPath },
 		"message": s.message,
 		"dollars": domain.FormatDollars,
 		"plain":   plainDollars,
 		"when":    func(t time.Time) string { return t.UTC().Format("2 Jan 2006, 15:04 UTC") },
 	}).ParseFS(templateFS, "templates/*.html"))
 
-	static, err := fs.Sub(staticFS, "static")
+	static, err = fs.Sub(staticFS, "static")
 	if err != nil {
 		panic(err) // the embedded folder is part of the binary
 	}

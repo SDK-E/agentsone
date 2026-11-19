@@ -131,6 +131,8 @@ func serve(ctx context.Context, deps core.Deps) error {
 		deps.Log.Info("listening", "addr", ln.Addr().String())
 		go func() { errs <- srv.Serve(ln) }()
 	}
+	// The image boot test waits for this marker on the console.
+	deps.Log.Info("AGENTSONE-READY")
 	sd := systemdFromEnv()
 	if err := sd.notify("READY=1"); err != nil {
 		deps.Log.Warn("systemd readiness", "err", err)

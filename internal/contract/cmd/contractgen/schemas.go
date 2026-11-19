@@ -66,7 +66,23 @@ func generateSchemas(r repo) error {
 	if _, err := r.goTool(args...); err != nil {
 		return err
 	}
-	return addHeaders(r, files)
+	if err := addHeaders(r, files); err != nil {
+		return err
+	}
+	return addTimeMethodsPerPackage(r, files)
+}
+
+func addTimeMethodsPerPackage(r repo, files []schemaFile) error {
+	byDir := map[string][]string{}
+	for _, f := range files {
+		byDir[f.dir] = append(byDir[f.dir], f.dir+"/"+outputName(f.rel))
+	}
+	for dir, outputs := range byDir {
+		if err := addTimeMethods(r, dir, outputs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func findSchemas(r repo) ([]schemaFile, error) {

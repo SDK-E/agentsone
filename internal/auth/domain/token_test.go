@@ -105,7 +105,7 @@ func TestToken_CallerCarriesSubjectAndScopes(t *testing.T) {
 	t.Parallel()
 	tok, _, _ := domain.NewToken(randomBytes(2), core.Caller{Kind: core.CallerPlugin, Name: "notes", UID: -1}, []string{"memory:read"}, epoch, time.Hour)
 	c := tok.Caller()
-	if c.Kind != core.CallerPlugin || c.Name != "notes" || c.IsRoot || !c.Has("memory:read") || c.Has("memory:write") {
+	if c.Kind != core.CallerPlugin || c.Name != "notes" || c.IsRoot || !c.Has("memory:read") || c.Has("memory:write") || c.Assurance != core.AssuranceSoft {
 		t.Fatalf("caller %+v", c)
 	}
 }

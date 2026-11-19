@@ -38,7 +38,23 @@ type Caller struct {
 	IsRoot bool
 	// Scopes are the permissions granted to a token or session.
 	Scopes []string
+	// Assurance says how strongly the identity is known. The zero value is
+	// hard; agents named by uid or by token are soft.
+	Assurance Assurance
 }
+
+// Assurance is how strongly a caller's identity is known.
+type Assurance string
+
+// Assurance levels.
+const (
+	// AssuranceHard: the kernel placed the process (agent cgroup), or a
+	// human signed in to a daemon session, or a system caller.
+	AssuranceHard Assurance = ""
+	// AssuranceSoft: an agent named by its uid or by a bearer token, where
+	// the process could not be placed in its own cgroup.
+	AssuranceSoft Assurance = "soft"
+)
 
 // Has reports whether the caller holds scope. Root callers hold every scope.
 func (c Caller) Has(scope string) bool {

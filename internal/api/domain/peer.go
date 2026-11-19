@@ -46,7 +46,7 @@ func ResolvePeer(p Peer, cgroup string, agentByUID AgentByUID) core.Caller {
 	}
 	if p.UID >= MinAgentUID && p.UID <= MaxAgentUID {
 		if name, ok := agentByUID(p.UID); ok {
-			return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID}
+			return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID, Assurance: core.AssuranceSoft}
 		}
 	}
 	name := "uid:" + strconv.Itoa(p.UID)

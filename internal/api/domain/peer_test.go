@@ -69,7 +69,7 @@ func TestResolvePeer_NamesTheCaller(t *testing.T) {
 		},
 		{
 			"soft: custom agent by uid when cgroups are read only", domain.Peer{PID: 13, UID: 200001}, "0::/",
-			core.Caller{Kind: core.CallerAgent, Name: "scout", UID: 200001},
+			core.Caller{Kind: core.CallerAgent, Name: "scout", UID: 200001, Assurance: core.AssuranceSoft},
 		},
 		{
 			"soft: unknown uid in the agent range is system", domain.Peer{PID: 14, UID: 200002}, "0::/",

@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 // Package tokenkey keeps the gateway key: the secret that signs agent gateway tokens. The edge
-// makes it on first start in its data folder, as a file only the edge user can read (mode 0600,
-// owned by the edge user), and uses the same key on every later start, so tokens the daemon
-// issued stay valid across an edge restart. The daemon receives the key through the door.
+// makes it on first start, as a file only the edge user can read (mode 0600, owned by the edge
+// user), and uses the same key on every later start, so tokens the daemon issued stay valid
+// across an edge restart.
+//
+// The file sits in its own folder, the gateway-key volume of compose.yaml. The edge mounts it
+// inside its data folder; the machine mounts it read-only at /run/agentsone/gateway-key, so the
+// daemon reads the key at /run/agentsone/gateway-key/key. Control never mounts it.
 package tokenkey
 
 import (
@@ -15,19 +19,28 @@ import (
 	"path/filepath"
 )
 
-// FileName is the key file in the edge data folder.
-const FileName = "gateway-key"
+// Folder is the key folder in the edge data folder: the gateway-key volume.
+const Folder = "gateway-key"
+
+// FileName is the key file in Folder.
+const FileName = "key"
 
 // Size is the key length in bytes.
 const Size = 32
 
-// LoadOrCreate returns the key at path, making it first when there is none. Several starts at
-// once agree on one key. A file of the wrong size is refused and left for a human to look at; a
-// file others could read is made owner-only.
+// Path is the key file for the edge data folder dataDir.
+func Path(dataDir string) string { return filepath.Join(dataDir, Folder, FileName) }
+
+// LoadOrCreate returns the key at path, making it (and its folder, owner-only) first when there
+// is none. Several starts at once agree on one key. A file of the wrong size is refused and left
+// for a human to look at; a file others could read is made owner-only.
 func LoadOrCreate(path string) ([]byte, error) {
 	key, err := load(path)
 	if !errors.Is(err, fs.ErrNotExist) {
 		return key, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("gateway key: %w", err)
 	}
 	if err := create(path); err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, err

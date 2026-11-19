@@ -47,7 +47,7 @@ type KeyStore interface {
 
 // Options configure Open. Zero fields take the real implementations, except Frozen.
 type Options struct {
-	// DataDir holds gateway.toml, budget.db, gateway-key and the keys folder.
+	// DataDir holds gateway.toml, budget.db, the gateway-key folder and the keys folder.
 	DataDir string
 	// Frozen reads the edge freeze switch before every model call. Nil refuses every call.
 	Frozen func(ctx context.Context) (bool, error)
@@ -116,7 +116,7 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 	if o.HTTPClient == nil {
 		o.HTTPClient = providers.NewHTTPClient(time.Duration(cfg.Limits.HeaderTimeoutSeconds) * time.Second)
 	}
-	key, err := tokenkey.LoadOrCreate(filepath.Join(o.DataDir, tokenkey.FileName))
+	key, err := tokenkey.LoadOrCreate(tokenkey.Path(o.DataDir))
 	if err != nil {
 		return nil, err
 	}

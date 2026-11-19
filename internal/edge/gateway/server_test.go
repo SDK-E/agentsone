@@ -426,9 +426,9 @@ func TestTokenKeyIsKeptAcrossStartsAndCopied(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	info, err := os.Stat(filepath.Join(dir, "gateway-key"))
+	info, err := os.Stat(filepath.Join(dir, "gateway-key", "key"))
 	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("gateway-key = %v, %v; want a 0600 file", info, err)
+		t.Fatalf("gateway-key/key = %v, %v; want a 0600 file", info, err)
 	}
 
 	again, err := gateway.Open(context.Background(), gateway.Options{DataDir: dir, Keys: memKeys{}})

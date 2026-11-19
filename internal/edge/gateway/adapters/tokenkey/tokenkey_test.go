@@ -117,9 +117,37 @@ func TestLoadOrCreate_RefusesSomethingThatIsNotAFile(t *testing.T) {
 	}
 }
 
+func TestPath_IsTheKeyFileInTheSharedVolume(t *testing.T) {
+	t.Parallel()
+	// compose.yaml mounts the gateway-key volume at this folder in the edge and read-only in the
+	// machine, so the file must sit inside it.
+	if got, want := tokenkey.Path("/var/lib/agentsone-edge"), "/var/lib/agentsone-edge/gateway-key/key"; got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
+	}
+}
+
+func TestLoadOrCreate_MakesAMissingFolderOwnerOnly(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	if _, err := tokenkey.LoadOrCreate(tokenkey.Path(dir)); err != nil {
+		t.Fatalf("LoadOrCreate() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, tokenkey.Folder))
+	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("key folder = %v, %v; want a folder with mode 0700", info, err)
+	}
+}
+
 func TestLoadOrCreate_ReportsAFolderItCannotWrite(t *testing.T) {
 	t.Parallel()
-	if _, err := tokenkey.LoadOrCreate(filepath.Join(t.TempDir(), "missing", "gateway-key")); err == nil {
-		t.Fatal("LoadOrCreate() in a missing folder succeeded")
+	dir := filepath.Join(t.TempDir(), "locked")
+	if err := os.Mkdir(dir, 0o500); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	if _, err := tokenkey.LoadOrCreate(filepath.Join(dir, "key")); err == nil {
+		t.Fatal("LoadOrCreate() in a folder it cannot write succeeded")
 	}
 }

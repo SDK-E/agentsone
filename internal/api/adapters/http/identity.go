@@ -112,12 +112,20 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 			core.WriteError(w, r, err)
 			return
 		}
-		// The host the interface is served at is what the browser's Origin must
+		// The origin the interface is served at is what the browser's Origin must
 		// match, here and in the terminal WebSocket check: the configured public
-		// URL when there is one, else what place found.
+		// URL when there is one, else the host place found and, from the edge,
+		// the scheme the browser used.
 		scheme := ""
+		if fromEdge {
+			scheme = forwardedScheme(r.Header.Get("X-Forwarded-Proto"))
+		}
 		if t.Public != nil {
 			r.Host, scheme = t.Public.Host, t.Public.Scheme
+		}
+		if origin := r.Header.Get("Origin"); isWebSocket(r) && origin != "" && !domain.OriginMatches(origin, r.Host, scheme) {
+			core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden", "cross-origin WebSocket refused"))
+			return
 		}
 		if isFirstHuman(r) && !fromEdge {
 			refuseFirstHuman(w, r)
@@ -224,6 +232,22 @@ func lastForwarded(h string) netip.Addr {
 func lastEntry(h string) string {
 	parts := strings.Split(h, ",")
 	return strings.TrimSpace(parts[len(parts)-1])
+}
+
+// forwardedScheme is the scheme the edge says the browser used, or "" when
+// it says nothing usable.
+func forwardedScheme(h string) string {
+	switch s := lastEntry(h); s {
+	case "http", "https":
+		return s
+	}
+	return ""
+}
+
+// isWebSocket reports a WebSocket upgrade. GET passes the CSRF check, so a
+// browser's Origin on an upgrade is checked on its own.
+func isWebSocket(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
 // hostOnly accepts a bare host or host:port, nothing more.

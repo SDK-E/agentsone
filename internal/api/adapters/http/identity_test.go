@@ -271,6 +271,70 @@ func TestTCPIdentity_KeepsTheHostWhenTheForwardedHostIsMalformed(t *testing.T) {
 	}
 }
 
+// behindTLS is the web door behind a platform that ends TLS: the browser opened
+// https://agents.example.test.
+var behindTLS = map[string]string{"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "agents.example.test"}
+
+func TestTCPIdentity_ThroughTheDoorTheOriginSchemeIsTheForwardedProto(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, origin string
+		status       int
+	}{
+		{"https page behind TLS", "https://agents.example.test", 200},
+		{"same host over plain http", "http://agents.example.test", 403},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			rec := send(req{method: "POST", path: "/v1/agents", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: c.origin, headers: behindTLS})
+			if rec.Code != c.status {
+				t.Fatalf("got %d, want %d: %s", rec.Code, c.status, rec.Body)
+			}
+		})
+	}
+}
+
+func TestTCPIdentity_IgnoresAForwardedProtoFromInsideTheMachine(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{"X-Forwarded-Proto": "https"}
+	rec := send(req{method: "POST", path: "/v1/agents", host: "127.0.0.1:7700", cookie: "aos_good", origin: "http://127.0.0.1:7700", headers: h})
+	if rec.Code != 200 {
+		t.Fatalf("got %d, want the forged scheme ignored: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestTCPIdentity_TerminalWebSocketsFollowTheSameOriginRule(t *testing.T) {
+	t.Parallel()
+	upgrade := func(extra map[string]string) map[string]string {
+		h := map[string]string{"Upgrade": "websocket", "Connection": "Upgrade"}
+		for k, v := range extra {
+			h[k] = v
+		}
+		return h
+	}
+	cases := []struct {
+		name, origin string
+		headers      map[string]string
+		status       int
+	}{
+		{"same origin through the door", "http://127.0.0.1:7780", upgrade(door), 200},
+		{"https page behind TLS", "https://agents.example.test", upgrade(behindTLS), 200},
+		{"plain http page behind TLS", "http://agents.example.test", upgrade(behindTLS), 403},
+		{"another site", "http://evil.test", upgrade(door), 403},
+		{"a program, no Origin", "", upgrade(door), 200},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			rec := send(req{method: "GET", path: "/v1/machine/pty/pty_1/socket", remote: "172.18.0.2:4000", host: "machine:7700", cookie: "aos_good", origin: c.origin, headers: c.headers})
+			if rec.Code != c.status {
+				t.Fatalf("got %d, want %d: %s", rec.Code, c.status, rec.Body)
+			}
+		})
+	}
+}
+
 // public is the daemon with [api] public_url set.
 var public = httpadapter.TCPIdentity{
 	Verify: verify, EdgeIPs: []netip.Addr{netip.MustParseAddr("172.18.0.2")},

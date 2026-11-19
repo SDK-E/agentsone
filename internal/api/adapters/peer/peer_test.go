@@ -34,6 +34,15 @@ func TestResolver_NamesEachUID0AgentByItsUnit(t *testing.T) {
 	}
 }
 
+func TestResolver_WithoutProcEveryPeerIsSystem(t *testing.T) {
+	t.Parallel()
+	r := peer.Resolver{Credentials: fixed(domain.Peer{PID: 10, UID: 501}, nil), HumanByUID: peer.NoHumans}
+	c, err := r.Caller(nil)
+	if err != nil || c.Kind != core.CallerSystem || c.Name != "uid:501" {
+		t.Fatalf("caller %+v err %v", c, err)
+	}
+}
+
 func TestResolver_FailsWithoutCredentials(t *testing.T) {
 	t.Parallel()
 	r := peer.Resolver{Proc: proc, Credentials: fixed(domain.Peer{}, peer.ErrUnsupported), HumanByUID: peer.NoHumans}

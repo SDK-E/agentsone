@@ -62,7 +62,7 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(web)),
 		tcp: httpadapter.RequestLog(deps.Log, "tcp", deps.Clock,
 			httpadapter.TCPIdentity{Verify: verify, TrustedProxies: trusted}.Wrap(web)),
-		resolver: peer.Resolver{Proc: os.DirFS("/proc"), Credentials: peer.Credentials, HumanByUID: peer.NoHumans},
+		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, HumanByUID: peer.NoHumans},
 		log:      deps.Log,
 		cfg:      *deps.Config,
 	}

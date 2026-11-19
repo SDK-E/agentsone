@@ -6,12 +6,17 @@ package peer
 
 import (
 	"fmt"
+	"io/fs"
 	"net"
+	"os"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/SDK-E/agentsone/internal/api/domain"
 )
+
+// ProcFS is /proc.
+func ProcFS() fs.FS { return os.DirFS("/proc") }
 
 // Credentials reads SO_PEERCRED from a Unix connection.
 func Credentials(c net.Conn) (domain.Peer, error) {

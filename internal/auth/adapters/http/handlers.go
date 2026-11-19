@@ -67,9 +67,9 @@ func problem(p *core.Problem) contract.Problem {
 }
 
 func toHuman(h domain.Human) contract.Human {
-	out := contract.Human{Name: h.Name, DisplayName: h.DisplayName, Uid: h.UID, CreatedAt: h.CreatedAt}
+	out := contract.Human{Name: h.Name, DisplayName: h.DisplayName, Uid: h.UID, CreatedAt: contract.Timestamp(h.CreatedAt)}
 	if !h.LastLoginAt.IsZero() {
-		t := h.LastLoginAt
+		t := contract.Timestamp(h.LastLoginAt)
 		out.LastLoginAt = &t
 	}
 	return out
@@ -92,7 +92,7 @@ func (h sessionHandlers) CreateSession(ctx context.Context, req sessionapi.Creat
 	}
 	cookie := sessionCookie(secret, int(domain.SessionTTL/time.Second), info.secure)
 	return sessionapi.CreateSession201JSONResponse{
-		Body:    contract.Session{Human: toHuman(human), ExpiresAt: sess.ExpiresAt},
+		Body:    contract.Session{Human: toHuman(human), ExpiresAt: contract.Timestamp(sess.ExpiresAt)},
 		Headers: sessionapi.CreateSession201ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
@@ -219,7 +219,7 @@ func (h humansHandlers) DeleteHuman(ctx context.Context, req humansapi.DeleteHum
 
 func toFetch(f domain.EngineFetch) contract.EngineFetchStatus {
 	out := contract.EngineFetchStatus{
-		State: contract.EngineFetchState(f.State), Progress: float32(f.Progress), BytesDone: f.BytesDone, UpdatedAt: f.UpdatedAt,
+		State: contract.EngineFetchState(f.State), Progress: float32(f.Progress), BytesDone: f.BytesDone, UpdatedAt: contract.Timestamp(f.UpdatedAt),
 	}
 	if f.BytesTotal > 0 {
 		out.BytesTotal = &f.BytesTotal
@@ -263,7 +263,8 @@ func (h setupHandlers) GetEngineLicence(ctx context.Context, _ setupapi.GetEngin
 	out := contract.EngineLicence{Engine: v.Engine, Version: v.Version, Text: v.Text}
 	if v.Accepted != nil {
 		out.Accepted = true
-		out.AcceptedAt = &v.Accepted.AcceptedAt
+		at := contract.Timestamp(v.Accepted.AcceptedAt)
+		out.AcceptedAt = &at
 		out.AcceptedBy = &v.Accepted.AcceptedBy
 	}
 	return setupapi.GetEngineLicence200JSONResponse(out), nil

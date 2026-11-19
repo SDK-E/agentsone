@@ -21,7 +21,7 @@ var ErrUnsupported = errors.New("peer credentials are not supported on this plat
 
 // Resolver turns a Unix connection into a caller.
 type Resolver struct {
-	// Proc is the /proc file system (os.DirFS("/proc") in production).
+	// Proc is the /proc file system (ProcFS()), or nil where there is none.
 	Proc fs.FS
 	// Credentials reads SO_PEERCRED; Credentials in production.
 	Credentials func(net.Conn) (domain.Peer, error)
@@ -39,6 +39,10 @@ func (r Resolver) Caller(c net.Conn) (core.Caller, error) {
 	p, err := r.Credentials(c)
 	if err != nil {
 		return core.Anonymous, fmt.Errorf("peer credentials: %w", err)
+	}
+	if r.Proc == nil {
+		// No cgroups on this platform: nobody can be an agent.
+		return domain.ResolvePeer(p, "", r.HumanByUID), nil
 	}
 	cgroup, err := fs.ReadFile(r.Proc, strconv.Itoa(p.PID)+"/cgroup")
 	if err != nil {

@@ -12,6 +12,7 @@
 #   */domain/*    90
 #   */app/*       90
 #   */adapters/*  70
+#   runners/claude 90 (holds the token proxy, the wall that keeps tokens from the engine)
 # Excluded from the gate: cmd/*, generated code and packages (gen, generated, *.gen.go,
 # *_gen.go, *.pb.go, zz_generated*.go, internal/contract/*), testdata, and test-support
 # packages (any directory whose name ends in "test", such as coretest).
@@ -23,6 +24,7 @@ set -euo pipefail
 readonly MIN_DOMAIN=90
 readonly MIN_APP=90
 readonly MIN_ADAPTERS=70
+readonly MIN_RUNNER_CLAUDE=90
 
 usage() {
   echo "usage: scripts/check-coverage.sh <coverprofile>" >&2
@@ -60,6 +62,7 @@ layer_of() {
     */domain/*) echo "domain $MIN_DOMAIN" ;;
     */app/*) echo "app $MIN_APP" ;;
     */adapters/*) echo "adapters $MIN_ADAPTERS" ;;
+    */runners/claude/) echo "runner $MIN_RUNNER_CLAUDE" ;;
     *) echo "unchecked -" ;;
   esac
 }

@@ -128,6 +128,7 @@
       "failed": "Stopped with an error",
       "retired": "Retired"
     },
+    "stateReason": "Why it stopped:",
     "kind": { "always-on": "Always on", "chat": "Chat", "waker": "Waker" }
   },
   "chat": {

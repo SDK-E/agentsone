@@ -8,7 +8,9 @@ import { useApi } from "../../app/api-context";
 import { LoadError, Loading } from "../../shell/status";
 import { Presence } from "../../society/agent-presence";
 import { relativeTime, useNow } from "../../society/relative-time";
+import { StateReason } from "../../society/state-reason";
 import { useLiveList } from "../../society/use-live-list";
+import { useStateReasons } from "../../society/use-state-reasons";
 import { formatMoney } from "./format";
 import { Meter, type MeterTone } from "./meter";
 
@@ -27,6 +29,7 @@ export function AgentRows() {
   });
   const now = useNow();
   const entries = live.data ?? [];
+  const reasons = useStateReasons(entries, live.mode);
   const shares = new Map((split.data?.nodes ?? []).map((n) => [n.agent, n]));
 
   return (
@@ -58,6 +61,7 @@ export function AgentRows() {
             <AgentRow
               key={entry.agent}
               entry={entry}
+              reason={reasons.get(entry.agent)}
               share={shares.get(entry.agent)}
               split={split.data}
               now={now}
@@ -72,12 +76,14 @@ export function AgentRows() {
 
 function AgentRow({
   entry,
+  reason,
   share,
   split,
   now,
   changed,
 }: {
   entry: LiveEntry;
+  reason: string | undefined;
   share: BudgetNode | undefined;
   split: BudgetSplit | undefined;
   now: number;
@@ -100,6 +106,7 @@ function AgentRow({
           <span className={`state state--${entry.state}`}>{t(`agent.state.${entry.state}`)}</span>
         </p>
         <p className="agent-row__line">{line ? line.text : t("society.noLine")}</p>
+        <StateReason reason={reason} />
         {line && <p className="hint">{relativeTime(line.updated_at, now)}</p>}
         {share && split && (
           <Share share={share} currency={split.currency} name={entry.display_name} />

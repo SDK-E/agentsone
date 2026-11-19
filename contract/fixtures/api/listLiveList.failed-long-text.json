@@ -1,0 +1,26 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "agent": "a-very-long-agent-name-for-test",
+        "display_name": "An Exceptionally Long Display Name Used To Test Wrapping In Every Panel Of The U",
+        "kind": "chat",
+        "state": "failed",
+        "team": "founder",
+        "role": "Specialised documentation router for long and complicated requests from humans",
+        "one_line": null
+      },
+      {
+        "agent": "tester",
+        "display_name": "Tester",
+        "kind": "chat",
+        "state": "sleeping",
+        "team": "builder",
+        "role": "Test writer",
+        "one_line": null
+      }
+    ],
+    "next_cursor": null
+  }
+}

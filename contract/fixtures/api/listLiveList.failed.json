@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "agent": "founder",
+        "display_name": "Founder",
+        "kind": "always-on",
+        "state": "working",
+        "team": "founder",
+        "role": "Founder",
+        "one_line": {
+          "text": "Goal: keep the society healthy. Now: reviewing builder's plan for the docs site.",
+          "updated_at": "2026-11-19T18:39:12Z"
+        }
+      },
+      {
+        "agent": "builder",
+        "display_name": "Builder",
+        "kind": "always-on",
+        "state": "failed",
+        "team": "builder",
+        "role": "Builder",
+        "one_line": {
+          "text": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy.",
+          "updated_at": "2026-11-19T18:38:55Z"
+        }
+      },
+      {
+        "agent": "scribe",
+        "display_name": "Scribe",
+        "kind": "chat",
+        "state": "sleeping",
+        "team": "builder",
+        "role": "Docs writer",
+        "one_line": null
+      }
+    ],
+    "next_cursor": null
+  }
+}

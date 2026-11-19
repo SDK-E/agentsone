@@ -564,6 +564,20 @@ ul.notice {
   font-weight: var(--weight-bold);
 }
 
+/* Why an agent stopped: the danger colour of the failed state, wrapped so a long reason fits. */
+.state-reason {
+  min-width: 0;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 3px solid var(--color-danger);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.state-reason__label {
+  color: var(--color-danger);
+  font-weight: var(--weight-bold);
+}
+
 .state--frozen {
   color: var(--color-info);
   font-weight: var(--weight-bold);

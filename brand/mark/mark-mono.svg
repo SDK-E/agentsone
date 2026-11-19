@@ -1,0 +1,7 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Agents One mark, one colour (ink), for light backgrounds. 64 by 64 grid. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title">
+  <title id="title">Agents One</title>
+  <path d="M53.92 30.08A22 22 0 1 1 33.92 10.08" fill="none" stroke="#1C1C1A" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="47.56" cy="16.44" r="7" fill="#1C1C1A"/>
+</svg>

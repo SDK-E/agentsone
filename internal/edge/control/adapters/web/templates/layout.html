@@ -1,0 +1,104 @@
+{{/* SPDX-License-Identifier: MIT */}}
+{{define "top"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="same-origin">
+<title>{{.Title}} · Agents One control</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{css}}">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the page</a>
+<header class="top">
+  <div class="brand">
+    <picture>
+      <source srcset="/static/mark-dark.svg" media="(prefers-color-scheme: dark)">
+      <img src="/static/mark.svg" alt="" width="36" height="36">
+    </picture>
+    <span>Agents One control<small>For humans only</small></span>
+  </div>
+  {{if .SignedIn}}
+  <form method="post" action="/sign-out">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <button class="button button--quiet" type="submit">Sign out</button>
+  </form>
+  {{end}}
+</header>
+{{end}}
+
+{{define "flash"}}
+{{if .Flash.Text}}
+  {{if eq (print .Flash.Kind) "error"}}
+  <p class="notice notice--error" role="alert">{{.Flash.Text}}</p>
+  {{else}}
+  <p class="notice notice--done" role="status">{{.Flash.Text}}</p>
+  {{end}}
+{{end}}
+{{end}}
+
+{{define "bottom"}}
+</body>
+</html>
+{{end}}
+
+{{define "setup"}}{{template "top" .}}
+<main id="main" class="narrow">
+  <div class="card">
+    <h1>Set up the control page</h1>
+    <p class="lead">This page holds the powers only a human has: the internet allow list, model keys, the budget and freeze all. Choose a passphrase to protect it.</p>
+    <p>You need the setup code. It is in the log of the control service. Run this where the stack runs:</p>
+    <pre class="command">docker compose logs control</pre>
+    {{if .Error}}<p class="notice notice--error" role="alert" id="form-error">{{.Error}}</p>{{end}}
+    <form class="form" method="post" action="/setup">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label class="field">Setup code
+        <input type="text" name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required
+          aria-describedby="code-hint"{{if eq .ErrorField "code"}} aria-invalid="true"{{end}}>
+        <span class="hint" id="code-hint">Three groups of four, like ABCD-EFGH-JKMN. It works once.</span>
+      </label>
+      <label class="field">New passphrase
+        <input type="password" name="passphrase" autocomplete="new-password" minlength="12" required
+          aria-describedby="pass-hint"{{if eq .ErrorField "passphrase"}} aria-invalid="true"{{end}}>
+        <span class="hint" id="pass-hint">At least 12 characters. A few words you will remember works well.</span>
+      </label>
+      <label class="field">Passphrase again
+        <input type="password" name="confirm" autocomplete="new-password" minlength="12" required{{if eq .ErrorField "confirm"}} aria-invalid="true"{{end}}>
+      </label>
+      <div class="actions"><button class="button button--primary" type="submit">Set passphrase</button></div>
+    </form>
+    <p class="hint">Forgot it later? Run <code>docker compose exec edge agentsone control reset</code>, then come back here with a new setup code.</p>
+  </div>
+</main>
+{{template "bottom" .}}{{end}}
+
+{{define "signin"}}{{template "top" .}}
+<main id="main" class="narrow">
+  <div class="card">
+    <h1>Sign in</h1>
+    <p class="lead">Enter the control passphrase.</p>
+    {{template "flash" .}}
+    {{if .Error}}<p class="notice notice--error" role="alert">{{.Error}}</p>{{end}}
+    <form class="form" method="post" action="/sign-in">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label class="field">Passphrase
+        <input type="password" name="passphrase" autocomplete="current-password" required{{if .Error}} aria-invalid="true"{{end}}>
+      </label>
+      <div class="actions"><button class="button button--primary" type="submit">Sign in</button></div>
+    </form>
+    <p class="hint">Forgot it? Run <code>docker compose exec edge agentsone control reset</code> where the stack runs. Then set a new passphrase with the setup code from <code>docker compose logs control</code>.</p>
+  </div>
+</main>
+{{template "bottom" .}}{{end}}
+
+{{define "problem"}}{{template "top" .}}
+<main id="main" class="narrow">
+  <div class="card">
+    <h1>{{.Title}}</h1>
+    <p>{{.Error}}</p>
+    <div class="actions"><a class="button button--primary" href="/">Back to the control page</a></div>
+  </div>
+</main>
+{{template "bottom" .}}{{end}}

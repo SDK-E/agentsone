@@ -1,0 +1,8 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Agents One favicon. Drawn on a 16 by 16 pixel grid with a thicker ring and a wider gap so it stays clear at 16 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-labelledby="title">
+  <title id="title">Agents One</title>
+  <rect width="16" height="16" rx="3.5" fill="#105C54"/>
+  <path d="M12.48 8.39A4.5 4.5 0 1 1 7.61 3.52" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="11.18" cy="4.82" r="1.9" fill="#F6C66B"/>
+</svg>

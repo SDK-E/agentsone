@@ -19,6 +19,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/adminsock"
 	"github.com/SDK-E/agentsone/internal/edge/audit"
 	"github.com/SDK-E/agentsone/internal/edge/component"
+	"github.com/SDK-E/agentsone/internal/edge/control"
 	"github.com/SDK-E/agentsone/internal/edge/door"
 	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
 	"github.com/SDK-E/agentsone/internal/edge/freeze"
@@ -30,13 +31,15 @@ import (
 // The audit sink comes first: it shares the proof recorder with every part after it. The internet
 // filter shares the egress freeze; the freeze-all switch then takes its place for the later parts.
 // The model gateway refuses to start without a freeze switch, so it starts after freeze and gets
-// the freeze-all switch. The door, the humans' way in, opens last.
+// the freeze-all switch. The control credential only adds admin routes. The door, the humans' way
+// in, opens last.
 func Components() []component.Component {
 	return []component.Component{
 		audit.Component{},
 		edgenet.Component{},
 		freeze.Component{},
 		gateway.Component{},
+		control.Component{},
 		door.Component{},
 	}
 }

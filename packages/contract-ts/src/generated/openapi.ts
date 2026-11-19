@@ -2367,6 +2367,7 @@ export interface components {
        */
       runner: string;
       state: components["schemas"]["AgentState"];
+      state_reason?: components["schemas"]["AgentStateReason"];
       /** @description Name of the agent that heads this agent's chart branch (team). Used for team memory and freeze. */
       team: components["schemas"]["AgentName"];
       /** @description Agent template name the agent was hired from, or null. */
@@ -2468,6 +2469,13 @@ export interface components {
     };
     /** @enum {string} */
     AgentState: "sleeping" | "waking" | "awake" | "working" | "frozen" | "failed" | "retired";
+    /**
+     * @description Plain words that say why the agent is in `state` when that is not the normal course, for
+     *     example "The model gateway is not reachable." The daemon sets it when a runner cannot start or
+     *     stops with an error (`failed`), and clears it (null or absent) when the agent runs again.
+     *     Show it under the agent; it is not a log line.
+     */
+    AgentStateReason: string | null;
     /**
      * AgentTemplate
      * @description An agent template, shipped by a plugin (contents.agentTemplates). Hiring an agent from a template copies these values into the new agent, which may then change its charter and goals itself.
@@ -4204,6 +4212,7 @@ export interface components {
        */
       kind: "state";
       state: components["schemas"]["AgentState"];
+      state_reason?: components["schemas"]["AgentStateReason"];
       time: components["schemas"]["Timestamp"];
     };
     /** @description Wake the agent when an event matches filter, at most rateLimit.maxWakes times per rateLimit.perSeconds. Events over the limit are counted and handed over in the next wake, not dropped. */

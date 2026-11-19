@@ -455,6 +455,9 @@
           "state": {
             "$ref": "#/components/schemas/AgentState"
           },
+          "state_reason": {
+            "$ref": "#/components/schemas/AgentStateReason"
+          },
           "team": {
             "$ref": "#/components/schemas/AgentName",
             "description": "Name of the agent that heads this agent's chart branch (team). Used for team memory and freeze."
@@ -792,6 +795,14 @@
           "retired"
         ],
         "type": "string"
+      },
+      "AgentStateReason": {
+        "description": "Plain words that say why the agent is in `state` when that is not the normal course, for\nexample \"The model gateway is not reachable.\" The daemon sets it when a runner cannot start or\nstops with an error (`failed`), and clears it (null or absent) when the agent runs again.\nShow it under the agent; it is not a log line.\n",
+        "maxLength": 500,
+        "type": [
+          "string",
+          "null"
+        ]
       },
       "AgentTemplate": {
         "$defs": {
@@ -7009,6 +7020,9 @@
           "state": {
             "$ref": "#/components/schemas/AgentState"
           },
+          "state_reason": {
+            "$ref": "#/components/schemas/AgentStateReason"
+          },
           "time": {
             "$ref": "#/components/schemas/Timestamp"
           }
@@ -8430,7 +8444,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.4"
+    "version": "1.0.5"
   },
   "openapi": "3.1.1",
   "paths": {

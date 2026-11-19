@@ -1,0 +1,33 @@
+{
+  "status": 200,
+  "body": {
+    "name": "builder",
+    "display_name": "Builder",
+    "kind": "always-on",
+    "is_root": false,
+    "runner": "claude",
+    "manager": "founder",
+    "team": "builder",
+    "role": "Builder",
+    "description": "Builds and ships the society's own tools and the docs site.",
+    "state": "failed",
+    "state_reason": "The model gateway is not reachable.",
+    "one_line": {
+      "text": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy.",
+      "updated_at": "2026-11-19T18:38:55Z"
+    },
+    "limits": {
+      "cpu_percent": 200,
+      "memory_mb": 2048,
+      "tasks": 512,
+      "wall": "soft"
+    },
+    "uid": 1103,
+    "home": "/home/agents/builder",
+    "unit": "agent@builder.service",
+    "template": null,
+    "created_at": "2026-11-19T08:20:31Z",
+    "created_by": "agent:founder",
+    "last_turn_at": "2026-11-19T18:38:55Z"
+  }
+}

@@ -91,6 +91,16 @@ content" warnings.
 
 ## Changelog
 
+### 1.0.5
+
+Additive.
+
+- `Agent.state_reason` and `StateFrame.state_reason` (optional, string or null, up to 500
+  characters): plain words that say why an agent is `failed`, for example "The model gateway is not
+  reachable." The daemon sets it when a runner cannot start or stops with an error and clears it when
+  the agent runs again.
+- New fixtures `getAgent.failed` and `getAgent.failed-long-text`.
+
 ### 1.0.4
 
 Additive.

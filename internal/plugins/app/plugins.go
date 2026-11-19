@@ -225,6 +225,11 @@ func (p *Plugins) Enable(ctx context.Context, id string) (domain.Plugin, error) 
 		_ = p.d.Repo.SetEnabled(ctx, id, false, domain.HealthFailed)
 		return domain.Plugin{}, pluginError("enable plugin", fmt.Errorf("%s changed on disk since install: %w", pl.Name, domain.ErrIntegrity))
 	}
+	if !pl.Enabled {
+		if err := p.checkTemplates(ctx, pl); err != nil {
+			return domain.Plugin{}, pluginError("enable plugin", err)
+		}
+	}
 	for _, ref := range pl.Manifest.Contents.Themes {
 		doc, err := readInTree(pl.Dir, ref.Path)
 		if err != nil {

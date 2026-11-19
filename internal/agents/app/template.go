@@ -23,6 +23,9 @@ func (s *Society) Templates(ctx context.Context) ([]core.AgentTemplate, error) {
 type templateSeed struct {
 	OneLine string   `json:"oneLine"`
 	Goals   []string `json:"goals"`
+	// Charter is the starting charter. Seeding the society makes the
+	// founder's the society's first charter.
+	Charter string `json:"charter"`
 }
 
 // applyTemplate fills spec from the named template. The template decides
@@ -31,12 +34,9 @@ func (s *Society) applyTemplate(ctx context.Context, spec domain.HireSpec) (doma
 	if spec.Template == "" {
 		return spec, templateSeed{}, nil
 	}
-	tpl, err := s.ports.Templates.Get(ctx, spec.Template)
-	if errors.Is(err, core.ErrNotFound) {
-		return domain.HireSpec{}, templateSeed{}, fmt.Errorf("%w: no installed template %q", domain.ErrInvalidAgent, spec.Template)
-	}
+	tpl, err := s.template(ctx, spec.Template)
 	if err != nil {
-		return domain.HireSpec{}, templateSeed{}, fmt.Errorf("read template %s: %w", spec.Template, err)
+		return domain.HireSpec{}, templateSeed{}, err
 	}
 	var seed templateSeed
 	if len(tpl.Raw) > 0 {
@@ -47,6 +47,18 @@ func (s *Society) applyTemplate(ctx context.Context, spec domain.HireSpec) (doma
 	spec.IsRoot = tpl.IsRoot
 	spec.Template = tpl.ID
 	return spec, seed, nil
+}
+
+// template reads an installed template; an unknown id is ErrInvalidAgent.
+func (s *Society) template(ctx context.Context, id string) (core.AgentTemplate, error) {
+	tpl, err := s.ports.Templates.Get(ctx, id)
+	if errors.Is(err, core.ErrNotFound) {
+		return core.AgentTemplate{}, fmt.Errorf("%w: no installed template %q", domain.ErrInvalidAgent, id)
+	}
+	if err != nil {
+		return core.AgentTemplate{}, fmt.Errorf("read template %s: %w", id, err)
+	}
+	return tpl, nil
 }
 
 // seedFromTemplate writes the template's first one-line and goals for the

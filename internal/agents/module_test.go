@@ -4,13 +4,19 @@ package agents_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/SDK-E/agentsone/internal/agents"
 	"github.com/SDK-E/agentsone/internal/agents/agentstest"
+	"github.com/SDK-E/agentsone/internal/agents/app"
 	"github.com/SDK-E/agentsone/internal/agents/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
@@ -91,6 +97,136 @@ func TestModule_StartReprovisionsEveryActiveAgentWithItsUID(t *testing.T) {
 	}
 }
 
+// addSmallSeed installs the repository's Small Seed templates in the fake
+// catalog, as the plugins module serves them.
+func addSmallSeed(t *testing.T, fakes *coretest.Fakes) {
+	t.Helper()
+	for _, name := range []string{"founder", "router", "waker"} {
+		raw, err := os.ReadFile(filepath.Join("../../plugins/small-seed/agents", name+".json")) // #nosec G304 -- the repository's own plugin
+		if err != nil {
+			t.Fatal(err)
+		}
+		var head struct {
+			Name   string         `json:"name"`
+			Kind   core.AgentKind `json:"kind"`
+			IsRoot bool           `json:"isRoot"`
+			Runner struct {
+				Name string `json:"name"`
+			} `json:"runner"`
+		}
+		if err := json.Unmarshal(raw, &head); err != nil {
+			t.Fatal(err)
+		}
+		fakes.Templates.Add(core.AgentTemplate{
+			ID: "small-seed/" + head.Name, Name: head.Name, Kind: head.Kind, IsRoot: head.IsRoot, Runner: head.Runner.Name, Raw: raw,
+		})
+	}
+}
+
+func firstHuman(t *testing.T, fakes *coretest.Fakes) {
+	t.Helper()
+	_, err := fakes.Events.Publish(context.Background(), core.Event{
+		Type: "agentsone.setup.first-human.created", Source: "agentsone/auth", Actor: "human:ada", ChartScope: "machine",
+		Data: json.RawMessage(`{"human":"ada"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitSeed(t *testing.T, m *agents.Module) {
+	t.Helper()
+	select {
+	case <-m.SeedDone():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the seed did not finish")
+	}
+}
+
+func TestModule_SeedsTheSmallSeedOnceTheFirstHumanExists(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	m := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	ctx := context.Background()
+	if err := m.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := m.Society().List(ctx, app.ListFilter{}); len(list) != 0 {
+		t.Fatalf("agents before the first human = %+v", list)
+	}
+
+	firstHuman(t, fakes)
+	waitSeed(t, m)
+
+	list, err := m.Society().List(ctx, app.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, a := range list {
+		names = append(names, a.Name+"/"+a.Manager)
+	}
+	if diff := cmp.Diff([]string{"founder/", "router/founder", "waker/founder"}, names); diff != "" {
+		t.Errorf("agents (-want +got):\n%s", diff)
+	}
+	if c, _ := m.Society().Charter(ctx); c.Version != 1 || !strings.Contains(c.Text, "humans") {
+		t.Errorf("charter = %+v", c)
+	}
+	if err := m.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	audited := len(fakes.Audit.Entries())
+
+	again := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	if err := again.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitSeed(t, again) // the stored event replays; the seed finds nothing to do
+	if err := again.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := len(fakes.Audit.Entries()); got != audited {
+		t.Errorf("restart audited %d more entries, want none", got-audited)
+	}
+}
+
+func TestModule_StopEndsAWaitingSeed(t *testing.T) {
+	t.Parallel()
+	deps, _ := coretest.NewDeps(t)
+	m := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	if err := m.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	waitSeed(t, m)
+}
+
+func TestModule_StartsWithoutAnEventStream(t *testing.T) {
+	t.Parallel()
+	deps, _ := coretest.NewDeps(t)
+	deps.Ports.Subscribe = core.NewPorts().Subscribe
+	m := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	if err := m.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatalf("Start() error = %v, want nil: the machine runs without its seed", err)
+	}
+	waitSeed(t, m)
+}
+
 func TestModule_StartsWithoutARunnerSupervisor(t *testing.T) {
 	t.Parallel()
 	deps, _ := coretest.NewDeps(t)
@@ -102,4 +238,5 @@ func TestModule_StartsWithoutARunnerSupervisor(t *testing.T) {
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatalf("Start() without a supervisor error = %v, want nil", err)
 	}
+	waitSeed(t, m) // nothing can be hired, so there is no seed to wait for
 }

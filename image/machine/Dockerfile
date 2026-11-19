@@ -96,6 +96,9 @@ RUN apt-get update \
 COPY --from=fetch /out/ /
 COPY --from=go /out/ /usr/lib/agentsone/
 COPY --from=ui /out/ /usr/lib/agentsone/ui/
+# The default plugins, installed once on first start: the society seed and the theme.
+COPY plugins/small-seed/ /usr/lib/agentsone/plugins/small-seed/
+COPY plugins/agents-one-theme/agentsone.plugin.json plugins/agents-one-theme/theme.json /usr/lib/agentsone/plugins/agents-one-theme/
 COPY image/machine/config.toml /usr/lib/agentsone/config.toml
 COPY --chmod=0755 image/machine/entrypoint.sh /usr/lib/agentsone/entrypoint
 COPY --chmod=0755 image/machine/healthcheck.sh /usr/lib/agentsone/healthcheck

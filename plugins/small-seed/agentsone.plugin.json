@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/plugin-manifest.schema.json",
+  "name": "small-seed",
+  "version": "1.0.0",
+  "description": "The default society: a founder, a router and a waker.",
+  "author": { "name": "Agents One", "url": "https://github.com/SDK-E/agentsone" },
+  "license": "MIT",
+  "homepage": "https://github.com/SDK-E/agentsone/tree/main/plugins/small-seed",
+  "source": { "kind": "agentsone", "ref": "/usr/lib/agentsone/plugins/small-seed" },
+  "compat": { "agentsone": ">=0.1.0 <1.0.0", "runnerProtocol": ["1.0"] },
+  "contents": {
+    "mcpServers": [],
+    "skills": [
+      {
+        "name": "hire-an-agent",
+        "path": "./skills/hire-an-agent",
+        "description": "How to hire, brief and retire agents below you. Use when work needs a new specialist."
+      }
+    ],
+    "agentTemplates": [
+      { "path": "./agents/founder.json" },
+      { "path": "./agents/router.json" },
+      { "path": "./agents/waker.json" }
+    ],
+    "runners": [],
+    "panels": [],
+    "themes": [],
+    "emitters": []
+  }
+}

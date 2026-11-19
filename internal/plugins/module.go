@@ -115,8 +115,12 @@ func (l lazyPorts) Verify(ctx context.Context, value string) (core.Caller, error
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "plugins" }
 
-// Provide makes the plugin manager the daemon's RunnerRegistry.
-func (m *Module) Provide(p *core.Ports) { p.Runners = m.plugins }
+// Provide makes the plugin manager the daemon's RunnerRegistry and
+// TemplateCatalog.
+func (m *Module) Provide(p *core.Ports) {
+	p.Runners = m.plugins
+	p.Templates = m.plugins.TemplateCatalog()
+}
 
 // Migrate creates the plugin and theme tables.
 func (m *Module) Migrate(ctx context.Context) error { return sqlite.Migrate(ctx, m.db) }

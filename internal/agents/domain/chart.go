@@ -45,6 +45,16 @@ func (c Chart) Agents() []Agent {
 	return all
 }
 
+// Founder returns the one agent without a manager, if the society has one.
+func (c Chart) Founder() (Agent, bool) {
+	for _, a := range c.byName {
+		if a.Manager == "" {
+			return a, true
+		}
+	}
+	return Agent{}, false
+}
+
 // Empty reports whether the society has no agent yet.
 func (c Chart) Empty() bool { return len(c.byName) == 0 }
 

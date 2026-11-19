@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/contract/api"
+	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/core/moduletest"
@@ -44,6 +45,61 @@ func TestModuleProvidesTheRunnerRegistry(t *testing.T) {
 	}
 	if len(infos) != 2 || infos[0].Name != "echo" || infos[1].Name != "openai" || infos[0].Source != "builtin" {
 		t.Fatalf("runners = %+v", infos)
+	}
+}
+
+func TestModuleInstallsTheSmallSeedAndServesItsTemplates(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	deps.Config.LibDir = t.TempDir()
+	if err := os.CopyFS(filepath.Join(deps.Config.LibDir, "plugins", "small-seed"), os.DirFS("../../plugins/small-seed")); err != nil {
+		t.Fatal(err)
+	}
+	m := plugins.New(deps)
+	if err := m.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var ports core.Ports
+	m.Provide(&ports)
+	for range 2 { // the second start must change nothing
+		if err := m.Start(context.Background()); err != nil {
+			t.Fatalf("Start() error = %v", err)
+		}
+	}
+
+	list, err := ports.Templates.List(context.Background())
+
+	if err != nil || len(list) != 3 {
+		t.Fatalf("templates = %+v, %v", list, err)
+	}
+	want := map[string]core.AgentKind{"small-seed/founder": core.AgentAlwaysOn, "small-seed/router": core.AgentChat, "small-seed/waker": core.AgentWaker}
+	for _, tpl := range list {
+		if want[tpl.ID] != tpl.Kind || tpl.IsRoot != (tpl.ID == "small-seed/founder") {
+			t.Errorf("template = %+v", tpl)
+		}
+	}
+	if items, _ := get(t, moduletest.Mount(m), "/plugins")["items"].([]any); len(items) != 1 {
+		t.Errorf("plugins = %v, want the small seed once", items)
+	}
+}
+
+func TestTheSmallSeedFilesMatchTheContract(t *testing.T) {
+	schemas, err := contracttest.NewSchemaSet("../../contract/schemas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for file, schema := range map[string]string{
+		"agentsone.plugin.json": "plugin-manifest",
+		"agents/founder.json":   "agent-template",
+		"agents/router.json":    "agent-template",
+		"agents/waker.json":     "agent-template",
+	} {
+		raw, err := os.ReadFile(filepath.Join("../../plugins/small-seed", file)) // #nosec G304 -- the repository's own plugin
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := schemas.Validate(schema, raw); err != nil {
+			t.Errorf("%s: %v", file, err)
+		}
 	}
 }
 

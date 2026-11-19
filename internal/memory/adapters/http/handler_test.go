@@ -43,7 +43,7 @@ func newServer(t *testing.T) *server {
 	mux := http.NewServeMux()
 	memoryapi.Group(httpadapter.New(svc)).Register(mux, core.APIOptions{
 		RequestError: func(w http.ResponseWriter, r *http.Request, err error) {
-			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "invalid", err.Error()))
+			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
 		},
 		ResponseError: core.WriteError,
 	})
@@ -336,12 +336,12 @@ func TestWriteMemory_Refusals(t *testing.T) {
 		want     int
 		wantType string
 	}{
-		{"nobody signed in", "", `{"scope":"common","title":"t","body":""}`, http.StatusUnauthorized, "unauthorized"},
+		{"nobody signed in", "", `{"scope":"common","title":"t","body":""}`, http.StatusUnauthorized, "unauthenticated"},
 		{"a human", "human:sam", `{"scope":"common","title":"t","body":""}`, http.StatusForbidden, "forbidden"},
-		{"an empty title", "scribe", `{"scope":"common","title":"","body":""}`, http.StatusBadRequest, "invalid"},
-		{"an unknown scope", "scribe", `{"scope":"world","title":"t","body":""}`, http.StatusBadRequest, "invalid"},
+		{"an empty title", "scribe", `{"scope":"common","title":"","body":""}`, http.StatusBadRequest, "validation"},
+		{"an unknown scope", "scribe", `{"scope":"world","title":"t","body":""}`, http.StatusBadRequest, "validation"},
 		{"a body over 64 KiB characters", "scribe", `{"scope":"common","title":"t","body":"` + strings.Repeat("x", 65537) + `"}`, http.StatusRequestEntityTooLarge, "payload-too-large"},
-		{"a body that is not json", "scribe", `{"scope":`, http.StatusBadRequest, "invalid"},
+		{"a body that is not json", "scribe", `{"scope":`, http.StatusBadRequest, "validation"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

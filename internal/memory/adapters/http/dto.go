@@ -35,7 +35,7 @@ func toMemoryRecord(r domain.Record) api.MemoryRecord {
 		Id: r.ID, Scope: api.MemoryRecordScope(r.Scope), Owner: r.Owner, Team: r.Team,
 		Title: r.Title, Body: r.Body, Tags: tags, Links: links,
 		Source:    api.MemorySource{Kind: api.MemorySourceKind(r.Source.Kind), Ref: optional(r.Source.Ref)},
-		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Revision: r.Revision,
+		CreatedAt: api.Timestamp(r.CreatedAt), UpdatedAt: api.Timestamp(r.UpdatedAt), Revision: r.Revision,
 	}
 }
 

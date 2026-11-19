@@ -80,7 +80,9 @@ func hold(t T, s Subject) string {
 func holdTurn(h *H) string {
 	h.T.Helper()
 	turnID, id := h.WakeChat(hold(h.T, h.Sub))
-	msgs := h.Until(func(m Msg) bool { return m.Method == "status" && m.Field("state") == "working" && m.Field("turnId") == turnID })
+	msgs := h.Until(func(m Msg) bool {
+		return m.Method == "status" && m.Field("state") == "working" && m.Field("turnId") == turnID
+	})
 	if first := msgs[0]; !first.IsResponse() || *first.ID != id {
 		h.T.Fatalf("T1: the first line after wake must be its response, got %s", first)
 	}
@@ -392,7 +394,9 @@ func ruleT7(t T, s Subject) {
 			t.Fatalf("T7: turn %s started before turn %s ended", b, a)
 		}
 	}
-	h.Until(func(m Msg) bool { return m.Method == "status" && m.Field("state") == "working" && m.Field("turnId") == b })
+	h.Until(func(m Msg) bool {
+		return m.Method == "status" && m.Field("state") == "working" && m.Field("turnId") == b
+	})
 	h.Until(TurnEnded(b))
 }
 

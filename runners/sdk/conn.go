@@ -26,11 +26,11 @@ type lineReader struct {
 	max int
 }
 
-func newLineReader(r io.Reader, max int) *lineReader {
-	return &lineReader{r: bufio.NewReaderSize(r, 64*1024), max: max}
+func newLineReader(r io.Reader, limit int) *lineReader {
+	return &lineReader{r: bufio.NewReaderSize(r, 64*1024), max: limit}
 }
 
-func (l *lineReader) setMax(max int) { l.max = max }
+func (l *lineReader) setMax(limit int) { l.max = limit }
 
 // next returns the next line without its newline. A partial line at end of
 // input is dropped and the read error is returned.
@@ -219,11 +219,11 @@ func newConn(rwc io.ReadWriteCloser, maxLine int) *conn {
 	}
 }
 
-func (c *conn) setMaxLine(max int) {
+func (c *conn) setMaxLine(limit int) {
 	c.wmu.Lock()
-	c.maxLine = max
+	c.maxLine = limit
 	c.wmu.Unlock()
-	c.lines.setMax(max)
+	c.lines.setMax(limit)
 }
 
 // lineLimit is the longest line this connection may write.

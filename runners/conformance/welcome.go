@@ -25,7 +25,7 @@ type WelcomeSpec struct {
 // DefaultWelcome is the welcome of the transcript, with a heartbeat interval
 // of 5 minutes so that heartbeats stay out of the way of most rules.
 func DefaultWelcome() WelcomeSpec {
-	return WelcomeSpec{
+	return WelcomeSpec{ //nolint:gosec // G101: these are the made-up tokens of the PROTOCOL.md transcript
 		ProtocolVersion:     "1.0",
 		AgentName:           "founder",
 		OneLine:             "Goal: keep this machine useful to its humans. Now: starting up.",
@@ -95,7 +95,7 @@ func (w WelcomeSpec) result() any {
 		ProtocolVersion: w.ProtocolVersion,
 		Agent: agent{Name: w.AgentName, Kind: "always-on", IsRoot: true, UID: 0, Team: w.AgentName,
 			OneLine: w.OneLine, Charter: w.Charter, Goals: w.Goals},
-		MCP: mcp{Transport: "streamable-http", URL: w.MCPURL, Token: w.MCPToken, TokenExpiresAt: "2026-11-20T19:00:00Z"},
+		MCP: mcp{Transport: "streamable-http", URL: w.MCPURL, Token: w.MCPToken, TokenExpiresAt: "2026-11-20T19:00:00Z"}, //nolint:gosec // G101: the token is a test value from the spec
 		Model: model{BaseURL: w.ModelBaseURL, Name: "autoagents/one", Token: w.ModelToken,
 			Weights: []string{"quick", "normal", "deep"}, DefaultWeight: "normal"},
 		Session: session{Summary: w.Summary, CompactedAt: compacted, PausedTurnID: w.PausedTurnID},

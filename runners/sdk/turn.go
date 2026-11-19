@@ -219,15 +219,15 @@ func (t *Turn) closeOutput() error {
 	return t.FinishOutput("")
 }
 
-// splitText cuts s into pieces of at most max bytes without splitting a
+// splitText cuts s into pieces of at most limit bytes without splitting a
 // character. Empty text gives one empty piece.
-func splitText(s string, max int) []string {
-	if len(s) <= max {
+func splitText(s string, limit int) []string {
+	if len(s) <= limit {
 		return []string{s}
 	}
 	var parts []string
-	for len(s) > max {
-		cut := max
+	for len(s) > limit {
+		cut := limit
 		for cut > 0 && !utf8.RuneStart(s[cut]) {
 			cut--
 		}

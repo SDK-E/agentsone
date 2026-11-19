@@ -274,11 +274,11 @@ func TestBusSendAndTaskDone(t *testing.T) {
 		}
 		// Too big for one line: refused here, and the id is not used up.
 		if _, err := tn.BusSend(ctx, sdk.BusSend{To: "watcher", Subject: "s", Body: strings.Repeat("x", 70_000)}); !errors.Is(err, sdk.ErrLineTooLarge) {
-			return fmt.Errorf("want ErrLineTooLarge, got %v", err)
+			return fmt.Errorf("want ErrLineTooLarge: %w", err)
 		}
 		id, err := tn.BusSend(ctx, sdk.BusSend{To: "watcher", Subject: "s", Body: "b", ReplyTo: "msg_1", CorrelationID: "msg_2"})
 		if err != nil || id != "msg_01JD8X3Q5Y6Z7A8B9C0D1E2F43" {
-			return fmt.Errorf("bus.send = %q, %v", id, err)
+			return fmt.Errorf("bus.send = %q: %w", id, err)
 		}
 		if _, err := tn.BusSend(ctx, sdk.BusSend{To: "x", Subject: "s", Body: "b"}); err == nil {
 			return errors.New("want the daemon's refusal")

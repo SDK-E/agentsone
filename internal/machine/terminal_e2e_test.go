@@ -273,6 +273,30 @@ func TestTerminalHasOneClient(t *testing.T) {
 	}
 }
 
+// The origin is checked before the client slot is looked at: a cross-site
+// page learns nothing about the terminal, not even that it has a client.
+func TestCrossSiteAttemptIsRefusedBeforeTheClientSlotIsLookedAt(t *testing.T) {
+	d := newDoor(t)
+	id := d.open(t, d.asHuman)
+	first, _, err := d.dial(id, d.asHuman, ptyProtocol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = first.CloseNow() }()
+	crossSite := func(h http.Header) {
+		d.asHuman(h)
+		h.Set("Origin", "https://evil.example")
+	}
+	ws, status, err := d.dial(id, crossSite, ptyProtocol)
+	if err == nil {
+		_ = ws.CloseNow()
+		t.Fatal("a cross-site page connected")
+	}
+	if status != http.StatusForbidden {
+		t.Fatalf("cross-site attempt on a busy terminal: %d, want 403 (409 would show the slot is taken)", status)
+	}
+}
+
 func TestAgentTerminalRunsAsItsOwnUserAndSeesOnlyItsOwn(t *testing.T) {
 	d := newDoor(t)
 	humans := d.open(t, d.asHuman)

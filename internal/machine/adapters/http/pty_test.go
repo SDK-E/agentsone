@@ -5,12 +5,14 @@ package httpadapter_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -85,8 +87,17 @@ func (ptyUsers) List(context.Context) ([]domain.MachineUser, error) {
 
 func servePty(t *testing.T) (http.Handler, *echoStarter) {
 	t.Helper()
+	h, st, _, _ := servePtyParts(t)
+	return h, st
+}
+
+// servePtyParts also returns the terminal table and its clock, for tests
+// that age terminals.
+func servePtyParts(t *testing.T) (http.Handler, *echoStarter, *app.Terminals, *coretest.Clock) {
+	t.Helper()
 	st := &echoStarter{}
-	terms := app.NewTerminals(st, ptyUsers{}, coretest.NewClock(coretest.Epoch), coretest.NewIDs())
+	clock := coretest.NewClock(coretest.Epoch)
+	terms := app.NewTerminals(st, ptyUsers{}, clock, coretest.NewIDs())
 	m := app.New(app.Deps{Audit: coretest.NewAudit(), Clock: coretest.NewClock(coretest.Epoch), IDs: coretest.NewIDs()})
 	handler := httpadapter.New(m, func(name string) string { return "/home/agents/" + name }).WithTerminals(terms)
 	mux := http.NewServeMux()
@@ -96,7 +107,36 @@ func servePty(t *testing.T) (http.Handler, *echoStarter) {
 		},
 		ResponseError: core.WriteError,
 	})
-	return mux, st
+	return mux, st, terms, clock
+}
+
+// A refused cross-site attempt must leave the terminal as it was, idle
+// timer included: it never attached, so it cannot restart the 30 minutes.
+func TestCrossSiteAttemptDoesNotRestartTheIdleTimer(t *testing.T) {
+	h, _, terms, clock := servePtyParts(t)
+	id := decode[map[string]any](t, call(t, h, &asHuman, http.MethodPost, "/v1/machine/pty", `{}`))["id"].(string)
+	srv := httptest.NewServer(withCaller(asHuman, h))
+	defer srv.Close()
+	url := "ws" + strings.TrimPrefix(srv.URL, "http") + "/v1/machine/pty/" + id + "/socket"
+
+	clock.Advance(domain.PtyIdleTimeout - time.Minute)
+	ws, resp, err := websocket.Dial(context.Background(), url, &websocket.DialOptions{
+		Subprotocols: []string{"agentsone.pty.v1"},
+		HTTPHeader:   http.Header{"Origin": {"https://evil.example"}},
+	})
+	if err == nil {
+		_ = ws.CloseNow()
+		t.Fatal("cross-site attempt connected")
+	}
+	if resp == nil || resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("cross-site attempt: %v %v", resp, err)
+	}
+	_ = resp.Body.Close() // test response body
+	clock.Advance(2 * time.Minute)
+	terms.CloseIdle(context.Background())
+	if _, err := terms.Get(context.Background(), domain.Actor{Kind: domain.ActorHuman, Name: "alice", UID: -1}, id); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("terminal idle for %s is still there: %v", domain.PtyIdleTimeout+time.Minute, err)
+	}
 }
 
 func TestTerminalRest(t *testing.T) {

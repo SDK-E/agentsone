@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -109,14 +110,20 @@ func (h *Handler) Terminal(next machineapi.StrictHandlerFunc, operationID string
 		if !offers(r, ptySubprotocol) {
 			return nil, fmt.Errorf("send subprotocol %s: %w", ptySubprotocol, core.ErrInvalid)
 		}
+		// GET passes the CSRF check, so the origin check is the wall against
+		// cross-site WebSocket use. It runs before the terminal is touched:
+		// a cross-site page must not learn whether the terminal exists or
+		// has a client, nor restart its idle timer.
+		if !sameSite(r) {
+			return nil, fmt.Errorf("cross-site terminal connections are refused: %w", core.ErrForbidden)
+		}
 		id := req.(machineapi.ConnectPtyRequestObject).PtyId
 		conn, err := h.terms.Attach(ctx, a, id)
 		if err != nil {
 			return nil, err
 		}
 		defer conn.Release()
-		// The default origin check stays on: GET passes the CSRF check, so
-		// the origin check is the wall against cross-site WebSocket use.
+		// The library's own origin check stays on as the final word.
 		ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{ptySubprotocol}})
 		if err != nil {
 			return nil, nil //nolint:nilerr // Accept already wrote the refusal
@@ -124,6 +131,18 @@ func (h *Handler) Terminal(next machineapi.StrictHandlerFunc, operationID string
 		pump(ctx, ws, conn)
 		return nil, nil
 	}
+}
+
+// sameSite is the WebSocket library's origin rule, asked early: no Origin
+// header (a program, not a browser) or an Origin whose host is the host the
+// request was sent to.
+func sameSite(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	return err == nil && strings.EqualFold(u.Host, r.Host)
 }
 
 func offers(r *http.Request, protocol string) bool {

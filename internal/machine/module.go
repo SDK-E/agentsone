@@ -36,13 +36,17 @@ func defaultSettings() settings {
 	}
 }
 
+// idleSweep is how often terminals without a client are checked.
+const idleSweep = time.Minute
+
 // Module wires machine control into the daemon.
 type Module struct {
 	core.Base
-	deps     core.Deps
-	settings settings
-	machine  *app.Machine
-	startup  *app.StartupGate
+	deps      core.Deps
+	settings  settings
+	machine   *app.Machine
+	terminals *app.Terminals
+	startup   *app.StartupGate
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -57,6 +61,7 @@ type System struct {
 	Files     app.FileSystem
 	Processes app.ProcessTable
 	Users     app.UserDB
+	Pty       app.PtyStarter
 	Metrics   app.MetricsReader
 	Recipes   app.RecipeStore
 	Baseline  app.BaselineSource
@@ -72,6 +77,7 @@ func RealSystem(cfg *core.Config, clock core.Clock) System {
 		Files:     system.NewFiles(),
 		Processes: system.NewProcs("/proc", passwd, system.Kill),
 		Users:     passwd,
+		Pty:       system.PtyStarter{},
 		Metrics: system.NewMetrics(system.MetricsPaths{
 			Proc: "/proc", CPUStat: "/sys/fs/cgroup/cpu.stat",
 			Mounts: []string{"/", cfg.AgentsHome, cfg.StateDir},
@@ -93,7 +99,11 @@ func NewWith(deps core.Deps, sys System) *Module {
 		Metrics: sys.Metrics, Recipes: sys.Recipes, Baseline: sys.Baseline, Power: sys.Power, Timer: sys.Timer,
 		Audit: auditPort{deps.Ports}, Clock: deps.Clock, IDs: deps.IDs,
 	})
-	return &Module{deps: deps, settings: defaultSettings(), machine: m, startup: app.NewStartupGate()}
+	terms := app.NewTerminals(sys.Pty, sys.Users, deps.Clock, deps.IDs)
+	return &Module{
+		deps: deps, settings: defaultSettings(), machine: m, terminals: terms,
+		startup: app.NewStartupGate(),
+	}
 }
 
 // Name is the module and migration namespace.
@@ -103,11 +113,12 @@ func (*Module) Name() string { return "machine" }
 // on it until the recipe reapply ended.
 func (m *Module) Provide(p *core.Ports) { p.Startup = m.startup }
 
-// API serves the machine tag. Terminals, the net tag (per-agent network
-// rules) and the ide tag answer 501 until their work packages land.
+// API serves the machine tag, terminals included. The net tag (per-agent
+// network rules) and the ide tag answer 501 until their work packages land.
 func (m *Module) API() core.API {
+	h := httpadapter.New(m.machine, m.deps.Config.AgentHome).WithTerminals(m.terminals)
 	return core.API{Groups: []core.APIGroup{
-		machineapi.Group(httpadapter.New(m.machine, m.deps.Config.AgentHome)),
+		machineapi.Group(h, h.Terminal),
 		netapi.Group(netapi.Unimplemented{}),
 		ideapi.Group(ideapi.Unimplemented{}),
 	}}
@@ -124,7 +135,7 @@ func (m *Module) Start(context.Context) error {
 	}
 	bg, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
-	m.wg.Add(3)
+	m.wg.Add(4)
 	m.machine.BeginReapply(bg, m.settings.ReapplyTimeout.Duration, func(rep domain.Report) {
 		defer m.wg.Done()
 		m.logReport(rep)
@@ -132,7 +143,21 @@ func (m *Module) Start(context.Context) error {
 	})
 	go func() { defer m.wg.Done(); m.machine.Work(bg) }()
 	go func() { defer m.wg.Done(); m.syncLoop(bg) }()
+	go func() { defer m.wg.Done(); m.idleLoop(bg) }()
 	return nil
+}
+
+func (m *Module) idleLoop(ctx context.Context) {
+	t := time.NewTicker(idleSweep)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			m.terminals.CloseIdle(ctx)
+		}
+	}
 }
 
 func (m *Module) logReport(rep domain.Report) {
@@ -158,12 +183,15 @@ func (m *Module) syncLoop(ctx context.Context) {
 	}
 }
 
-// Stop ends the package worker and the recipe sync.
+// Stop ends the background loops and hangs up every terminal, which also
+// ends their WebSockets: the HTTP server does not close hijacked
+// connections on shutdown.
 func (m *Module) Stop(context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
 	}
 	m.wg.Wait()
+	m.terminals.CloseAll()
 	return nil
 }
 

@@ -4,6 +4,8 @@ package machine_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -21,8 +23,41 @@ func TestModuleOwnsItsTags(t *testing.T) {
 		t.Fatalf("name %q", m.Name())
 	}
 	moduletest.AssertOwnsTags(t, m, "machine", "net", "ide")
-	// Terminals, network rules and the IDE still answer 501.
-	moduletest.AssertEveryTagAnswersNotImplemented(t, m)
+}
+
+func TestNetworkRulesAndIDEAreNotHereYet(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	mux := moduletest.Mount(machine.New(deps))
+	human := core.Caller{Kind: core.CallerHuman, Name: "alice", UID: -1}
+	get := func(target string) int {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req = req.WithContext(core.WithCaller(req.Context(), human))
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	for _, target := range []string{"/v1/net/agents", "/v1/ide"} {
+		if code := get(target); code != http.StatusNotImplemented {
+			t.Errorf("%s: status %d, want 501", target, code)
+		}
+	}
+	if code := get("/v1/machine/pty"); code != http.StatusOK {
+		t.Fatalf("terminals: status %d, want 200", code)
+	}
+}
+
+func TestNoopSystemRefusesTerminalsInsteadOfStartingShells(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	mux := moduletest.Mount(machinetest.New(deps))
+	human := core.Caller{Kind: core.CallerHuman, Name: "alice", UID: -1}
+	req := httptest.NewRequest(http.MethodPost, "/v1/machine/pty", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(core.WithCaller(req.Context(), human))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("open on a machine with no terminals: %d %s", rec.Code, rec.Body)
+	}
 }
 
 func TestNoopSystemOpensTheGateWithoutTouchingTheHost(t *testing.T) {

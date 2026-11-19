@@ -673,15 +673,25 @@ type UpdateHumanResponseObject interface {
 	VisitUpdateHumanResponse(w http.ResponseWriter) error
 }
 
-type UpdateHuman200JSONResponse Human
+type UpdateHuman200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type UpdateHuman200JSONResponse struct {
+	Body    Human
+	Headers UpdateHuman200ResponseHeaders
+}
 
 func (response UpdateHuman200JSONResponse) VisitUpdateHumanResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err

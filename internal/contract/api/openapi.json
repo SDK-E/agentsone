@@ -11089,7 +11089,7 @@
         }
       ],
       "patch": {
-        "description": "Human-only. Changes display name or password. Soft wall. A human who changes their own\npassword sends `current_password`; a missing or wrong value answers 400\n`urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may\nreset the password without it. A password change ends all other sessions of that human; the\nsession that made the change stays.\n",
+        "description": "Human-only. Changes display name or password. Soft wall. A human who changes their own\npassword sends `current_password`; a missing or wrong value answers 400\n`urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may\nreset the password without it. A human's own password change ends all their other sessions and\nrotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting\nanother human's password ends all of that human's sessions.\n",
         "operationId": "updateHuman",
         "requestBody": {
           "content": {
@@ -11110,7 +11110,15 @@
                 }
               }
             },
-            "description": "Updated."
+            "description": "Updated.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Only after the caller changed their own password: the rotated `agentsone_session=<opaque>; Path=/; HttpOnly; SameSite=Strict`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"

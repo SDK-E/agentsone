@@ -99,8 +99,9 @@ All changes are additive and backward compatible.
   `degraded` or `failed`.
 - `updateHuman` accepts `current_password`. A human who changes their own password must send it
   (a missing or wrong value answers 400 `validation` with an issue at `/current_password`);
-  another human resetting the password does not. A password change ends all other sessions of that
-  human.
+  another human resetting the password does not. A human's own change ends their other sessions and
+  rotates the caller's session (`Set-Cookie` on the 200); resetting another human's password ends
+  all of that human's sessions.
 - `deleteMemory`: humans may delete any record, with an optional `reason` query parameter kept in
   the audit record. Humans cannot edit records.
 - New fixture variants: `createTask.error`, `createTask.frozen`, `verifyAuditChain.broken`,

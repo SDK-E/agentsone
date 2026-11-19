@@ -926,8 +926,9 @@ export interface paths {
      * @description Human-only. Changes display name or password. Soft wall. A human who changes their own
      *     password sends `current_password`; a missing or wrong value answers 400
      *     `urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may
-     *     reset the password without it. A password change ends all other sessions of that human; the
-     *     session that made the change stays.
+     *     reset the password without it. A human's own password change ends all their other sessions and
+     *     rotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting
+     *     another human's password ends all of that human's sessions.
      */
     patch: operations["updateHuman"];
     trace?: never;
@@ -6245,6 +6246,8 @@ export interface operations {
       /** @description Updated. */
       200: {
         headers: {
+          /** @description Only after the caller changed their own password: the rotated `agentsone_session=<opaque>; Path=/; HttpOnly; SameSite=Strict`. */
+          "Set-Cookie"?: string;
           [name: string]: unknown;
         };
         content: {

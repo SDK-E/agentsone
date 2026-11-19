@@ -14,6 +14,7 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
+	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 )
 
 // startDaemon runs serve on deps until the test ends and returns a client
@@ -29,7 +30,7 @@ func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, deps) }()
+	go func() { done <- serveModules(ctx, deps, testModules(t, deps)) }()
 	select {
 	case <-logs.ready:
 	case err := <-done:
@@ -43,6 +44,21 @@ func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 		}
 	})
 	return unixClient(deps.Config.SocketPath())
+}
+
+// testModules are the daemon's real modules with the machine on a no-op
+// system, so tests never read or change the host's packages and files.
+func testModules(t *testing.T, deps core.Deps) []core.Module {
+	t.Helper()
+	mods := modules(deps)
+	for i, m := range mods {
+		if m.Name() == "machine" {
+			mods[i] = machinetest.New(deps)
+			return mods
+		}
+	}
+	t.Fatal("the daemon has no machine module")
+	return nil
 }
 
 func get(t *testing.T, c *http.Client, url string) int {

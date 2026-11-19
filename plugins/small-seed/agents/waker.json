@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/agent-template.schema.json",
+  "name": "waker",
+  "kind": "waker",
+  "isRoot": false,
+  "runner": { "name": "openai", "config": {} },
+  "oneLine": "Goal: wake the right agent at the right time. Now: watching schedules and triggers.",
+  "charter": "",
+  "goals": [],
+  "skills": [],
+  "mcpServers": [],
+  "limits": { "cpuPercent": 50, "memoryMiB": 256, "tasks": 64 },
+  "wake": {
+    "subscriptions": [
+      {
+        "filter": { "types": ["agentsone.clock.schedule.fired"] },
+        "rateLimit": { "maxWakes": 60, "perSeconds": 3600 }
+      },
+      {
+        "filter": { "types": ["agentsone.webhooks.received"] },
+        "rateLimit": { "maxWakes": 30, "perSeconds": 600 }
+      }
+    ]
+  },
+  "schedules": []
+}

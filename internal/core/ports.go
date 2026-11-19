@@ -29,6 +29,7 @@ type Ports struct {
 	Profiles  AgentProfiles   // owned by internal/agents
 	Chat      ChatPoster      // owned by internal/agents
 	Startup   StartupGate     // owned by internal/machine
+	Seed      SeedStatus      // owned by internal/agents
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -38,7 +39,7 @@ func NewPorts() *Ports {
 		Agents: u, Waker: u, Events: u, Subscribe: u, Tasks: u,
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
-		Profiles: u, Chat: u, Startup: u,
+		Profiles: u, Chat: u, Startup: u, Seed: u,
 	}
 }
 
@@ -237,6 +238,13 @@ type ChatPoster interface {
 	PostChat(ctx context.Context, agent, text, assignmentID string) (string, error)
 }
 
+// SeedStatus says whether the default society exists, for the setup status.
+type SeedStatus interface {
+	// SeedInstalled is true once the Small Seed's founder, router and waker
+	// were created. It stays true when agents later retire one of them.
+	SeedInstalled(ctx context.Context) (bool, error)
+}
+
 // AuditEntry is one fact to record. The audit module adds sequence, time,
 // prev_hash and hash.
 type AuditEntry struct {
@@ -363,3 +371,4 @@ func (unavailable) Profiles(context.Context) ([]AgentProfile, error) { return ni
 func (unavailable) PostChat(context.Context, string, string, string) (string, error) {
 	return "", ErrUnavailable
 }
+func (unavailable) SeedInstalled(context.Context) (bool, error) { return false, ErrUnavailable }

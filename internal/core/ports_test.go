@@ -81,19 +81,20 @@ func TestNewPortsUnavailable(t *testing.T) {
 	ctx := context.Background()
 	all := core.FreezeScope{Kind: core.FreezeAll}
 	calls := map[string]func() error{
-		"Send":         func() error { _, err := p.Bus.Send(ctx, core.BusMessage{}); return err },
-		"Freeze":       func() error { return p.Freezer.Freeze(ctx, all) },
-		"Release":      func() error { return p.Freezer.Release(ctx, all) },
-		"State":        func() error { _, err := p.Freezer.State(ctx); return err },
-		"Issue":        func() error { _, err := p.Tokens.Issue(ctx, core.Caller{}, nil, time.Minute); return err },
-		"Verify":       func() error { _, err := p.Tokens.Verify(ctx, "tok"); return err },
-		"List":         func() error { _, err := p.Templates.List(ctx); return err },
-		"Get":          func() error { _, err := p.Templates.Get(ctx, "tpl"); return err },
-		"GetTask":      func() error { _, err := p.Tasks.GetTask(ctx, "tsk"); return err },
-		"CompleteTask": func() error { _, err := p.Tasks.CompleteTask(ctx, "tsk", core.TaskOutcome{}); return err },
-		"Profiles":     func() error { _, err := p.Profiles.Profiles(ctx); return err },
-		"PostChat":     func() error { _, err := p.Chat.PostChat(ctx, "dev", "hi", ""); return err },
-		"Wait":         func() error { return p.Startup.Wait(ctx) },
+		"Send":          func() error { _, err := p.Bus.Send(ctx, core.BusMessage{}); return err },
+		"Freeze":        func() error { return p.Freezer.Freeze(ctx, all) },
+		"Release":       func() error { return p.Freezer.Release(ctx, all) },
+		"State":         func() error { _, err := p.Freezer.State(ctx); return err },
+		"Issue":         func() error { _, err := p.Tokens.Issue(ctx, core.Caller{}, nil, time.Minute); return err },
+		"Verify":        func() error { _, err := p.Tokens.Verify(ctx, "tok"); return err },
+		"List":          func() error { _, err := p.Templates.List(ctx); return err },
+		"Get":           func() error { _, err := p.Templates.Get(ctx, "tpl"); return err },
+		"GetTask":       func() error { _, err := p.Tasks.GetTask(ctx, "tsk"); return err },
+		"CompleteTask":  func() error { _, err := p.Tasks.CompleteTask(ctx, "tsk", core.TaskOutcome{}); return err },
+		"Profiles":      func() error { _, err := p.Profiles.Profiles(ctx); return err },
+		"PostChat":      func() error { _, err := p.Chat.PostChat(ctx, "dev", "hi", ""); return err },
+		"SeedInstalled": func() error { _, err := p.Seed.SeedInstalled(ctx); return err },
+		"Wait":          func() error { return p.Startup.Wait(ctx) },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

@@ -138,11 +138,18 @@ func (s *Society) Found(ctx context.Context, spec domain.HireSpec) (domain.Agent
 		return domain.Agent{}, err
 	}
 	by := string(c.Kind) + ":" + c.Name
+	spec, seed, err := s.applyTemplate(ctx, spec)
+	if err != nil {
+		return domain.Agent{}, err
+	}
 	founder, err := chart.Found(spec, by, s.clock.Now())
 	if err != nil {
 		return domain.Agent{}, err
 	}
 	if err := s.provisionAndStore(ctx, &founder); err != nil {
+		return domain.Agent{}, err
+	}
+	if err := s.seedFromTemplate(ctx, founder.Name, domain.NewChart([]domain.Agent{founder}), founder, seed); err != nil {
 		return domain.Agent{}, err
 	}
 	data := hiredData{Agent: founder.Name, Manager: founder.Name, Kind: string(founder.Kind), IsRoot: true, Template: founder.Template}
@@ -156,6 +163,12 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 	if err != nil {
 		return domain.Agent{}, err
 	}
+	return s.hire(ctx, name, "agent:"+name, spec)
+}
+
+// hire hires below hirer. by is who acts, as audited: the hirer itself, or
+// the daemon seeding the society on the hirer's behalf.
+func (s *Society) hire(ctx context.Context, hirer, by string, spec domain.HireSpec) (domain.Agent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	chart, err := s.chart(ctx)
@@ -166,7 +179,7 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 	if err != nil {
 		return domain.Agent{}, err
 	}
-	a, err := chart.Hire(name, spec, s.clock.Now())
+	a, err := chart.Hire(hirer, spec, s.clock.Now())
 	if err != nil {
 		return domain.Agent{}, err
 	}
@@ -174,13 +187,16 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 		return domain.Agent{}, err
 	}
 	after := domain.NewChart(append(chart.Agents(), a))
-	if err := s.seedFromTemplate(ctx, name, after, a, seed); err != nil {
+	if err := s.seedFromTemplate(ctx, hirer, after, a, seed); err != nil {
 		return domain.Agent{}, err
 	}
-	team := after.Team(a.Name)
+	source := "/agents/" + hirer
+	if by != "agent:"+hirer {
+		source = "/daemon"
+	}
 	data := hiredData{Agent: a.Name, Manager: a.Manager, Kind: string(a.Kind), IsRoot: a.IsRoot, Template: a.Template}
-	return a, s.record(ctx, "agent:"+name, "agent.hire", "agent:"+a.Name, data,
-		event{"agentsone.agents.hired", "/agents/" + name, "team:" + team, data})
+	return a, s.record(ctx, by, "agent.hire", "agent:"+a.Name, data,
+		event{"agentsone.agents.hired", source, "team:" + after.Team(a.Name), data})
 }
 
 // provisionAndStore gives a its Linux user and unit, then stores it. When

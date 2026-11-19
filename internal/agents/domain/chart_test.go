@@ -18,6 +18,16 @@ func hireSpec(name string) domain.HireSpec {
 	return domain.HireSpec{Name: name, DisplayName: "New", Kind: domain.KindChat, Runner: "echo", Role: "Helper"}
 }
 
+func TestFounder_IsTheAgentWithoutAManager(t *testing.T) {
+	t.Parallel()
+	if got, ok := agentstest.Chart().Founder(); !ok || got.Name != "founder" {
+		t.Errorf("Founder() = %+v, %v", got, ok)
+	}
+	if got, ok := domain.NewChart(nil).Founder(); ok {
+		t.Errorf("empty chart Founder() = %+v, want none", got)
+	}
+}
+
 func TestCanManage_AllowsOnlyAgentsBelowTheActor(t *testing.T) {
 	t.Parallel()
 	chart := agentstest.Chart()

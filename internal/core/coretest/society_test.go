@@ -162,8 +162,19 @@ func TestTemplates(t *testing.T) {
 func TestFakesFillNewPorts(t *testing.T) {
 	f, p := coretest.NewFakes()
 	if p.Bus != f.Bus || p.Freezer != f.Freezer || p.Tokens != f.Tokens || p.Templates != f.Templates ||
-		p.Profiles != f.Profiles || p.Chat != f.Chat {
+		p.Profiles != f.Profiles || p.Chat != f.Chat || p.Seed != f.Seed {
 		t.Fatal("new ports not wired to fakes")
+	}
+}
+
+func TestSeed_ReportsWhatItIsSet(t *testing.T) {
+	s := coretest.NewSeed()
+	if got, err := s.SeedInstalled(context.Background()); err != nil || got {
+		t.Fatalf("new seed = %v, %v, want not installed", got, err)
+	}
+	s.SetInstalled(true)
+	if got, _ := s.SeedInstalled(context.Background()); !got {
+		t.Fatal("seed not installed after SetInstalled(true)")
 	}
 }
 

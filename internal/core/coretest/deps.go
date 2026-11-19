@@ -32,6 +32,7 @@ type Fakes struct {
 	Profiles  *Profiles
 	Chat      *Chat
 	Startup   *Startup
+	Seed      *Seed
 }
 
 // NewFakes returns fresh fakes and Ports wired to them.
@@ -56,6 +57,7 @@ func NewFakes() (*Fakes, *core.Ports) {
 		Profiles:  NewProfiles(),
 		Chat:      NewChat(ids),
 		Startup:   NewStartup(),
+		Seed:      NewSeed(),
 	}
 	return f, f.Ports()
 }
@@ -66,7 +68,7 @@ func (f *Fakes) Ports() *core.Ports {
 		Agents: f.Agents, Waker: f.Waker, Events: f.Events, Subscribe: f.Events,
 		Tasks: f.Tasks, Audit: f.Audit, Live: f.Live, Budget: f.Budget, Runners: f.Runners,
 		Bus: f.Bus, Freezer: f.Freezer, Tokens: f.Tokens, Templates: f.Templates,
-		Profiles: f.Profiles, Chat: f.Chat, Startup: f.Startup,
+		Profiles: f.Profiles, Chat: f.Chat, Startup: f.Startup, Seed: f.Seed,
 	}
 }
 

@@ -12,6 +12,31 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
+// Seed is a core.SeedStatus a test sets.
+type Seed struct {
+	mu        sync.Mutex
+	installed bool
+}
+
+var _ core.SeedStatus = (*Seed)(nil)
+
+// NewSeed returns a seed that is not installed.
+func NewSeed() *Seed { return &Seed{} }
+
+// SetInstalled sets what SeedInstalled answers.
+func (s *Seed) SetInstalled(installed bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.installed = installed
+}
+
+// SeedInstalled answers what SetInstalled set.
+func (s *Seed) SeedInstalled(context.Context) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.installed, nil
+}
+
 // Profiles is an in-memory core.AgentProfiles.
 type Profiles struct {
 	mu     sync.Mutex

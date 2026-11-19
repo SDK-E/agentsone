@@ -23,6 +23,12 @@ func (s *Society) RewriteCharter(ctx context.Context, expected int, text string)
 	if err != nil {
 		return domain.Charter{}, err
 	}
+	return s.rewriteCharter(ctx, name, "agent:"+name, expected, text)
+}
+
+// rewriteCharter rewrites the charter as root agent name. by is who acts,
+// as audited: the agent itself, or the daemon seeding the society.
+func (s *Society) rewriteCharter(ctx context.Context, name, by string, expected int, text string) (domain.Charter, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	chart, err := s.chart(ctx)
@@ -44,7 +50,7 @@ func (s *Society) RewriteCharter(ctx context.Context, expected int, text string)
 	if err != nil {
 		return domain.Charter{}, fmt.Errorf("encode charter detail: %w", err)
 	}
-	if err := s.ports.Audit.Append(ctx, core.AuditEntry{Actor: "agent:" + name, Action: "charter.rewrite", Target: "charter:society", Detail: raw}); err != nil {
+	if err := s.ports.Audit.Append(ctx, core.AuditEntry{Actor: by, Action: "charter.rewrite", Target: "charter:society", Detail: raw}); err != nil {
 		return domain.Charter{}, fmt.Errorf("audit charter.rewrite: %w", err)
 	}
 	return next, nil

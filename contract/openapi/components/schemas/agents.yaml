@@ -12,6 +12,15 @@ AgentState:
   type: string
   enum: [sleeping, waking, awake, working, frozen, failed, retired]
 
+AgentStateReason:
+  type: [string, "null"]
+  maxLength: 500
+  description: |
+    Plain words that say why the agent is in `state` when that is not the normal course, for
+    example "The model gateway is not reachable." The daemon sets it when a runner cannot start or
+    stops with an error (`failed`), and clears it (null or absent) when the agent runs again.
+    Show it under the agent; it is not a log line.
+
 AgentLimits:
   type: object
   description: |
@@ -114,6 +123,8 @@ Agent:
       description: What the agent is for, in its own or its hirer's words.
     state:
       $ref: "#/AgentState"
+    state_reason:
+      $ref: "#/AgentStateReason"
     one_line:
       oneOf:
         - $ref: "#/AgentOneLine"
@@ -368,6 +379,8 @@ StateFrame:
       $ref: "./common.yaml#/AgentName"
     state:
       $ref: "#/AgentState"
+    state_reason:
+      $ref: "#/AgentStateReason"
     time:
       $ref: "./common.yaml#/Timestamp"
 

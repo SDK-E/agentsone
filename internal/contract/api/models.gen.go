@@ -1685,6 +1685,12 @@ type Agent struct {
 	Runner string     `json:"runner"`
 	State  AgentState `json:"state"`
 
+	// StateReason Plain words that say why the agent is in `state` when that is not the normal course, for
+	// example "The model gateway is not reachable." The daemon sets it when a runner cannot start or
+	// stops with an error (`failed`), and clears it (null or absent) when the agent runs again.
+	// Show it under the agent; it is not a log line.
+	StateReason *AgentStateReason `json:"state_reason,omitempty"`
+
 	// Team Name of the agent that heads this agent's chart branch (team). Used for team memory and freeze.
 	Team AgentName `json:"team"`
 
@@ -1839,6 +1845,12 @@ type AgentPrincipalVia string
 
 // AgentState defines model for AgentState.
 type AgentState string
+
+// AgentStateReason Plain words that say why the agent is in `state` when that is not the normal course, for
+// example "The model gateway is not reachable." The daemon sets it when a runner cannot start or
+// stops with an error (`failed`), and clears it (null or absent) when the agent runs again.
+// Show it under the agent; it is not a log line.
+type AgentStateReason = string
 
 // AgentTemplate An agent template, shipped by a plugin (contents.agentTemplates). Hiring an agent from a template copies these values into the new agent, which may then change its charter and goals itself.
 type AgentTemplate struct {
@@ -4306,6 +4318,12 @@ type StateFrame struct {
 	Agent AgentName      `json:"agent"`
 	Kind  StateFrameKind `json:"kind"`
 	State AgentState     `json:"state"`
+
+	// StateReason Plain words that say why the agent is in `state` when that is not the normal course, for
+	// example "The model gateway is not reachable." The daemon sets it when a runner cannot start or
+	// stops with an error (`failed`), and clears it (null or absent) when the agent runs again.
+	// Show it under the agent; it is not a log line.
+	StateReason *AgentStateReason `json:"state_reason,omitempty"`
 
 	// Time RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	Time Timestamp `json:"time"`

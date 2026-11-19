@@ -286,7 +286,7 @@ func serveCommand(env *hostenv.Env) *cobra.Command {
 			if err != nil {
 				return errors.Join(fmt.Errorf("gateway: listen: %w", err), srv.Close())
 			}
-			adminLn, err := admin.Listen(srv.AdminSocketPath())
+			adminLn, err := srv.ListenAdmin()
 			if err != nil {
 				return errors.Join(err, gw.Close(), srv.Close())
 			}

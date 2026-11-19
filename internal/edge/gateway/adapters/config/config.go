@@ -74,6 +74,7 @@ const AdminSocketName = "admin.sock"
 type Server struct {
 	Listen      string `toml:"listen,omitempty" comment:"Gateway address on the machine-side inner network, host:port."`
 	AdminSocket string `toml:"admin_socket,omitempty" comment:"Absolute path of the admin socket; empty means admin.sock in the data folder."`
+	AdminGID    int    `toml:"admin_gid" comment:"Group id shared by the edge and control containers; the socket is mode 0660 in it. -1 keeps the edge's own group."`
 }
 
 // AdminSocketPath gives the admin socket path, defaulting into dataDir.
@@ -95,6 +96,9 @@ func (s Server) validate() error {
 	if s.AdminSocket != "" && !filepath.IsAbs(s.AdminSocket) {
 		return fmt.Errorf("server: admin_socket %q must be an absolute path", s.AdminSocket)
 	}
+	if s.AdminGID < -1 {
+		return fmt.Errorf("server: admin_gid %d must be a group id or -1", s.AdminGID)
+	}
 	return nil
 }
 
@@ -108,7 +112,7 @@ type File struct {
 // Default returns the built-in config.
 func Default() File {
 	return File{
-		Server: Server{Listen: ":4000"},
+		Server: Server{Listen: ":4000", AdminGID: -1},
 		Limits: Limits{
 			DefaultMaxOutputTokens: 4096,
 			MaxOutputTokensCap:     32768,

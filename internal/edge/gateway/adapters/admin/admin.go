@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-// Package admin serves the edge's admin socket: a unix socket, mode 0600,
-// that only the control container mounts. It is the only way to write
-// provider keys.
+// Package admin serves the edge's admin socket: a unix socket, mode 0660, in
+// a group shared by the edge and control containers, on a volume only those
+// two mount. It is the only way to write provider keys.
 //
 //	GET    /v1/keys             which providers have a key (never the keys)
 //	PUT    /v1/keys/{provider}  store a key, sent as the request body
@@ -94,9 +94,17 @@ func New(o Options) http.Handler {
 	return mux
 }
 
-// Listen opens the admin socket at path with mode 0600, replacing a stale
-// socket file left by an earlier run.
-func Listen(path string) (net.Listener, error) {
+// KeepGroup leaves the socket in the group of the edge process.
+const KeepGroup = -1
+
+// SocketMode lets the owner and the group shared by the edge and control
+// containers use the socket, and no one else.
+const SocketMode fs.FileMode = 0o660
+
+// Listen opens the admin socket at path with mode 0660 and group gid
+// (KeepGroup leaves it as created), replacing a stale socket file left by an
+// earlier run.
+func Listen(path string, gid int) (net.Listener, error) {
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("admin: remove stale socket: %w", err)
 	}
@@ -104,7 +112,12 @@ func Listen(path string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("admin: listen on %s: %w", path, err)
 	}
-	if err := os.Chmod(path, 0o600); err != nil {
+	if gid != KeepGroup {
+		if err := os.Chown(path, -1, gid); err != nil {
+			return nil, errors.Join(fmt.Errorf("admin: socket group: %w", err), ln.Close())
+		}
+	}
+	if err := os.Chmod(path, SocketMode); err != nil {
 		return nil, errors.Join(fmt.Errorf("admin: socket mode: %w", err), ln.Close())
 	}
 	return ln, nil

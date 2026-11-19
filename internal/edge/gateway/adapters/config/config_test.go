@@ -164,14 +164,14 @@ func TestBadFilesAreRefused(t *testing.T) {
 
 func TestServerSection(t *testing.T) {
 	d := gatewayconfig.Default().Server
-	if d.Listen != ":4000" || d.AdminSocket != "" {
+	if d.Listen != ":4000" || d.AdminSocket != "" || d.AdminGID != -1 {
 		t.Fatalf("default server = %+v", d)
 	}
 	if got := d.AdminSocketPath("/var/lib/agentsone-edge"); got != "/var/lib/agentsone-edge/admin.sock" {
 		t.Fatalf("default admin socket = %q", got)
 	}
 	path := filepath.Join(t.TempDir(), "gateway.toml")
-	text := "[server]\nlisten = \"10.88.0.2:4000\"\nadmin_socket = \"/run/edge/admin.sock\"\n"
+	text := "[server]\nlisten = \"10.88.0.2:4000\"\nadmin_socket = \"/run/edge/admin.sock\"\nadmin_gid = 1500\n"
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestServerSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if f.Server.Listen != "10.88.0.2:4000" || f.Server.AdminSocketPath("/x") != "/run/edge/admin.sock" {
+	if f.Server.Listen != "10.88.0.2:4000" || f.Server.AdminSocketPath("/x") != "/run/edge/admin.sock" || f.Server.AdminGID != 1500 {
 		t.Fatalf("server = %+v", f.Server)
 	}
 	// A file without [server] keeps the defaults.
@@ -189,7 +189,7 @@ func TestServerSection(t *testing.T) {
 	if f, err := gatewayconfig.Load(path); err != nil || f.Server.Listen != ":4000" {
 		t.Fatalf("server without section = %+v, %v", f.Server, err)
 	}
-	for _, bad := range []string{"listen = \"nope\"", "listen = \"host:99999\"", "admin_socket = \"relative.sock\""} {
+	for _, bad := range []string{"listen = \"nope\"", "listen = \"host:99999\"", "admin_socket = \"relative.sock\"", "admin_gid = -2"} {
 		if err := os.WriteFile(path, []byte("[server]\n"+bad+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}

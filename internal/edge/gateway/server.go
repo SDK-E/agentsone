@@ -189,6 +189,12 @@ func (s *Server) ListenAddr() string { return s.server.Listen }
 // AdminSocketPath is the configured admin socket path.
 func (s *Server) AdminSocketPath() string { return s.server.AdminSocketPath(s.dataDir) }
 
+// ListenAdmin opens the admin socket at its configured path, mode 0660, in
+// the configured group shared by the edge and control containers.
+func (s *Server) ListenAdmin() (net.Listener, error) {
+	return admin.Listen(s.AdminSocketPath(), s.server.AdminGID)
+}
+
 // Reload rereads gateway.toml: providers, models and prices. On error the
 // running config stays. Limits and the server section apply at the next
 // start.

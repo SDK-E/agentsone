@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -49,13 +50,16 @@ func serve(t *testing.T, keys memKeys) *admin.Client {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	sock := filepath.Join(dir, "admin.sock")
-	ln, err := admin.Listen(sock)
+	ln, err := admin.Listen(sock, os.Getgid())
 	if err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	info, err := os.Stat(sock)
-	if err != nil || info.Mode().Perm() != 0o600 {
+	if err != nil || info.Mode().Perm() != 0o660 {
 		t.Fatalf("socket mode = %v, %v", info.Mode(), err)
+	}
+	if st, ok := info.Sys().(*syscall.Stat_t); !ok || int(st.Gid) != os.Getgid() {
+		t.Fatalf("socket group = %v", info.Sys())
 	}
 	srv := &http.Server{ReadHeaderTimeout: time.Second, Handler: admin.New(admin.Options{
 		Keys:      keys,
@@ -128,9 +132,12 @@ func TestListenReplacesAStaleSocket(t *testing.T) {
 	if err := os.WriteFile(sock, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	ln, err := admin.Listen(sock)
+	ln, err := admin.Listen(sock, admin.KeepGroup)
 	if err != nil {
 		t.Fatalf("Listen over a stale file: %v", err)
 	}
 	_ = ln.Close()
+	if _, err := admin.Listen(filepath.Join(dir, "no", "such", "admin.sock"), admin.KeepGroup); err == nil {
+		t.Fatal("Listen in a missing folder succeeded")
+	}
 }

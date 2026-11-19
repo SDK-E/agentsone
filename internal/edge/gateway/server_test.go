@@ -299,7 +299,7 @@ func TestKeySetThroughAdminSocketIsUsedByCalls(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(sockDir) }()
 	sock := filepath.Join(sockDir, "admin.sock")
-	adminLn, err := admin.Listen(sock)
+	adminLn, err := admin.Listen(sock, admin.KeepGroup)
 	if err != nil {
 		t.Fatal(err)
 	}

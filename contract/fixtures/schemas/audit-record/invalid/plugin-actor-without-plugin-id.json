@@ -1,0 +1,12 @@
+{
+  "seq": 1,
+  "time": "2026-11-19T19:10:00Z",
+  "actor": { "kind": "plugin", "name": "founder" },
+  "action": "memory.write",
+  "target": { "kind": "memory", "id": "mem_01JD8X3Q5Y6Z7A8B9C0D1E2F77" },
+  "outcome": "success",
+  "details": {},
+  "origin": "inside",
+  "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "hash": "48f07d2aac1e76e30e2ff23df2bfb71cc88f497e0173f4d7b53b636555c9696a"
+}

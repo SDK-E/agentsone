@@ -8,7 +8,7 @@
         "owner": "waker",
         "filter": {
           "types": [
-            "agentsone.disk.usage-high"
+            "agentsone.disk.usage.high"
           ]
         },
         "action": {

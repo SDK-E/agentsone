@@ -6,7 +6,7 @@
     "owner": "builder",
     "filter": {
       "types": [
-        "agentsone.git.push"
+        "agentsone.git.ref.updated"
       ],
       "subject_prefix": "/home/agents/builder/docs-site"
     },

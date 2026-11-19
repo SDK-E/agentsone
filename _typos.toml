@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: MIT
 [default]
 # Commit hashes, and Unicode code points such as U+02BA-02BC in font unicode-range lists.
-extend-ignore-re = ["[0-9a-f]{40}", "U\\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?"]
+# Go module pseudo-versions such as v0.0.0-20220510233725-9ba8df137936.
+extend-ignore-re = [
+  "[0-9a-f]{40}",
+  "U\\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?",
+  "v[0-9]+\\.[0-9]+\\.[0-9]+-(0\\.)?[0-9]{14}-[0-9a-f]{12}",
+]
 
 [default.extend-words]
 agentsone = "agentsone"

@@ -7,10 +7,16 @@
 #   1. writes /etc/agentsone/config.toml: the image template, plus the edge
 #      address as the daemon's only trusted proxy when compose sets
 #      AGENTSONE_EDGE_IP (one IPv4 or IPv6 address);
-#   2. makes sure the volume folders exist and belong to root;
+#   2. makes sure the volume folders exist and belong to root, and that
+#      /home/shared (where agents hand files to each other) is open to all,
+#      with the sticky bit so nobody removes another agent's files;
 #   3. creates machine.key on the first start (32 random bytes, mode 0600),
 #      the root secret agentsoned derives its per-purpose keys from;
 #   4. replaces itself with the command (agentsoned by default).
+#
+# When an agent or human asks for a reboot, agentsoned exits with code 75.
+# tini passes it on and the compose restart policy (unless-stopped) starts
+# the same container again; only a rescue (recreate) resets it to the image.
 #
 # It never replaces a non-empty key and never touches what lives inside the
 # volumes (agent homes, databases). Agent users and the machine recipe are
@@ -86,6 +92,7 @@ dir 0700 "$state/plugins"
 dir 0700 "$state/audit"
 dir 0755 /home
 dir 0755 /home/agents
+dir 1777 /home/shared
 
 if [ ! -s "$key" ]; then
     (

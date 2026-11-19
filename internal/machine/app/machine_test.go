@@ -323,6 +323,9 @@ func TestRebootAuditsFirstThenExitsWithRebootCode(t *testing.T) {
 	if diff := cmp.Diff([]string{"agent:founder machine.reboot machine"}, r.actions()); diff != "" {
 		t.Fatal(diff)
 	}
+	if detail := string(r.audit.Entries()[0].Detail); !strings.Contains(detail, domain.RebootEffect) {
+		t.Fatalf("audit detail does not say what a reboot does: %s", detail)
+	}
 	if len(r.power.Exits()) != 0 {
 		t.Fatal("exited before the delay")
 	}
@@ -366,7 +369,10 @@ func TestServicesShowDaemonAndRecipe(t *testing.T) {
 	if len(active) != 1 || active[0].Unit != app.DaemonUnit {
 		t.Fatalf("active filter %+v", active)
 	}
-	if _, err := r.m.StopService(ctx(), human, app.DaemonUnit); !errors.Is(err, core.ErrForbidden) {
+	if !strings.Contains(list[0].Description, domain.RebootEffect) {
+		t.Fatalf("daemon description does not say what a reboot does: %q", list[0].Description)
+	}
+	if _, err := r.m.StopService(ctx(), human, app.DaemonUnit); !errors.Is(err, core.ErrForbidden) || !strings.Contains(err.Error(), domain.RebootEffect) {
 		t.Fatalf("stop daemon: %v", err)
 	}
 	if _, err := r.m.StartService(ctx(), human, "nginx.service"); !errors.Is(err, core.ErrNotFound) {

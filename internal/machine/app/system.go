@@ -74,13 +74,13 @@ func (m *Machine) Metrics(ctx context.Context) (domain.Metrics, error) {
 }
 
 // Reboot audits the request, then ends the daemon with the reboot exit code
-// after the delay, so the restart policy brings the machine back fresh.
+// after the delay, so the restart policy starts the container again.
 func (m *Machine) Reboot(ctx context.Context, a domain.Actor, reason string, delaySeconds *int) (domain.Reboot, error) {
 	r, err := domain.NewReboot(a, reason, delaySeconds, m.d.Clock.Now())
 	if err != nil {
 		return domain.Reboot{}, err
 	}
-	detail := map[string]any{"reason": r.Reason, "delay_seconds": int(r.Delay.Seconds())}
+	detail := map[string]any{"reason": r.Reason, "delay_seconds": int(r.Delay.Seconds()), "effect": domain.RebootEffect}
 	if err := m.audit(ctx, a, "machine.reboot", "machine", detail); err != nil {
 		return domain.Reboot{}, err
 	}
@@ -102,7 +102,7 @@ func (m *Machine) ListServices(_ context.Context, state domain.ServiceState, cur
 
 func (m *Machine) daemonService() domain.Service {
 	return domain.Service{
-		Unit: DaemonUnit, Description: "Agents One daemon", LoadState: "loaded",
+		Unit: DaemonUnit, Description: "Agents One daemon. Reboot: " + domain.RebootEffect, LoadState: "loaded",
 		ActiveState: domain.ServiceActive, SubState: "running", Enabled: true,
 	}
 }
@@ -142,7 +142,7 @@ func (m *Machine) reapplyUnit(ctx context.Context, a domain.Actor, unit, verb st
 }
 
 func daemonRefusal(verb string) error {
-	return fmt.Errorf("the daemon does not %s itself; use reboot: %w", verb, core.ErrForbidden)
+	return fmt.Errorf("the daemon does not %s itself; use reboot (%s): %w", verb, domain.RebootEffect, core.ErrForbidden)
 }
 
 func unknownUnit(unit string) error { return fmt.Errorf("service %s: %w", unit, core.ErrNotFound) }

@@ -47,7 +47,7 @@ fail() {
 }
 
 # reset: remove everything the entrypoint creates, as on a fresh volume.
-reset() { rm -rf "$state" /home/agents; }
+reset() { rm -rf "$state" /home/agents /home/shared; }
 
 # run <args...>: run the entrypoint, capture stdout+stderr in $out and the exit code in $code.
 run() {
@@ -93,6 +93,12 @@ expect_stat "secrets folder is root only" "$state/secrets" "700 0:0"
 expect_stat "plugins folder is root only" "$state/plugins" "700 0:0"
 expect_stat "audit folder is root only" "$state/audit" "700 0:0"
 expect_stat "agents home folder is open for traversal" /home/agents "755 0:0"
+expect_stat "shared folder is open to all with the sticky bit" /home/shared "1777 0:0"
+
+# --- reboot exit code ----------------------------------------------------------
+reset
+run sh -c 'exit 75'
+expect_code "the daemon's reboot exit code passes through" 75
 
 # --- later starts ------------------------------------------------------------
 reset

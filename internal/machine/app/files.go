@@ -63,7 +63,7 @@ func (m *Machine) ReadFile(ctx context.Context, a domain.Actor, path string) (Fi
 }
 
 // WriteFile writes a whole file as the actor's Linux user. A file outside the
-// volumes joins the machine recipe so it survives a restart.
+// volumes joins the machine recipe so it survives a rescue.
 func (m *Machine) WriteFile(ctx context.Context, a domain.Actor, req WriteRequest) (domain.FileEntry, error) {
 	area, err := domain.AreaFor(a, req.Path)
 	if err != nil {

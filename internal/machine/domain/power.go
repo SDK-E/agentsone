@@ -5,9 +5,13 @@ package domain
 import "time"
 
 // RebootExitCode is the daemon's exit status when an agent or human asks for
-// a reboot. tini passes it on, and the compose restart policy brings the
-// container back with a fresh root file system.
+// a reboot. tini passes it on, and the compose restart policy
+// (unless-stopped) starts the same container again.
 const RebootExitCode = 75
+
+// RebootEffect says what a reboot does. A restart keeps the container's own
+// layer; only recreating the container resets the machine to its image.
+const RebootEffect = "Restarts the machine container. Changes outside the recipe stay until a rescue (recreate) from Docker or Coolify."
 
 const (
 	defaultRebootDelay = 10 * time.Second

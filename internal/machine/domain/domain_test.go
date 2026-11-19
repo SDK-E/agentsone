@@ -5,6 +5,7 @@ package domain_test
 import (
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 	"time"
 
@@ -225,6 +226,14 @@ func TestNewReboot(t *testing.T) {
 	}{{"", nil}, {string(make([]byte, 501)), nil}, {"ok", &tooLong}} {
 		if _, err := domain.NewReboot(human, tc.reason, tc.delay, now); !errors.Is(err, core.ErrInvalid) {
 			t.Errorf("reason len %d: %v", len(tc.reason), err)
+		}
+	}
+}
+
+func TestRebootEffectIsHonest(t *testing.T) {
+	for _, want := range []string{"Restarts the machine container", "recipe", "recreate", "Docker or Coolify"} {
+		if !strings.Contains(domain.RebootEffect, want) {
+			t.Errorf("reboot effect %q does not mention %q", domain.RebootEffect, want)
 		}
 	}
 }

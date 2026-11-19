@@ -109,8 +109,8 @@ func within(p, base string) bool {
 	return p == base || strings.HasPrefix(p, base+"/")
 }
 
-// RecipeWorthy reports whether a file written at p is lost on restart and
-// so belongs in the machine recipe.
+// RecipeWorthy reports whether a file written at p is lost on a rescue
+// (recreate) and so belongs in the machine recipe.
 func RecipeWorthy(p string) bool {
 	for _, root := range append(append([]string{}, persistentRoots...), ephemeralRoots...) {
 		if within(p, root) {

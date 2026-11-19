@@ -11,8 +11,8 @@ import (
 )
 
 // Recipe is what agents added to the machine beyond the image: packages and
-// settings files. The root file system resets to the image on every restart,
-// so the daemon reapplies the recipe at start, before agents wake.
+// settings files. A rescue recreates the container from the image, so the
+// daemon reapplies the recipe at every start, before agents wake.
 type Recipe struct {
 	// Baseline is the image's own manually installed packages.
 	Baseline []string

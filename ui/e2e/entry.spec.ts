@@ -18,7 +18,9 @@ for (const state of STATES) {
     const clean = await useScenario(page, setupScenarios[state]);
     await page.goto("/setup");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Welcome to Agents One" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Welcome to Agents One" }),
+    ).toBeVisible();
     if (state === "error") await expect(page.getByRole("alert")).toBeVisible();
     else await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
     await checkPage(page, testInfo, `setup-${state}`);

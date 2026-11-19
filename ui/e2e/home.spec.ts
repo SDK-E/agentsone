@@ -50,7 +50,7 @@ test("home, settings panel", async ({ page }, testInfo) => {
   await page.getByRole("tab", { name: "Settings" }).click();
 
   await expect(page.getByRole("radio", { name: "System" })).toBeChecked();
-  await page.getByText("Dark", { exact: true }).click();
+  await page.getByRole("radio", { name: "Dark" }).check();
   await expect(page.getByRole("radio", { name: "Dark" })).toBeChecked();
   await expect(page.locator("html")).toHaveAttribute("data-mode", "dark");
   await checkPage(page, testInfo, "home-settings");

@@ -7,6 +7,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -101,9 +102,11 @@ export function useThemeSelection(): { mode: ThemeMode; choose: (mode: ThemeMode
   });
   const save = useMutation({ mutationFn: (m: ThemeMode) => api.setThemeSelection({ mode: m }) });
 
+  // The saved mode wins once, on load, unless the person already picked one on this screen.
+  const chosen = useRef(false);
   const savedMode = selection.data?.mode;
   useEffect(() => {
-    if (savedMode) setMode(savedMode);
+    if (savedMode && !chosen.current) setMode(savedMode);
   }, [savedMode, setMode]);
 
   const installedTheme = installed.data;
@@ -116,6 +119,7 @@ export function useThemeSelection(): { mode: ThemeMode; choose: (mode: ThemeMode
   return {
     mode,
     choose: (next) => {
+      chosen.current = true;
       setMode(next);
       save.mutate(next);
     },

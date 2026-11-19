@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useQuery } from "@tanstack/react-query";
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type SyntheticEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams } from "react-router";
 
@@ -51,7 +44,9 @@ export function ChatView() {
           {entry && (
             <p className="resident__meta">
               <span>{t("society.roleInTeam", { role: entry.role, team: entry.team })}</span>
-              {state && <span className={`state state--${state}`}>{t(`agent.state.${state}`)}</span>}
+              {state && (
+                <span className={`state state--${state}`}>{t(`agent.state.${state}`)}</span>
+              )}
               <span>{t(`agent.kind.${entry.kind}`)}</span>
             </p>
           )}
@@ -59,7 +54,13 @@ export function ChatView() {
         </div>
       </header>
 
-      {assignment && <WhyThisAgent assignment={assignment} displayName={displayName} />}
+      {assignment && (
+        <WhyThisAgent
+          assignment={assignment}
+          displayName={displayName}
+          nameOf={(agent) => live.data?.find((e) => e.agent === agent)?.display_name ?? agent}
+        />
+      )}
 
       <section aria-labelledby="chat-messages" className="panel chat__messages">
         <h2 id="chat-messages" className="visually-hidden">
@@ -105,7 +106,15 @@ export function ChatView() {
   );
 }
 
-function WhyThisAgent({ assignment, displayName }: { assignment: Assignment; displayName: string }) {
+function WhyThisAgent({
+  assignment,
+  displayName,
+  nameOf,
+}: {
+  assignment: Assignment;
+  displayName: string;
+  nameOf: (agent: string) => string;
+}) {
   const { t } = useTranslation();
   const [best, ...others] = assignment.shortlist;
   return (
@@ -116,7 +125,11 @@ function WhyThisAgent({ assignment, displayName }: { assignment: Assignment; dis
         <ol className="why__hops" aria-label={t("chat.why.hops")}>
           {assignment.hops.map((hop) => (
             <li key={`${hop.router}-${hop.handed_to}`}>
-              {t("chat.why.hop", { router: hop.router, to: hop.handed_to, reason: hop.reason })}
+              {t("chat.why.hop", {
+                router: nameOf(hop.router),
+                to: nameOf(hop.handed_to),
+                reason: hop.reason,
+              })}
             </li>
           ))}
         </ol>
@@ -127,14 +140,14 @@ function WhyThisAgent({ assignment, displayName }: { assignment: Assignment; dis
           <ul className="why__others">
             {others.map((c) => (
               <li key={c.agent}>
-                <Link to={`/agents/${encodeURIComponent(c.agent)}/chat`}>{c.agent}</Link>
+                <Link to={`/agents/${encodeURIComponent(c.agent)}/chat`}>{nameOf(c.agent)}</Link>
                 <span>{c.reason}</span>
               </li>
             ))}
           </ul>
         </details>
       )}
-      <p className="hint">{t("chat.why.router", { router: assignment.router })}</p>
+      <p className="hint">{t("chat.why.router", { router: nameOf(assignment.router) })}</p>
     </section>
   );
 }
@@ -244,7 +257,11 @@ function Composer({
       )}
       <div className="row row--end">
         <p className="hint">{t("chat.enterHint")}</p>
-        <button type="submit" className="button button--primary" disabled={message === "" || pending}>
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={message === "" || pending}
+        >
           {t("chat.send")}
         </button>
       </div>
@@ -265,7 +282,10 @@ function Activity({
       <h2 id="activity-title">{t("chat.activity", { name: entry?.display_name ?? "" })}</h2>
       <ol className="activity__lines">
         {lines.map((line, i) => (
-          <li key={`${line.time}-${String(i)}`} className={`activity__line activity__line--${line.stream}`}>
+          <li
+            key={`${line.time}-${String(i)}`}
+            className={`activity__line activity__line--${line.stream}`}
+          >
             {line.text}
           </li>
         ))}

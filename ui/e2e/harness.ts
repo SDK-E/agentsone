@@ -62,17 +62,19 @@ export async function useScenario(page: Page, scenario: Scenario): Promise<() =>
     const request = route.request();
     const url = new URL(request.url());
     const operation = operationOf(request.method(), url.pathname);
-    let variant = "";
-    if (operation) {
-      const wanted = scenario.only?.[operation] ?? scenario.all ?? "";
-      if (scenario.only?.[operation] !== undefined && wanted === "error") variant = wanted;
-      else if (wanted !== "" && hasFixture(operation, wanted)) variant = wanted;
-      // Streams have no fixture until the contract adds one; the interface falls back to polling.
-      if (variant === "error" || !hasFixture(operation, variant)) {
-        expectedFailures.add(url.pathname);
-      }
+    const wanted = operation ? (scenario.only?.[operation] ?? scenario.all ?? "") : "";
+    if (operation && wanted === "error" && scenario.only?.[operation] === "error") {
+      // The query form is strict: with no error fixture the fake daemon answers 404.
+      url.searchParams.set("fixture", "error");
+      expectedFailures.add(url.pathname);
+      await route.continue({ url: url.href });
+      return;
     }
-    await route.continue({ headers: { ...request.headers(), "x-fixture-variant": variant } });
+    // The header form falls back to the default fixture when the variant does not exist.
+    if (operation && !hasFixture(operation, wanted) && !hasFixture(operation)) {
+      expectedFailures.add(url.pathname); // no fixture at all yet: the interface polls instead
+    }
+    await route.continue({ headers: { ...request.headers(), "x-fixture-variant": wanted } });
   });
 
   page.on("console", (message) => {

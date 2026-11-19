@@ -12,6 +12,7 @@
     "waking": "Waking the machine…",
     "loadFailed": "This could not load. The machine may still be starting.",
     "retry": "Try again",
+    "detail": "The machine said: {{detail}}",
     "unreachableTitle": "Agents One is not answering"
   },
   "notFound": {
@@ -162,13 +163,34 @@
     "open": "Open panels",
     "close": "Close",
     "coming": "This panel is being built.",
-    "monitor": { "label": "Monitor", "about": "How the machine and each agent are doing: load, memory, disk and recent events." },
-    "tasks": { "label": "Tasks", "about": "Tasks the agents gave each other and the ones you asked for, with who holds each." },
-    "memory": { "label": "Memory", "about": "What the society remembers: private, team and common memory, searchable." },
-    "plugins": { "label": "Plugins", "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from." },
+    "monitor": {
+      "label": "Monitor",
+      "about": "How the machine and each agent are doing: load, memory, disk and recent events."
+    },
+    "tasks": {
+      "label": "Tasks",
+      "about": "Tasks the agents gave each other and the ones you asked for, with who holds each."
+    },
+    "memory": {
+      "label": "Memory",
+      "about": "What the society remembers: private, team and common memory, searchable."
+    },
+    "plugins": {
+      "label": "Plugins",
+      "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from."
+    },
     "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
-    "machine": { "label": "Machine", "about": "Processes, services, packages, users and files. Some powers are held on the host." },
-    "audit": { "label": "Audit", "about": "The record of what happened. What the host saw is proof; records from inside are testimony." },
-    "settings": { "label": "Settings", "about": "More settings arrive here: your account, model providers and the web door, which are held on the host." }
+    "machine": {
+      "label": "Machine",
+      "about": "Processes, services, packages, users and files. Some powers are held on the host."
+    },
+    "audit": {
+      "label": "Audit",
+      "about": "The record of what happened. What the host saw is proof; records from inside are testimony."
+    },
+    "settings": {
+      "label": "Settings",
+      "about": "More settings arrive here: your account, model providers and the web door, which are held on the host."
+    }
   }
 }

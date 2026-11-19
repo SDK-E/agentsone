@@ -101,23 +101,25 @@ function CreateHuman() {
       <h2 id="setup-human">{t("setup.human.title")}</h2>
       <p>{t("setup.human.body")}</p>
       <form onSubmit={submit} className="stack" noValidate>
-        <label className="field">
-          <span>{t("setup.human.name")}</span>
-          <input
-            name="name"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-describedby={hintId}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value.toLowerCase());
-            }}
-          />
+        <div className="field">
+          <label className="field">
+            <span>{t("setup.human.name")}</span>
+            <input
+              name="name"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-describedby={hintId}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value.toLowerCase());
+              }}
+            />
+          </label>
           <small id={hintId} className="hint">
             {t("setup.human.nameHint")}
           </small>
-        </label>
+        </div>
         <label className="field">
           <span>{t("setup.human.displayName")}</span>
           <input

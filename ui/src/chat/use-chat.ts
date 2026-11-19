@@ -45,7 +45,10 @@ export function useChat(agent: string) {
           );
           setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([id]) => id !== done.id)));
         } else if (frame.kind === "delta") {
-          setDrafts((d) => ({ ...d, [frame.message_id]: (d[frame.message_id] ?? "") + frame.text }));
+          setDrafts((d) => ({
+            ...d,
+            [frame.message_id]: (d[frame.message_id] ?? "") + frame.text,
+          }));
         }
       },
       onClose: () => {

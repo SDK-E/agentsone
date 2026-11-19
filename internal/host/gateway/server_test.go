@@ -154,6 +154,85 @@ func TestCallIsRoutedChargedAndFlushedOnStop(t *testing.T) {
 	}
 }
 
+func TestAnthropicStreamIsChargedFromItsUsageEvents(t *testing.T) {
+	stream := "event: message_start\n" +
+		"data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":500000,\"output_tokens\":1}}}\n\n" +
+		"event: message_delta\n" +
+		"data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":100000}}\n\n" +
+		"event: message_stop\n" +
+		"data: {\"type\":\"message_stop\"}\n\n"
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/messages" || r.Header.Get("X-Api-Key") != "test-claude-key" {
+			http.Error(w, "wrong call", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, stream)
+	}))
+	defer fake.Close()
+
+	dir := t.TempDir()
+	cfg := gatewayconfig.File{
+		Limits: gatewayconfig.Default().Limits,
+		Providers: []gatewayconfig.Provider{
+			{
+				ID: "anthropic", Enabled: true, AnthropicBaseURL: fake.URL + "/v1", KeyRequired: true,
+				Models: []gatewayconfig.Model{{ID: "claude-sonnet-5-5", Tier: "normal", Family: "claude", Input: "2", Output: "10"}},
+			},
+			{
+				// Cheaper, but not Claude: the Anthropic endpoint must not use it.
+				ID: "cheap", Enabled: true, AnthropicBaseURL: fake.URL + "/v1", KeyRequired: false,
+				Models: []gatewayconfig.Model{{ID: "cheap-model", Tier: "normal", Family: "other", Input: "0", Output: "0"}},
+			},
+		},
+	}
+	if err := gatewayconfig.Save(filepath.Join(dir, gatewayconfig.FileName), cfg); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	st, err := budgetstore.Open(ctx, filepath.Join(dir, gateway.BudgetFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveSettings(ctx, budgetapp.Settings{Total: 10 * ledger.MicrosPerUSD}); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Close()
+	now := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
+	srv, err := gateway.Open(ctx, gateway.Options{
+		DataDir: dir, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, stop := serve(t, srv)
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/anthropic/v1/messages",
+		strings.NewReader(`{"model":"autoagents/one","max_tokens":200000,"stream":true,"messages":[]}`))
+	req.Header.Set("X-Api-Key", agentToken(t, srv, now))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 || string(body) != stream || resp.Header.Get("X-Agentsone-Model") != "anthropic/claude-sonnet-5-5" {
+		t.Fatalf("status %d model %q body %q", resp.StatusCode, resp.Header.Get("X-Agentsone-Model"), body)
+	}
+	stop()
+
+	st, err = budgetstore.Open(ctx, filepath.Join(dir, gateway.BudgetFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	sp, _ := st.LoadSpend(ctx)
+	// 500k input at $2 = $1.00, 100k output at $10 = $1.00.
+	if sp.General != 2*ledger.MicrosPerUSD {
+		t.Fatalf("spent = %v, want $2.00", sp.General)
+	}
+}
+
 func TestBudgetWallAndAllocations(t *testing.T) {
 	srv, _, now := setup(t, 0)
 	base, stop := serve(t, srv)

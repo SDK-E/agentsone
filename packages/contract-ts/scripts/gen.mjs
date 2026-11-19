@@ -9,7 +9,7 @@
 // and everything is formatted with the repository Prettier config. Stale files are removed.
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { compile } from "json-schema-to-typescript";
 import openapiTS, { astToString } from "openapi-typescript";
@@ -64,8 +64,26 @@ function namespaceName(rel) {
   return `${words.map((w) => w[0].toUpperCase() + w.slice(1)).join("")}Schema`;
 }
 
+/**
+ * Remove `$defs` from component schemas. The bundle keeps the `$defs` of JSON Schemas it
+ * inlined from contract/schemas, and openapi-typescript would render each as a required
+ * `$defs` member of the object type. Bundling already lifts every referenced definition into
+ * its own component, so these copies are unreachable; fail loudly if that ever changes.
+ */
+function dropDefs(spec) {
+  const text = JSON.stringify(spec);
+  if (/"\$ref":"#\/components\/schemas\/[^"]*\/\$defs\//.test(text)) {
+    throw new Error("contract/dist/openapi.json has a $ref into a $defs block; cannot drop $defs");
+  }
+  for (const schema of Object.values(spec.components?.schemas ?? {})) {
+    if (schema && typeof schema === "object") delete schema.$defs;
+  }
+  return spec;
+}
+
 async function genOpenAPI() {
-  const ast = await openapiTS(pathToFileURL(specFile), { alphabetize: false });
+  const spec = dropDefs(JSON.parse(await readFile(specFile, "utf8")));
+  const ast = await openapiTS(spec, { alphabetize: false });
   const file = path.join(outDir, "openapi.ts");
   await emit(file, banner("contract/dist/openapi.json") + astToString(ast));
 }

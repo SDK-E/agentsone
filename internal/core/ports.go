@@ -33,19 +33,23 @@ func NewPorts() *Ports {
 	}
 }
 
-// AgentKind separates root agents (uid 0, no sandbox) from custom agents.
+// AgentKind is how an agent lives, with the contract's values.
 type AgentKind string
 
 // Agent kinds.
 const (
-	AgentRoot   AgentKind = "root"
-	AgentCustom AgentKind = "custom"
+	AgentAlwaysOn AgentKind = "always-on"
+	AgentChat     AgentKind = "chat"
+	AgentWaker    AgentKind = "waker"
 )
 
 // Agent is the directory view of one agent.
 type Agent struct {
-	Name    string
-	Kind    AgentKind
+	Name string
+	Kind AgentKind
+	// IsRoot is true for root agents: real uid 0, no sandbox. Custom agents
+	// have their own Linux user.
+	IsRoot  bool
 	Manager string // empty for agents at the top of the chart
 	Runner  string // runner adapter name, for example "echo"
 	UID     int
@@ -64,7 +68,8 @@ type AgentDirectory interface {
 	TeamRoot(ctx context.Context, name string) (string, error)
 }
 
-// WakeReason says why an agent is woken. Agents only wake for these.
+// WakeReason says why an agent is woken, with the runner protocol's values.
+// Agents only wake for these.
 type WakeReason string
 
 // Wake reasons.
@@ -73,7 +78,7 @@ const (
 	WakeTask    WakeReason = "task"
 	WakeEvent   WakeReason = "event"
 	WakeTimer   WakeReason = "timer"
-	WakeHuman   WakeReason = "human"
+	WakeChat    WakeReason = "chat"
 )
 
 // Waker wakes a sleeping agent. Waking an awake agent delivers the payload.
@@ -148,8 +153,9 @@ type Task struct {
 	ID       string
 	Title    string
 	Assignee string
-	Status   string
-	Created  time.Time
+	// Status is a contract TaskStatus value: open, in-progress, blocked, done, cancelled or failed.
+	Status  string
+	Created time.Time
 }
 
 // TaskService creates tasks.

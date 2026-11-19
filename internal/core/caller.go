@@ -21,6 +21,8 @@ const (
 	CallerSystem CallerKind = "system"
 	// CallerHost is the host tool on the Mac, reaching the daemon through the door.
 	CallerHost CallerKind = "host"
+	// CallerPlugin is an installed plugin, for example its emitter; Name is its plugin id.
+	CallerPlugin CallerKind = "plugin"
 )
 
 // Caller is who made a request. The API layer sets it on every request

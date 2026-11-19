@@ -45,9 +45,9 @@ func TestNewIDsIsStable(t *testing.T) {
 func TestAgentsChart(t *testing.T) {
 	ctx := context.Background()
 	d := coretest.NewAgents()
-	d.Add(core.Agent{Name: "founder", Kind: core.AgentRoot})
-	d.Add(core.Agent{Name: "lead", Kind: core.AgentCustom, Manager: "founder"})
-	d.Add(core.Agent{Name: "dev", Kind: core.AgentCustom, Manager: "lead"})
+	d.Add(core.Agent{Name: "founder", Kind: core.AgentAlwaysOn, IsRoot: true})
+	d.Add(core.Agent{Name: "lead", Kind: core.AgentAlwaysOn, Manager: "founder"})
+	d.Add(core.Agent{Name: "dev", Kind: core.AgentChat, Manager: "lead"})
 
 	got, err := d.GetAgent(ctx, "dev")
 	if err != nil || got.Manager != "lead" {

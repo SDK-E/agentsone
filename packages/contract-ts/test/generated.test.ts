@@ -26,4 +26,9 @@ describe("generated files", () => {
       expect(head, file).toMatch(/Code generated .* DO NOT EDIT\./);
     }
   });
+
+  it("do not turn JSON Schema $defs into required object members", async () => {
+    const source = await readFile(path.join(generated, "openapi.ts"), "utf8");
+    expect(source).not.toMatch(/^\s+\$defs: \{/m);
+  });
 });

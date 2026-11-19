@@ -37,8 +37,7 @@ func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState,
 	if spec.Account.IsRoot {
 		return st, nil
 	}
-	plan := launchPlan{UID: -1, GID: -1, NoFile: DefaultNoFile, NProc: uint64(max(spec.Limits.TasksMax, 0)),
-		Path: cmd.Path, Args: cmd.Args[1:]}
+	plan := launchPlan{UID: -1, GID: -1, NoFile: DefaultNoFile, Path: cmd.Path, Args: cmd.Args[1:]}
 	if os.Geteuid() == 0 {
 		uid, gid, err := ids(spec.Account)
 		if err != nil {
@@ -50,9 +49,12 @@ func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState,
 		st.mode = domain.LimitsSoft
 		if dir := agentCgroup(cgroupRoot, spec); dir != "" {
 			st.cgroup, st.mode, plan.Cgroup = dir, domain.LimitsHard, dir
-		} else if spec.Limits.MemoryMaxBytes > 0 {
-			// Without a cgroup, address space is the closest memory limit.
-			plan.AS = uint64(spec.Limits.MemoryMaxBytes)
+		} else {
+			// Without a cgroup the rlimits are the limits: address space
+			// for memory, processes of the agent's user for tasks. With a
+			// cgroup, memory.max and pids.max are exact and per agent.
+			plan.AS = uint64(max(spec.Limits.MemoryMaxBytes, 0))
+			plan.NProc = uint64(max(spec.Limits.TasksMax, 0))
 		}
 	}
 	r, w, err := os.Pipe()

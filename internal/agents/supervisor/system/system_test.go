@@ -242,7 +242,8 @@ func TestCgroup_StopsForkBombAtTaskLimit(t *testing.T) {
 	root := requireCgroups(t)
 	acc := agentUser(t, "aotest-orla", 200104)
 	limits := domain.Limits{TasksMax: 20}
-	script := `i=0; while [ "$i" -lt 100 ]; do sleep 60 & i=$((i+1)); done 2>/dev/null; echo forked > "$OUT"; exec sleep 600`
+	// The shell exits when a fork fails, so the bomb runs in a child shell.
+	script := `sh -c 'i=0; while [ "$i" -lt 100 ]; do sleep 60 & i=$((i+1)); done' 2>/dev/null; echo forked > "$OUT"; exec sleep 600`
 	l, out := run(t, acc, script, limits, root)
 
 	readFifo(t, out)
@@ -289,14 +290,14 @@ func TestLaunchHelper_RunnerStartsInsideItsCgroupAsItsUser(t *testing.T) {
 	acc := agentUser(t, "aotest-iris", 200107)
 	limits := domain.Limits{TasksMax: 64}
 	script := `read -r cg < /proc/self/cgroup; while read -r k v rest; do [ "$k" = Uid: ] && uid=$v; done < /proc/self/status; ` +
-		`while read -r a b c rest; do [ "$a $b" = "Max processes" ] && np=$c; done < /proc/self/limits; ` +
-		`echo "$cg uid=$uid nproc=$np pid=$$" > "$OUT"; exec sleep 600`
+		`while read -r a b c d e rest; do [ "$a $b $c" = "Max open files" ] && nf=$d; done < /proc/self/limits; ` +
+		`echo "$cg uid=$uid nofile=$nf pid=$$" > "$OUT"; exec sleep 600`
 	l, out := run(t, acc, script, limits, root)
 
 	got := readFifo(t, out)
 	t.Logf("proof launch: runner's first command read %q (mechanism: /proc/self/exe %s joins cgroup.procs, lowers rlimits, setgroups/setgid/setuid, execve runner; no clone3, no ptrace) mode=%s",
 		got, process.LaunchArgv0, l.Mode(acc.User))
-	want := "0::/" + process.AgentsCgroup + "/aotest-iris uid=200107 nproc=64"
+	want := "0::/" + process.AgentsCgroup + "/aotest-iris uid=200107 nofile=" + strconv.Itoa(process.DefaultNoFile)
 	if !strings.HasPrefix(got, want+" pid=") || l.Mode(acc.User) != domain.LimitsHard {
 		t.Fatalf("runner saw %q mode %s; want prefix %q and hard", got, l.Mode(acc.User), want)
 	}

@@ -55,6 +55,7 @@ type Launcher struct {
 	specs map[string]domain.UnitSpec
 	procs map[string]*proc
 	modes map[string]domain.LimitMode
+	want  map[string]bool // Start was called and Stop was not since
 }
 
 var _ app.Launcher = (*Launcher)(nil)
@@ -68,6 +69,7 @@ type proc struct {
 func (l *Launcher) init() {
 	if l.specs == nil {
 		l.specs, l.procs, l.modes = map[string]domain.UnitSpec{}, map[string]*proc{}, map[string]domain.LimitMode{}
+		l.want = map[string]bool{}
 	}
 	if l.Log == nil {
 		l.Log = slog.Default()
@@ -124,7 +126,11 @@ func (l *Launcher) Start(_ context.Context, name string) error {
 	if _, ok := l.procs[name]; ok {
 		return nil
 	}
-	return l.startLocked(name)
+	if err := l.startLocked(name); err != nil {
+		return err
+	}
+	l.want[name] = true
+	return nil
 }
 
 func (l *Launcher) startLocked(name string) error {
@@ -209,6 +215,9 @@ func (l *Launcher) wait(name string, p *proc, sys *sysState) {
 	if _, running := l.procs[name]; running {
 		return
 	}
+	if !l.want[name] {
+		return // stopped or removed while the restart waited
+	}
 	if _, installed := l.specs[name]; !installed {
 		return
 	}
@@ -222,6 +231,7 @@ func (l *Launcher) wait(name string, p *proc, sys *sysState) {
 func (l *Launcher) Stop(ctx context.Context, name string) error {
 	l.mu.Lock()
 	l.init()
+	l.want[name] = false
 	p, ok := l.procs[name]
 	if ok {
 		p.stopping = true
@@ -267,5 +277,6 @@ func (l *Launcher) Remove(_ context.Context, name string) error {
 	}
 	delete(l.specs, name)
 	delete(l.modes, name)
+	delete(l.want, name)
 	return nil
 }

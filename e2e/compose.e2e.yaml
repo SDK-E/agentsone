@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+#
+# e2e only: what the scenario adds on top of compose.yaml. e2e/run.sh loads it through
+# COMPOSE_FILE; no deployment ever does.
+#
+#   fakeprovider  an OpenAI-compatible model provider with fixed answers (e2e/fakeprovider). It
+#                 sits on the outer network only: the edge reaches it as a provider, the machine
+#                 has no route to it. It holds no key, keeps only hashes of what it is sent, and
+#                 calls nothing.
+
+services:
+  fakeprovider:
+    image: agentsone-e2e-fakeprovider:local
+    build:
+      context: .
+      dockerfile: e2e/fakeprovider/Dockerfile
+    # Built by `e2e/run.sh up`, never pulled.
+    pull_policy: never
+    restart: "no"
+    networks:
+      - outer
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    read_only: true
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/fakeprovider", "probe", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 1s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 64m
+          pids: 64
+    memswap_limit: 64m

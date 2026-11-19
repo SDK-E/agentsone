@@ -13,12 +13,21 @@
 # Each check prints PASS, FAIL or SKIP with its reason. A stage whose feature is not on main
 # yet is SKIP, never PASS. The script exits 1 when any check fails.
 #
-# The stack comes from compose.yaml in the repository root (or COMPOSE_FILE). Images default to
-# the release tag pinned in compose.yaml; set AGENTSONE_IMAGE_TAG to test another build, for
-# example `main` (newest tested build of main) or `sha-<commit>` (CI does that).
+# The stack comes from compose.yaml in the repository root (or COMPOSE_FILE), with
+# e2e/compose.e2e.yaml on top: the fake model provider the scenario's model calls end at, built
+# from e2e/fakeprovider and never part of a deployment. Images default to the release tag pinned
+# in compose.yaml; set AGENTSONE_IMAGE_TAG to test another build, for example `main` (newest
+# tested build of main) or `sha-<commit>` (CI does that).
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 2
+
+# Every docker compose call below, and in the shells this script starts, sees the e2e overlay.
+case ":${COMPOSE_FILE:=compose.yaml}:" in
+  *:e2e/compose.e2e.yaml:*) ;;
+  *) COMPOSE_FILE="${COMPOSE_FILE}:e2e/compose.e2e.yaml" ;;
+esac
+export COMPOSE_FILE
 
 EDGE_IP="${AGENTSONE_EDGE_IP:-10.77.42.2}"
 EDGE_OUTER_IP="${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}"
@@ -201,6 +210,10 @@ cmd_up() {
   start edge 15 || return 1
   start machine 14 || return 1
   start control 17 || return 1
+  # The fake model provider is test code in this repository: it is always built, never left out.
+  echo "building fakeprovider"
+  compose build --quiet fakeprovider || return 1
+  start fakeprovider e2e || return 1
   sed 's/^/left out: /' "$SKIPPED"
 }
 
@@ -409,7 +422,7 @@ stage_event_to_task() { not_on_main event-to-task 3 "events and triggers"; }
 stage_memory() { not_on_main memory 5 "memory"; }
 stage_plugin_install() { not_on_main plugin-install 6 "plugin install"; }
 stage_agentctl_parity() { not_on_main agentctl-parity 8 "agentctl against the running machine"; }
-stage_budget_wall() { not_on_main budget-wall 16 "the budget wall and defence slice"; }
+
 # --- freeze all: a hard wall in the edge, switched only through the admin socket --------------
 
 # model_call <token> [curl args...]: one chat completion from the machine to the gateway, as a
@@ -513,9 +526,271 @@ stage_control() {
   expect_http "signed in again, the control page shows freeze all" '200' 'action="/freeze"' control_page GET /
 }
 
+# --- model turn: a real model call through the gateway, ending at the e2e fake provider --------
+
+# The provider e2e/fakeprovider/gateway.toml defines.
+FAKE_PROVIDER="e2e-fake"
+# What the fake answers (e2e/fakeprovider/main.go): the reason it gives its pick, its chat reply,
+# and what each answer costs at the e2e prices, in micro-dollars.
+FAKE_ROUTE_REASON="Picked by the e2e fake provider."
+FAKE_CHAT_REPLY="Hello from the e2e fake provider."
+FAKE_COST=1100
+# The request a human routes; the fake rates whatever the router shortlists.
+ROUTE_TEXT="Please write the release notes for this week."
+
+# as_control_in <path> [curl args...]: as as_control, with this script's stdin as the JSON
+# request body, so a secret is never on a command line.
+as_control_in() {
+  local path="$1" volume
+  shift
+  volume="$(compose config --format json | jq -r '.volumes["edge-admin"].name')"
+  docker run --rm -i --network none --user 65533:65532 -v "${volume}:${ADMIN_DIR}:ro" "$CURL_IMAGE" \
+    -sS -m 10 --unix-socket "${ADMIN_DIR}/admin.sock" -H 'Content-Type: application/json' --data-binary @- \
+    "$@" "http://edge${path}"
+}
+
+# seed_gateway_config: write e2e/fakeprovider/gateway.toml into the edge data volume as the edge
+# user, as a human edits the file on the host. It names the provider and its address only: the
+# provider is switched on and its key set through the admin socket.
+seed_gateway_config() {
+  local volume dir=/var/lib/agentsone-edge
+  volume="$(compose config --format json | jq -r '.volumes["edge-data"].name')"
+  docker run --rm -i --network none --user 65532:65532 --cap-drop ALL --security-opt no-new-privileges \
+    --read-only -v "${volume}:${dir}" --entrypoint sh "$CURL_IMAGE" \
+    -c "cat >${dir}/.gateway-e2e.toml && chmod 600 ${dir}/.gateway-e2e.toml && mv -f ${dir}/.gateway-e2e.toml ${dir}/gateway.toml" \
+    <e2e/fakeprovider/gateway.toml
+}
+
+# The fake provider's notes of the calls it got (no keys, only their hashes).
+FAKE_SEEN_URL="http://fakeprovider:8080/seen"
+
+# fake_seen: the fake provider's notes, asked from the outer network.
+fake_seen() { from_outer -sS -m 10 "$FAKE_SEEN_URL"; }
+
+# fake_calls: how many calls reached the fake provider.
+fake_calls() { fake_seen | jq -e '.calls | length'; }
+
+# fake_saw_only_the_key <from> [kind]: the calls after the first <from> reached the fake provider,
+# at least one of them (of that kind), each with this run's provider key and none with a gateway
+# token in a header or the body.
+fake_saw_only_the_key() {
+  fake_seen | jq -e --argjson from "$1" --arg kind "${2:-}" --arg hash "$(provider_auth_hash)" '
+    .calls[$from:] as $new
+    | ($new | length) > 0
+      and all($new[]; .auth_sha256 == $hash and (.gateway_token | not))
+      and ($kind == "" or any($new[]; .kind == $kind))'
+}
+
+# provider_auth_hash: the SHA-256 of the Authorization header the fake should see. Not secret.
+provider_auth_hash() { printf 'Bearer %s' "$(cat "$WORK/provider-key")" | openssl dgst -sha256 -r | cut -c1-64; }
+
+# budget_field <field>: one number from the edge budget, through the admin socket.
+budget_field() { as_control /v1/gateway/budget | jq -e --arg f "$1" '.[$f] | numbers'; }
+
+# set_budget_total <micro-dollars> [curl args...]: a human sets the total budget through the admin
+# socket.
+set_budget_total() {
+  local total="$1"
+  shift
+  printf '{"total_micros":%s}' "$total" | as_control_in /v1/gateway/budget -X PATCH "$@"
+}
+
+# spent_grew <before> <at least>: the budget spent is now at least <at least> micro-dollars above
+# <before>.
+spent_grew() {
+  local now
+  now="$(budget_field spent_micros)" || return 1
+  echo "spent ${1} then ${now}"
+  [ $((now - $1)) -ge "$2" ]
+}
+
+# provider_listed <fingerprint>: the admin provider list has one provider on, the fake, with a key
+# of that fingerprint.
+provider_listed() {
+  as_control /v1/gateway/providers | jq -e --arg id "$FAKE_PROVIDER" --arg fp "$1" \
+    '[.providers[] | select(.enabled)] | length == 1 and .[0].id == $id and .[0].key.fingerprint == $fp'
+}
+
+# proof_calls <agent>: the edge proof records of model calls by <agent>, oldest first, one per line.
+proof_calls() {
+  local after=0 page n
+  while :; do
+    page="$(as_control "/v1/audit/proof?after=${after}&limit=500")" || return 1
+    printf '%s' "$page" | jq -c --arg a "$1" '.records[] | select(.action == "model.call" and .target.id == $a)' ||
+      return 1
+    n="$(printf '%s' "$page" | jq -e '.records | length')" || return 1
+    [ "$n" -lt 500 ] && return 0
+    after="$(printf '%s' "$page" | jq -e '.records[-1].seq')" || return 1
+  done
+}
+
+# proof_count <agent>: how many model call proof records <agent> has.
+proof_count() {
+  local lines
+  lines="$(proof_calls "$1")" || return 1
+  printf '%s' "$lines" | grep -c '^{' || true
+}
+
+# expect_proof <label> <agent> <count before> <jq test>: <agent> has one more model call proof
+# record than before, and the newest passes the test.
+expect_proof() {
+  local label="$1" agent="$2" before="$3" test="$4" lines newest
+  if ! lines="$(proof_calls "$agent")"; then
+    fail "$label" "the edge proof log is not readable"
+    return
+  fi
+  newest="$(printf '%s\n' "$lines" | grep '^{' | tail -n 1)"
+  if [ "$(printf '%s\n' "$lines" | grep -c '^{')" -eq "$((before + 1))" ] &&
+    printf '%s' "$newest" | jq -e "$test" >/dev/null 2>&1; then
+    pass "$label"
+  else
+    fail "$label" "${newest:-no model call record for $agent}"
+  fi
+}
+
+# key_never_shown: the admin socket's provider list does not hold the provider key. Prints nothing
+# that could hold it.
+key_never_shown() {
+  local list
+  list="$(as_control /v1/gateway/providers)" || return 1
+  ! printf '%s' "$list" | grep -qF -- "$(cat "$WORK/provider-key")"
+}
+
+stage_model_turn() {
+  needs model-turn machine edge fakeprovider || return 0
+  local fake_ip outer fp token calls spent proofs
+
+  # The fake provider is outside the wall: the edge reaches it, the machine cannot.
+  outer="$(compose config --format json | jq -r '.networks.outer.name')"
+  fake_ip="$(docker inspect -f "{{(index .NetworkSettings.Networks \"${outer}\").IPAddress}}" "$(compose ps -q fakeprovider)" 2>/dev/null)"
+  expect fail "the machine cannot resolve the fake provider" in_machine getent hosts fakeprovider
+  if [ -n "$fake_ip" ]; then
+    expect fail "the machine cannot reach the fake provider by address (${fake_ip}:8080)" \
+      in_machine curl -sS -m 5 -o /dev/null "http://${fake_ip}:8080/healthz"
+  else
+    fail "model-turn: the fake provider's address is not found"
+  fi
+  expect_http "the outer network reaches the fake provider" '200' '"calls":' from_outer -sS -m 10 "$FAKE_SEEN_URL"
+
+  # A human sets the provider up: its address in gateway.toml, the rest through the admin socket.
+  (umask 077 && openssl rand -hex 24 >"$WORK/provider-key") || {
+    fail "model-turn: make a provider key"
+    return 0
+  }
+  # The edge fingerprint is the first 8 hex digits of the key's SHA-256 (adminapi.Fingerprint).
+  fp="$(printf '%s' "$(cat "$WORK/provider-key")" | openssl dgst -sha256 -r | cut -c1-8)"
+  expect ok "gateway.toml names the fake provider (written as the edge user, as a human edits it)" seed_gateway_config
+  expect_http "a human switches the fake provider on through the admin socket" '200' \
+    "\"id\":\"${FAKE_PROVIDER}\",\"enabled\":true,\"key_required\":true,\"key\":\\{\"set\":false\\}" \
+    as_control "/v1/gateway/providers/${FAKE_PROVIDER}" -X PUT
+  expect_http "a human sets a key made for this run; the edge answers with its fingerprint only" '200' \
+    "^\\{\"set\":true,\"fingerprint\":\"${fp}\"\\}\$" \
+    as_control_in "/v1/gateway/providers/${FAKE_PROVIDER}/key" -X PUT < <(jq -Rc '{key: .}' "$WORK/provider-key")
+  expect_out "the provider list shows only the fake provider on, with the key's fingerprint" '^true$' \
+    provider_listed "$fp"
+  expect ok "the provider list never shows the key" key_never_shown
+  expect_http "a human sets a total budget of 1 USD through the admin socket" '200' '"total_micros":1000000' \
+    set_budget_total 1000000
+
+  # The gateway leg: a call signed like the daemon's tokens, from the machine.
+  if ! token="$(signed_token)" || [ -z "$token" ]; then
+    fail "model-turn: sign a gateway token in the machine" "$token"
+    return 0
+  fi
+  if ! { calls="$(fake_calls)" && spent="$(budget_field spent_micros)" && proofs="$(proof_count system:e2e)"; }; then
+    fail "model-turn: read the fake provider, the budget and the proof log before the call"
+    return 0
+  fi
+  expect_http "a model call from the machine is answered by the fake provider through the gateway" '200' \
+    "\"content\":\"${FAKE_CHAT_REPLY}\"" model_call "$token"
+  expect ok "the fake provider got the provider key, never the gateway token" fake_saw_only_the_key "$calls" chat
+  expect_proof "the edge proof log has the call: system caller, the fake's model, its tokens and cost" \
+    system:e2e "$proofs" \
+    ".outcome == \"success\" and .details.kind == \"system\" and .details.status == 200 and
+     (.details.model | startswith(\"${FAKE_PROVIDER}/\")) and .details.input_tokens == 1000 and
+     .details.output_tokens == 50 and .details.cost_micros == ${FAKE_COST}"
+  expect ok "the budget spent grew by at least the call's cost (${FAKE_COST} micro-dollars)" \
+    spent_grew "$spent" "$FAKE_COST"
+
+  # The router leg: a human request through the web door, rated by the router's own model call
+  # with the token the daemon mints for system:router.
+  door || return 0
+  local seeded
+  seeded="$(curl -sS -m 10 "${DOOR}/v1/setup" | jq -r '.seed_installed')"
+  if [ "$seeded" != true ]; then
+    skip "model-turn: router leg" "no router agent: GET /v1/setup says seed_installed ${seeded:-unreadable}; the daemon does not wire the runner supervisor yet, so the Small Seed never installs"
+    return 0
+  fi
+  if [ ! -s "$WORK/login.json" ]; then
+    fail "model-turn: no first human; run the setup-page stage first"
+    return 0
+  fi
+  if ! { calls="$(fake_calls)" && spent="$(budget_field spent_micros)" && proofs="$(proof_count system:router)"; }; then
+    fail "model-turn: read the fake provider, the budget and the proof log before routing"
+    return 0
+  fi
+  rm -f "$WORK/cookies" "$WORK/assignment.json"
+  expect_http "the first human signs in through the web door" '201' "\"name\":\"${HUMAN}\"" \
+    from_browser POST /v1/session -d @"$WORK/login.json"
+  expect_http "a human request through the web door is routed to an agent's chat" '201' '' \
+    from_browser POST /v1/router/route -d "$(jq -nc --arg t "$ROUTE_TEXT" '{text: $t}')" -o "$WORK/assignment.json"
+  # shellcheck disable=SC2016 # $r is a jq variable.
+  expect_out "the router's model call picked the agent: its pick carries the fake provider's reason" '^true$' \
+    jq -e --arg r "$FAKE_ROUTE_REASON" '.chosen == .shortlist[0].agent and .shortlist[0].reason == $r' "$WORK/assignment.json"
+  local chat_path message_id
+  chat_path="$(jq -r '.chat_path // empty' "$WORK/assignment.json" 2>/dev/null)"
+  message_id="$(jq -r '.chat_message_id // empty' "$WORK/assignment.json" 2>/dev/null)"
+  if [ -n "$chat_path" ] && [ -n "$message_id" ]; then
+    expect_http "the request is in the chosen agent's chat" '200' "\"id\":\"${message_id}\"" from_browser GET "$chat_path"
+    expect_http "the chat message holds the human's text" '200' "\"text\":\"${ROUTE_TEXT}\"" from_browser GET "$chat_path"
+  else
+    fail "model-turn: the assignment names no chat message" "$(cat "$WORK/assignment.json" 2>/dev/null)"
+  fi
+  expect ok "the router's call reached the fake provider with the provider key, never the router's token" \
+    fake_saw_only_the_key "$calls" route
+  expect_proof "the edge proof log has the router's call: agent system:router, system kind, status 200" \
+    system:router "$proofs" \
+    ".outcome == \"success\" and .details.kind == \"system\" and .details.status == 200 and
+     .details.model == \"${FAKE_PROVIDER}/fake-quick\" and .details.cost_micros == ${FAKE_COST}"
+  expect ok "the budget spent grew by at least the router's call (${FAKE_COST} micro-dollars)" \
+    spent_grew "$spent" "$FAKE_COST"
+}
+
+# --- budget wall: the total is a hard wall in the edge; past it nothing reaches a provider ------
+
+stage_budget_wall() {
+  needs budget-wall machine edge fakeprovider || return 0
+  if [ ! -s "$WORK/provider-key" ]; then
+    fail "budget-wall: no provider is set up; run the model-turn stage first"
+    return 0
+  fi
+  local token total spent calls proofs
+  if ! token="$(signed_token)" || [ -z "$token" ]; then
+    fail "budget-wall: sign a gateway token in the machine" "$token"
+    return 0
+  fi
+  if ! { total="$(budget_field total_micros)" && spent="$(budget_field spent_micros)" && proofs="$(proof_count system:e2e)"; }; then
+    fail "budget-wall: read the budget and the proof log"
+    return 0
+  fi
+  expect_http "a human sets the total to what is already spent" '200' '"exhausted":true' set_budget_total "$spent"
+  calls="$(fake_calls)" || {
+    fail "budget-wall: read the fake provider"
+    return 0
+  }
+  expect_http "budget used up: a model call is refused" '402' 'urn:agentsone:problem:budget-exhausted' model_call "$token"
+  expect_out "budget used up: nothing reached the fake provider" "^${calls}\$" fake_calls
+  expect_proof "the edge proof log has the refused call as denied (402)" system:e2e "$proofs" \
+    '.outcome == "denied" and .details.status == 402 and .details.cost_micros == 0'
+  expect_http "a human puts the total back" '200' '"exhausted":false' set_budget_total "$total"
+  expect_http "budget back: a model call is answered by the fake provider again" '200' \
+    "\"content\":\"${FAKE_CHAT_REPLY}\"" model_call "$token"
+  expect ok "budget back: the call reached the fake provider with the provider key only" fake_saw_only_the_key "$calls" chat
+}
+
 STAGES=(
   wall-route wall-direct wall-blocked wall-allowed wall-outer gateway audit-sink rescue web-door
-  setup-page login small-seed hire bus router echo-chat event-to-task memory
+  setup-page login small-seed hire bus router model-turn echo-chat event-to-task memory
   plugin-install agentctl-parity budget-wall freeze-all control
 )
 
@@ -534,7 +809,7 @@ case "${1:-}" in
   down) cmd_down ;;
   list) printf '%s\n' "${STAGES[@]}" ;;
   all) for s in "${STAGES[@]}"; do run_stage "$s"; done ;;
-  '' | -h | --help) sed -n '4,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  '' | -h | --help) sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) for s in "$@"; do run_stage "$s"; done ;;
 esac
 

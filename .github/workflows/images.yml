@@ -154,6 +154,8 @@ jobs:
       packages: read
     env:
       AGENTSONE_IMAGE_TAG: sha-${{ github.sha }}
+      # The stack plus the e2e overlay (the fake model provider), for every step, logs included.
+      COMPOSE_FILE: compose.yaml:e2e/compose.e2e.yaml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -201,6 +203,8 @@ jobs:
         run: e2e/run.sh bus
       - name: Live list and router
         run: e2e/run.sh router
+      - name: "Model turn: through the gateway to the fake provider"
+        run: e2e/run.sh model-turn
       - name: Echo chat
         run: e2e/run.sh echo-chat
       - name: Event to task

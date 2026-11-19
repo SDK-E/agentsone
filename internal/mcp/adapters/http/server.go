@@ -179,7 +179,7 @@ func bindCaller(next nethttp.Handler) nethttp.Handler {
 	guarded := auth.RequireBearerToken(verifyCaller, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})(next)
 	return nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
 		if _, ok := core.CallerFrom(r.Context()); !ok {
-			core.WriteProblem(w, r, core.NewProblem(nethttp.StatusUnauthorized, "unauthorized", "the machine MCP needs a signed-in caller"))
+			core.WriteProblem(w, r, core.NewProblem(nethttp.StatusUnauthorized, "unauthenticated", "the machine MCP needs a signed-in caller"))
 			return
 		}
 		r = r.Clone(r.Context())

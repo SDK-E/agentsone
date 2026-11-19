@@ -30,7 +30,7 @@ func Compose(mods []core.Module) (http.Handler, error) {
 // BadRequest writes the 400 problem for a request the generated code could
 // not decode.
 func BadRequest(w http.ResponseWriter, r *http.Request, err error) {
-	core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "invalid", err.Error()))
+	core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
 }
 
 func mountGroups(mux *http.ServeMux, mods []core.Module) error {

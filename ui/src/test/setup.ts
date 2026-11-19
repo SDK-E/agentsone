@@ -28,6 +28,23 @@ HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
   this.dispatchEvent(new Event("close"));
 };
 
+// jsdom has no layout: no scrolling into view and no resize observer.
+Element.prototype.scrollIntoView = function scrollIntoView() {
+  // Nothing to scroll without layout. Tests spy on it to see what was brought into view.
+};
+class NoLayoutResizeObserver {
+  observe() {
+    // Nothing to watch without layout.
+  }
+  unobserve() {
+    // Nothing to watch without layout.
+  }
+  disconnect() {
+    // Nothing to watch without layout.
+  }
+}
+globalThis.ResizeObserver = NoLayoutResizeObserver;
+
 afterEach(() => {
   cleanup();
   media.dark = false;

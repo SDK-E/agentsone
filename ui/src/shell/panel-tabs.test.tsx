@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PANEL_IDS } from "../panels/registry";
 import { expectNoAxeViolations } from "../test/axe";
@@ -10,7 +10,7 @@ import { media } from "../test/setup";
 import { PanelsArea } from "./panel-tabs";
 
 describe("Panels", () => {
-  it("lists every panel from the registry as a tab, Monitor first", async () => {
+  it("lists every panel from the registry as a tab, Monitor first", () => {
     renderWith(<PanelsArea />);
 
     const tabs = screen.getAllByRole("tab");
@@ -26,7 +26,7 @@ describe("Panels", () => {
       "Settings",
     ]);
     expect(tabs).toHaveLength(PANEL_IDS.length);
-    expect(await screen.findByRole("heading", { name: "Monitor" })).toBeVisible();
+    expect(screen.getByRole("tabpanel", { name: "Monitor" })).toBeVisible();
   });
 
   it("moves between tabs with the arrow, Home and End keys", async () => {
@@ -46,17 +46,55 @@ describe("Panels", () => {
     expect(tasks).toHaveFocus();
     expect(tasks).toHaveAttribute("aria-selected", "true");
     const panel = screen.getByRole("tabpanel", { name: "Tasks" });
-    expect(await within(panel).findByText(/Tasks the agents gave each other/)).toBeVisible();
+    expect(await within(panel).findByRole("list", { name: "Tasks, newest first" })).toBeVisible();
   });
 
-  it("opens every placeholder panel without error", async () => {
+  it("opens every panel in its own tab panel", async () => {
     const user = userEvent.setup();
     renderWith(<PanelsArea />);
 
     for (const name of ["Memory", "Plugins", "IDE", "Desktop", "Machine", "Audit"]) {
       await user.click(screen.getByRole("tab", { name }));
-      expect(await screen.findByRole("heading", { name })).toBeVisible();
+      expect(screen.getByRole("tabpanel", { name })).toBeVisible();
     }
+  });
+
+  it("brings the chosen tab into view when the tabs do not all fit", async () => {
+    const user = userEvent.setup();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderWith(<PanelsArea />);
+
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+
+    const lastCall = scrolled.mock.contexts.at(-1) as HTMLElement;
+    expect(lastCall).toBe(screen.getByRole("tab", { name: "Settings" }));
+    expect(scrolled).toHaveBeenLastCalledWith({ inline: "nearest", block: "nearest" });
+    scrolled.mockRestore();
+  });
+
+  it("shows a cue where more tabs are hidden, and drops it at the end", () => {
+    renderWith(<PanelsArea />);
+    const list = screen.getByRole("tablist");
+    const scroller = list.parentElement;
+    if (!scroller) throw new Error("the tab row has no wrapper");
+    const metrics = (left: number) => {
+      Object.defineProperty(list, "clientWidth", { configurable: true, value: 300 });
+      Object.defineProperty(list, "scrollWidth", { configurable: true, value: 700 });
+      Object.defineProperty(list, "scrollLeft", { configurable: true, value: left });
+      fireEvent.scroll(list);
+    };
+
+    metrics(0);
+    expect(scroller).toHaveAttribute("data-more-end", "true");
+    expect(scroller).not.toHaveAttribute("data-more-start");
+
+    metrics(200);
+    expect(scroller).toHaveAttribute("data-more-start", "true");
+    expect(scroller).toHaveAttribute("data-more-end", "true");
+
+    metrics(400);
+    expect(scroller).toHaveAttribute("data-more-start", "true");
+    expect(scroller).not.toHaveAttribute("data-more-end");
   });
 
   it("puts the panels in a sheet on a phone", async () => {
@@ -75,7 +113,7 @@ describe("Panels", () => {
 
   it("has no accessibility violations", async () => {
     const { container } = renderWith(<PanelsArea />);
-    await screen.findByRole("heading", { name: "Monitor" });
+    await screen.findByText("Hard limit");
 
     await expectNoAxeViolations(container);
   });

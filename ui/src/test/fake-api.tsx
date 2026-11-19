@@ -11,6 +11,15 @@ import licence from "../../../contract/fixtures/api/getEngineLicence.json";
 import engineFetch from "../../../contract/fixtures/api/getEngineFetchStatus.json";
 import me from "../../../contract/fixtures/api/getMe.json";
 import setup from "../../../contract/fixtures/api/getSetupStatus.json";
+// juno: monitor/tasks/audit
+import auditList from "../../../contract/fixtures/api/listAuditRecords.json";
+import budget from "../../../contract/fixtures/api/getBudget.json";
+import budgetSplit from "../../../contract/fixtures/api/getBudgetSplit.json";
+import createdTask from "../../../contract/fixtures/api/createTask.json";
+import machineMetrics from "../../../contract/fixtures/api/getMachineMetrics.json";
+import schedulesList from "../../../contract/fixtures/api/listSchedules.json";
+import tasksList from "../../../contract/fixtures/api/listTasks.json";
+import verification from "../../../contract/fixtures/api/verifyAuditChain.json";
 import theme from "../../../contract/fixtures/api/getTheme.json";
 import chat from "../../../contract/fixtures/api/listChatMessages.json";
 import live from "../../../contract/fixtures/api/listLiveList.json";
@@ -21,6 +30,18 @@ import {
   type AgentOutputFrame,
   type Api,
   type Assignment,
+  type AuditQuery,
+  type AuditRecord,
+  type AuditVerification,
+  type Budget,
+  type BudgetSplit,
+  type MachineMetrics,
+  type Page,
+  type Schedule,
+  type Task,
+  type TaskCreate,
+  type TaskFilter,
+  type TaskStreamFrame,
   type ChartNode,
   type ChatMessage,
   type ChatStreamFrame,
@@ -47,6 +68,16 @@ export const fixtures = {
   licence: licence.body as EngineLicence,
   engineFetch: engineFetch.body as EngineFetchStatus,
   theme: theme.body as InstalledTheme,
+  // juno: monitor/tasks/audit
+  budget: budget.body as Budget,
+  split: budgetSplit.body as BudgetSplit,
+  metrics: machineMetrics.body satisfies MachineMetrics,
+  tasks: tasksList.body.items as Task[],
+  newTask: createdTask.body as Task,
+  schedules: schedulesList.body.items as Schedule[],
+  // The generated type of `details` is `Record<string, never>`; the fixtures carry real values.
+  audit: auditList.body.items as unknown as AuditRecord[],
+  verification: verification.body as AuditVerification,
 };
 
 /** A failed call as the daemon reports it: an RFC 9457 problem. */
@@ -160,6 +191,65 @@ export class FakeApi implements Api {
   getTheme = () => Promise.resolve(fixtures.theme);
   freezes: Freeze[] = [];
   listFreezes = () => Promise.resolve(this.freezes);
+
+  // juno: monitor/tasks/audit
+  budget: Budget | ApiError = fixtures.budget;
+  split: BudgetSplit | ApiError = fixtures.split;
+  metrics: MachineMetrics | ApiError = fixtures.metrics;
+  tasks: Task[] | ApiError = [...fixtures.tasks];
+  schedules: Schedule[] | ApiError = fixtures.schedules;
+  /** Every audit record, oldest first. Served the way the daemon does: after a sequence number. */
+  audit: AuditRecord[] | ApiError = [...fixtures.audit];
+  verification: AuditVerification | ApiError = fixtures.verification;
+  createError: ApiError | undefined;
+  taskStream = new FakeStream<TaskStreamFrame>();
+  getBudget = () => this.settle(this.budget);
+  getBudgetSplit = () => this.settle(this.split);
+  getMachineMetrics = () => this.settle(this.metrics);
+  listTasks = (filter: TaskFilter, cursor?: string) => {
+    this.calls.push(
+      `listTasks ${filter.status ?? "any"} ${filter.assignee ?? "anyone"} ${cursor ?? ""}`.trim(),
+    );
+    if (this.tasks instanceof ApiError) return Promise.reject(this.tasks);
+    const items = this.tasks.filter(
+      (t) =>
+        (filter.status === undefined || t.status === filter.status) &&
+        (filter.assignee === undefined || t.assignee === filter.assignee),
+    );
+    return Promise.resolve<Page<Task>>({ items, next_cursor: null });
+  };
+  getTask = (id: string) => {
+    if (this.tasks instanceof ApiError) return Promise.reject(this.tasks);
+    const found = this.tasks.find((t) => t.id === id);
+    return found ? Promise.resolve(found) : Promise.reject(problem(404, "Task not found"));
+  };
+  createTask = (body: TaskCreate) => {
+    this.calls.push(`createTask ${body.title} ${body.assignee ?? ""}`.trim());
+    if (this.createError) return Promise.reject(this.createError);
+    const task: Task = {
+      ...fixtures.newTask,
+      title: body.title,
+      detail: body.detail ?? "",
+      priority: body.priority ?? "normal",
+      assignee: body.assignee ?? null,
+    };
+    if (!(this.tasks instanceof ApiError)) this.tasks = [task, ...this.tasks];
+    return Promise.resolve(task);
+  };
+  streamTasks = (h: StreamHandlers<TaskStreamFrame>) => this.taskStream.open(h);
+  listSchedules = () => this.settle(this.schedules);
+  listAuditRecords = (query: AuditQuery = {}) => {
+    const after = query.after_seq ?? 0;
+    const limit = query.limit ?? 50;
+    this.calls.push(`listAuditRecords after=${String(after)} limit=${String(limit)}`);
+    if (this.audit instanceof ApiError) return Promise.reject(this.audit);
+    const items = this.audit.filter((r) => r.seq > after).slice(0, limit);
+    return Promise.resolve<Page<AuditRecord>>({ items, next_cursor: null });
+  };
+  verifyAuditChain = () => {
+    this.calls.push("verifyAuditChain");
+    return this.settle(this.verification);
+  };
 }
 
 function meHuman() {

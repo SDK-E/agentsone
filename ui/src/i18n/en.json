@@ -168,11 +168,148 @@
     "coming": "This panel is being built.",
     "monitor": {
       "label": "Monitor",
-      "about": "How the machine and each agent are doing: load, memory, disk and recent events."
+      "about": "How the machine and each agent are doing: load, memory, disk and recent events.",
+      "budget": {
+        "title": "Budget",
+        "hard": "Hard limit",
+        "hardNote": "The total is a hard limit. The edge holds it outside the machine and people set it on the control page. No agent can raise it.",
+        "left": "{{left}} left of {{total}}",
+        "meter": "Total budget used",
+        "spent": "{{spent}} used",
+        "low": "The budget is running low.",
+        "defence": "Defence reserve: {{spent}} of {{reserved}} used",
+        "defenceWhy": "A root agent inside the machine can pose as another agent at the gateway, so this reserve can be got around.",
+        "defenceOff": "The defence reserve is switched off."
+      },
+      "machine": {
+        "title": "The machine",
+        "cpu": "Processor",
+        "cpuValue_one": "{{used}}% of {{count}} core",
+        "cpuValue_other": "{{used}}% of {{count}} cores",
+        "memory": "Memory",
+        "disk": "Disk {{mount}}",
+        "of": "{{used}} of {{total}}",
+        "up": "Up {{time}}",
+        "days_one": "{{count}} d",
+        "days_other": "{{count}} d",
+        "hours_one": "{{count}} h",
+        "hours_other": "{{count}} h",
+        "minutes_one": "{{count}} min",
+        "minutes_other": "{{count}} min",
+        "load": "Load {{values}}"
+      },
+      "agents": {
+        "title": "Agents",
+        "listLabel": "Agents, most recent first",
+        "softNote": "Each agent's share is a soft limit. A root agent inside the machine could get around it. Only the total budget is hard.",
+        "soft": "Soft limit",
+        "used": "{{spent}} of {{allocated}} used",
+        "noShare": "{{spent}} used, no share set",
+        "meter": "Budget used by {{name}}",
+        "shareState": { "low": "Running low", "exhausted": "Used up" },
+        "splitFailed": "The budget shares could not load.",
+        "empty": {
+          "title": "No agents yet",
+          "body": "When the society has residents, each one shows up here with what it is doing and what it has spent."
+        }
+      }
     },
     "tasks": {
       "label": "Tasks",
-      "about": "Tasks the agents gave each other and the ones you asked for, with who holds each."
+      "about": "Tasks the agents gave each other and the ones you asked for, with who holds each.",
+      "viewLabel": "Show",
+      "view": { "tasks": "Tasks", "schedules": "Schedules" },
+      "new": "New task",
+      "loading": "Looking for tasks…",
+      "listLabel": "Tasks, newest first",
+      "filter": {
+        "status": "Status",
+        "anyStatus": "Any status",
+        "heldBy": "Held by",
+        "anyone": "Anyone"
+      },
+      "status": {
+        "open": "Open",
+        "in-progress": "In progress",
+        "blocked": "Blocked",
+        "done": "Done",
+        "cancelled": "Cancelled",
+        "failed": "Failed"
+      },
+      "priority": {
+        "low": "Low priority",
+        "normal": "Normal priority",
+        "high": "High priority"
+      },
+      "priorityName": { "low": "Low", "normal": "Normal", "high": "High" },
+      "priorityLabel": "Priority",
+      "holder": { "nobody": "Nobody has it yet", "with": "With {{name}}" },
+      "updated": "Updated {{when}}",
+      "more": "Show more tasks",
+      "loadingMore": "Loading more…",
+      "noMatch": {
+        "title": "No tasks match",
+        "body": "Nothing fits these filters.",
+        "clear": "Show all tasks"
+      },
+      "empty": {
+        "title": "No tasks yet",
+        "body": "Tasks appear when agents give each other work, when an event starts work, or when you ask. You can make one yourself."
+      },
+      "back": "Back to tasks",
+      "outcome": "Outcome",
+      "startedBy": "Started by",
+      "due": "Due",
+      "created": "Created",
+      "changed": "Last changed",
+      "source": {
+        "human": "Asked by a person",
+        "agent": "Made by an agent",
+        "router": "Routed from a request",
+        "trigger": "Started by an event",
+        "schedule": "Started by a schedule"
+      },
+      "form": {
+        "title": "What needs doing",
+        "titleRule": "Say what needs doing.",
+        "detail": "More detail (optional)",
+        "assignee": "Give it to",
+        "nobody": "Nobody yet",
+        "cancel": "Cancel",
+        "submit": "Create task",
+        "pending": "Creating…",
+        "created": "Task created.",
+        "forbidden": "You are not allowed to give this task to that agent.",
+        "frozen": "That agent is frozen, so it cannot take tasks until it is released.",
+        "failed": "The task was not created."
+      },
+      "schedules": {
+        "label": "Schedules",
+        "loading": "Looking for schedules…",
+        "empty": {
+          "title": "No schedules yet",
+          "body": "A schedule is an agent's own timer. When it goes off, the agent wakes up with a message."
+        },
+        "hourly": "Every hour",
+        "daily": "Every day at {{time}} (UTC)",
+        "weekly": "Every {{day}} at {{time}} (UTC)",
+        "day": {
+          "Mon": "Monday",
+          "Tue": "Tuesday",
+          "Wed": "Wednesday",
+          "Thu": "Thursday",
+          "Fri": "Friday",
+          "Sat": "Saturday",
+          "Sun": "Sunday"
+        },
+        "on": "On",
+        "paused": "Paused",
+        "wakes": "Wakes {{name}}",
+        "next": "Next run {{when}}",
+        "noNext": "No run planned",
+        "last": "Last ran {{when}}",
+        "neverRan": "Has not run yet"
+      }
     },
     "memory": {
       "label": "Memory",
@@ -193,7 +330,60 @@
     },
     "audit": {
       "label": "Audit",
-      "about": "The record of what happened. What edge saw (internet traffic and model calls) is proof; records from inside the machine are testimony."
+      "about": "The record of what happened. What edge saw (internet traffic and model calls) is proof; records from inside the machine are testimony.",
+      "loading": "Reading the records…",
+      "listLabel": "Records, newest first",
+      "more": "Show older records",
+      "loadingMore": "Loading older records…",
+      "needsCheck": "The newest records cannot be found until the chain check works.",
+      "showLabel": "Show",
+      "show": { "all": "All", "proof": "Proof", "testimony": "Testimony" },
+      "empty": {
+        "title": "No records yet",
+        "body": "Everything that happens here is written down. Records appear as agents and people act."
+      },
+      "noneOfKind": {
+        "proof": {
+          "title": "No proof records here",
+          "body": "Proof comes from the edge: internet traffic and model calls it saw itself. None has been loaded yet."
+        },
+        "testimony": {
+          "title": "No testimony records here",
+          "body": "Testimony comes from inside the machine. None has been loaded yet."
+        }
+      },
+      "legend": {
+        "label": "Two kinds of record",
+        "proofTitle": "Proof.",
+        "proof": "What the edge saw itself, like internet traffic and model calls. Agents cannot change it.",
+        "testimonyTitle": "Testimony.",
+        "testimony": "What the machine says happened, linked in a chain. A root agent could rewrite it, so the edge keeps its own copy."
+      },
+      "kind": { "proof": "Proof", "testimony": "Testimony" },
+      "source": { "proof": "Seen by the edge", "testimony": "Told by the machine" },
+      "number": "Record {{seq}}",
+      "outcome": { "success": "Done", "failure": "Failed", "denied": "Refused" },
+      "actor": { "agent": "Agent", "human": "Person", "system": "System", "host": "The edge" },
+      "details": "Details",
+      "hash": "Record hash",
+      "prevHash": "Chain link",
+      "check": {
+        "title": "Chain check",
+        "again": "Check again",
+        "checking": "Checking the chain…",
+        "intact": "The chain is intact.",
+        "broken": "The chain is broken at record {{seq}}.",
+        "brokenBody": "Records from there on may have been changed.",
+        "brokenNext": "Next step: do not rely on those records. The edge keeps its own copy, so use that while someone checks the machine.",
+        "checked_one": "{{count}} record checked, up to record {{to}}.",
+        "checked_other": "{{count}} records checked, up to record {{to}}.",
+        "edgeHolds": "The edge holds its own copy up to record {{seq}}.",
+        "edgeNone": "The edge does not hold a copy yet.",
+        "waiting_one": "{{count}} newer record has not reached the edge yet.",
+        "waiting_other": "{{count}} newer records have not reached the edge yet.",
+        "fingerprint": "Latest fingerprint",
+        "why": "The check shows whether any record inside the machine was changed after it was written. The edge's copy is the final proof."
+      }
     },
     "settings": {
       "label": "Settings",

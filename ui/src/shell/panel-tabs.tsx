@@ -1,16 +1,59 @@
 // SPDX-License-Identifier: MIT
-import { Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { panels, type PanelId } from "../panels/registry";
 import { Loading } from "./status";
 import { useMediaQuery } from "./use-media-query";
 
+/** A fade and an arrow at one edge of the tab row, shown by CSS when tabs are hidden there. */
+function Chevron({ side }: { side: "start" | "end" }) {
+  return (
+    <span className={`tabs__cue tabs__cue--${side}`} aria-hidden="true">
+      <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor">
+        <path
+          d={side === "end" ? "m7.5 4.5 5.5 5.5-5.5 5.5" : "m12.5 4.5-5.5 5.5 5.5 5.5"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
 /** The panels under the home screen, as tabs. Arrow keys move between tabs, as WAI-ARIA asks. */
 export function PanelTabs() {
   const { t } = useTranslation();
   const [active, setActive] = useState<PanelId>(panels[0]?.id ?? "monitor");
   const tabs = useRef<Partial<Record<PanelId, HTMLButtonElement | null>>>({});
+  const list = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ start: false, end: false });
+
+  // On a phone the tabs do not all fit. Say where more of them are hiding.
+  const measure = useCallback(() => {
+    const el = list.current;
+    if (!el) return;
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore((old) => (old.start === start && old.end === end ? old : { start, end }));
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const el = list.current;
+    if (!el) return;
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(el);
+    return () => {
+      watcher.disconnect();
+    };
+  }, [measure]);
+
+  // The chosen tab, even when picked by the keyboard, must not sit out of sight.
+  useEffect(() => {
+    tabs.current[active]?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [active]);
 
   const move = (event: KeyboardEvent, index: number) => {
     const last = panels.length - 1;
@@ -39,30 +82,44 @@ export function PanelTabs() {
   const Panel = current?.component;
   return (
     <div className="tabs">
-      <div role="tablist" aria-label={t("panels.label")} className="tabs__list">
-        {panels.map((p, i) => (
-          <button
-            key={p.id}
-            ref={(el) => {
-              tabs.current[p.id] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`tab-${p.id}`}
-            aria-selected={p.id === active}
-            aria-controls={`tabpanel-${p.id}`}
-            tabIndex={p.id === active ? 0 : -1}
-            className="tabs__tab"
-            onClick={() => {
-              setActive(p.id);
-            }}
-            onKeyDown={(e) => {
-              move(e, i);
-            }}
-          >
-            {t(p.labelKey)}
-          </button>
-        ))}
+      <div
+        className="tabs__scroller"
+        data-more-start={more.start || undefined}
+        data-more-end={more.end || undefined}
+      >
+        <div
+          ref={list}
+          role="tablist"
+          aria-label={t("panels.label")}
+          className="tabs__list"
+          onScroll={measure}
+        >
+          {panels.map((p, i) => (
+            <button
+              key={p.id}
+              ref={(el) => {
+                tabs.current[p.id] = el;
+              }}
+              type="button"
+              role="tab"
+              id={`tab-${p.id}`}
+              aria-selected={p.id === active}
+              aria-controls={`tabpanel-${p.id}`}
+              tabIndex={p.id === active ? 0 : -1}
+              className="tabs__tab"
+              onClick={() => {
+                setActive(p.id);
+              }}
+              onKeyDown={(e) => {
+                move(e, i);
+              }}
+            >
+              {t(p.labelKey)}
+            </button>
+          ))}
+        </div>
+        <Chevron side="start" />
+        <Chevron side="end" />
       </div>
       <div
         role="tabpanel"

@@ -28,6 +28,34 @@ export type ThemeSelection = S["ThemeSelection"];
 export type InstalledTheme = S["InstalledTheme"];
 export type FirstHumanCreate = S["FirstHumanCreate"];
 export type Freeze = S["Freeze"];
+// juno: monitor/tasks/audit
+export type Budget = S["Budget"];
+export type BudgetSplit = S["BudgetSplit"];
+export type BudgetNode = S["BudgetNode"];
+export type MachineMetrics = S["MachineMetrics"];
+export type Task = S["Task"];
+export type TaskCreate = S["TaskCreate"];
+export type TaskStatus = S["TaskStatus"];
+export type TaskStreamFrame = S["TaskStreamFrame"];
+export type Schedule = S["Schedule"];
+export type AuditRecord = S["AuditRecord"];
+export type AuditVerification = S["AuditVerification"];
+
+/** One page of a list, with the cursor for the next page when there is one. */
+export interface Page<T> {
+  items: T[];
+  next_cursor: string | null;
+}
+
+export interface AuditQuery {
+  after_seq?: number;
+  limit?: number;
+}
+
+export interface TaskFilter {
+  status?: TaskStatus;
+  assignee?: string;
+}
 
 /** A failed API call. Carries the RFC 9457 problem when the daemon sent one. */
 export class ApiError extends Error {
@@ -71,6 +99,18 @@ export interface Api {
   setThemeSelection(update: Partial<ThemeSelection>): Promise<ThemeSelection>;
   getTheme(id: string): Promise<InstalledTheme>;
   listFreezes(): Promise<Freeze[]>;
+  // juno: monitor/tasks/audit
+  getBudget(): Promise<Budget>;
+  getBudgetSplit(): Promise<BudgetSplit>;
+  getMachineMetrics(): Promise<MachineMetrics>;
+  listTasks(filter: TaskFilter, cursor?: string): Promise<Page<Task>>;
+  getTask(id: string): Promise<Task>;
+  createTask(body: TaskCreate): Promise<Task>;
+  streamTasks(handlers: StreamHandlers<TaskStreamFrame>): Unsubscribe;
+  listSchedules(): Promise<Schedule[]>;
+  /** Records come oldest first: ask for those after a sequence number to reach the newest. */
+  listAuditRecords(query?: AuditQuery): Promise<Page<AuditRecord>>;
+  verifyAuditChain(): Promise<AuditVerification>;
 }
 
 interface Result<T> {
@@ -159,5 +199,38 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
     getTheme: async (id) =>
       unwrap(await client.GET("/themes/{theme_id}", { params: { path: { theme_id: id } } })),
     listFreezes: async () => unwrap(await client.GET("/host/freezes")).items,
+    // juno: monitor/tasks/audit
+    getBudget: async () => unwrap(await client.GET("/budget")),
+    getBudgetSplit: async () => unwrap(await client.GET("/budget/split")),
+    getMachineMetrics: async () => unwrap(await client.GET("/machine/metrics")),
+    listTasks: async (filter, cursor) =>
+      unwrap(
+        await client.GET("/tasks", {
+          params: {
+            query: {
+              ...(filter.status !== undefined && { status: filter.status }),
+              ...(filter.assignee !== undefined && { assignee: filter.assignee }),
+              ...(cursor !== undefined && { cursor }),
+            },
+          },
+        }),
+      ),
+    getTask: async (id) =>
+      unwrap(await client.GET("/tasks/{task_id}", { params: { path: { task_id: id } } })),
+    createTask: async (body) => unwrap(await client.POST("/tasks", { body })),
+    streamTasks: (handlers) => stream("/tasks/stream", handlers),
+    listSchedules: async () => unwrap(await client.GET("/schedules", {})).items,
+    listAuditRecords: async (query = {}) =>
+      unwrap(
+        await client.GET("/audit", {
+          params: {
+            query: {
+              ...(query.after_seq !== undefined && { after_seq: query.after_seq }),
+              ...(query.limit !== undefined && { limit: query.limit }),
+            },
+          },
+        }),
+      ),
+    verifyAuditChain: async () => unwrap(await client.POST("/audit/verify", { body: {} })),
   };
 }

@@ -37,7 +37,8 @@ output; do not commit it.
 - Callers: humans with the `agentsone_session` cookie, agents by socket peer credentials and
   cgroup `agent@<name>.service`, scoped bearer tokens (agent and panel plugin tokens), and the
   host tool over vsock.
-- API fields are `snake_case`. Records defined in `schemas/` keep their own `camelCase` fields.
+- API fields are `snake_case`, including the memory record, the audit record and event `data`
+  (see [Naming](#naming)).
 - Ids are a type prefix plus a ULID. Agent and human names are Linux usernames. Times are RFC 3339 UTC.
 - Lists use `cursor` and `limit`, and return `{items, next_cursor}`.
 - Errors are RFC 9457 problem details with stable `urn:agentsone:problem:*` types (listed on the
@@ -48,6 +49,30 @@ output; do not commit it.
   it, where a root agent can bypass it.
 - Domain actions with rules are their own operations (`hireAgent`, `retireAgent`, `wakeAgent`,
   `assignTask`, `completeTask`, `applyFreeze`), not generic edits.
+
+## Naming
+
+Four rules decide how a property is spelled.
+
+1. **API resources are `snake_case`.** Everything the API returns or accepts as a resource: the
+   memory record, the audit record, the `data` of every event type in `schemas/events/catalog.json`,
+   and the shared definitions they use. Example: a memory record has `created_at`, an audit record
+   has `prev_hash`, and `agentsone.disk.usage.high` carries `used_percent`.
+2. **File formats authored in plugin repositories are `camelCase`**, like Claude Code's
+   `plugin.json`: the plugin manifest, the theme and the agent template. Example: a manifest lists
+   `eventTypes` and a template sets `limits.memoryMiB`. When the API returns one of these files, it
+   returns it unchanged.
+3. **The runner protocol is `camelCase`**, following JSON-RPC and MCP (`schemas/runner/**`).
+   Example: `wake` carries `turnId`.
+4. **CloudEvents attributes are lowercase**, as the CloudEvents specification requires. Example:
+   `datacontenttype`, `chartscope` and `correlationid`.
+
+If one shared definition would need two spellings, it is split into two definitions.
+
+Schema names are unique across the contract. Two schemas with one name must have one meaning; two
+meanings get two names (for example `Emitter` is the API resource and `ManifestEmitter` is the
+declaration inside a plugin manifest). `redocly bundle` must report no "same name, different
+content" warnings.
 
 ## Versioning and stability
 

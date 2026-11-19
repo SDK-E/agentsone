@@ -5,8 +5,8 @@
   "action": "agent.hire",
   "target": { "kind": "agent", "id": "builder" },
   "outcome": "success",
-  "details": { "kind": "always-on", "isRoot": false, "template": "small-seed/builder", "limits": { "cpuPercent": 100, "memoryMiB": 1024, "tasks": 256 } },
+  "details": { "kind": "always-on", "is_root": false, "template": "small-seed/builder", "limits": { "cpu_percent": 100, "memory_mb": 1024, "tasks": 256 } },
   "origin": "inside",
-  "prevHash": "5129ffbd6f7296d70c5409f3e2117fe27d3d53cb19439aa425fc6f2fa59733ec",
-  "hash": "ec4a5fe4491a7f07cc8e1891084af2482711d6c9075384c56f757cfba48219ff"
+  "prev_hash": "6c430cb4e4ce56dcd97d81b74a777c4a972ada2c0107c0287e7a25a0333a22b9",
+  "hash": "6009bf4ae814714d0584192dc2fe0021fd70792689a01458dd06e4e77397ee90"
 }

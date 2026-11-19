@@ -95,11 +95,11 @@
         "properties": {
           "unit": { "type": "string", "maxLength": 256 },
           "result": { "type": "string", "maxLength": 64 },
-          "exitCode": { "type": "integer" }
+          "exit_code": { "type": "integer" }
         },
         "additionalProperties": false
       },
-      "example": { "unit": "emitter@git.service", "result": "exit-code", "exitCode": 1 }
+      "example": { "unit": "emitter@git.service", "result": "exit-code", "exit_code": 1 }
     },
     {
       "type": "agentsone.disk.usage.high",
@@ -108,20 +108,20 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["mount", "usedPercent", "thresholdPercent", "freeBytes"],
+        "required": ["mount", "used_percent", "threshold_percent", "free_bytes"],
         "properties": {
           "mount": { "type": "string", "maxLength": 256 },
-          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "freeBytes": { "type": "integer", "minimum": 0 }
+          "used_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "threshold_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "free_bytes": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },
       "example": {
         "mount": "/var",
-        "usedPercent": 91,
-        "thresholdPercent": 90,
-        "freeBytes": 1932735283
+        "used_percent": 91,
+        "threshold_percent": 90,
+        "free_bytes": 1932735283
       }
     },
     {
@@ -131,14 +131,14 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["mount", "usedPercent"],
+        "required": ["mount", "used_percent"],
         "properties": {
           "mount": { "type": "string", "maxLength": 256 },
-          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 }
+          "used_percent": { "type": "integer", "minimum": 0, "maximum": 100 }
         },
         "additionalProperties": false
       },
-      "example": { "mount": "/var", "usedPercent": 72 }
+      "example": { "mount": "/var", "used_percent": 72 }
     },
     {
       "type": "agentsone.load.cpu.high",
@@ -147,11 +147,11 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["usedPercent", "thresholdPercent", "windowSeconds", "top"],
+        "required": ["used_percent", "threshold_percent", "window_seconds", "top"],
         "properties": {
-          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "windowSeconds": { "type": "integer", "minimum": 1 },
+          "used_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "threshold_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "window_seconds": { "type": "integer", "minimum": 1 },
           "top": {
             "description": "Units using the most CPU, highest first.",
             "type": "array",
@@ -162,9 +162,9 @@
         "additionalProperties": false
       },
       "example": {
-        "usedPercent": 97,
-        "thresholdPercent": 90,
-        "windowSeconds": 60,
+        "used_percent": 97,
+        "threshold_percent": 90,
+        "window_seconds": 60,
         "top": ["agent@builder.service"]
       }
     },
@@ -175,15 +175,15 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["usedPercent", "thresholdPercent", "availableBytes"],
+        "required": ["used_percent", "threshold_percent", "available_bytes"],
         "properties": {
-          "usedPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "thresholdPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "availableBytes": { "type": "integer", "minimum": 0 }
+          "used_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "threshold_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "available_bytes": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },
-      "example": { "usedPercent": 93, "thresholdPercent": 90, "availableBytes": 301989888 }
+      "example": { "used_percent": 93, "threshold_percent": 90, "available_bytes": 301989888 }
     },
     {
       "type": "agentsone.load.normal",
@@ -192,14 +192,14 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["cpuPercent", "memoryPercent"],
+        "required": ["cpu_percent", "memory_percent"],
         "properties": {
-          "cpuPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
-          "memoryPercent": { "type": "integer", "minimum": 0, "maximum": 100 }
+          "cpu_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "memory_percent": { "type": "integer", "minimum": 0, "maximum": 100 }
         },
         "additionalProperties": false
       },
-      "example": { "cpuPercent": 35, "memoryPercent": 60 }
+      "example": { "cpu_percent": 35, "memory_percent": 60 }
     },
     {
       "type": "agentsone.files.created",
@@ -212,11 +212,11 @@
         "properties": {
           "path": { "type": "string", "maxLength": 4096 },
           "watch": { "type": "string", "maxLength": 4096 },
-          "sizeBytes": { "type": "integer", "minimum": 0 }
+          "size_bytes": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },
-      "example": { "path": "/srv/inbox/report.csv", "watch": "/srv/inbox", "sizeBytes": 2048 }
+      "example": { "path": "/srv/inbox/report.csv", "watch": "/srv/inbox", "size_bytes": 2048 }
     },
     {
       "type": "agentsone.files.modified",
@@ -229,14 +229,14 @@
         "properties": {
           "path": { "type": "string", "maxLength": 4096 },
           "watch": { "type": "string", "maxLength": 4096 },
-          "sizeBytes": { "type": "integer", "minimum": 0 }
+          "size_bytes": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },
       "example": {
         "path": "/etc/agentsone/config.toml",
         "watch": "/etc/agentsone",
-        "sizeBytes": 812
+        "size_bytes": 812
       }
     },
     {
@@ -310,12 +310,12 @@
       "chartscope": "team",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "manager", "kind", "isRoot", "template"],
+        "required": ["agent", "manager", "kind", "is_root", "template"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
           "manager": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
           "kind": { "type": "string", "enum": ["always-on", "chat", "waker"] },
-          "isRoot": { "type": "boolean" },
+          "is_root": { "type": "boolean" },
           "template": { "type": "string", "maxLength": 128 }
         },
         "additionalProperties": false
@@ -324,7 +324,7 @@
         "agent": "builder",
         "manager": "founder",
         "kind": "always-on",
-        "isRoot": false,
+        "is_root": false,
         "template": "small-seed/builder"
       }
     },
@@ -351,9 +351,9 @@
                 "subscriptions",
                 "schedules",
                 "skills",
-                "mcpServers",
+                "mcp_servers",
                 "runner",
-                "oneLine"
+                "one_line"
               ]
             }
           }
@@ -386,18 +386,18 @@
       "chartscope": "agent",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "reason", "turnId"],
+        "required": ["agent", "reason", "turn_id"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
           "reason": { "type": "string", "enum": ["message", "task", "event", "timer", "chat"] },
-          "turnId": { "type": "string", "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$" }
+          "turn_id": { "type": "string", "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$" }
         },
         "additionalProperties": false
       },
       "example": {
         "agent": "founder",
         "reason": "chat",
-        "turnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G"
+        "turn_id": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G"
       }
     },
     {
@@ -407,14 +407,14 @@
       "chartscope": "agent",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "summaryChars"],
+        "required": ["agent", "summary_chars"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
-          "summaryChars": { "type": "integer", "minimum": 0 }
+          "summary_chars": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       },
-      "example": { "agent": "founder", "summaryChars": 1840 }
+      "example": { "agent": "founder", "summary_chars": 1840 }
     },
     {
       "type": "agentsone.agents.errored",
@@ -440,17 +440,17 @@
       "chartscope": "agent",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "pausedTurnId"],
+        "required": ["agent", "paused_turn_id"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
-          "pausedTurnId": {
+          "paused_turn_id": {
             "type": ["string", "null"],
             "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
           }
         },
         "additionalProperties": false
       },
-      "example": { "agent": "builder", "pausedTurnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
+      "example": { "agent": "builder", "paused_turn_id": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
     },
     {
       "type": "agentsone.agents.budget.restored",
@@ -459,17 +459,17 @@
       "chartscope": "agent",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "pausedTurnId"],
+        "required": ["agent", "paused_turn_id"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
-          "pausedTurnId": {
+          "paused_turn_id": {
             "type": ["string", "null"],
             "pattern": "^trn_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
           }
         },
         "additionalProperties": false
       },
-      "example": { "agent": "builder", "pausedTurnId": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
+      "example": { "agent": "builder", "paused_turn_id": "trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3G" }
     },
     {
       "type": "agentsone.clock.tick",
@@ -496,10 +496,10 @@
       "chartscope": "agent",
       "dataSchema": {
         "type": "object",
-        "required": ["agent", "scheduleId", "name", "due"],
+        "required": ["agent", "schedule_id", "name", "due"],
         "properties": {
           "agent": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" },
-          "scheduleId": { "type": "string", "pattern": "^sch_[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
+          "schedule_id": { "type": "string", "pattern": "^sch_[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
           "name": { "type": "string", "maxLength": 64 },
           "due": { "type": "string", "format": "date-time" }
         },
@@ -507,7 +507,7 @@
       },
       "example": {
         "agent": "watcher",
-        "scheduleId": "sch_01JD8X3Q5Y6Z7A8B9C0D1E2F3H",
+        "schedule_id": "sch_01JD8X3Q5Y6Z7A8B9C0D1E2F3H",
         "name": "nightly-review",
         "due": "2026-11-20T02:00:00Z"
       }
@@ -519,13 +519,13 @@
       "chartscope": "machine",
       "dataSchema": {
         "type": "object",
-        "required": ["hook", "method", "contentType", "bodySha256", "bodyBytes"],
+        "required": ["hook", "method", "content_type", "body_sha256", "body_bytes"],
         "properties": {
           "hook": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
           "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-          "contentType": { "type": "string", "maxLength": 128 },
-          "bodySha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "bodyBytes": { "type": "integer", "minimum": 0 },
+          "content_type": { "type": "string", "maxLength": 128 },
+          "body_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "body_bytes": { "type": "integer", "minimum": 0 },
           "body": {
             "description": "The request body when it is JSON and at most 64 KiB; omitted otherwise.",
             "type": "object"
@@ -536,9 +536,9 @@
       "example": {
         "hook": "github-push",
         "method": "POST",
-        "contentType": "application/json",
-        "bodySha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-        "bodyBytes": 2,
+        "content_type": "application/json",
+        "body_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "body_bytes": 2,
         "body": {}
       }
     }

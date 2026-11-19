@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/audit-record.schema.json",
   "title": "AuditRecord",
-  "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prevHash stays in). The first record of a log has seq 1 and prevHash of 64 zeros; every later record has seq one higher than the record before it and prevHash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
+  "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
   "type": "object",
   "required": [
     "seq",
@@ -13,7 +13,7 @@
     "outcome",
     "details",
     "origin",
-    "prevHash",
+    "prev_hash",
     "hash"
   ],
   "properties": {
@@ -24,7 +24,7 @@
       "maximum": 9007199254740991
     },
     "time": { "$ref": "common.schema.json#/$defs/Timestamp" },
-    "actor": { "$ref": "common.schema.json#/$defs/Actor" },
+    "actor": { "$ref": "common.schema.json#/$defs/AuditActor" },
     "action": {
       "description": "What was done, as dotted lowercase words: <area>.<verb>, for example agent.hire, memory.write, plugin.install, budget.set, net.allow, power.shutdown.",
       "type": "string",
@@ -47,7 +47,7 @@
       "type": "string",
       "enum": ["inside", "host"]
     },
-    "prevHash": { "$ref": "common.schema.json#/$defs/Sha256Hex" },
+    "prev_hash": { "$ref": "common.schema.json#/$defs/Sha256Hex" },
     "hash": { "$ref": "common.schema.json#/$defs/Sha256Hex" }
   },
   "additionalProperties": false,

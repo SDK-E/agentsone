@@ -90,20 +90,20 @@
       "pattern": "^[0-9a-f]{64}$"
     },
     "ActorKind": {
-      "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac.",
+      "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
       "type": "string",
-      "enum": ["agent", "human", "system", "host"]
+      "enum": ["agent", "human", "system", "host", "plugin"]
     },
-    "Actor": {
-      "description": "Who did something, as an object (used in records).",
+    "AuditActor": {
+      "description": "Who did something, as an object (used in audit records). The one-string form is ActorRef.",
       "type": "object",
       "required": ["kind", "name"],
       "properties": {
         "kind": { "$ref": "#/$defs/ActorKind" },
         "name": {
-          "description": "Agent name, human user name, or component name such as agentsoned or emitter-auth.",
+          "description": "Agent name, human user name, component name such as agentsoned or emitter-auth, or, when kind is plugin, the plugin id (plg_ and a ULID).",
           "type": "string",
-          "pattern": "^[a-z_][a-z0-9_-]{0,31}$"
+          "pattern": "^([a-z_][a-z0-9_-]{0,31}|plg_[0-7][0-9A-HJKMNP-TV-Z]{25})$"
         },
         "uid": {
           "description": "Linux uid seen through socket peer credentials, when known. Root agents share uid 0; their name and cgroup tell them apart.",
@@ -112,12 +112,24 @@
           "maximum": 4294967295
         }
       },
+      "if": {
+        "properties": { "kind": { "const": "plugin" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "name": { "type": "string", "pattern": "^plg_[0-7][0-9A-HJKMNP-TV-Z]{25}$" }
+        }
+      },
+      "else": {
+        "properties": { "name": { "type": "string", "pattern": "^[a-z_][a-z0-9_-]{0,31}$" } }
+      },
       "additionalProperties": false
     },
     "ActorRef": {
-      "description": "Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder or human:alice.",
+      "description": "Who did something, as one string (used where only strings fit, such as CloudEvents extension attributes): <kind>:<name>, for example agent:founder, human:alice or plugin:plg_01JD7ZK3M00000000000000001.",
       "type": "string",
-      "pattern": "^(agent|human|system|host):[a-z_][a-z0-9_-]{0,31}$"
+      "pattern": "^((agent|human|system|host):[a-z_][a-z0-9_-]{0,31}|plugin:plg_[0-7][0-9A-HJKMNP-TV-Z]{25})$"
     },
     "ChartScope": {
       "description": "Which part of the org chart something concerns, as one string. machine: the whole machine. team:<root>: the chart branch whose root agent is <root>. agent:<name>: one agent.",

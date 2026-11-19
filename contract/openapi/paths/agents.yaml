@@ -225,7 +225,7 @@ one-line:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/agents.yaml#/OneLine"
+              $ref: "../components/schemas/agents.yaml#/AgentOneLine"
       "401":
         $ref: "../components/responses.yaml#/Unauthorized"
       "404":
@@ -249,7 +249,7 @@ one-line:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/agents.yaml#/OneLine"
+              $ref: "../components/schemas/agents.yaml#/AgentOneLine"
       "400":
         $ref: "../components/responses.yaml#/BadRequest"
       "401":

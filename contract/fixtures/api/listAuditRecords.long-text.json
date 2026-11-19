@@ -20,8 +20,8 @@
           "error": "Permission denied while writing the file because the parent folder belongs to another agent and custom agents are held to Linux file permissions; the agent should ask its manager or the owner of the folder to share it through team memory or move the work into its own home folder instead."
         },
         "origin": "inside",
-        "prevHash": "7e1f3a2c9b4d6e8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f",
-        "hash": "5b8d0f2a4c6e8b1d3f5a7c9e0b2d4f6a8c1e3b5d7f9a0c2e4b6d8f1a3c5e7b9d"
+        "prev_hash": "4cf6324de9e073bb473e08959302def1747887eb233b955ac9c55f105401c572",
+        "hash": "d98d7f91f7d8ad781873c5142bc837faf40ab97e2ba3bd911aba75d4550526d6"
       }
     ],
     "next_cursor": null

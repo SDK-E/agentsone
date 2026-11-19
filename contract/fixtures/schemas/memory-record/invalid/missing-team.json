@@ -7,7 +7,7 @@
   "tags": [],
   "links": [],
   "source": { "kind": "agent", "ref": "watcher" },
-  "createdAt": "2026-11-19T19:02:01Z",
-  "updatedAt": "2026-11-19T19:02:01Z",
+  "created_at": "2026-11-19T19:02:01Z",
+  "updated_at": "2026-11-19T19:02:01Z",
   "revision": 1
 }

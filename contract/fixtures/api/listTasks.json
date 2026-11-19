@@ -21,7 +21,7 @@
       {
         "id": "tsk_01JD7ZK3M00000000000000002",
         "title": "Disk / above 80 percent",
-        "detail": "Created by trigger \"disk pressure\" from event agentsone.disk.usage-high.",
+        "detail": "Created by trigger \"disk pressure\" from event agentsone.disk.usage.high.",
         "status": "done",
         "priority": "high",
         "assignee": "keeper",

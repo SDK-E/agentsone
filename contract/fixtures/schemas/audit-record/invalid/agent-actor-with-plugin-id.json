@@ -1,0 +1,12 @@
+{
+  "seq": 1,
+  "time": "2026-11-19T19:10:00Z",
+  "actor": { "kind": "agent", "name": "plg_01JD7ZK3M00000000000000001" },
+  "action": "memory.write",
+  "target": { "kind": "memory", "id": "mem_01JD8X3Q5Y6Z7A8B9C0D1E2F77" },
+  "outcome": "success",
+  "details": {},
+  "origin": "inside",
+  "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "hash": "e8ff5795ca472b734c5cdd0edb39ed4846512d880c0b6f92538eaf64ed050911"
+}

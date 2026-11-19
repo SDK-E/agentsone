@@ -6,13 +6,13 @@
         "specversion": "1.0",
         "id": "evt_01JD7ZK3M00000000000000001",
         "source": "/emitters/auth",
-        "type": "agentsone.auth.login",
+        "type": "agentsone.auth.login.succeeded",
         "time": "2026-11-19T08:02:11Z",
         "datacontenttype": "application/json",
         "subject": "human:ada",
         "data": {
-          "human": "ada",
-          "method": "pam",
+          "user": "ada",
+          "method": "password",
           "remote": "127.0.0.1"
         },
         "sequence": "00000000000000000001",
@@ -31,7 +31,8 @@
           "agent": "builder",
           "manager": "founder",
           "kind": "always-on",
-          "runner": "claude"
+          "is_root": false,
+          "template": "small-seed/builder"
         },
         "sequence": "00000000000000000002",
         "actor": "agent:founder",
@@ -41,14 +42,15 @@
         "specversion": "1.0",
         "id": "evt_01JD7ZK3M00000000000000003",
         "source": "/emitters/disk",
-        "type": "agentsone.disk.usage-high",
+        "type": "agentsone.disk.usage.high",
         "time": "2026-11-19T09:15:00Z",
         "datacontenttype": "application/json",
         "subject": "/var",
         "data": {
           "mount": "/var",
-          "used_percent": 86.4,
-          "threshold_percent": 85
+          "used_percent": 86,
+          "threshold_percent": 85,
+          "free_bytes": 3221225472
         },
         "sequence": "00000000000000000003",
         "actor": "system:disk",
@@ -58,12 +60,15 @@
         "specversion": "1.0",
         "id": "evt_01JD7ZK3M00000000000000004",
         "source": "/emitters/clock",
-        "type": "agentsone.clock.tick",
+        "type": "agentsone.clock.schedule.fired",
         "time": "2026-11-19T10:00:00Z",
         "datacontenttype": "application/json",
+        "subject": "sch_01JD7ZK3M00000000000000001",
         "data": {
+          "agent": "keeper",
           "schedule_id": "sch_01JD7ZK3M00000000000000001",
-          "agent": "keeper"
+          "name": "nightly-review",
+          "due": "2026-11-19T10:00:00Z"
         },
         "sequence": "00000000000000000004",
         "actor": "system:clock",
@@ -73,19 +78,20 @@
         "specversion": "1.0",
         "id": "evt_01JD7ZK3M00000000000000005",
         "source": "/emitters/git",
-        "type": "agentsone.git.commit",
+        "type": "agentsone.git.commit.created",
         "time": "2026-11-19T10:21:37Z",
         "datacontenttype": "application/json",
         "subject": "/home/agents/builder/site",
         "data": {
           "repo": "/home/agents/builder/site",
-          "branch": "main",
+          "ref": "refs/heads/main",
           "commit": "4f6a8c0e2b4d6f8a0c2e4b6d9f2c4e1a7b3d5f60",
-          "message": "Add landing page draft"
+          "author": "builder",
+          "summary": "Add landing page draft"
         },
         "sequence": "00000000000000000005",
         "actor": "agent:builder",
-        "chartscope": "team:builder",
+        "chartscope": "machine",
         "causationid": "tsk_01JD7ZK3M00000000000000002",
         "correlationid": "asg_01JD7ZK3M00000000000000001"
       },

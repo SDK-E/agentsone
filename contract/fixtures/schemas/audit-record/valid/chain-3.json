@@ -7,6 +7,6 @@
   "outcome": "denied",
   "details": { "scope": "common", "reason": "Écriture refusée: only the owner may change a memory" },
   "origin": "inside",
-  "prevHash": "ec4a5fe4491a7f07cc8e1891084af2482711d6c9075384c56f757cfba48219ff",
-  "hash": "eae88ef0896c0f70d0d5d89669362ead935599150d64fa3fe4af215ae367e1bd"
+  "prev_hash": "6009bf4ae814714d0584192dc2fe0021fd70792689a01458dd06e4e77397ee90",
+  "hash": "b941fb14754c041b823e6f67ce2217779d0ce83586b97b0ac7b6605151e6219e"
 }

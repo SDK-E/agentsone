@@ -22,7 +22,6 @@ import (
 
 var (
 	human    = core.Caller{Kind: core.CallerHuman, Name: "hsaddek", UID: 1001}
-	founder  = core.Caller{Kind: core.CallerAgent, Name: "founder", UID: 1000}
 	builder  = core.Caller{Kind: core.CallerAgent, Name: "builder", UID: 1002}
 	intern   = core.Caller{Kind: core.CallerAgent, Name: "intern", UID: 1003}
 	outsider = core.Caller{Kind: core.CallerAgent, Name: "outsider", UID: 1004}

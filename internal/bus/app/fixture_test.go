@@ -195,14 +195,6 @@ func toChannel(name, text string) domain.Draft { return domain.Draft{Channel: na
 
 func toAgent(name, text string) domain.Draft { return domain.Draft{To: name, Text: text} }
 
-func ids(ms []domain.Message) []string {
-	out := make([]string, 0, len(ms))
-	for _, m := range ms {
-		out = append(out, m.ID)
-	}
-	return out
-}
-
 func texts(ms []domain.Message) []string {
 	out := make([]string, 0, len(ms))
 	for _, m := range ms {

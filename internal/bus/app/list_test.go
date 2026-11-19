@@ -47,11 +47,11 @@ func TestListMessages_ShowsEachCallerOnlyWhatTheyMaySee(t *testing.T) {
 		ctx  func() ([]domain.Message, error)
 		want []string
 	}{
-		{"human sees all", list(f, asHuman("ada")), []string{"d3", "d2", "t1", "d1", "g1"}},
-		{"manager sees the messages of the team below", list(f, asAgent("builder")), []string{"d3", "d2", "t1", "d1", "g1"}},
-		{"intern sees its own and the team channel", list(f, asAgent("intern")), []string{"d3", "t1", "d1", "g1"}},
-		{"outsider sees its own and public channels", list(f, asAgent("outsider")), []string{"d2", "g1"}},
-		{"plugin sees public channels only", list(f, asPlugin()), []string{"g1"}},
+		{"human sees all", list(asHuman("ada"), f), []string{"d3", "d2", "t1", "d1", "g1"}},
+		{"manager sees the messages of the team below", list(asAgent("builder"), f), []string{"d3", "d2", "t1", "d1", "g1"}},
+		{"intern sees its own and the team channel", list(asAgent("intern"), f), []string{"d3", "t1", "d1", "g1"}},
+		{"outsider sees its own and public channels", list(asAgent("outsider"), f), []string{"d2", "g1"}},
+		{"plugin sees public channels only", list(asPlugin(), f), []string{"g1"}},
 	}
 	for _, tt := range tests {
 		got, err := tt.ctx()
@@ -61,7 +61,7 @@ func TestListMessages_ShowsEachCallerOnlyWhatTheyMaySee(t *testing.T) {
 	}
 }
 
-func list(f *fixture, ctx context.Context) func() ([]domain.Message, error) {
+func list(ctx context.Context, f *fixture) func() ([]domain.Message, error) {
 	return func() ([]domain.Message, error) {
 		page, err := f.svc.ListMessages(ctx, app.Query{Limit: 50})
 		return page.Messages, err

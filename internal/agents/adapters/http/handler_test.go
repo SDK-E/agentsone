@@ -26,6 +26,9 @@ import (
 // layer sets the caller from peer credentials or a session instead.
 const callerHeader = "X-Test-Caller"
 
+// scopesHeader carries the test caller's scopes, comma separated.
+const scopesHeader = "X-Test-Scopes"
+
 type server struct {
 	t       *testing.T
 	h       http.Handler
@@ -59,7 +62,11 @@ func newServer(t *testing.T) *server {
 	withCaller := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c := r.Header.Get(callerHeader); c != "" {
 			kind, name, _ := strings.Cut(c, ":")
-			r = r.WithContext(core.WithCaller(r.Context(), core.Caller{Kind: core.CallerKind(kind), Name: name, UID: -1}))
+			caller := core.Caller{Kind: core.CallerKind(kind), Name: name, UID: -1}
+			if s := r.Header.Get(scopesHeader); s != "" {
+				caller.Scopes = strings.Split(s, ",")
+			}
+			r = r.WithContext(core.WithCaller(r.Context(), caller))
 		}
 		mux.ServeHTTP(w, r)
 	})
@@ -466,23 +473,5 @@ func TestBudget_TotalSplitAndAllocation(t *testing.T) {
 	}
 	if sp := decode[split](t, s.do("human:ada", http.MethodGet, "/v1/budget/split", "")); sp.Currency != "EUR" || len(sp.Nodes) != 6 || sp.Nodes[0].Agent != "founder" {
 		t.Fatalf("split %+v", sp)
-	}
-}
-
-func TestAgentTemplatesAndTokens_AreNotImplementedYet(t *testing.T) {
-	t.Parallel()
-	s := newServer(t)
-	for _, target := range []struct{ method, path, body string }{
-		{http.MethodGet, "/v1/agent-templates", ""},
-		{http.MethodPost, "/v1/agents/dev/tokens", `{"name":"ci","scopes":["agents:read"]}`},
-	} {
-		req := httptest.NewRequest(target.method, target.path, strings.NewReader(target.body))
-		req.Header.Set(callerHeader, "agent:dev")
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
-		s.h.ServeHTTP(rec, req)
-		if rec.Code != http.StatusNotImplemented {
-			t.Errorf("%s %s status = %d, want 501", target.method, target.path, rec.Code)
-		}
 	}
 }

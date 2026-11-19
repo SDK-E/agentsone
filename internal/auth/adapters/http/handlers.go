@@ -206,7 +206,7 @@ func (h humansHandlers) UpdateHuman(ctx context.Context, req humansapi.UpdateHum
 	if err != nil {
 		return nil, err
 	}
-	return humansapi.UpdateHuman200JSONResponse(toHuman(x)), nil
+	return humansapi.UpdateHuman200JSONResponse{Body: toHuman(x)}, nil
 }
 
 // DeleteHuman removes a human; only humans may.

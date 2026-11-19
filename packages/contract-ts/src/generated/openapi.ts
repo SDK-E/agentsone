@@ -923,7 +923,13 @@ export interface paths {
     head?: never;
     /**
      * Edit a human
-     * @description Human-only. Changes display name or password. Soft wall.
+     * @description Human-only. Changes display name or password. Soft wall. A human who changes their own
+     *     password sends `current_password`; a missing or wrong value answers 400
+     *     `urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may
+     *     reset the password without it. A human's own password change ends all their other sessions and
+     *     rotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting
+     *     another human's password ends all of that human's sessions. A wrong `current_password` counts
+     *     against the sign-in throttle; when it trips, the answer is 429 with `Retry-After`.
      */
     patch: operations["updateHuman"];
     trace?: never;
@@ -1457,7 +1463,9 @@ export interface paths {
     post?: never;
     /**
      * Delete a memory record
-     * @description Deletes a record. Agents delete their own records; root agents delete any.
+     * @description Deletes a record and writes an audit record. Agents delete their own records; root agents and
+     *     humans delete any. A human may pass `reason`, which the audit record keeps. Humans cannot edit
+     *     a record, because that would silently rewrite what an agent remembers.
      */
     delete: operations["deleteMemory"];
     options?: never;
@@ -3397,6 +3405,12 @@ export interface components {
       scopes: components["schemas"]["Scope"][];
     };
     HumanUpdate: {
+      /**
+       * Format: password
+       * @description The caller's present password. Required when a human changes their own `password`; not
+       *     needed when another human resets it.
+       */
+      current_password?: string;
       display_name?: components["schemas"]["DisplayName"];
       /** Format: password */
       password?: string;
@@ -3800,6 +3814,11 @@ export interface components {
     Plugin: {
       enabled: boolean;
       health: components["schemas"]["PluginHealth"];
+      /**
+       * @description Plain words that say why `health` is `degraded` or `failed`, for example "The server
+       *     stopped answering at 14:02." Absent or `null` when `health` is `ok` or the cause is unknown.
+       */
+      health_detail?: string | null;
       id: components["schemas"]["PluginId"];
       installed_at: components["schemas"]["Timestamp"];
       installed_by: components["schemas"]["Actor"];
@@ -4568,6 +4587,8 @@ export interface components {
     ChannelName: components["schemas"]["ChannelName"];
     /** @description Opaque cursor from a previous page's `next_cursor`. */
     Cursor: string;
+    /** @description Why the record is deleted. Kept in the audit record. */
+    DeleteReason: string;
     EmitterId: components["schemas"]["EmitterId"];
     /** @description Absolute path inside the machine container. */
     FilePath: string;
@@ -6226,6 +6247,8 @@ export interface operations {
       /** @description Updated. */
       200: {
         headers: {
+          /** @description Only after the caller changed their own password: the rotated `agentsone_session=<opaque>; Path=/; HttpOnly; SameSite=Strict`. */
+          "Set-Cookie"?: string;
           [name: string]: unknown;
         };
         content: {
@@ -6236,6 +6259,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      429: components["responses"]["TooManyRequests"];
       501: components["responses"]["NotImplemented"];
     };
   };
@@ -7201,7 +7225,10 @@ export interface operations {
   };
   deleteMemory: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Why the record is deleted. Kept in the audit record. */
+        reason?: components["parameters"]["DeleteReason"];
+      };
       header?: never;
       path: {
         memory_id: components["parameters"]["MemoryId"];

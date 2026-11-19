@@ -35,6 +35,16 @@
           "type": "string"
         }
       },
+      "DeleteReason": {
+        "description": "Why the record is deleted. Kept in the audit record.",
+        "in": "query",
+        "name": "reason",
+        "required": false,
+        "schema": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
       "EmitterId": {
         "in": "path",
         "name": "emitter_id",
@@ -3945,6 +3955,13 @@
         "additionalProperties": false,
         "minProperties": 1,
         "properties": {
+          "current_password": {
+            "description": "The caller's present password. Required when a human changes their own `password`; not\nneeded when another human resets it.\n",
+            "format": "password",
+            "maxLength": 256,
+            "type": "string",
+            "writeOnly": true
+          },
           "display_name": {
             "$ref": "#/components/schemas/DisplayName"
           },
@@ -5396,6 +5413,14 @@
           },
           "health": {
             "$ref": "#/components/schemas/PluginHealth"
+          },
+          "health_detail": {
+            "description": "Plain words that say why `health` is `degraded` or `failed`, for example \"The server\nstopped answering at 14:02.\" Absent or `null` when `health` is `ok` or the cause is unknown.\n",
+            "maxLength": 500,
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "$ref": "#/components/schemas/PluginId"
@@ -8405,7 +8430,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.1"
+    "version": "1.0.2"
   },
   "openapi": "3.1.1",
   "paths": {
@@ -11064,7 +11089,7 @@
         }
       ],
       "patch": {
-        "description": "Human-only. Changes display name or password. Soft wall.",
+        "description": "Human-only. Changes display name or password. Soft wall. A human who changes their own\npassword sends `current_password`; a missing or wrong value answers 400\n`urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may\nreset the password without it. A human's own password change ends all their other sessions and\nrotates the caller's session: the 200 response sets a new `agentsone_session` cookie. Resetting\nanother human's password ends all of that human's sessions. A wrong `current_password` counts\nagainst the sign-in throttle; when it trips, the answer is 429 with `Retry-After`.\n",
         "operationId": "updateHuman",
         "requestBody": {
           "content": {
@@ -11085,7 +11110,15 @@
                 }
               }
             },
-            "description": "Updated."
+            "description": "Updated.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Only after the caller changed their own password: the rotated `agentsone_session=<opaque>; Path=/; HttpOnly; SameSite=Strict`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
@@ -11098,6 +11131,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           },
           "501": {
             "$ref": "#/components/responses/NotImplemented"
@@ -12526,8 +12562,13 @@
     },
     "/memory/{memory_id}": {
       "delete": {
-        "description": "Deletes a record. Agents delete their own records; root agents delete any.",
+        "description": "Deletes a record and writes an audit record. Agents delete their own records; root agents and\nhumans delete any. A human may pass `reason`, which the audit record keeps. Humans cannot edit\na record, because that would silently rewrite what an agent remembers.\n",
         "operationId": "deleteMemory",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeleteReason"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Deleted."

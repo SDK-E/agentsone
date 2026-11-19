@@ -1,0 +1,36 @@
+{
+  "status": 200,
+  "body": {
+    "currency": "USD",
+    "nodes": [
+      {
+        "agent": "founder",
+        "manager": null,
+        "allocated_micros": 45000000,
+        "spent_micros": 3120000,
+        "remaining_micros": 41880000,
+        "state": "ok",
+        "wall": "soft"
+      },
+      {
+        "agent": "a-very-long-agent-name-thirty1",
+        "manager": "founder",
+        "allocated_micros": 12000000,
+        "spent_micros": 11800000,
+        "remaining_micros": 200000,
+        "state": "low",
+        "wall": "soft"
+      },
+      {
+        "agent": "another-very-long-agent-name-31",
+        "manager": "a-very-long-agent-name-thirty1",
+        "allocated_micros": null,
+        "spent_micros": 640000,
+        "remaining_micros": 200000,
+        "state": "ok",
+        "wall": "soft"
+      }
+    ],
+    "as_of": "2026-11-19T12:44:00Z"
+  }
+}

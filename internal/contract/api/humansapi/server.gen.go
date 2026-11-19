@@ -324,6 +324,15 @@ type NotFoundApplicationProblemPlusJSONResponse Problem
 
 type NotImplementedApplicationProblemPlusJSONResponse Problem
 
+type TooManyRequestsResponseHeaders struct {
+	RetryAfter *int
+}
+type TooManyRequestsApplicationProblemPlusJSONResponse struct {
+	Body Problem
+
+	Headers TooManyRequestsResponseHeaders
+}
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListHumansRequestObject struct {
@@ -673,15 +682,25 @@ type UpdateHumanResponseObject interface {
 	VisitUpdateHumanResponse(w http.ResponseWriter) error
 }
 
-type UpdateHuman200JSONResponse Human
+type UpdateHuman200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type UpdateHuman200JSONResponse struct {
+	Body    Human
+	Headers UpdateHuman200ResponseHeaders
+}
 
 func (response UpdateHuman200JSONResponse) VisitUpdateHumanResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
@@ -747,6 +766,25 @@ func (response UpdateHuman404ApplicationProblemPlusJSONResponse) VisitUpdateHuma
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateHuman429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateHuman429ApplicationProblemPlusJSONResponse) VisitUpdateHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }

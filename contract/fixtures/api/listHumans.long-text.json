@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "a-very-long-human-name-thirty1",
+        "display_name": "An Exceptionally Long Display Name For A Human, Used To Test Wrapping In Panels",
+        "uid": 1002,
+        "created_at": "2026-11-19T12:04:40Z",
+        "last_login_at": "2026-11-19T18:15:00Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

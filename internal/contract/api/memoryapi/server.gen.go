@@ -32,7 +32,7 @@ type ServerInterface interface {
 	SearchMemory(w http.ResponseWriter, r *http.Request, params SearchMemoryParams)
 	// DeleteMemory Delete a memory record
 	// (DELETE /memory/{memory_id})
-	DeleteMemory(w http.ResponseWriter, r *http.Request, memoryId MemoryIdParameter)
+	DeleteMemory(w http.ResponseWriter, r *http.Request, memoryId MemoryIdParameter, params DeleteMemoryParams)
 	// GetMemory Get a memory record
 	// (GET /memory/{memory_id})
 	GetMemory(w http.ResponseWriter, r *http.Request, memoryId MemoryIdParameter)
@@ -233,8 +233,24 @@ func (siw *ServerInterfaceWrapper) DeleteMemory(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteMemoryParams
+
+	// ------------- Optional query parameter "reason" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "reason", r.URL.Query(), &params.Reason, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "reason"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reason", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteMemory(w, r, memoryId)
+		siw.Handler.DeleteMemory(w, r, memoryId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -655,6 +671,7 @@ func (response SearchMemory501ApplicationProblemPlusJSONResponse) VisitSearchMem
 
 type DeleteMemoryRequestObject struct {
 	MemoryId MemoryIdParameter `json:"memory_id"`
+	Params   DeleteMemoryParams
 }
 
 type DeleteMemoryResponseObject interface {
@@ -945,10 +962,11 @@ func (sh *strictHandler) SearchMemory(w http.ResponseWriter, r *http.Request, pa
 }
 
 // DeleteMemory operation middleware
-func (sh *strictHandler) DeleteMemory(w http.ResponseWriter, r *http.Request, memoryId MemoryIdParameter) {
+func (sh *strictHandler) DeleteMemory(w http.ResponseWriter, r *http.Request, memoryId MemoryIdParameter, params DeleteMemoryParams) {
 	var request DeleteMemoryRequestObject
 
 	request.MemoryId = memoryId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteMemory(ctx, request.(DeleteMemoryRequestObject))

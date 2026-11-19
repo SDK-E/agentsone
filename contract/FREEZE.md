@@ -62,6 +62,11 @@ difference, and CI runs it.
 - Every operation may answer 501 `urn:agentsone:problem:not-implemented`. The bundle step adds the
   shared `NotImplemented` response to every operation that does not declare a 501 itself; the
   sources under `contract/openapi` stay unchanged.
+- Behaviour that the schema cannot show is written in the operation description. Since 1.0.2:
+  `updateHuman` requires `current_password` for a human's own password change (400 `validation`
+  when missing or wrong), ends the human's other sessions and rotates the caller's cookie (a reset
+  of another human ends all that human's sessions); `deleteMemory` is open to humans,
+  who cannot edit memory.
 - A parameter, response, request body or header component that shares its name with a schema is
   renamed for code generation only (`Cursor` becomes `CursorParameter`).
 

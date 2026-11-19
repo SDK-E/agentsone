@@ -1,0 +1,10 @@
+{
+  "status": 503,
+  "body": {
+    "type": "urn:agentsone:problem:unavailable",
+    "title": "Catalog unavailable",
+    "status": 503,
+    "detail": "The MCP registry did not answer. Try again in a minute.",
+    "instance": "/v1/plugins/catalog"
+  }
+}

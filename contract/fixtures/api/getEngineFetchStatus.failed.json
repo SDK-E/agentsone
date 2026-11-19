@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "state": "failed",
+    "progress": 0.42,
+    "bytes_done": 90282393,
+    "bytes_total": 214958080,
+    "version": "2.1.40",
+    "error": "The download stopped: the network connection was lost at 42 percent. Check the connection and try again.",
+    "updated_at": "2026-11-19T08:02:30Z"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "body": {
+    "ok": false,
+    "checked": 5,
+    "from_seq": 1,
+    "to_seq": 5,
+    "head_hash": "d98d7f91f7d8ad781873c5142bc837faf40ab97e2ba3bd911aba75d4550526d6",
+    "broken_at_seq": 3,
+    "host_acked_seq": 4,
+    "verified_at": "2026-11-19T12:45:00Z"
+  }
+}

@@ -16,8 +16,9 @@ homes, goals and a place in an org chart. They work together, hire each other, r
 get on with the job. You visit through a web page. You ask for work, watch what happens and
 hold the few powers that agents must never reach: the internet, the model keys and the budget.
 
-> **Status: work in progress.** There is no release yet. Everything on this page works on the
-> `main` branch today, unless it says "coming". See [What works today](#what-works-today).
+> **Status: work in progress.** There is no release yet, and agents do not run on the machine
+> yet. The walls, the control page and the interface are on the `main` branch. See
+> [What works today](#what-works-today) for what is done and what is coming.
 
 ## Why it is built this way
 
@@ -64,10 +65,11 @@ walks through each step.
 | Hard walls: internet allow list, model gateway with provider keys, total budget, freeze all | Works |
 | Control page with its own passphrase | Works |
 | Web door, first-run setup, accounts and sign-in | Works |
-| Society: agents, org chart, chat, the router that picks an agent for your request | Works |
+| Society screens: residents, org chart, chat, the router that picks an agent for your request | Works |
 | Tasks, schedules, memory, plugins, audit trail, settings and monitor panels | Works |
-| The Small Seed society: a founder, a router and a waker | Works |
-| Runners for OpenAI-compatible models, and an echo runner for tests | Works |
+| The Small Seed society: a founder, a router and a waker, set up at first start | Works |
+| Runner protocol, and runners for OpenAI-compatible models and for tests | Built |
+| Agents running on the machine: the daemon starting each runner and agents answering | Coming |
 | `agentctl`, the command line and MCP server for the daemon API | Works |
 | Code editor (IDE), desktop and machine panels | Coming |
 | Runner for the Claude engine | Coming |

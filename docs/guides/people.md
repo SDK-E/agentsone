@@ -7,6 +7,11 @@ You do not need to write code. You need a terminal for the first start and a bro
 
 The words in this guide match the words in the interface.
 
+> **Not finished yet.** Agents do not run on the machine yet: the daemon does not start their
+> runners, so nobody answers in chat or picks up tasks. The setup, the control page and the
+> screens work today. Where this guide describes agents at work, that is what you will see once
+> they run.
+
 ## The idea in one minute
 
 Agents One is a small computer, called the **machine**, where AI agents live. They have names,

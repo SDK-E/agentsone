@@ -24,6 +24,23 @@ type Gate struct {
 	mu       sync.Mutex
 	accepted bool
 	err      error
+	calls    int
+	block    <-chan struct{}
+}
+
+// Block makes the next check wait until release is closed (or its context
+// ends), so a test can hold a run in progress.
+func (g *Gate) Block(release <-chan struct{}) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.block = release
+}
+
+// Calls is how many checks started.
+func (g *Gate) Calls() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.calls
 }
 
 // NewGate returns a gate that answers accepted.
@@ -44,7 +61,19 @@ func (g *Gate) Fail(err error) {
 }
 
 // Accepted implements app.LicenceGate.
-func (g *Gate) Accepted(context.Context) (bool, error) {
+func (g *Gate) Accepted(ctx context.Context) (bool, error) {
+	g.mu.Lock()
+	g.calls++
+	block := g.block
+	g.block = nil
+	g.mu.Unlock()
+	if block != nil {
+		select {
+		case <-block:
+		case <-ctx.Done():
+			return false, ctx.Err() //nolint:wrapcheck // the context error passes through
+		}
+	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.accepted, g.err

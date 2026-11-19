@@ -19,8 +19,34 @@ describe("MonitorPanel", () => {
       "12840000",
     );
     expect(within(budget).getByText("Hard limit")).toBeVisible();
-    expect(within(budget).getByText(/held outside the machine/)).toBeVisible();
-    expect(within(budget).getByText("Defence reserve: $0.41 of $5.00 used")).toBeVisible();
+    expect(
+      within(budget).getByText(
+        "The total is a hard limit. The edge holds it outside the machine and people set it on the control page. No agent can raise it.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("marks the defence reserve as a soft limit and says why", async () => {
+    renderWith(<MonitorPanel />);
+
+    const budget = await screen.findByRole("region", { name: "Budget" });
+    const reserve = await within(budget).findByText("Defence reserve: $0.41 of $5.00 used");
+    expect(within(reserve).getByText("Soft limit")).toBeVisible();
+    expect(
+      within(budget).getByText(
+        "A root agent inside the machine can pose as another agent at the gateway, so this reserve can be got around.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("says nothing about a soft limit when the defence reserve is off", async () => {
+    const api = new FakeApi();
+    api.budget = { ...fixtures.budget, defence: { ...fixtures.budget.defence, enabled: false } };
+    renderWith(<MonitorPanel />, api);
+
+    const budget = await screen.findByRole("region", { name: "Budget" });
+    expect(await within(budget).findByText("The defence reserve is switched off.")).toBeVisible();
+    expect(within(budget).queryByText("Soft limit")).not.toBeInTheDocument();
   });
 
   it("tells the person plainly when the budget is used up", async () => {

@@ -7,19 +7,67 @@ import { LoadError, Loading } from "../../shell/status";
 
 export const verifyKey = ["audit", "verify"] as const;
 
-/**
- * Re-checks the hash chain of the records written inside the machine, and says how much of it
- * the edge also holds. The edge's copy is the final proof; the check alone is only testimony.
- */
-export function ChainCheck({ onCheckAgain }: { onCheckAgain: () => void }) {
-  const { t } = useTranslation();
+/** The chain check. Its newest record number tells the list where to start reading. */
+export function useChainCheck() {
   const api = useApi();
-  const check = useQuery({
+  return useQuery({
     queryKey: verifyKey,
     queryFn: () => api.verifyAuditChain(),
     retry: false,
     staleTime: 30_000,
   });
+}
+
+const Tick = () => (
+  <svg
+    className="verdict__icon"
+    viewBox="0 0 20 20"
+    width="18"
+    height="18"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <circle cx="10" cy="10" r="8" />
+    <path d="m6.5 10.2 2.5 2.5 4.5-5" />
+  </svg>
+);
+
+const Cross = () => (
+  <svg
+    className="verdict__icon"
+    viewBox="0 0 20 20"
+    width="18"
+    height="18"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <circle cx="10" cy="10" r="8" />
+    <path d="m7.5 7.5 5 5m0-5-5 5" />
+  </svg>
+);
+
+/**
+ * Re-checks the hash chain of the records written inside the machine, and says how much of it
+ * the edge also holds. The edge's copy is the final proof; the check alone is only testimony.
+ */
+export function ChainCheck({
+  check,
+  onCheckAgain,
+}: {
+  check: ReturnType<typeof useChainCheck>;
+  onCheckAgain: () => void;
+}) {
+  const { t } = useTranslation();
   const data = check.data;
   const waiting = data ? data.to_seq - data.host_acked_seq : 0;
 
@@ -44,13 +92,18 @@ export function ChainCheck({ onCheckAgain }: { onCheckAgain: () => void }) {
       {data && (
         <div className="stack-sm">
           {data.ok ? (
-            <p className="verdict verdict--ok">{t("panels.audit.check.intact")}</p>
+            <p className="verdict verdict--ok">
+              <Tick />
+              {t("panels.audit.check.intact")}
+            </p>
           ) : (
             <div role="alert" className="notice notice--danger stack-sm">
               <p className="verdict">
+                <Cross />
                 {t("panels.audit.check.broken", { seq: data.broken_at_seq ?? data.from_seq })}
               </p>
               <p>{t("panels.audit.check.brokenBody")}</p>
+              <p>{t("panels.audit.check.brokenNext")}</p>
             </div>
           )}
           <p>{t("panels.audit.check.checked", { count: data.checked, to: data.to_seq })}</p>

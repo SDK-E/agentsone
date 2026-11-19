@@ -1,34 +1,29 @@
 // SPDX-License-Identifier: MIT
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useApi } from "../../app/api-context";
 import { LoadError, Loading } from "../../shell/status";
-import { ChainCheck } from "./chain-check";
+import { ChainCheck, useChainCheck } from "./chain-check";
 import { KindIcon, kindOf, RecordRow, type RecordKind } from "./record-row";
+import { uniqueNewestFirst, useAuditRecords } from "./use-audit-records";
 
 type Show = "all" | RecordKind;
 
 /** Audit: the record of what happened, with proof and testimony kept apart and the chain checked. */
 export default function AuditPanel() {
   const { t } = useTranslation();
-  const api = useApi();
   const client = useQueryClient();
   const [show, setShow] = useState<Show>("all");
-  const records = useInfiniteQuery({
-    queryKey: ["audit", "records"],
-    queryFn: ({ pageParam }) => api.listAuditRecords(pageParam),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.next_cursor ?? undefined,
-    retry: false,
-  });
-  const all = records.data?.pages.flatMap((page) => page.items) ?? [];
+  const check = useChainCheck();
+  const records = useAuditRecords(check.data?.to_seq);
+  const all = uniqueNewestFirst(records.data?.pages ?? []);
   const items = show === "all" ? all : all.filter((r) => kindOf(r) === show);
 
   return (
     <div className="stack">
       <ChainCheck
+        check={check}
         onCheckAgain={() => {
           void client.invalidateQueries({ queryKey: ["audit", "records"] });
         }}
@@ -62,7 +57,8 @@ export default function AuditPanel() {
         ))}
       </div>
 
-      {records.isPending && <Loading label={t("panels.audit.loading")} />}
+      {check.isError && <p className="notice">{t("panels.audit.needsCheck")}</p>}
+      {!check.isError && records.isPending && <Loading label={t("panels.audit.loading")} />}
       {records.isError && (
         <LoadError error={records.error} onRetry={() => void records.refetch()} />
       )}

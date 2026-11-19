@@ -30,6 +30,7 @@ import {
   type AgentOutputFrame,
   type Api,
   type Assignment,
+  type AuditQuery,
   type AuditRecord,
   type AuditVerification,
   type Budget,
@@ -197,8 +198,8 @@ export class FakeApi implements Api {
   metrics: MachineMetrics | ApiError = fixtures.metrics;
   tasks: Task[] | ApiError = [...fixtures.tasks];
   schedules: Schedule[] | ApiError = fixtures.schedules;
-  /** Pages of audit records; the first is served with no cursor. */
-  auditPages: Page<AuditRecord>[] | ApiError = [{ items: fixtures.audit, next_cursor: null }];
+  /** Every audit record, oldest first. Served the way the daemon does: after a sequence number. */
+  audit: AuditRecord[] | ApiError = [...fixtures.audit];
   verification: AuditVerification | ApiError = fixtures.verification;
   createError: ApiError | undefined;
   taskStream = new FakeStream<TaskStreamFrame>();
@@ -237,12 +238,13 @@ export class FakeApi implements Api {
   };
   streamTasks = (h: StreamHandlers<TaskStreamFrame>) => this.taskStream.open(h);
   listSchedules = () => this.settle(this.schedules);
-  listAuditRecords = (cursor?: string) => {
-    this.calls.push(`listAuditRecords ${cursor ?? ""}`.trim());
-    if (this.auditPages instanceof ApiError) return Promise.reject(this.auditPages);
-    const index = cursor === undefined ? 0 : Number(cursor);
-    const page = this.auditPages[index];
-    return page ? Promise.resolve(page) : Promise.reject(problem(400, "Unknown cursor"));
+  listAuditRecords = (query: AuditQuery = {}) => {
+    const after = query.after_seq ?? 0;
+    const limit = query.limit ?? 50;
+    this.calls.push(`listAuditRecords after=${String(after)} limit=${String(limit)}`);
+    if (this.audit instanceof ApiError) return Promise.reject(this.audit);
+    const items = this.audit.filter((r) => r.seq > after).slice(0, limit);
+    return Promise.resolve<Page<AuditRecord>>({ items, next_cursor: null });
   };
   verifyAuditChain = () => {
     this.calls.push("verifyAuditChain");

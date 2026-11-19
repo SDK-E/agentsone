@@ -55,14 +55,20 @@ export function BudgetCard() {
           )}
           {data.state === "low" && <p className="hint">{t("panels.monitor.budget.low")}</p>}
           <p className="hint">{t("panels.monitor.budget.hardNote")}</p>
-          <p className="hint">
-            {data.defence.enabled
-              ? t("panels.monitor.budget.defence", {
+          {data.defence.enabled ? (
+            <div className="stack-sm">
+              <p className="hint">
+                {t("panels.monitor.budget.defence", {
                   spent: formatMoney(data.defence.spent_micros, data.currency),
                   reserved: formatMoney(data.defence.reserved_micros, data.currency),
-                })
-              : t("panels.monitor.budget.defenceOff")}
-          </p>
+                })}
+                <span className="wall wall--soft">{t("panels.monitor.agents.soft")}</span>
+              </p>
+              <p className="hint">{t("panels.monitor.budget.defenceWhy")}</p>
+            </div>
+          ) : (
+            <p className="hint">{t("panels.monitor.budget.defenceOff")}</p>
+          )}
         </>
       )}
     </section>

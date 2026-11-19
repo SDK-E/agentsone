@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PANEL_IDS } from "../panels/registry";
 import { expectNoAxeViolations } from "../test/axe";
@@ -57,6 +57,44 @@ describe("Panels", () => {
       await user.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tabpanel", { name })).toBeVisible();
     }
+  });
+
+  it("brings the chosen tab into view when the tabs do not all fit", async () => {
+    const user = userEvent.setup();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderWith(<PanelsArea />);
+
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+
+    const lastCall = scrolled.mock.contexts.at(-1) as HTMLElement;
+    expect(lastCall).toBe(screen.getByRole("tab", { name: "Settings" }));
+    expect(scrolled).toHaveBeenLastCalledWith({ inline: "nearest", block: "nearest" });
+    scrolled.mockRestore();
+  });
+
+  it("shows a cue where more tabs are hidden, and drops it at the end", () => {
+    renderWith(<PanelsArea />);
+    const list = screen.getByRole("tablist");
+    const scroller = list.parentElement;
+    if (!scroller) throw new Error("the tab row has no wrapper");
+    const metrics = (left: number) => {
+      Object.defineProperty(list, "clientWidth", { configurable: true, value: 300 });
+      Object.defineProperty(list, "scrollWidth", { configurable: true, value: 700 });
+      Object.defineProperty(list, "scrollLeft", { configurable: true, value: left });
+      fireEvent.scroll(list);
+    };
+
+    metrics(0);
+    expect(scroller).toHaveAttribute("data-more-end", "true");
+    expect(scroller).not.toHaveAttribute("data-more-start");
+
+    metrics(200);
+    expect(scroller).toHaveAttribute("data-more-start", "true");
+    expect(scroller).toHaveAttribute("data-more-end", "true");
+
+    metrics(400);
+    expect(scroller).toHaveAttribute("data-more-start", "true");
+    expect(scroller).not.toHaveAttribute("data-more-end");
   });
 
   it("puts the panels in a sheet on a phone", async () => {

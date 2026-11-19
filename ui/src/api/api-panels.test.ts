@@ -40,10 +40,10 @@ describe("createHttpApi for monitor, tasks and audit", () => {
     expect((await api.getBudgetSplit()).nodes[0]?.wall).toBe("soft");
     expect((await api.getMachineMetrics()).cpu.cores).toBe(4);
     expect(await api.listSchedules()).toHaveLength(2);
-    expect((await api.listAuditRecords("c1")).next_cursor).toBe("c2");
+    expect((await api.listAuditRecords({ after_seq: 3, limit: 25 })).next_cursor).toBe("c2");
     expect((await api.listAuditRecords()).items).toHaveLength(fixtures.audit.length);
     expect((await api.verifyAuditChain()).ok).toBe(true);
-    expect(seen).toContain("GET /audit?cursor=c1");
+    expect(seen).toContain("GET /audit?after_seq=3&limit=25");
     expect(seen).toContain("GET /audit");
     expect(seen).toContain("POST /audit/verify");
   });

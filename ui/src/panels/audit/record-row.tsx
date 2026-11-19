@@ -15,6 +15,14 @@ const when = (iso: string) =>
 const show = (value: unknown): string =>
   typeof value === "string" ? value : JSON.stringify(value, null, 1);
 
+/** A plugin is known by its name when the record carries one; the id is only the fallback. */
+const targetName = (record: AuditRecord): string => {
+  const name: unknown = (record.details as Record<string, unknown>).name;
+  return record.target.kind === "plugin" && typeof name === "string" && name !== ""
+    ? name
+    : record.target.id;
+};
+
 /** A shield with a tick for proof; a speech bubble for testimony. Decoration: the kind is also written. */
 export function KindIcon({ kind }: { kind: RecordKind }) {
   return (
@@ -50,8 +58,9 @@ export function KindIcon({ kind }: { kind: RecordKind }) {
 export function RecordRow({ record }: { record: AuditRecord }) {
   const { t } = useTranslation();
   const kind = kindOf(record);
-  const [actorKind, actorName] = [record.actor.kind, record.actor.name];
+  const actorKind = record.actor.kind;
   const details = Object.entries(record.details);
+  const target = targetName(record);
 
   return (
     <li className={`record record--${kind}`}>
@@ -71,10 +80,10 @@ export function RecordRow({ record }: { record: AuditRecord }) {
       </p>
       <p className="record__meta">
         <span>{t(`panels.audit.actor.${actorKind}`)}</span>
-        <span className="record__name">{actorName}</span>
+        {actorKind !== "host" && <span className="record__name">{record.actor.name}</span>}
         <span aria-hidden="true">→</span>
         <span className="record__name">
-          {record.target.kind} {record.target.id}
+          {record.target.kind} {target}
         </span>
       </p>
       <p className="hint">

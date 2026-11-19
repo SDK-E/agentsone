@@ -47,6 +47,11 @@ export interface Page<T> {
   next_cursor: string | null;
 }
 
+export interface AuditQuery {
+  after_seq?: number;
+  limit?: number;
+}
+
 export interface TaskFilter {
   status?: TaskStatus;
   assignee?: string;
@@ -103,7 +108,8 @@ export interface Api {
   createTask(body: TaskCreate): Promise<Task>;
   streamTasks(handlers: StreamHandlers<TaskStreamFrame>): Unsubscribe;
   listSchedules(): Promise<Schedule[]>;
-  listAuditRecords(cursor?: string): Promise<Page<AuditRecord>>;
+  /** Records come oldest first: ask for those after a sequence number to reach the newest. */
+  listAuditRecords(query?: AuditQuery): Promise<Page<AuditRecord>>;
   verifyAuditChain(): Promise<AuditVerification>;
 }
 
@@ -214,10 +220,15 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
     createTask: async (body) => unwrap(await client.POST("/tasks", { body })),
     streamTasks: (handlers) => stream("/tasks/stream", handlers),
     listSchedules: async () => unwrap(await client.GET("/schedules", {})).items,
-    listAuditRecords: async (cursor) =>
+    listAuditRecords: async (query = {}) =>
       unwrap(
         await client.GET("/audit", {
-          params: { query: { ...(cursor !== undefined && { cursor }) } },
+          params: {
+            query: {
+              ...(query.after_seq !== undefined && { after_seq: query.after_seq }),
+              ...(query.limit !== undefined && { limit: query.limit }),
+            },
+          },
         }),
       ),
     verifyAuditChain: async () => unwrap(await client.POST("/audit/verify", { body: {} })),

@@ -145,7 +145,7 @@ for (const state of STATES) {
       await expect(panel.getByRole("heading", { name: "No records yet" })).toBeVisible();
     } else {
       await expect(panel.getByText("The chain is intact.")).toBeVisible();
-      await expect(panel.getByRole("list", { name: "Records, oldest first" })).toBeVisible();
+      await expect(panel.getByRole("list", { name: "Records, newest first" })).toBeVisible();
       await expect(panel.getByText("Proof").first()).toBeVisible();
       await expect(panel.getByText("Testimony").first()).toBeVisible();
     }
@@ -154,12 +154,32 @@ for (const state of STATES) {
   });
 }
 
+test("panel tabs, a cue shows where more tabs hide and the chosen tab comes into view", async ({
+  page,
+}, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the tabs only overflow on a phone");
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Monitor");
+
+  const scroller = page.locator(".tabs__scroller");
+  await expect(scroller).toHaveAttribute("data-more-end", "true");
+  await checkPage(page, testInfo, "panel-tabs-cue");
+
+  await page.getByRole("tab", { name: "Audit" }).click();
+  await expect(page.getByRole("tab", { name: "Audit" })).toBeInViewport({ ratio: 1 });
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await expect(page.getByRole("tab", { name: "Settings" })).toBeInViewport({ ratio: 1 });
+  await expect(scroller).not.toHaveAttribute("data-more-end");
+  await expect(scroller).toHaveAttribute("data-more-start", "true");
+  clean();
+});
+
 test("audit, show only proof", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Audit");
 
   const panel = page.getByRole("tabpanel", { name: "Audit" });
-  await expect(panel.getByRole("list", { name: "Records, oldest first" })).toBeVisible();
+  await expect(panel.getByRole("list", { name: "Records, newest first" })).toBeVisible();
   await panel.getByRole("group", { name: /Show/ }).getByRole("button", { name: "Proof" }).click();
   await expect(panel.getByText("Told by the machine")).toHaveCount(0);
   await checkPage(page, testInfo, "audit-proof-only");

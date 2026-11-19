@@ -44,7 +44,7 @@ func must(t *testing.T, err error) {
 }
 
 func ada() domain.Human {
-	return domain.Human{Name: "ada", DisplayName: "Ada", UID: 1000, PasswordHash: "$argon2id$x", CreatedAt: t0}
+	return domain.Human{Name: "ada", DisplayName: "Ada", UID: 1000, PasswordHash: "$argon2id$x", CreatedAt: t0} // #nosec G101 -- fake hash for the repository contract
 }
 
 func humansRoundTrip(t *testing.T, r Repo) {

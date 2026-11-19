@@ -54,6 +54,7 @@ func infoFrom(ctx context.Context) requestInfo {
 // sessionCookie builds the Set-Cookie value. HttpOnly and SameSite=Strict
 // always; Secure whenever the browser is on TLS.
 func sessionCookie(value string, maxAge int, secure bool) string {
+	// #nosec G124 -- Secure whenever the browser is on TLS; plain loopback cannot keep a Secure cookie
 	c := &http.Cookie{
 		Name: CookieName, Value: value, Path: "/", MaxAge: maxAge,
 		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure,

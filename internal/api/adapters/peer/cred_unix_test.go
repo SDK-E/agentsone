@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-//go:build linux
+//go:build linux || darwin
 
 package peer_test
 
@@ -13,8 +13,8 @@ import (
 	"github.com/SDK-E/agentsone/internal/api/adapters/peer"
 )
 
-// System test (TESTING.md, Linux only): the kernel reports our own pid and
-// uid for a connection we make to ourselves.
+// System test (TESTING.md; SO_PEERCRED and /proc on Linux CI): the kernel
+// reports our own pid and uid for a connection we make to ourselves.
 func TestCredentials_ReadsTheRealPeer(t *testing.T) {
 	t.Parallel()
 	sock := filepath.Join(t.TempDir(), "s.sock")
@@ -48,7 +48,7 @@ func TestCredentials_ReadsTheRealPeer(t *testing.T) {
 	if p.PID != os.Getpid() || p.UID != os.Getuid() {
 		t.Fatalf("peer %+v, want pid %d uid %d", p, os.Getpid(), os.Getuid())
 	}
-	r := peer.Resolver{Proc: os.DirFS("/proc"), Credentials: peer.Credentials, HumanByUID: peer.NoHumans}
+	r := peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, HumanByUID: peer.NoHumans}
 	if _, err := r.Caller(server); err != nil {
 		t.Fatalf("resolve real peer: %v", err)
 	}

@@ -58,7 +58,7 @@ func (d *daemon) call(c core.Caller, method, path, body, cookie string) *httptes
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	if cookie != "" {
-		r.AddCookie(&http.Cookie{Name: "agentsone_session", Value: cookie})
+		r.AddCookie(&http.Cookie{Name: "agentsone_session", Value: cookie}) // #nosec G124 -- request cookie in a test; attributes are not sent
 	}
 	r = r.WithContext(core.WithCaller(r.Context(), c))
 	rec := httptest.NewRecorder()

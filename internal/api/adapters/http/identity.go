@@ -92,7 +92,7 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 				caller = c
 			case !needsCaller(r):
 			default:
-				clearBadCookie(w, fromCookie)
+				clearBadCookie(w, r, fromCookie)
 				core.WriteError(w, r, fmt.Errorf("credentials: %w", core.ErrUnauthorized))
 				return
 			}
@@ -183,8 +183,12 @@ func needsCaller(r *http.Request) bool {
 	return !publicOperations[route.OperationID]
 }
 
-func clearBadCookie(w http.ResponseWriter, fromCookie bool) {
+func clearBadCookie(w http.ResponseWriter, r *http.Request, fromCookie bool) {
 	if fromCookie {
-		http.SetCookie(w, &http.Cookie{Name: CookieName, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		// #nosec G124 -- Secure whenever the browser is on TLS (through the edge); plain loopback cannot keep a Secure cookie
+		http.SetCookie(w, &http.Cookie{
+			Name: CookieName, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode,
+			Secure: r.Header.Get(ViaHeader) == "edge",
+		})
 	}
 }

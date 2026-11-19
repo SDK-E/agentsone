@@ -29,6 +29,7 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
       contract: ${{ steps.filter.outputs.contract }}
       image: ${{ steps.filter.outputs.image }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,6 +79,15 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/pr.yml'
+            ui:
+              - 'ui/**'
+              - 'packages/contract-ts/**'
+              - 'plugins/agents-one-theme/theme.json'
+              - 'brand/type/**'
+              - 'contract/fixtures/api/**'
+              - 'cmd/agentsoned-fake/**'
               - 'pnpm-lock.yaml'
               - '.github/workflows/pr.yml'
             workflows:
@@ -218,6 +228,41 @@ jobs:
         run: docker run --rm -v "$PWD/image/edge:/work:ro" --workdir /work "$HADOLINT_IMAGE" hadolint Dockerfile
       - name: e2e stage list
         run: e2e/run.sh list
+
+  ui:
+    # Every interface page, in every state, light and dark, phone and desktop, against the fake
+    # daemon (TESTING.md B7c). Screenshots are kept for human review (B7d).
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ./ui build
+      - run: pnpm --filter ./ui exec playwright install --with-deps chromium
+      - run: pnpm --filter ./ui e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ui-screenshots
+          path: |
+            ui/screenshots/
+            ui/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
 
   shell:
     needs: changes
@@ -385,6 +430,7 @@ jobs:
       - contract
       - ts
       - stack
+      - ui
       - shell
       - workflows
       - image

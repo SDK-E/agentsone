@@ -20,7 +20,7 @@ export default defineConfig({
   retries: 0,
   forbidOnly: true,
   fullyParallel: true,
-  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
+  reporter: process.env.CI ? [["list"], ["github"]] : "list",
   use: { baseURL: "http://127.0.0.1:4173", trace: "off" },
   projects: (["light", "dark"] as const).flatMap((colorScheme) =>
     Object.entries(sizes).map(([size, viewport]) => ({

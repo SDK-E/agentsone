@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: MIT
+#
+# Agents One: the whole stack in one file.
+#
+#   docker compose up -d --wait
+#
+# Plain Docker and Coolify both load this file. On Coolify use Raw mode only, see
+# docs/deploy/coolify.md: the normal Coolify mode adds a network with a gateway to every service
+# and so gives the machine direct internet. Every setting below has a default; change one with
+# an environment variable or a .env file next to this file (docs/deploy/compose.md lists them).
+#
+# Needs Docker Engine 28.0 or newer (writable cgroups for per-agent limits; Docker 26.1.3 or
+# newer is also what lets the machine's DNS questions reach the edge on an internal network).
+#
+# The walls, in plain words:
+#   - machine is where agents live. Root inside it is real root, so nothing that guards the
+#     human's powers lives there. It sits on the `inner` network only, which has no way out.
+#   - edge is the only door between machine and the internet. It answers DNS for allowed names
+#     only and passes traffic only to those names. It holds the model keys and the budget.
+#   - control is the human-only page. It is not on the machine's network at all and talks to
+#     edge only through a socket on a volume that machine never mounts.
+
+name: agentsone
+
+services:
+  machine:
+    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    # Wall: only the inner network. Never add another network here: any network with a gateway
+    # gives agents direct internet and walks around every filter in edge.
+    networks:
+      - inner
+    # Wall: no `ports`. Humans reach the machine only through the edge web door.
+    # Docker's own resolver stays in the machine. It answers service names (edge) and sends every
+    # other name to edge, which answers only allowed names.
+    dns:
+      - ${AGENTSONE_EDGE_IP:-10.77.42.2}
+    environment:
+      # The one proxy the daemon trusts for X-Forwarded-For: the edge web door.
+      AGENTSONE_EDGE_IP: ${AGENTSONE_EDGE_IP:-10.77.42.2}
+    # Per-agent limits: the daemon makes one cgroup per agent inside the machine's own cgroup.
+    # No extra capability is involved; never `privileged`, never the Docker socket, never
+    # `cgroup: host` (on any service: it turns off nsdelegate for the whole host).
+    cgroup: private
+    security_opt:
+      - writable-cgroups=true
+      - no-new-privileges=true
+    stop_grace_period: 30s
+    # Hard ceiling for the whole machine, set by Docker outside the container. Root agents may
+    # change their own limits inside this ceiling, never above it; only custom agents are held
+    # to their per-agent limits. Defaults: 8 GB fits next to the host on a 16 GB computer, 4 CPUs
+    # (cpus may not exceed the CPUs the host has), 4096 processes stop a fork bomb but leave room
+    # for dozens of agents with their tools. Memory and memory plus swap are equal: no swap.
+    deploy:
+      resources:
+        limits:
+          cpus: "${AGENTSONE_MACHINE_CPUS:-4}"
+          memory: ${AGENTSONE_MACHINE_MEMORY:-8g}
+          pids: ${AGENTSONE_MACHINE_PIDS:-4096}
+    memswap_limit: ${AGENTSONE_MACHINE_MEMORY:-8g}
+    volumes:
+      - machine-state:/var/lib/agentsone
+      - machine-plugins:/var/lib/agentsone/plugins
+      - machine-audit:/var/lib/agentsone/audit
+      - machine-home:/home
+      # The key the daemon signs agents' model tokens with, so edge knows which agent called.
+      # Edge writes it; the machine may only read it (file 0600, so custom agents cannot).
+      - gateway-key:/run/agentsone/gateway-key:ro
+    depends_on:
+      edge:
+        condition: service_healthy
+
+  edge:
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-edge}
+    command:
+      - edge
+      # Listeners for the machine (DNS 53, ports 80 and 443, proxy 3128, model gateway 4000) bind
+      # to this inner address only.
+      - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
+      # Wall: the web door listens on the outer address only, never on the inner one, so the
+      # machine cannot reach its own front door and pose as a human.
+      - --door-addr=${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}:8080
+    restart: unless-stopped
+    networks:
+      inner:
+        ipv4_address: ${AGENTSONE_EDGE_IP:-10.77.42.2}
+      outer:
+        ipv4_address: ${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}
+    # The web door, the only way into the machine. Loopback by default: put TLS and sign-in in
+    # front (Coolify does) before you set AGENTSONE_BIND_ADDR to a public address.
+    ports:
+      - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_WEB_DOOR_PORT:-7780}:8080
+    # Wall: no capabilities at all, a read-only image and no privilege gain. Ports below 1024
+    # (DNS 53, 80, 443) open because the edge's own network namespace allows them to any user.
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    read_only: true
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    volumes:
+      # Keys, allow list and budget. Only edge mounts this volume.
+      - edge-data:/var/lib/agentsone-edge
+      # The token signing key, shared read-only with the machine. Never control.
+      - gateway-key:/var/lib/agentsone-edge/gateway-key
+      # The admin socket. Only edge and control mount this volume.
+      - edge-admin:/run/agentsone-edge-admin
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/probe", "tcp", "${AGENTSONE_EDGE_IP:-10.77.42.2}:53"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    deploy:
+      resources:
+        limits:
+          cpus: "${AGENTSONE_EDGE_CPUS:-2}"
+          memory: ${AGENTSONE_EDGE_MEMORY:-1g}
+          pids: 1024
+    memswap_limit: ${AGENTSONE_EDGE_MEMORY:-1g}
+
+  control:
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-edge}
+    command:
+      - control
+    restart: unless-stopped
+    # Wall: outer only. The machine cannot reach the control page by any route.
+    networks:
+      - outer
+    # The human-only page. Loopback by default, like the web door.
+    ports:
+      - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_CONTROL_PORT:-7781}:8081
+    # Its own user, in the edge's group, so it can use the admin socket and nothing else of edge.
+    user: "65533:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    read_only: true
+    volumes:
+      - edge-admin:/run/agentsone-edge-admin
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/probe", "tcp", "127.0.0.1:8081"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+          pids: 256
+    memswap_limit: 256m
+    depends_on:
+      edge:
+        condition: service_healthy
+
+networks:
+  # Wall: internal, so Docker gives it no gateway and no route out. Fixed addresses keep the edge
+  # address stable; dynamic addresses (the machine) come from ip_range only, away from it. Two
+  # stacks on one server need two different subnets.
+  inner:
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: ${AGENTSONE_INNER_SUBNET:-10.77.42.0/27}
+          ip_range: ${AGENTSONE_INNER_DYNAMIC_RANGE:-10.77.42.16/28}
+  # The edge's way to the internet and the humans' way in. The machine is never on it.
+  outer:
+    ipam:
+      config:
+        - subnet: ${AGENTSONE_OUTER_SUBNET:-10.77.42.32/27}
+          ip_range: ${AGENTSONE_OUTER_DYNAMIC_RANGE:-10.77.42.48/28}
+
+volumes:
+  machine-state:
+  machine-plugins:
+  machine-audit:
+  machine-home:
+  edge-data:
+  edge-admin:
+  gateway-key:

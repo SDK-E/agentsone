@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+# Build context of image/edge/Dockerfile: only what the Go build needs.
+*
+!go.mod
+!go.sum
+!cmd/agentsone
+!internal
+!image/edge/probe
+**/*_test.go
+**/testdata

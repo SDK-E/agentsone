@@ -88,7 +88,6 @@ func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 
 const firstHuman = `{"name":"ada","display_name":"Ada","password":"correct horse battery"}`
 
-
 func TestFirstBoot_CreateFirstHumanThenSignIn(t *testing.T) {
 	t.Parallel()
 	d := start(t)

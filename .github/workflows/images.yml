@@ -215,6 +215,8 @@ jobs:
         run: e2e/run.sh budget-wall
       - name: Freeze all and release
         run: e2e/run.sh freeze-all
+      - name: Control page
+        run: e2e/run.sh control
       - name: Stack state and logs
         if: always()
         run: |

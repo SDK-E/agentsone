@@ -1,0 +1,261 @@
+// SPDX-License-Identifier: MIT
+
+package app_test
+
+import (
+	"context"
+	"encoding/json"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/app"
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
+	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/core/coretest"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
+)
+
+type launcher struct {
+	mu        sync.Mutex
+	installed map[string]domain.UnitSpec
+	running   map[string]bool
+	restarts  map[string]int
+	startErr  error
+}
+
+func newLauncher() *launcher {
+	return &launcher{installed: map[string]domain.UnitSpec{}, running: map[string]bool{}, restarts: map[string]int{}}
+}
+
+func (l *launcher) Install(_ context.Context, u domain.UnitSpec) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.installed[u.Agent] = u
+	return nil
+}
+func (l *launcher) Start(_ context.Context, a string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.startErr != nil {
+		return l.startErr
+	}
+	l.running[a] = true
+	return nil
+}
+func (l *launcher) Stop(_ context.Context, a string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.running[a] = false
+	return nil
+}
+func (l *launcher) Restart(_ context.Context, a string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.running[a] = true
+	l.restarts[a]++
+	return nil
+}
+func (l *launcher) Remove(_ context.Context, a string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.installed, a)
+	return nil
+}
+func (l *launcher) Mode(a string) domain.LimitMode {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if u, ok := l.installed[a]; ok && !u.Account.IsRoot {
+		return domain.LimitsHard
+	}
+	return domain.LimitsNone
+}
+func (l *launcher) isRunning(a string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.running[a]
+}
+func (l *launcher) unit(a string) (domain.UnitSpec, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	u, ok := l.installed[a]
+	return u, ok
+}
+
+type accounts struct {
+	mu      sync.Mutex
+	created map[string]domain.Account
+	locked  map[string]bool
+}
+
+func (a *accounts) Ensure(_ context.Context, acc domain.Account) (int, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.created[acc.User] = acc
+	return acc.UID, nil
+}
+func (a *accounts) Lock(_ context.Context, acc domain.Account) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.locked[acc.User] = true
+	return nil
+}
+
+type identity struct{ agents *coretest.Agents }
+
+func (i identity) Identity(ctx context.Context, name string) (app.AgentIdentity, error) {
+	a, err := i.agents.GetAgent(ctx, name)
+	if err != nil {
+		return app.AgentIdentity{}, err
+	}
+	return app.AgentIdentity{Agent: a, Team: name, Charter: "Charter.", OneLine: "Goal: g. Now: n.", Goals: []string{"Keep going"}}, nil
+}
+
+type sink struct {
+	mu     sync.Mutex
+	chunks []app.OutputChunk
+	usage  []app.Usage
+}
+
+func (s *sink) Output(_ context.Context, _ string, c app.OutputChunk) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.chunks = append(s.chunks, c)
+	return nil
+}
+func (s *sink) RecordUsage(_ context.Context, _ string, u app.Usage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.usage = append(s.usage, u)
+	return nil
+}
+
+type summaries struct {
+	mu sync.Mutex
+	m  map[string]app.Summary
+}
+
+func (s *summaries) Load(_ context.Context, a string) (app.Summary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.m[a], nil
+}
+func (s *summaries) Save(_ context.Context, a string, v app.Summary) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.m[a] = v
+	return nil
+}
+
+type gateway struct{}
+
+func (gateway) GatewayToken(_ context.Context, a string) (string, error) { return "test-gw-" + a, nil }
+
+// call is one request the supervisor sent to the fake runner.
+type call struct {
+	method string
+	params json.RawMessage
+}
+
+// fakeConn is the runner end as the app sees it: it records requests and
+// answers sleep with a summary and everything else with an empty result.
+type fakeConn struct {
+	calls  chan call
+	closed chan struct{}
+	once   sync.Once
+}
+
+func newFakeConn() *fakeConn {
+	return &fakeConn{calls: make(chan call, 32), closed: make(chan struct{})}
+}
+
+func (c *fakeConn) Call(_ context.Context, method string, params, result any) error {
+	raw, _ := json.Marshal(params)
+	c.calls <- call{method, raw}
+	if method == protocol.MethodSleep && result != nil {
+		return json.Unmarshal([]byte(`{"summary":"Chatted with alice."}`), result)
+	}
+	return nil
+}
+func (c *fakeConn) Close() error { c.once.Do(func() { close(c.closed) }); return nil }
+
+func (c *fakeConn) next(t *testing.T) call {
+	t.Helper()
+	select {
+	case got := <-c.calls:
+		return got
+	case <-time.After(5 * time.Second):
+		t.Fatal("no request to the runner within 5s")
+		return call{}
+	}
+}
+
+type echoAdapter struct{}
+
+func (echoAdapter) Info() core.RunnerInfo {
+	return core.RunnerInfo{Name: "echo", Version: "1.0.0", Source: "builtin"}
+}
+func (echoAdapter) Exec(_ context.Context, a core.Agent, socket string) (core.ExecSpec, error) {
+	return core.ExecSpec{Path: "/usr/lib/agentsone/runners/echo", Args: []string{"--agent", a.Name}, Env: []string{"ECHO_SOCKET=" + socket}}, nil
+}
+
+type world struct {
+	fakes     *coretest.Fakes
+	launcher  *launcher
+	accounts  *accounts
+	sink      *sink
+	summaries *summaries
+	sup       *app.Supervisor
+}
+
+func newWorld(t *testing.T) *world {
+	t.Helper()
+	fakes, ports := coretest.NewFakes()
+	fakes.Runners.Register(echoAdapter{})
+	fakes.Agents.Add(core.Agent{Name: "founder", Kind: core.AgentAlwaysOn, IsRoot: true, Runner: "echo"})
+	fakes.Agents.Add(core.Agent{Name: "mira", Kind: core.AgentChat, Manager: "founder", Runner: "echo", UID: 200001})
+	fakes.Agents.Add(core.Agent{Name: "watcher", Kind: core.AgentWaker, Manager: "founder", Runner: "echo", UID: 200002})
+	w := &world{
+		fakes: fakes, launcher: newLauncher(),
+		accounts: &accounts{created: map[string]domain.Account{}, locked: map[string]bool{}},
+		sink:     &sink{}, summaries: &summaries{m: map[string]app.Summary{}},
+	}
+	w.sup = app.New(app.Deps{
+		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
+		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
+		Gateway: gateway{}, Config: app.DefaultConfig(),
+	})
+	return w
+}
+
+func (w *world) actions() []string {
+	var out []string
+	for _, e := range w.fakes.Audit.Entries() {
+		out = append(out, e.Action+" "+e.Target)
+	}
+	return out
+}
+
+var helloParams = protocol.HelloParams{
+	ProtocolVersions: []protocol.ProtocolVersion{"1.0"},
+	Runner:           protocol.RunnerInfo{Name: "echo", Version: "1.0.0"},
+	Capabilities:     protocol.RunnerCapabilities{Streaming: true, Cancel: true, Compaction: true, Resume: true},
+}
+
+// connect plays a runner that connects and finishes the handshake.
+func (w *world) connect(t *testing.T, agent string) (*app.Handler, *fakeConn, protocol.HelloResult) {
+	t.Helper()
+	h := w.sup.Connect(agent)
+	conn := newFakeConn()
+	h.Attach(conn)
+	res, err := h.Hello(t.Context(), "1.0", helloParams)
+	if err != nil {
+		t.Fatalf("Hello() error = %v", err)
+	}
+	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle"}); err != nil {
+		t.Fatalf("first Status(idle) error = %v", err)
+	}
+	return h, conn, res
+}
+
+func ptr[T any](v T) *T { return &v }

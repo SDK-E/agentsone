@@ -195,7 +195,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "pattern": "^[A-Za-z0-9 #.,()%-]+$"
+      "pattern": "^[A-Za-z0-9 #.,()%/-]+$"
     },
     "Length": {
       "description": "CSS length in px or rem, or 0.",

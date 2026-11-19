@@ -121,12 +121,16 @@ func (s *Sessions) Start(now time.Time) (Session, error) {
 	return *sess, nil
 }
 
-// add stores sess, dropping the least recently seen sessions over the limit. Callers hold mu.
+// add stores sess, dropping the least recently seen sessions over the limit. Sessions that are
+// not signed in go first, so a flood of visitors cannot push the human out. Callers hold mu.
 func (s *Sessions) add(sess *Session) {
 	for len(s.byID) >= s.limits.Max {
 		var oldest *Session
 		for _, cand := range s.byID {
-			if oldest == nil || cand.LastSeen.Before(oldest.LastSeen) {
+			switch {
+			case oldest == nil,
+				oldest.SignedIn() && !cand.SignedIn(),
+				oldest.SignedIn() == cand.SignedIn() && cand.LastSeen.Before(oldest.LastSeen):
 				oldest = cand
 			}
 		}

@@ -185,6 +185,23 @@ func TestSessions_StartDropsTheLeastRecentlySeenSessionAtTheLimit(t *testing.T) 
 	}
 }
 
+func TestSessions_AFloodOfVisitorsNeverDropsASignedInSession(t *testing.T) {
+	t.Parallel()
+	s := newSessions(t, 3)
+	human, err := s.SignIn(start(t, s, t0).ID, "tag", t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range 50 {
+		start(t, s, t0.Add(time.Duration(i+1)*time.Second))
+	}
+
+	if _, ok := s.Get(human.ID, t0.Add(time.Minute)); !ok {
+		t.Fatal("anonymous visitors pushed out the signed-in session")
+	}
+}
+
 func TestSessions_FlashIsReadOnce(t *testing.T) {
 	t.Parallel()
 	s := newSessions(t, 10)

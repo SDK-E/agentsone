@@ -7,10 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/api"
@@ -89,27 +87,6 @@ func (l *lifecycle) stop(ctx context.Context) {
 	l.started = nil
 }
 
-// listeners opens the Unix socket and the loopback TCP address.
-func listeners(cfg core.Config) ([]net.Listener, error) {
-	sock := cfg.SocketPath()
-	if err := os.MkdirAll(filepath.Dir(sock), 0o750); err != nil {
-		return nil, fmt.Errorf("create socket folder: %w", err)
-	}
-	if err := os.Remove(sock); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("remove stale socket: %w", err)
-	}
-	unix, err := net.Listen("unix", sock)
-	if err != nil {
-		return nil, fmt.Errorf("listen on %s: %w", sock, err)
-	}
-	tcp, err := net.Listen("tcp", cfg.API.Addr)
-	if err != nil {
-		_ = unix.Close() // already failing; the listen error is the one to report
-		return nil, fmt.Errorf("listen on %s: %w", cfg.API.Addr, err)
-	}
-	return []net.Listener{unix, tcp}, nil
-}
-
 // serve runs the daemon until ctx ends.
 func serve(ctx context.Context, deps core.Deps) error {
 	l := &lifecycle{mods: modules(deps), log: deps.Log}
@@ -117,20 +94,16 @@ func serve(ctx context.Context, deps core.Deps) error {
 	if err := l.start(ctx, deps.Ports); err != nil {
 		return err
 	}
-	handler, err := api.Compose(l.mods)
+	srv, err := api.NewServer(l.mods, deps)
 	if err != nil {
 		return fmt.Errorf("compose api: %w", err)
 	}
-	lns, err := listeners(*deps.Config)
+	dispatchInProcess(l.mods, srv.Handler())
+	running, err := srv.Listen()
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	errs := make(chan error, len(lns))
-	for _, ln := range lns {
-		deps.Log.Info("listening", "addr", ln.Addr().String())
-		go func() { errs <- srv.Serve(ln) }()
-	}
+	errs := running.Serve()
 	deps.Log.Info("daemon ready")
 	sd := systemdFromEnv()
 	if err := sd.notify("READY=1"); err != nil {
@@ -146,8 +119,18 @@ func serve(ctx context.Context, deps core.Deps) error {
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("shut down: %w", err)
+	return running.Shutdown(shutdownCtx)
+}
+
+// inProcess is a module that calls other modules' operations itself, such
+// as the MCP server; it gets the composed handler, with no identity rules,
+// and sets the caller on each request.
+type inProcess interface{ SetHandler(http.Handler) }
+
+func dispatchInProcess(mods []core.Module, h http.Handler) {
+	for _, m := range mods {
+		if d, ok := m.(inProcess); ok {
+			d.SetHandler(h)
+		}
 	}
-	return nil
 }

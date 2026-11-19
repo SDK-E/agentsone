@@ -25,6 +25,7 @@ var testRoutes = []api.Route{
 	{Method: "GET", Path: "/v1/things/stream", OperationID: "streamThings", Tag: "things", Stream: true},
 }
 
+// matchTestRoute matches full request paths, like api.Match.
 func matchTestRoute(method, path string) (api.Route, bool) {
 	for _, r := range testRoutes {
 		if r.Method != method {
@@ -107,6 +108,13 @@ func TestUnknownRouteIsNotFound(t *testing.T) {
 	rec := serve(t, httptest.NewRequest(http.MethodGet, "/v2/elsewhere", nil))
 	if rec.Code != http.StatusNotFound || rec.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+}
+
+func TestPathWithoutBasePathIsNotFound(t *testing.T) {
+	rec := serve(t, httptest.NewRequest(http.MethodGet, "/things/7", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("got %d, want 404 for a path without /v1", rec.Code)
 	}
 }
 

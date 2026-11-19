@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/auditchain"
@@ -81,14 +82,17 @@ func readJSONFiles(t *testing.T, dir string) map[string][]byte {
 	return files
 }
 
-// documents splits a fixture into the documents it holds: a JSON array is a
-// list (for example an audit chain), anything else is one document.
-func documents(raw []byte) ([]json.RawMessage, bool) {
-	var list []json.RawMessage
-	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) && json.Unmarshal(raw, &list) == nil {
-		return list, true
+// fixtureSchemas names the schema of a fixture folder whose name differs
+// from the schema file name.
+var fixtureSchemas = map[string]string{
+	"runner-message": "messages",
+}
+
+func schemaForFixtures(folder string) string {
+	if name, ok := fixtureSchemas[folder]; ok {
+		return name
 	}
-	return []json.RawMessage{raw}, false
+	return folder
 }
 
 func TestSchemaFixtures(t *testing.T) {
@@ -102,52 +106,64 @@ func TestSchemaFixtures(t *testing.T) {
 		if !e.IsDir() {
 			continue
 		}
-		name := e.Name()
-		t.Run(name, func(t *testing.T) {
-			for file, raw := range readJSONFiles(t, filepath.Join(root, name, "valid")) {
-				docs, _ := documents(raw)
-				for i, doc := range docs {
-					if err := set.Validate(name, doc); err != nil {
-						t.Errorf("valid/%s[%d] rejected: %v", file, i, err)
-					}
-				}
-			}
-			for file, raw := range readJSONFiles(t, filepath.Join(root, name, "invalid")) {
-				if !isInvalid(set, name, raw) {
-					t.Errorf("invalid/%s accepted", file)
-				}
-			}
+		folder := e.Name()
+		t.Run(folder, func(t *testing.T) {
+			checkFixtureFolder(t, set, schemaForFixtures(folder), filepath.Join(root, folder))
 		})
 	}
 }
 
-// isInvalid reports whether a fixture from an invalid/ folder is rejected:
-// one document fails its schema, or an audit chain fails to verify.
-func isInvalid(set *contracttest.SchemaSet, name string, raw []byte) bool {
-	docs, isList := documents(raw)
-	for _, doc := range docs {
-		if set.Validate(name, doc) != nil {
-			return true
+func checkFixtureFolder(t *testing.T, set *contracttest.SchemaSet, schema, dir string) {
+	t.Helper()
+	for file, raw := range readJSONFiles(t, filepath.Join(dir, "valid")) {
+		if err := set.Validate(schema, raw); err != nil {
+			t.Errorf("valid/%s rejected: %v", file, err)
 		}
 	}
-	return isList && name == auditSchema && auditchain.Verify(docs) != nil
+	for file, raw := range readJSONFiles(t, filepath.Join(dir, "invalid")) {
+		if set.Validate(schema, raw) == nil {
+			t.Errorf("invalid/%s accepted by schema %s", file, schema)
+		}
+	}
 }
 
-func TestAuditFixtureChainsVerify(t *testing.T) {
+// auditChain reads valid/chain-*.json, one record per file, in name order.
+func auditChain(t *testing.T) []json.RawMessage {
+	t.Helper()
 	dir := requireDir(t, "fixtures/schemas/"+auditSchema+"/valid")
-	chains := 0
-	for file, raw := range readJSONFiles(t, dir) {
-		docs, isList := documents(raw)
-		if !isList {
-			continue
-		}
-		chains++
-		if err := auditchain.Verify(docs); err != nil {
-			t.Errorf("%s: %v", file, err)
-		}
+	files, err := filepath.Glob(filepath.Join(dir, "chain-*.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if chains == 0 {
-		t.Error("no audit chain fixture (a JSON array of records) in " + dir)
+	if len(files) == 0 {
+		t.Fatalf("no chain-*.json audit fixtures in %s", dir)
+	}
+	sort.Strings(files)
+	chain := make([]json.RawMessage, 0, len(files))
+	for _, f := range files {
+		raw, err := os.ReadFile(f) // #nosec G304 -- contract fixtures
+		if err != nil {
+			t.Fatal(err)
+		}
+		chain = append(chain, raw)
+	}
+	return chain
+}
+
+func TestAuditFixtureChainVerifies(t *testing.T) {
+	if err := auditchain.Verify(auditChain(t)); err != nil {
+		t.Errorf("audit fixture chain: %v", err)
+	}
+}
+
+func TestAuditFixtureChainCatchesReordering(t *testing.T) {
+	chain := auditChain(t)
+	if len(chain) < 2 {
+		t.Skip("needs at least two chain fixtures")
+	}
+	chain[0], chain[1] = chain[1], chain[0]
+	if auditchain.Verify(chain) == nil {
+		t.Error("a reordered chain verified")
 	}
 }
 
@@ -215,9 +231,9 @@ func TestAPIFixturesMatchTheContract(t *testing.T) {
 // events the stream sends.
 func checkStreamFixture(t *testing.T, f contracttest.APIFixture) {
 	t.Helper()
-	docs, isList := documents(f.Body)
-	if !isList {
-		t.Errorf("%s: a stream fixture body must be a JSON array of events", filepath.Base(f.File))
+	var docs []json.RawMessage
+	if err := json.Unmarshal(f.Body, &docs); err != nil {
+		t.Errorf("%s: a stream fixture body must be a JSON array of events: %v", filepath.Base(f.File), err)
 		return
 	}
 	set := schemaSet(t)
@@ -228,13 +244,39 @@ func checkStreamFixture(t *testing.T, f contracttest.APIFixture) {
 	}
 }
 
+// websocketOperations lists operations marked x-websocket; they upgrade
+// the connection, so a JSON fixture cannot describe them.
+func websocketOperations(t *testing.T) map[string]bool {
+	t.Helper()
+	var doc struct {
+		Paths map[string]map[string]json.RawMessage `json:"paths"`
+	}
+	if err := json.Unmarshal(api.Spec, &doc); err != nil {
+		t.Fatal(err)
+	}
+	ws := map[string]bool{}
+	for _, item := range doc.Paths {
+		for _, raw := range item {
+			var op struct {
+				OperationID string          `json:"operationId"`
+				WebSocket   json.RawMessage `json:"x-websocket"`
+			}
+			if json.Unmarshal(raw, &op) == nil && op.WebSocket != nil && string(op.WebSocket) != "false" {
+				ws[op.OperationID] = true
+			}
+		}
+	}
+	return ws
+}
+
 func TestEveryReadOperationHasADefaultFixture(t *testing.T) {
 	fixtures, err := contracttest.LoadAPIFixtures(requireDir(t, "fixtures/api"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	websockets := websocketOperations(t)
 	for _, r := range api.Routes {
-		if r.Method != "GET" || r.Stream {
+		if r.Method != "GET" || r.Stream || websockets[r.OperationID] {
 			continue
 		}
 		if _, ok := fixtures[r.OperationID][""]; !ok {

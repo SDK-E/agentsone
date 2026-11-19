@@ -32,7 +32,7 @@ func (r repo) write(rel string, b []byte) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
 		return fmt.Errorf("mkdir for %s: %w", rel, err)
 	}
-	if err := os.WriteFile(p, b, 0o600); err != nil {
+	if err := os.WriteFile(p, b, 0o600); err != nil { // #nosec G703 -- p is a fixed generated path inside the repository root
 		return fmt.Errorf("write %s: %w", rel, err)
 	}
 	return nil
@@ -49,7 +49,7 @@ func (r repo) removeGenerated(rel string) error {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(p, ".gen.go") {
-			return os.Remove(p)
+			return os.Remove(p) // #nosec G122 -- walks only our own generated output folder inside the repository
 		}
 		return nil
 	})

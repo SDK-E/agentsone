@@ -19,16 +19,22 @@ import (
 
 func main() {
 	root := flag.String("root", ".", "repository root")
+	bundle := flag.String("bundle", "", "redocly bundle to clean into contract/dist/openapi.json")
 	flag.Parse()
-	if err := run(*root); err != nil {
+	if err := run(*root, *bundle); err != nil {
 		fmt.Fprintln(os.Stderr, "contractgen:", err)
 		os.Exit(1)
 	}
 }
 
-func run(root string) error {
+func run(root, bundle string) error {
 	r := repo{root: root}
-	spec, err := loadSpec(r.path("contract/dist/openapi.json"))
+	if bundle != "" {
+		if err := writeDist(r, bundle); err != nil {
+			return err
+		}
+	}
+	spec, err := loadSpec(r.path(distSpec))
 	if err != nil {
 		return err
 	}

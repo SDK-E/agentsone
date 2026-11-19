@@ -5,6 +5,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -92,10 +93,13 @@ type Event struct {
 	DataContentType string          `json:"datacontenttype,omitempty"`
 	DataSchema      string          `json:"dataschema,omitempty"`
 	Data            json.RawMessage `json:"data,omitempty"`
-	// Sequence is assigned by the bus when the event is stored.
-	Sequence      int64  `json:"sequence"`
-	Actor         string `json:"actor,omitempty"`
-	ChartScope    string `json:"chartscope,omitempty"`
+	// Sequence is assigned by the bus when the event is stored. Build it
+	// with FormatSequence so string order equals number order.
+	Sequence string `json:"sequence"`
+	// Actor is "<kind>:<name>", for example "agent:founder".
+	Actor string `json:"actor"`
+	// ChartScope is the part of the chart the event concerns, for example "team:founder".
+	ChartScope    string `json:"chartscope"`
 	CausationID   string `json:"causationid,omitempty"`
 	CorrelationID string `json:"correlationid,omitempty"`
 }
@@ -107,8 +111,12 @@ type EventFilter struct {
 	// Source limits to one source. Empty means all.
 	Source string
 	// AfterSequence replays stored events after this sequence first.
-	AfterSequence int64
+	// Empty replays everything stored.
+	AfterSequence string
 }
+
+// FormatSequence writes a bus sequence number as 20 zero-padded digits.
+func FormatSequence(n uint64) string { return fmt.Sprintf("%020d", n) }
 
 // EventPublisher stores and fans out events.
 type EventPublisher interface {

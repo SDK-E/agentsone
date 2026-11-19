@@ -13,8 +13,9 @@ import (
 const testSpec = `{
   "openapi": "3.1.0",
   "info": {"title": "t", "version": "1"},
+  "servers": [{"url": "http://127.0.0.1:7700/v1"}],
   "paths": {
-    "/v1/things/{id}": {
+    "/things/{id}": {
       "get": {
         "operationId": "getThing",
         "tags": ["things"],
@@ -25,7 +26,7 @@ const testSpec = `{
         }
       }
     },
-    "/v1/things": {
+    "/things": {
       "post": {
         "operationId": "makeThing",
         "tags": ["things"],
@@ -144,6 +145,15 @@ func TestCheckMatchesPathTemplates(t *testing.T) {
 	v.Check(tb, req, jsonRecorder(http.StatusOK, `{"name":7}`))
 	if !tb.failed {
 		t.Fatal("Check accepted a body that breaks the contract")
+	}
+}
+
+func TestCheckRequiresTheServerBasePath(t *testing.T) {
+	v := newValidator(t)
+	tb := &recordingTB{TB: t}
+	v.Check(tb, httptest.NewRequest(http.MethodGet, "/things/42", nil), jsonRecorder(http.StatusOK, `{"name":"a"}`))
+	if !tb.failed {
+		t.Fatal("Check matched a path without the /v1 base path")
 	}
 }
 

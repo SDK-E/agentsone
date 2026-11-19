@@ -52,6 +52,36 @@ func TestSchemaSetValidatesNestedSchemaWithCrossFileRef(t *testing.T) {
 	}
 }
 
+func TestSchemaSetValidatesAgainstOneDefinition(t *testing.T) {
+	set, err := contracttest.NewSchemaSet(schemaDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := set.ValidateDef("common", "name", []byte(`"bob"`)); err != nil {
+		t.Fatalf("valid value rejected: %v", err)
+	}
+	if err := set.ValidateDef("common", "name", []byte(`"BOB"`)); err == nil {
+		t.Fatal("value breaking the definition accepted")
+	}
+	if err := set.ValidateDef("common", "absent", []byte(`"bob"`)); err == nil {
+		t.Fatal("unknown definition accepted")
+	}
+}
+
+func TestSchemaSetCompilesStandaloneSchema(t *testing.T) {
+	schema, err := contracttest.CompileSchema("mem://test/standalone.json",
+		[]byte(`{"type": "object", "required": ["n"], "properties": {"n": {"type": "integer"}}}`))
+	if err != nil {
+		t.Fatalf("CompileSchema: %v", err)
+	}
+	if err := contracttest.ValidateWith(schema, []byte(`{"n": 1}`)); err != nil {
+		t.Fatalf("valid document rejected: %v", err)
+	}
+	if err := contracttest.ValidateWith(schema, []byte(`{"n": "one"}`)); err == nil {
+		t.Fatal("invalid document accepted")
+	}
+}
+
 func TestSchemaSetUnknownName(t *testing.T) {
 	set, err := contracttest.NewSchemaSet(schemaDir(t))
 	if err != nil {

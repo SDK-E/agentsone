@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"mime"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ var httpMethods = []string{"get", "put", "post", "delete", "options", "head", "p
 // Schemas compile on first use and are cached. It is safe for concurrent use.
 type Validator struct {
 	doc      map[string]any
+	basePath string
 	ops      map[string]operation
 	routes   []operation
 	mu       sync.Mutex
@@ -59,7 +61,28 @@ func NewValidator(spec []byte) (*Validator, error) {
 	}
 	v := &Validator{doc: doc, compiler: c, schemas: map[string]*jsonschema.Schema{}}
 	v.indexOperations()
+	base, err := basePath(doc)
+	if err != nil {
+		return nil, err
+	}
+	v.basePath = base
 	return v, nil
+}
+
+// basePath is the path of the first server URL, for example "/v1". Paths in
+// the document are relative to it.
+func basePath(doc map[string]any) (string, error) {
+	servers, _ := doc["servers"].([]any)
+	if len(servers) == 0 {
+		return "", nil
+	}
+	first, _ := servers[0].(map[string]any)
+	raw, _ := first["url"].(string)
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("server url %q: %w", raw, err)
+	}
+	return strings.TrimSuffix(u.Path, "/"), nil
 }
 
 func (v *Validator) indexOperations() {

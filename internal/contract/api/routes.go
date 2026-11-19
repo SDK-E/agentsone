@@ -18,11 +18,13 @@ var Spec []byte
 // Route is one operation of the contract.
 type Route struct {
 	Method      string
-	Path        string // template, for example /v1/agents/{name}
+	Path        string // template with BasePath, for example /v1/agents/{agent_name}
 	OperationID string
 	Tag         string
-	// Stream is true when a success response is text/event-stream.
+	// Stream is true for server-sent event streams (x-stream or text/event-stream).
 	Stream bool
+	// WebSocket is true for operations that upgrade (x-websocket), such as terminals.
+	WebSocket bool
 }
 
 // Match finds the route for a method and a concrete path. Literal segments

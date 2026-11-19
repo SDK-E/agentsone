@@ -112,13 +112,42 @@ func TestLoadConfig(t *testing.T) {
 func TestPortsUnavailable(t *testing.T) {
 	p := core.NewPorts()
 	ctx := context.Background()
-	if _, err := p.Agents.ListAgents(ctx); !errors.Is(err, core.ErrUnavailable) {
-		t.Fatalf("agents: %v", err)
+	calls := map[string]func() error{
+		"GetAgent":   func() error { _, err := p.Agents.GetAgent(ctx, "a"); return err },
+		"ListAgents": func() error { _, err := p.Agents.ListAgents(ctx); return err },
+		"Manager":    func() error { _, err := p.Agents.Manager(ctx, "a"); return err },
+		"IsBelow":    func() error { _, err := p.Agents.IsBelow(ctx, "a", "b"); return err },
+		"TeamRoot":   func() error { _, err := p.Agents.TeamRoot(ctx, "a"); return err },
+		"Wake":       func() error { return p.Waker.Wake(ctx, "a", core.WakeTask, nil) },
+		"Publish":    func() error { _, err := p.Events.Publish(ctx, core.Event{}); return err },
+		"Subscribe":  func() error { _, err := p.Subscribe.Subscribe(ctx, core.EventFilter{}); return err },
+		"CreateTask": func() error { _, err := p.Tasks.CreateTask(ctx, core.NewTask{}); return err },
+		"Append":     func() error { return p.Audit.Append(ctx, core.AuditEntry{}) },
+		"UpdateLine": func() error { return p.Live.UpdateLine(ctx, "a", "line") },
+		"Lines":      func() error { _, err := p.Live.Lines(ctx); return err },
+		"Allocation": func() error { _, err := p.Budget.Allocation(ctx, "a"); return err },
+		"Runner":     func() error { _, err := p.Runners.Runner(ctx, "echo"); return err },
+		"Runners":    func() error { _, err := p.Runners.Runners(ctx); return err },
 	}
-	if err := p.Audit.Append(ctx, core.AuditEntry{}); !errors.Is(err, core.ErrUnavailable) {
-		t.Fatalf("audit: %v", err)
+	for name, call := range calls {
+		if err := call(); !errors.Is(err, core.ErrUnavailable) {
+			t.Errorf("%s: %v, want ErrUnavailable", name, err)
+		}
 	}
-	if _, err := p.Events.Publish(ctx, core.Event{}); !errors.Is(err, core.ErrUnavailable) {
-		t.Fatalf("events: %v", err)
+}
+
+func TestFormatSequenceSortsAsNumbers(t *testing.T) {
+	cases := map[uint64]string{
+		0:                    "00000000000000000000",
+		1:                    "00000000000000000001",
+		18446744073709551615: "18446744073709551615",
+	}
+	for n, want := range cases {
+		if got := core.FormatSequence(n); got != want {
+			t.Errorf("FormatSequence(%d) = %s, want %s", n, got, want)
+		}
+	}
+	if core.FormatSequence(9) >= core.FormatSequence(10) {
+		t.Fatal("string order differs from number order")
 	}
 }

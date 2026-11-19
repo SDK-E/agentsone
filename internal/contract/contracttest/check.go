@@ -43,9 +43,13 @@ func (v *Validator) Check(t testing.TB, req *http.Request, rec *httptest.Respons
 	}
 }
 
-// match finds the operation for a concrete path; literal segments win over
-// parameters, as in net/http.
-func (v *Validator) match(method, path string) (operation, bool) {
+// match finds the operation for a concrete request path, which carries the
+// server base path; literal segments win over parameters, as in net/http.
+func (v *Validator) match(method, requestPath string) (operation, bool) {
+	path, ok := strings.CutPrefix(requestPath, v.basePath)
+	if !ok || (v.basePath != "" && path != "" && !strings.HasPrefix(path, "/")) {
+		return operation{}, false
+	}
 	var best operation
 	bestScore := -1
 	for _, op := range v.routes {

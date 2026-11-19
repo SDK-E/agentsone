@@ -4,6 +4,7 @@ package coretest
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -36,7 +37,11 @@ func NewEvents(clock core.Clock, ids core.IDs) *Events {
 }
 
 // Publish stores e with the next sequence and delivers it to subscribers.
+// Actor and ChartScope are required, as in the event schema.
 func (b *Events) Publish(_ context.Context, e core.Event) (core.Event, error) {
+	if e.Actor == "" || e.ChartScope == "" {
+		return core.Event{}, fmt.Errorf("event %q needs actor and chartscope: %w", e.Type, core.ErrInvalid)
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	e = b.stamp(e)
@@ -49,7 +54,7 @@ func (b *Events) Publish(_ context.Context, e core.Event) (core.Event, error) {
 
 func (b *Events) stamp(e core.Event) core.Event {
 	e.SpecVersion = "1.0"
-	e.Sequence = int64(len(b.published) + 1)
+	e.Sequence = core.FormatSequence(uint64(len(b.published)) + 1)
 	if e.ID == "" {
 		e.ID = b.ids.New("evt")
 	}
@@ -67,8 +72,8 @@ func (b *Events) Published() []core.Event {
 	return append([]core.Event(nil), b.published...)
 }
 
-// Subscribe replays stored matches after f.AfterSequence, then streams new
-// ones until ctx ends.
+// Subscribe replays stored matches after f.AfterSequence ("" replays all),
+// then streams new ones until ctx ends.
 func (b *Events) Subscribe(ctx context.Context, f core.EventFilter) (<-chan core.Event, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

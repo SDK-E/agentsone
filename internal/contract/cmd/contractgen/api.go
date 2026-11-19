@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,10 +33,26 @@ type spec struct {
 
 type operation struct {
 	Method      string
-	Path        string
+	Path        string // without the server base path
 	OperationID string
 	Tag         string
 	Stream      bool
+	WebSocket   bool
+}
+
+// basePath is the path of the first server URL, for example "/v1".
+func (s spec) basePath() (string, error) {
+	servers, _ := s.doc["servers"].([]any)
+	if len(servers) == 0 {
+		return "", nil
+	}
+	first, _ := servers[0].(map[string]any)
+	raw, _ := first["url"].(string)
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("server url %q: %w", raw, err)
+	}
+	return strings.TrimSuffix(u.Path, "/"), nil
 }
 
 type group struct {
@@ -101,10 +118,14 @@ func newOperation(method, path string, raw map[string]any) (operation, error) {
 		OperationID: id,
 		Tag:         tag,
 		Stream:      streams(raw),
+		WebSocket:   raw["x-websocket"] != nil,
 	}, nil
 }
 
 func streams(op map[string]any) bool {
+	if op["x-stream"] != nil {
+		return true
+	}
 	responses, _ := op["responses"].(map[string]any)
 	for code, r := range responses {
 		if !strings.HasPrefix(code, "2") {
@@ -169,10 +190,14 @@ func generateAPI(r repo, s spec) error {
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := generateModels(r, tmp); err != nil {
+	if err := generateModels(r, s, tmp); err != nil {
 		return err
 	}
-	if err := writeRoutes(r, ops); err != nil {
+	base, err := s.basePath()
+	if err != nil {
+		return err
+	}
+	if err := writeRoutes(r, base, ops); err != nil {
 		return err
 	}
 	for _, g := range groups {
@@ -183,7 +208,15 @@ func generateAPI(r repo, s spec) error {
 	return nil
 }
 
-func generateModels(r repo, tmp string) error {
+func generateModels(r repo, s spec, tmp string) error {
+	view, err := codegenView(s.doc)
+	if err != nil {
+		return err
+	}
+	specPath := filepath.Join(tmp, "models.json")
+	if err := os.WriteFile(specPath, view, 0o600); err != nil {
+		return fmt.Errorf("write models spec: %w", err)
+	}
 	cfg := "package: api\n" +
 		"generate:\n  models: true\n" +
 		"compatibility:\n  always-prefix-enum-values: true\n" +
@@ -192,7 +225,7 @@ func generateModels(r repo, tmp string) error {
 	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
 		return fmt.Errorf("write models config: %w", err)
 	}
-	out, err := r.goTool("oapi-codegen", "-config", cfgPath, r.path("contract/dist/openapi.json"))
+	out, err := r.goTool("oapi-codegen", "-config", cfgPath, specPath)
 	if err != nil {
 		return err
 	}
@@ -200,8 +233,12 @@ func generateModels(r repo, tmp string) error {
 }
 
 func generateGroup(r repo, s spec, g group, tmp string) error {
+	view, err := codegenView(s.only(g))
+	if err != nil {
+		return err
+	}
 	specPath := filepath.Join(tmp, g.Package+".json")
-	if err := os.WriteFile(specPath, s.only(g), 0o600); err != nil {
+	if err := os.WriteFile(specPath, view, 0o600); err != nil {
 		return fmt.Errorf("write group spec: %w", err)
 	}
 	cfg := "package: " + g.Package + "\n" +
@@ -224,7 +261,7 @@ func generateGroup(r repo, s spec, g group, tmp string) error {
 	if err != nil {
 		return err
 	}
-	src, err := render(groupTemplate, map[string]any{"Group": g, "Methods": methods, "Core": coreImport})
+	src, err := render(groupTemplate, map[string]any{"Group": g, "Methods": methods, "Core": coreImport, "Models": modelsImport})
 	if err != nil {
 		return err
 	}
@@ -233,7 +270,7 @@ func generateGroup(r repo, s spec, g group, tmp string) error {
 
 // only returns the spec with just the group's operations, so each operation
 // is generated in exactly one package.
-func (s spec) only(g group) []byte {
+func (s spec) only(g group) map[string]any {
 	owned := map[string]bool{}
 	for _, op := range g.Ops {
 		owned[op.Method+" "+op.Path] = true
@@ -261,8 +298,7 @@ func (s spec) only(g group) []byte {
 		doc[k] = v
 	}
 	doc["paths"] = paths
-	b, _ := json.Marshal(doc) // re-marshalling decoded JSON cannot fail
-	return b
+	return doc
 }
 
 func nonMethodKeys(item map[string]any) []string {
@@ -281,8 +317,8 @@ func nonMethodKeys(item map[string]any) []string {
 	return keys
 }
 
-func writeRoutes(r repo, ops []operation) error {
-	src, err := render(routesTemplate, ops)
+func writeRoutes(r repo, base string, ops []operation) error {
+	src, err := render(routesTemplate, map[string]any{"Base": base, "Ops": ops})
 	if err != nil {
 		return err
 	}
@@ -299,10 +335,14 @@ func render(t *template.Template, data any) ([]byte, error) {
 
 var routesTemplate = template.Must(template.New("routes").Parse(generatedNote + `package api
 
+// BasePath prefixes every operation path; it is the first server URL's path.
+const BasePath = "{{.Base}}"
+
 // Routes lists every operation in the contract, sorted by path then method.
+// Paths include BasePath.
 var Routes = []Route{
-{{- range .}}
-	{Method: "{{.Method}}", Path: "{{.Path}}", OperationID: "{{.OperationID}}", Tag: "{{.Tag}}", Stream: {{.Stream}}},
+{{- range .Ops}}
+	{Method: "{{.Method}}", Path: BasePath + "{{.Path}}", OperationID: "{{.OperationID}}", Tag: "{{.Tag}}", Stream: {{.Stream}}, WebSocket: {{.WebSocket}}},
 {{- end}}
 }
 `))
@@ -313,6 +353,7 @@ import (
 	"context"
 	"net/http"
 
+	api "{{.Models}}"
 	"{{.Core}}"
 )
 
@@ -328,7 +369,11 @@ func Group(impl StrictServerInterface, middlewares ...StrictMiddlewareFunc) core
 				RequestErrorHandlerFunc:  o.RequestError,
 				ResponseErrorHandlerFunc: o.ResponseError,
 			})
-			HandlerWithOptions(h, StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: o.RequestError})
+			HandlerWithOptions(h, StdHTTPServerOptions{
+				BaseURL:          api.BasePath,
+				BaseRouter:       mux,
+				ErrorHandlerFunc: o.RequestError,
+			})
 		},
 	}
 }

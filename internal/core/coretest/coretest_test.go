@@ -101,15 +101,17 @@ func TestWaker(t *testing.T) {
 func TestEventsPublishAssignsIdentity(t *testing.T) {
 	clock := coretest.NewClock(start)
 	ev := coretest.NewEvents(clock, coretest.NewIDs())
-	first, err := ev.Publish(context.Background(), core.Event{Type: "agents.one.git.push"})
+	first, err := ev.Publish(context.Background(), event("agents.one.git.push", "git"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Sequence != 1 || !strings.HasPrefix(first.ID, "evt_") || !first.Time.Equal(start) || first.SpecVersion != "1.0" {
+	if first.Sequence != core.FormatSequence(1) || !strings.HasPrefix(first.ID, "evt_") || !first.Time.Equal(start) || first.SpecVersion != "1.0" {
 		t.Fatalf("first %+v", first)
 	}
-	second, _ := ev.Publish(context.Background(), core.Event{ID: "mine", Type: "x"})
-	if second.Sequence != 2 || second.ID != "mine" {
+	mine := event("x", "git")
+	mine.ID = "mine"
+	second, _ := ev.Publish(context.Background(), mine)
+	if second.Sequence != core.FormatSequence(2) || second.ID != "mine" {
 		t.Fatalf("second %+v", second)
 	}
 	if got := ev.Published(); len(got) != 2 {
@@ -117,25 +119,41 @@ func TestEventsPublishAssignsIdentity(t *testing.T) {
 	}
 }
 
+func TestEventsPublishRequiresActorAndChartScope(t *testing.T) {
+	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
+	noActor := event("x", "git")
+	noActor.Actor = ""
+	noScope := event("x", "git")
+	noScope.ChartScope = ""
+	for name, e := range map[string]core.Event{"actor": noActor, "chartscope": noScope} {
+		if _, err := ev.Publish(context.Background(), e); !errors.Is(err, core.ErrInvalid) {
+			t.Errorf("missing %s: %v", name, err)
+		}
+	}
+	if got := ev.Published(); len(got) != 0 {
+		t.Fatalf("stored %d invalid events", len(got))
+	}
+}
+
 func TestEventsSubscribeReplaysThenStreams(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	publish(t, ev, core.Event{Type: "agents.one.git.push", Source: "git"})
-	publish(t, ev, core.Event{Type: "agents.one.clock.tick", Source: "clock"})
-	publish(t, ev, core.Event{Type: "agents.one.git.tag", Source: "git"})
+	publish(t, ev, event("agents.one.git.push", "git"))
+	publish(t, ev, event("agents.one.clock.tick", "clock"))
+	publish(t, ev, event("agents.one.git.tag", "git"))
 
-	ch, err := ev.Subscribe(ctx, core.EventFilter{Types: []string{"agents.one.git."}, AfterSequence: 1})
+	ch, err := ev.Subscribe(ctx, core.EventFilter{Types: []string{"agents.one.git."}, AfterSequence: core.FormatSequence(1)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := receive(t, ch); got.Sequence != 3 {
-		t.Fatalf("replay got sequence %d", got.Sequence)
+	if got := receive(t, ch); got.Sequence != core.FormatSequence(3) {
+		t.Fatalf("replay got sequence %s", got.Sequence)
 	}
-	publish(t, ev, core.Event{Type: "agents.one.clock.tick", Source: "clock"})
-	publish(t, ev, core.Event{Type: "agents.one.git.push", Source: "git"})
-	if got := receive(t, ch); got.Sequence != 5 {
-		t.Fatalf("live got sequence %d", got.Sequence)
+	publish(t, ev, event("agents.one.clock.tick", "clock"))
+	publish(t, ev, event("agents.one.git.push", "git"))
+	if got := receive(t, ch); got.Sequence != core.FormatSequence(5) {
+		t.Fatalf("live got sequence %s", got.Sequence)
 	}
 	cancel()
 	if _, open := <-ch; open {
@@ -143,10 +161,23 @@ func TestEventsSubscribeReplaysThenStreams(t *testing.T) {
 	}
 }
 
+func TestEventsSubscribeEmptyAfterSequenceReplaysAll(t *testing.T) {
+	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
+	publish(t, ev, event("a", "git"))
+	publish(t, ev, event("b", "git"))
+	ch, err := ev.Subscribe(context.Background(), core.EventFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first, second := receive(t, ch), receive(t, ch); first.Type != "a" || second.Type != "b" {
+		t.Fatalf("replayed %s then %s", first.Type, second.Type)
+	}
+}
+
 func TestEventsSubscribeBySource(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
-	publish(t, ev, core.Event{Type: "a", Source: "git"})
-	publish(t, ev, core.Event{Type: "a", Source: "clock"})
+	publish(t, ev, event("a", "git"))
+	publish(t, ev, event("a", "clock"))
 	ch, err := ev.Subscribe(context.Background(), core.EventFilter{Source: "clock"})
 	if err != nil {
 		t.Fatal(err)
@@ -154,6 +185,10 @@ func TestEventsSubscribeBySource(t *testing.T) {
 	if got := receive(t, ch); got.Source != "clock" {
 		t.Fatalf("got %+v", got)
 	}
+}
+
+func event(typ, source string) core.Event {
+	return core.Event{Type: typ, Source: source, Actor: "agent:founder", ChartScope: "team:founder"}
 }
 
 func publish(t *testing.T, ev *coretest.Events, e core.Event) {

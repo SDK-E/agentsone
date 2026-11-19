@@ -178,7 +178,7 @@ func TestTCPIdentity_IdentityHeadersFromTheEdgeGiveNoSession(t *testing.T) {
 
 func TestSocketIdentity_IgnoresForwardedAndIdentityHeaders(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.SocketIdentity(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := httpadapter.SocketIdentity(verify, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-User", "X-Auth-User"} {
 			if r.Header.Get(name) != "" {
 				t.Errorf("%s reached the module", name)
@@ -211,7 +211,7 @@ func TestTCPIdentity_SameOriginThroughTheEdgeUsesTheHostTheEdgeSends(t *testing.
 
 func TestSocketIdentity_UsesThePeerCaller(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.SocketIdentity(echo)
+	h := httpadapter.SocketIdentity(verify, echo)
 	r := httptest.NewRequest("GET", "/v1/agents", nil)
 	r.Header.Set(httpadapter.ViaHeader, "edge")
 	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerAgent, Name: "founder"}))
@@ -225,8 +225,41 @@ func TestSocketIdentity_UsesThePeerCaller(t *testing.T) {
 func TestSocketIdentity_RefusesWithoutPeerCredentials(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
-	httpadapter.SocketIdentity(echo).ServeHTTP(rec, httptest.NewRequest("GET", "/v1/agents", nil))
+	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, httptest.NewRequest("GET", "/v1/agents", nil))
 	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+// socketAs sends a request on the socket chain as a uid-0 system peer.
+func socketAs(bearer string) *httptest.ResponseRecorder {
+	r := httptest.NewRequest("GET", "/v1/agents", nil)
+	if bearer != "" {
+		r.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerSystem, Name: "uid:0", UID: 0, IsRoot: true}))
+	rec := httptest.NewRecorder()
+	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, r)
+	return rec
+}
+
+func TestSocketIdentity_RootAgentOutsideItsCgroupIsNamedByItsToken(t *testing.T) {
+	t.Parallel()
+	if rec := socketAs("aot_good"); rec.Code != 200 || rec.Header().Get("X-Caller") != "agent:founder" {
+		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("X-Caller"))
+	}
+}
+
+func TestSocketIdentity_Uid0WithoutTokenStaysSystem(t *testing.T) {
+	t.Parallel()
+	if rec := socketAs(""); rec.Code != 200 || rec.Header().Get("X-Caller") != "system:uid:0" {
+		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("X-Caller"))
+	}
+}
+
+func TestSocketIdentity_RefusesABadToken(t *testing.T) {
+	t.Parallel()
+	if rec := socketAs("aot_forged"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d", rec.Code)
 	}
 }

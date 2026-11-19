@@ -59,10 +59,10 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 	web := httpadapter.SecurityHeaders(httpadapter.Split(composed, ui))
 	s := &Server{
 		composed: composed,
-		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(web)),
+		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(verify, web)),
 		tcp: httpadapter.RequestLog(deps.Log, "tcp", deps.Clock,
 			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress}.Wrap(web)),
-		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, HumanByUID: peer.NoHumans},
+		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, AgentByUID: agentByUID(ports)},
 		log:      deps.Log,
 		cfg:      *deps.Config,
 	}
@@ -79,6 +79,23 @@ func (s *Server) SocketHandler() http.Handler { return s.socket }
 
 // TCPHandler is the TCP chain, for tests.
 func (s *Server) TCPHandler() http.Handler { return s.tcp }
+
+// agentByUID finds a custom agent by uid in the agents directory, read
+// when each socket connection is accepted.
+func agentByUID(ports *core.Ports) func(int) (string, bool) {
+	return func(uid int) (string, bool) {
+		all, err := ports.Agents.ListAgents(context.Background())
+		if err != nil {
+			return "", false
+		}
+		for _, a := range all {
+			if a.UID == uid && !a.IsRoot {
+				return a.Name, true
+			}
+		}
+		return "", false
+	}
+}
 
 // parseIPs reads exact edge addresses. Ranges are refused: the edge is one
 // known peer, not a network.

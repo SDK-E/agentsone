@@ -44,10 +44,19 @@ func WithPeerCaller(ctx context.Context, c core.Caller) context.Context {
 }
 
 // SocketIdentity sets the caller of every request on the Unix socket from
-// the peer credentials stored by WithPeerCaller. No token is needed: the
-// kernel vouches for the peer.
-func SocketIdentity(next http.Handler) http.Handler {
+// the peer credentials stored by WithPeerCaller: the kernel vouches for the
+// peer. A bearer token, when sent, names the caller instead; root agents
+// outside an agent cgroup prove who they are this way.
+func SocketIdentity(verify Verifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+			c, err := verify(r.Context(), strings.TrimSpace(v))
+			if err != nil {
+				core.WriteError(w, r, fmt.Errorf("token: %w", core.ErrUnauthorized))
+				return
+			}
+			r = r.WithContext(WithPeerCaller(r.Context(), c))
+		}
 		r.Header.Del(ViaHeader)
 		r.Header.Del("X-Forwarded-For")
 		r.Header.Del("X-Forwarded-Proto")

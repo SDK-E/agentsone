@@ -25,13 +25,12 @@ type Resolver struct {
 	Proc fs.FS
 	// Credentials reads SO_PEERCRED; Credentials in production.
 	Credentials func(net.Conn) (domain.Peer, error)
-	// HumanByUID finds human accounts by Linux uid. Humans live in core.db
-	// and have no Linux user, so production passes NoHumans.
-	HumanByUID domain.HumanByUID
+	// AgentByUID finds custom agents by Linux uid (soft identity).
+	AgentByUID domain.AgentByUID
 }
 
-// NoHumans finds no human for any uid.
-func NoHumans(int) (string, bool) { return "", false }
+// NoAgents finds no agent for any uid.
+func NoAgents(int) (string, bool) { return "", false }
 
 // Caller resolves the peer of c. It reads the cgroup at accept time, while
 // the peer process is still connected, to keep pid reuse out of reach.
@@ -42,13 +41,13 @@ func (r Resolver) Caller(c net.Conn) (core.Caller, error) {
 	}
 	if r.Proc == nil {
 		// No cgroups on this platform: nobody can be an agent.
-		return domain.ResolvePeer(p, "", r.HumanByUID), nil
+		return domain.ResolvePeer(p, "", r.AgentByUID), nil
 	}
 	cgroup, err := fs.ReadFile(r.Proc, strconv.Itoa(p.PID)+"/cgroup")
 	if err != nil {
 		return core.Anonymous, fmt.Errorf("peer cgroup of pid %d: %w", p.PID, err)
 	}
-	return domain.ResolvePeer(p, string(cgroup), r.HumanByUID), nil
+	return domain.ResolvePeer(p, string(cgroup), r.AgentByUID), nil
 }
 
 // ConnContext is an http.Server ConnContext that stores the resolved

@@ -163,6 +163,11 @@ func TestServer_RunsAgentLifecycleOverRealSocket(t *testing.T) {
 	r.send(`{"jsonrpc":"2.0","method":"profile.update","params":{"turnId":"` + turn + `","line":"Goal: keep this machine useful. Now: answering alice."}}`)
 	r.send(`{"jsonrpc":"2.0","method":"output","params":{"turnId":"` + turn + `","chatId":"cht_01JD8X3Q5Y6Z7A8B9C0D1E2F40","chunk":0,"text":"Hello founder","final":true}}`)
 	r.send(`{"jsonrpc":"2.0","method":"status","params":{"state":"idle","turnId":"` + turn + `"}}`)
+	// Lines are handled in order: once this request is answered, the turn has ended.
+	r.send(`{"jsonrpc":"2.0","id":1000,"method":"ping","params":{}}`)
+	if e, ok := r.read()["error"].(map[string]any); !ok || e["code"] != float64(-32601) {
+		t.Fatal("sync request was not answered with method not found")
+	}
 
 	sleepDone := make(chan error, 1)
 	go func() { sleepDone <- sup.Sleep(context.Background(), "founder", true) }()

@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Audit chain mismatch",
+    "status": 409,
+    "detail": "The host's hash for record 42 does not match the chain inside the VM. The local chain may have been rewritten.",
+    "instance": "/v1/host/audit/ack"
+  }
+}

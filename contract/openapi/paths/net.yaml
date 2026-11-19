@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: MIT
+allow-list:
+  get:
+    operationId: getAllowList
+    tags: [net]
+    summary: Get the internet allow list
+    description: Returns the allow list synced from the host. Read-only here and a hard wall; humans change it on the host.
+    responses:
+      "200":
+        description: The allow list.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/AllowList"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+agents:
+  get:
+    operationId: listAgentNetRules
+    tags: [net]
+    summary: List per-agent network rules
+    description: Lists every agent's network rules. These narrow the allow list and are a soft wall.
+    parameters:
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of rules.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/AgentNetRulesList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+agent:
+  parameters:
+    - $ref: "../components/parameters.yaml#/AgentName"
+  get:
+    operationId: getAgentNetRules
+    tags: [net]
+    summary: Get an agent's network rules
+    description: Returns one agent's network rules.
+    responses:
+      "200":
+        description: The rules.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/AgentNetRules"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  put:
+    operationId: setAgentNetRules
+    tags: [net]
+    summary: Set an agent's network rules
+    description: Replaces the network rules of an agent below the caller. Rules can only narrow the allow list.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/budget.yaml#/AgentNetRulesSet"
+    responses:
+      "200":
+        description: The new rules.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/AgentNetRules"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

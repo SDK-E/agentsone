@@ -1,0 +1,427 @@
+# SPDX-License-Identifier: MIT
+# Tasks, schedules (agent timers) and triggers (event filter to action).
+
+TaskStatus:
+  type: string
+  enum: [open, in-progress, blocked, done, cancelled, failed]
+
+TaskPriority:
+  type: string
+  enum: [low, normal, high]
+
+TaskSource:
+  type: string
+  enum: [human, agent, router, trigger, schedule]
+
+Task:
+  type: object
+  required:
+    - id
+    - title
+    - detail
+    - status
+    - priority
+    - assignee
+    - source
+    - created_by
+    - parent_id
+    - trigger_id
+    - result
+    - due_at
+    - created_at
+    - updated_at
+  properties:
+    id:
+      $ref: "./common.yaml#/TaskId"
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    detail:
+      type: string
+      maxLength: 16000
+    status:
+      $ref: "#/TaskStatus"
+    priority:
+      $ref: "#/TaskPriority"
+    assignee:
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
+      description: Agent doing the task. Assigning wakes a sleeping agent.
+    source:
+      $ref: "#/TaskSource"
+    created_by:
+      $ref: "./common.yaml#/Actor"
+    parent_id:
+      type: [string, "null"]
+      pattern: "^tsk_[0-9A-HJKMNP-TV-Z]{26}$"
+    trigger_id:
+      type: [string, "null"]
+      pattern: "^trg_[0-9A-HJKMNP-TV-Z]{26}$"
+      description: Trigger that created the task, if any.
+    result:
+      type: [string, "null"]
+      maxLength: 16000
+      description: Outcome written by the assignee when done or failed.
+    due_at:
+      type: [string, "null"]
+      format: date-time
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+    updated_at:
+      $ref: "./common.yaml#/Timestamp"
+
+TaskList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Task"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+TaskCreate:
+  type: object
+  additionalProperties: false
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    detail:
+      type: string
+      maxLength: 16000
+    priority:
+      $ref: "#/TaskPriority"
+    assignee:
+      $ref: "./common.yaml#/AgentName"
+    parent_id:
+      $ref: "./common.yaml#/TaskId"
+    due_at:
+      $ref: "./common.yaml#/Timestamp"
+
+TaskUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    detail:
+      type: string
+      maxLength: 16000
+    priority:
+      $ref: "#/TaskPriority"
+
+TaskAssign:
+  type: object
+  additionalProperties: false
+  required: [assignee]
+  properties:
+    assignee:
+      $ref: "./common.yaml#/AgentName"
+
+TaskCompletion:
+  type: object
+  additionalProperties: false
+  required: [outcome, result]
+  properties:
+    outcome:
+      type: string
+      enum: [done, failed]
+    result:
+      type: string
+      minLength: 1
+      maxLength: 16000
+
+TaskFrame:
+  type: object
+  description: A task was created or changed. Carries the full new state.
+  required: [kind, task]
+  properties:
+    kind:
+      type: string
+      const: task
+    task:
+      $ref: "#/Task"
+
+TaskStreamFrame:
+  oneOf:
+    - $ref: "#/TaskFrame"
+    - $ref: "./common.yaml#/Heartbeat"
+  discriminator:
+    propertyName: kind
+    mapping:
+      task: "#/TaskFrame"
+      heartbeat: "./common.yaml#/Heartbeat"
+
+Schedule:
+  type: object
+  description: An agent's own timer. When it fires the agent wakes with `message`.
+  required:
+    [id, agent, name, calendar, message, enabled, next_run_at, last_run_at, created_at, created_by]
+  properties:
+    id:
+      $ref: "./common.yaml#/ScheduleId"
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    calendar:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: systemd `OnCalendar` expression in UTC, for example `*-*-* 09:00:00` or `hourly`.
+      examples: ["*-*-* 09:00:00"]
+    message:
+      type: string
+      maxLength: 2000
+      description: Wake reason delivered to the agent.
+    enabled:
+      type: boolean
+    next_run_at:
+      type: [string, "null"]
+      format: date-time
+    last_run_at:
+      type: [string, "null"]
+      format: date-time
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+    created_by:
+      $ref: "./common.yaml#/Actor"
+
+ScheduleList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Schedule"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+ScheduleCreate:
+  type: object
+  additionalProperties: false
+  required: [name, calendar, message]
+  properties:
+    agent:
+      $ref: "./common.yaml#/AgentName"
+      description: Defaults to the caller. Another agent must be below the caller.
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    calendar:
+      type: string
+      minLength: 1
+      maxLength: 200
+    message:
+      type: string
+      maxLength: 2000
+    enabled:
+      type: boolean
+      default: true
+
+ScheduleUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    calendar:
+      type: string
+      minLength: 1
+      maxLength: 200
+    message:
+      type: string
+      maxLength: 2000
+    enabled:
+      type: boolean
+
+EventFilter:
+  type: object
+  additionalProperties: false
+  description: Matches events. All set fields must match. Type and source accept a trailing `*` wildcard.
+  properties:
+    types:
+      type: array
+      items:
+        type: string
+        maxLength: 200
+      examples: [["agentsone.disk.*"]]
+    sources:
+      type: array
+      items:
+        type: string
+        maxLength: 200
+    subject_prefix:
+      type: string
+      maxLength: 500
+    actors:
+      type: array
+      items:
+        $ref: "./common.yaml#/Actor"
+
+WakeAction:
+  type: object
+  additionalProperties: false
+  required: [kind, agent, message]
+  properties:
+    kind:
+      type: string
+      const: wake
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    message:
+      type: string
+      maxLength: 2000
+      description: Wake reason. `{{type}}`, `{{subject}}` and `{{id}}` are replaced from the event.
+
+CreateTaskAction:
+  type: object
+  additionalProperties: false
+  required: [kind, assignee, title, priority]
+  properties:
+    kind:
+      type: string
+      const: create-task
+    assignee:
+      $ref: "./common.yaml#/AgentName"
+    title:
+      type: string
+      maxLength: 200
+      description: Task title. Same placeholders as `WakeAction.message`.
+    priority:
+      $ref: "#/TaskPriority"
+
+TriggerAction:
+  oneOf:
+    - $ref: "#/WakeAction"
+    - $ref: "#/CreateTaskAction"
+  discriminator:
+    propertyName: kind
+    mapping:
+      wake: "#/WakeAction"
+      create-task: "#/CreateTaskAction"
+
+WakeRate:
+  type: object
+  additionalProperties: false
+  description: At most `max` firings per `per_seconds`. Extra matching events are counted and dropped.
+  required: [max, per_seconds]
+  properties:
+    max:
+      type: integer
+      minimum: 1
+      maximum: 1000
+    per_seconds:
+      type: integer
+      minimum: 1
+      maximum: 86400
+
+Trigger:
+  type: object
+  required:
+    [
+      id,
+      name,
+      owner,
+      filter,
+      action,
+      wake_rate,
+      enabled,
+      fired_count,
+      dropped_count,
+      last_fired_at,
+      created_at,
+    ]
+  properties:
+    id:
+      $ref: "./common.yaml#/TriggerId"
+    name:
+      type: string
+      maxLength: 80
+    owner:
+      $ref: "./common.yaml#/AgentName"
+    filter:
+      $ref: "#/EventFilter"
+    action:
+      $ref: "#/TriggerAction"
+    wake_rate:
+      $ref: "#/WakeRate"
+    enabled:
+      type: boolean
+    fired_count:
+      type: integer
+      format: int64
+      minimum: 0
+    dropped_count:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Matches dropped by the wake-rate limit.
+    last_fired_at:
+      type: [string, "null"]
+      format: date-time
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+
+TriggerList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Trigger"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+TriggerCreate:
+  type: object
+  additionalProperties: false
+  required: [name, filter, action, wake_rate]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    filter:
+      $ref: "#/EventFilter"
+    action:
+      $ref: "#/TriggerAction"
+    wake_rate:
+      $ref: "#/WakeRate"
+    enabled:
+      type: boolean
+      default: true
+
+TriggerUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    filter:
+      $ref: "#/EventFilter"
+    action:
+      $ref: "#/TriggerAction"
+    wake_rate:
+      $ref: "#/WakeRate"
+    enabled:
+      type: boolean

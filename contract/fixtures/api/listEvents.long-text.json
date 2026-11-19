@@ -1,0 +1,25 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "specversion": "1.0",
+        "id": "evt_01JD7ZK3M00000000000000101",
+        "source": "/emitters/services",
+        "type": "agentsone.services.unit-failed-with-a-very-long-descriptive-event-type-name-for-layout-testing",
+        "time": "2026-11-19T12:30:00Z",
+        "datacontenttype": "application/json",
+        "subject": "emitter@emt_01JD7ZK3M00000000000000010.service/with/a/very/long/subject/path/that/keeps/going/to/test/wrapping/in/the/monitor/panel/and/beyond/the/usual/width",
+        "data": {
+          "unit": "emitter@emt_01JD7ZK3M00000000000000010.service",
+          "result": "exit-code",
+          "message": "The webhook emitter process exited with status 1 after failing to parse an incoming payload whose body was far larger than expected and contained deeply nested arrays of build results from the continuous integration system, each with its own long list of steps, logs and artifacts, which is exactly the kind of long text the interface must wrap or truncate gracefully without breaking the layout of the events table on phone width."
+        },
+        "sequence": "00000000000000000101",
+        "actor": "system:services",
+        "chartscope": "machine"
+      }
+    ],
+    "next_cursor": null
+  }
+}

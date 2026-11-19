@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: MIT
+triggers:
+  get:
+    operationId: listTriggers
+    tags: [triggers]
+    summary: List triggers
+    description: Lists triggers visible to the caller. Filter by owner to see one agent's triggers.
+    parameters:
+      - name: owner
+        in: query
+        required: false
+        description: Only triggers owned by this agent.
+        schema:
+          $ref: "../components/schemas/common.yaml#/AgentName"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of triggers.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/TriggerList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: createTrigger
+    tags: [triggers]
+    summary: Create a trigger
+    description: |
+      Creates a trigger owned by the caller. Matching events wake an agent or create a task, at
+      most `wake_rate.max` times per `wake_rate.per_seconds`. Targets must be the caller or below it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TriggerCreate"
+    responses:
+      "201":
+        description: The new trigger.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+trigger:
+  parameters:
+    - $ref: "../components/parameters.yaml#/TriggerId"
+  get:
+    operationId: getTrigger
+    tags: [triggers]
+    summary: Get a trigger
+    description: Returns one trigger with its firing counters.
+    responses:
+      "200":
+        description: The trigger.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  patch:
+    operationId: updateTrigger
+    tags: [triggers]
+    summary: Update a trigger
+    description: Changes a trigger owned by the caller or by an agent below the caller.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TriggerUpdate"
+    responses:
+      "200":
+        description: The updated trigger.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Trigger"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  delete:
+    operationId: deleteTrigger
+    tags: [triggers]
+    summary: Delete a trigger
+    description: Removes a trigger owned by the caller or by an agent below the caller.
+    responses:
+      "204":
+        description: Deleted.
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"

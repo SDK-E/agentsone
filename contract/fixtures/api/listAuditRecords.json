@@ -1,0 +1,115 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "seq": 1,
+        "time": "2026-11-19T08:00:30Z",
+        "actor": {
+          "kind": "system",
+          "name": "daemon",
+          "uid": 0
+        },
+        "action": "plugin.install",
+        "target": {
+          "kind": "plugin",
+          "id": "plg_01JD7ZK3M00000000000000001"
+        },
+        "outcome": "success",
+        "details": {
+          "name": "small-seed",
+          "version": "1.0.0"
+        },
+        "origin": "inside",
+        "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "hash": "9f2c4e1a7b3d5f60812a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d"
+      },
+      {
+        "seq": 2,
+        "time": "2026-11-19T08:02:11Z",
+        "actor": {
+          "kind": "human",
+          "name": "ada",
+          "uid": 1000
+        },
+        "action": "session.login",
+        "target": {
+          "kind": "human",
+          "id": "ada"
+        },
+        "outcome": "success",
+        "details": {
+          "method": "pam"
+        },
+        "origin": "inside",
+        "prevHash": "9f2c4e1a7b3d5f60812a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d",
+        "hash": "4e7a1c3b5d9f0e2a6b8c1d3f7a0e2c4b9d1f3a5c8e0b2d4f1a3c5e7b2d4f6a8c"
+      },
+      {
+        "seq": 3,
+        "time": "2026-11-19T08:10:42Z",
+        "actor": {
+          "kind": "agent",
+          "name": "founder",
+          "uid": 0
+        },
+        "action": "agent.hire",
+        "target": {
+          "kind": "agent",
+          "id": "builder"
+        },
+        "outcome": "success",
+        "details": {
+          "kind": "always-on",
+          "runner": "claude",
+          "manager": "founder"
+        },
+        "origin": "inside",
+        "prevHash": "4e7a1c3b5d9f0e2a6b8c1d3f7a0e2c4b9d1f3a5c8e0b2d4f1a3c5e7b2d4f6a8c",
+        "hash": "c3a5e7f91b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f1a3c5e7b9d2f4a"
+      },
+      {
+        "seq": 4,
+        "time": "2026-11-19T09:05:00Z",
+        "actor": {
+          "kind": "agent",
+          "name": "scribe",
+          "uid": 2003
+        },
+        "action": "agent.edit",
+        "target": {
+          "kind": "agent",
+          "id": "keeper"
+        },
+        "outcome": "denied",
+        "details": {
+          "reason": "not-below-you"
+        },
+        "origin": "inside",
+        "prevHash": "c3a5e7f91b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f1a3c5e7b9d2f4a",
+        "hash": "0d8e6f4a2b1c3e5d7f9a8b6c4e2d0f1a3c5b7e9d6a8f0c2b4d6e8a1c3f5b7d9e"
+      },
+      {
+        "seq": 5,
+        "time": "2026-11-19T10:00:00Z",
+        "actor": {
+          "kind": "host",
+          "name": "agentsone"
+        },
+        "action": "budget.push",
+        "target": {
+          "kind": "budget",
+          "id": "total"
+        },
+        "outcome": "success",
+        "details": {
+          "remaining_micros": 37160000
+        },
+        "origin": "host",
+        "prevHash": "0d8e6f4a2b1c3e5d7f9a8b6c4e2d0f1a3c5b7e9d6a8f0c2b4d6e8a1c3f5b7d9e",
+        "hash": "7e1f3a2c9b4d6e8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f"
+      }
+    ],
+    "next_cursor": null
+  }
+}

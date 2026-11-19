@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "body": {
+    "type": "urn:agentsone:problem:unauthenticated",
+    "title": "Login failed",
+    "status": 401,
+    "detail": "The name or password is wrong.",
+    "instance": "/v1/session"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "agent": "a-very-long-agent-name-for-test",
+        "display_name": "An Exceptionally Long Display Name Used To Test Wrapping In Every Panel Of The U",
+        "kind": "chat",
+        "state": "working",
+        "team": "founder",
+        "role": "Specialised documentation router for long and complicated requests from humans",
+        "one_line": {
+          "text": "Goal: keep every human request answered within one minute, every disk under seventy percent and every guide current for the newest release. Now: reading the live list, rating four candidates and writing a handover note for the specialised docs router bot.",
+          "updated_at": "2026-11-19T18:39:59Z"
+        }
+      },
+      {
+        "agent": "tester",
+        "display_name": "Tester",
+        "kind": "chat",
+        "state": "sleeping",
+        "team": "builder",
+        "role": "Test writer",
+        "one_line": null
+      }
+    ],
+    "next_cursor": "c2VxPTUw"
+  }
+}

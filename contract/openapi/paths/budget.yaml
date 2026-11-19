@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: MIT
+budget:
+  get:
+    operationId: getBudget
+    tags: [budget]
+    summary: Get the total budget
+    description: |
+      Returns the human's total budget as last pushed by the host gateway. The total is a hard
+      wall held outside the VM; it can only be changed on the host.
+    responses:
+      "200":
+        description: The total budget.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/Budget"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+split:
+  get:
+    operationId: getBudgetSplit
+    tags: [budget]
+    summary: Get the budget split
+    description: Returns every agent's share down the chart. The split is a soft wall enforced inside the VM.
+    responses:
+      "200":
+        description: The split.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/BudgetSplit"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+allocation:
+  parameters:
+    - $ref: "../components/parameters.yaml#/AgentName"
+  put:
+    operationId: setBudgetAllocation
+    tags: [budget]
+    summary: Set an agent's allocation
+    description: Sets the soft allocation of an agent below the caller, out of the caller's own share.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/budget.yaml#/BudgetAllocationSet"
+    responses:
+      "200":
+        description: The agent's new share.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/budget.yaml#/BudgetNode"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:not-below-you",
+    "title": "Agent is not below you",
+    "status": 403,
+    "detail": "scribe cannot retire builder: agents retire only agents below themselves in the chart.",
+    "instance": "/v1/agents/builder"
+  }
+}

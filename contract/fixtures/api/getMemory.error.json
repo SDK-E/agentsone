@@ -1,0 +1,10 @@
+{
+  "status": 404,
+  "body": {
+    "type": "urn:agentsone:problem:not-found",
+    "title": "Not found",
+    "status": 404,
+    "detail": "No memory record mem_01JD7ZK3M00000000000000999 is visible to you.",
+    "instance": "/v1/memory/mem_01JD7ZK3M00000000000000999"
+  }
+}

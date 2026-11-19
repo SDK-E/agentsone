@@ -1,0 +1,397 @@
+# SPDX-License-Identifier: MIT
+# Agents, their one-line, chat and output streams.
+
+AgentKind:
+  type: string
+  enum: [always-on, chat, waker]
+  description: |
+    `always-on` keeps a session and works its goals; `chat` wakes for chat messages and tasks;
+    `waker` watches events and wakes others. Every kind sleeps when idle; sleeping costs nothing.
+
+AgentState:
+  type: string
+  enum: [sleeping, waking, awake, working, frozen, failed, retired]
+
+AgentLimits:
+  type: object
+  description: |
+    Linux cgroup limits for `agent@<name>.service`. Root agents run without a sandbox and have no
+    limits. Wall is soft: a root agent can change cgroups inside the VM.
+  required: [cpu_percent, memory_mb, tasks, wall]
+  properties:
+    cpu_percent:
+      type: integer
+      minimum: 1
+      maximum: 6400
+      description: systemd `CPUQuota`, percent of one core.
+    memory_mb:
+      type: integer
+      minimum: 64
+      description: systemd `MemoryMax` in MiB.
+    tasks:
+      type: integer
+      minimum: 8
+      description: systemd `TasksMax`.
+    wall:
+      $ref: "./common.yaml#/Wall"
+
+AgentLimitsInput:
+  type: object
+  additionalProperties: false
+  properties:
+    cpu_percent:
+      type: integer
+      minimum: 1
+      maximum: 6400
+    memory_mb:
+      type: integer
+      minimum: 64
+    tasks:
+      type: integer
+      minimum: 8
+
+OneLine:
+  type: object
+  description: The live list entry body. Every agent turn writes one; it is what the router reads.
+  required: [text, updated_at]
+  properties:
+    text:
+      $ref: "./common.yaml#/OneLineText"
+    updated_at:
+      $ref: "./common.yaml#/Timestamp"
+
+Agent:
+  type: object
+  required:
+    - name
+    - display_name
+    - kind
+    - is_root
+    - runner
+    - manager
+    - team
+    - role
+    - description
+    - state
+    - one_line
+    - limits
+    - uid
+    - home
+    - unit
+    - template
+    - created_at
+    - created_by
+    - last_turn_at
+  properties:
+    name:
+      $ref: "./common.yaml#/AgentName"
+    display_name:
+      $ref: "./common.yaml#/DisplayName"
+    kind:
+      $ref: "#/AgentKind"
+    is_root:
+      type: boolean
+      description: Root agents run as real uid 0 without a sandbox. Only root agents create root agents.
+    runner:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+      description: Runner adapter name, see `GET /runners`.
+      examples: [claude]
+    manager:
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
+      description: Agent directly above in the chart; null for the founder.
+    team:
+      $ref: "./common.yaml#/AgentName"
+      description: Name of the agent that heads this agent's chart branch (team). Used for team memory and freeze.
+    role:
+      type: string
+      maxLength: 120
+      description: Short job title, for example "Router" or "Disk watcher".
+    description:
+      type: string
+      maxLength: 4000
+      description: What the agent is for, in its own or its hirer's words.
+    state:
+      $ref: "#/AgentState"
+    one_line:
+      oneOf:
+        - $ref: "#/OneLine"
+        - type: "null"
+      description: Latest one-line, or null before the first turn.
+    limits:
+      oneOf:
+        - $ref: "#/AgentLimits"
+        - type: "null"
+      description: Null for root agents.
+    uid:
+      type: integer
+      minimum: 0
+      description: Linux uid. 0 for root agents.
+    home:
+      type: string
+      description: Home folder, `/home/agents/<name>` for custom agents, `/root/agents/<name>` for root agents.
+    unit:
+      type: string
+      pattern: '^agent@[a-z][a-z0-9-]{0,30}\.service$'
+    template:
+      type: [string, "null"]
+      description: Agent template name the agent was hired from, or null.
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+    created_by:
+      $ref: "./common.yaml#/Actor"
+    last_turn_at:
+      type: [string, "null"]
+      format: date-time
+
+AgentList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Agent"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+AgentTemplateList:
+  type: object
+  description: Agent templates from installed plugins of kind `agent-template`.
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "../../../schemas/agent-template.schema.json"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+AgentCreate:
+  type: object
+  additionalProperties: false
+  description: Hire an agent. The new agent sits below the caller unless `manager` names another agent below the caller.
+  required: [name, display_name, kind, runner, role]
+  properties:
+    name:
+      $ref: "./common.yaml#/AgentName"
+    display_name:
+      $ref: "./common.yaml#/DisplayName"
+    kind:
+      $ref: "#/AgentKind"
+    is_root:
+      type: boolean
+      default: false
+      description: Only a root agent may set this to true.
+    runner:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+    manager:
+      $ref: "./common.yaml#/AgentName"
+    role:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 4000
+    limits:
+      $ref: "#/AgentLimitsInput"
+    template:
+      type: string
+      description: Name of an installed agent template to start from.
+
+AgentUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: Edit an agent below you. Kind, runner and limits changes restart the agent's unit.
+  properties:
+    display_name:
+      $ref: "./common.yaml#/DisplayName"
+    kind:
+      $ref: "#/AgentKind"
+    runner:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+    role:
+      type: string
+      minLength: 1
+      maxLength: 120
+    description:
+      type: string
+      maxLength: 4000
+    limits:
+      $ref: "#/AgentLimitsInput"
+
+WakeRequest:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+      description: Why the agent is woken. Delivered to the runner as the first input.
+    task_id:
+      $ref: "./common.yaml#/TaskId"
+
+SleepRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    compact:
+      type: boolean
+      default: true
+      description: Compact the session to a summary before sleeping.
+
+OneLineUpdate:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      $ref: "./common.yaml#/OneLineText"
+
+ChatRole:
+  type: string
+  enum: [human, agent, system]
+
+ChatMessage:
+  type: object
+  required: [id, agent, role, author, text, assignment_id, created_at]
+  properties:
+    id:
+      $ref: "./common.yaml#/ChatMessageId"
+    agent:
+      $ref: "./common.yaml#/AgentName"
+      description: Agent whose chat this is.
+    role:
+      $ref: "#/ChatRole"
+    author:
+      $ref: "./common.yaml#/Actor"
+    text:
+      type: string
+      maxLength: 32000
+    assignment_id:
+      type: [string, "null"]
+      pattern: "^asg_[0-9A-HJKMNP-TV-Z]{26}$"
+      description: Router assignment that opened this chat, when the message came through the router.
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+
+ChatMessageList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ChatMessage"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+ChatMessageCreate:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 32000
+
+ChatMessageFrame:
+  type: object
+  required: [kind, message]
+  properties:
+    kind:
+      type: string
+      const: message
+    message:
+      $ref: "#/ChatMessage"
+
+ChatDeltaFrame:
+  type: object
+  description: Partial agent reply text while the agent is still writing. Join deltas by `message_id`.
+  required: [kind, message_id, text]
+  properties:
+    kind:
+      type: string
+      const: delta
+    message_id:
+      $ref: "./common.yaml#/ChatMessageId"
+    text:
+      type: string
+
+ChatStreamFrame:
+  oneOf:
+    - $ref: "#/ChatMessageFrame"
+    - $ref: "#/ChatDeltaFrame"
+    - $ref: "./common.yaml#/Heartbeat"
+  discriminator:
+    propertyName: kind
+    mapping:
+      message: "#/ChatMessageFrame"
+      delta: "#/ChatDeltaFrame"
+      heartbeat: "./common.yaml#/Heartbeat"
+
+OutputFrame:
+  type: object
+  description: A chunk of runner output (tool calls, thoughts the runner chose to show, logs).
+  required: [kind, agent, stream, text, time]
+  properties:
+    kind:
+      type: string
+      const: output
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    stream:
+      type: string
+      enum: [text, tool, log, error]
+    text:
+      type: string
+    time:
+      $ref: "./common.yaml#/Timestamp"
+
+StateFrame:
+  type: object
+  required: [kind, agent, state, time]
+  properties:
+    kind:
+      type: string
+      const: state
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    state:
+      $ref: "#/AgentState"
+    time:
+      $ref: "./common.yaml#/Timestamp"
+
+OneLineFrame:
+  type: object
+  required: [kind, agent, one_line]
+  properties:
+    kind:
+      type: string
+      const: one_line
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    one_line:
+      $ref: "#/OneLine"
+
+AgentOutputFrame:
+  oneOf:
+    - $ref: "#/OutputFrame"
+    - $ref: "#/StateFrame"
+    - $ref: "#/OneLineFrame"
+    - $ref: "./common.yaml#/Heartbeat"
+  discriminator:
+    propertyName: kind
+    mapping:
+      output: "#/OutputFrame"
+      state: "#/StateFrame"
+      one_line: "#/OneLineFrame"
+      heartbeat: "./common.yaml#/Heartbeat"

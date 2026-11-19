@@ -1,0 +1,26 @@
+{
+  "status": 200,
+  "body": {
+    "id": "mem_01JD7ZK3M00000000000000001",
+    "scope": "common",
+    "owner": "founder",
+    "team": "founder",
+    "title": "How this society works",
+    "body": "We are a small society. The **router** reads the live list and sends human requests to the best agent. The **waker** watches events. Hire below yourself; keep your one-line honest.",
+    "tags": ["charter", "onboarding"],
+    "links": [
+      {
+        "kind": "url",
+        "ref": "https://github.com/SDK-E/agentsone",
+        "title": "Agents One"
+      }
+    ],
+    "source": {
+      "kind": "agent",
+      "ref": "founder"
+    },
+    "createdAt": "2026-11-19T08:05:00Z",
+    "updatedAt": "2026-11-19T08:05:00Z",
+    "revision": 1
+  }
+}

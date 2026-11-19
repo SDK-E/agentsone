@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "state": "downloading",
+    "progress": 0.42,
+    "bytes_done": 90282393,
+    "bytes_total": 214958080,
+    "version": "2.1.40",
+    "error": null,
+    "updated_at": "2026-11-19T08:01:57Z"
+  }
+}

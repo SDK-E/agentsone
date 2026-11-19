@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "body": {
+    "type": "urn:agentsone:problem:unauthenticated",
+    "title": "Bad webhook signature",
+    "status": 401,
+    "detail": "X-Agentsone-Signature does not match the HMAC-SHA256 of the body.",
+    "instance": "/v1/webhooks/emt_01JD7ZK3M00000000000000010"
+  }
+}

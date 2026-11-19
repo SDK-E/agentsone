@@ -9,6 +9,8 @@ agentsoned = "agentsoned"
 agentctl = "agentctl"
 mkosi = "mkosi"
 vfkit = "vfkit"
+# Theme id prefix in the API contract (`thm_` plus a ULID).
+thm = "thm"
 
 [files]
 extend-exclude = ["pnpm-lock.yaml", "go.sum", "contract/fixtures/**", ".claude/**"]

@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/home/agents/builder/site/README.md",
+    "encoding": "utf-8",
+    "content": "# Landing page\n\nBuilt by builder for the society.\n\n```sh\npnpm install\npnpm build\n```\n",
+    "size_bytes": 812,
+    "truncated": false
+  }
+}

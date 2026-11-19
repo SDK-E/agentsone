@@ -1,0 +1,42 @@
+{
+  "status": 200,
+  "body": {
+    "id": "plg_01JD7ZK3M00000000000000003",
+    "name": "sample-mcp",
+    "version": "0.3.1",
+    "kinds": ["mcp-server"],
+    "source": "mcp-registry",
+    "ref": "io.github.sdk-e/sample-mcp",
+    "enabled": true,
+    "health": "ok",
+    "installed_by": "agent:builder",
+    "installed_at": "2026-11-19T10:12:00Z",
+    "manifest": {
+      "name": "sample-mcp",
+      "version": "0.3.1",
+      "description": "Sample MCP server with a clock and a dice tool.",
+      "author": {
+        "name": "SDK-E"
+      },
+      "license": "MIT",
+      "source": {
+        "kind": "mcp-registry",
+        "ref": "io.github.sdk-e/sample-mcp"
+      },
+      "compat": {
+        "agentsone": "^1.0.0"
+      },
+      "contents": {
+        "mcpServers": [
+          { "name": "sample-mcp", "transport": "stdio", "command": "${PLUGIN_ROOT}/bin/sample-mcp", "args": [], "env": {} }
+        ],
+        "skills": [],
+        "agentTemplates": [],
+        "runners": [],
+        "panels": [],
+        "themes": [],
+        "emitters": []
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "status": 402,
+  "body": {
+    "type": "urn:agentsone:problem:budget-exhausted",
+    "title": "Budget spent",
+    "status": 402,
+    "detail": "builder's soft allocation is spent. It resumes where it stopped when budget returns.",
+    "instance": "/v1/agents/builder/wake"
+  }
+}

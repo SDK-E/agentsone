@@ -1,0 +1,230 @@
+# SPDX-License-Identifier: MIT
+# Door API. Only the host tool on the Mac calls these, over vsock. 403 host-only elsewhere.
+health:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  get:
+    operationId: getDoorHealth
+    tags: [host]
+    summary: Door health
+    description: Returns daemon health for the host tool's watchdog and status command.
+    security:
+      - hostDoor: []
+    responses:
+      "200":
+        description: Health.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/host.yaml#/DoorHealth"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+freezes:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  get:
+    operationId: listFreezes
+    tags: [host]
+    summary: List active freezes
+    description: Lists active freezes.
+    security:
+      - hostDoor: []
+    parameters:
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of freezes.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/host.yaml#/FreezeList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+  post:
+    operationId: applyFreeze
+    tags: [host]
+    summary: Freeze all, a team or an agent
+    description: |
+      Freezes agents. Scope `all` is a hard wall (the host also stops model calls and traffic);
+      `team` and `agent` are soft (the daemon stops those units).
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/FreezeRequest"
+    responses:
+      "201":
+        description: The freeze.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/host.yaml#/Freeze"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+release:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  post:
+    operationId: releaseFreeze
+    tags: [host]
+    summary: Release a freeze
+    description: Releases one freeze. Agents resume where they stopped. Returns the freezes still active.
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/ReleaseRequest"
+    responses:
+      "200":
+        description: Remaining freezes.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/host.yaml#/FreezeList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+budget:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  put:
+    operationId: pushBudgetState
+    tags: [host]
+    summary: Push budget state
+    description: The gateway pushes the total budget and defence slice. The daemon shows and splits it; it cannot raise it.
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/HostBudgetPush"
+    responses:
+      "204":
+        description: Stored.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+audit:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  get:
+    operationId: pullAuditRecords
+    tags: [host]
+    summary: Pull audit records
+    description: The host audit sink pulls records after its last acknowledged sequence, in order.
+    security:
+      - hostDoor: []
+    parameters:
+      - name: after_seq
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of audit records.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/audit.yaml#/AuditList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+audit-ack:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  post:
+    operationId: ackAuditRecords
+    tags: [host]
+    summary: Acknowledge audit records
+    description: The host confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/AuditAck"
+    responses:
+      "200":
+        description: Acknowledged.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/host.yaml#/AuditAckResult"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+allow-list:
+  servers:
+    - url: http://agentsone-door/v1
+      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+  put:
+    operationId: syncAllowList
+    tags: [host]
+    summary: Sync the allow list
+    description: The host pushes the current internet allow list so the interface and agents can read it.
+    security:
+      - hostDoor: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/host.yaml#/AllowListSync"
+    responses:
+      "204":
+        description: Stored.
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"

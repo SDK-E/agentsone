@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: MIT
+# Audit log. The record shape is Ben's audit-record.schema.json.
+
+AuditList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "../../../schemas/audit-record.schema.json"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+AuditVerifyRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    from_seq:
+      type: integer
+      format: int64
+      minimum: 1
+    to_seq:
+      type: integer
+      format: int64
+      minimum: 1
+
+AuditVerification:
+  type: object
+  description: |
+    Result of re-hashing the chain inside the VM. Records from inside are testimony: a root
+    agent could rewrite the local chain. Compare `head_hash` with the host's copy for proof.
+  required: [ok, checked, from_seq, to_seq, head_hash, broken_at_seq, host_acked_seq, verified_at]
+  properties:
+    ok:
+      type: boolean
+    checked:
+      type: integer
+      format: int64
+      minimum: 0
+    from_seq:
+      type: integer
+      format: int64
+      minimum: 0
+    to_seq:
+      type: integer
+      format: int64
+      minimum: 0
+    head_hash:
+      type: string
+      pattern: "^[0-9a-f]{64}$"
+    broken_at_seq:
+      type: [integer, "null"]
+      format: int64
+      description: First record whose hash does not match, or null.
+    host_acked_seq:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Highest sequence the host audit sink has acknowledged.
+    verified_at:
+      $ref: "./common.yaml#/Timestamp"
+
+AuditFrame:
+  type: object
+  required: [kind, record]
+  properties:
+    kind:
+      type: string
+      const: record
+    record:
+      $ref: "../../../schemas/audit-record.schema.json"
+
+AuditStreamFrame:
+  oneOf:
+    - $ref: "#/AuditFrame"
+    - $ref: "./common.yaml#/Heartbeat"
+  discriminator:
+    propertyName: kind
+    mapping:
+      record: "#/AuditFrame"
+      heartbeat: "./common.yaml#/Heartbeat"

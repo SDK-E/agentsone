@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: MIT
+# Shared building blocks used by every group.
+
+Problem:
+  type: object
+  description: |
+    RFC 9457 problem details. Every error response in this API uses
+    `application/problem+json` with this body. `type` is a stable URN from
+    the list below; clients branch on `type`, never on `title` or `detail`.
+
+    - `urn:agentsone:problem:validation` (400) request body or query is invalid; see `errors`.
+    - `urn:agentsone:problem:unauthenticated` (401) no valid session, token or peer identity.
+    - `urn:agentsone:problem:forbidden` (403) caller is known but may not do this.
+    - `urn:agentsone:problem:not-below-you` (403) the target agent is not below the caller in the chart.
+    - `urn:agentsone:problem:root-only` (403) only root agents may create or edit root agents.
+    - `urn:agentsone:problem:human-only` (403) this power belongs to humans or to the host tool.
+    - `urn:agentsone:problem:host-only` (403) only the host tool over the vsock door may call this.
+    - `urn:agentsone:problem:not-found` (404) the resource does not exist or is not visible to the caller.
+    - `urn:agentsone:problem:conflict` (409) the resource exists or changed since it was read.
+    - `urn:agentsone:problem:setup-required` (409) first-boot setup is not finished.
+    - `urn:agentsone:problem:setup-complete` (409) first-boot setup already finished.
+    - `urn:agentsone:problem:licence-required` (409) the Claude engine licence is not accepted yet.
+    - `urn:agentsone:problem:frozen` (423) the agent, team or machine is frozen by the host.
+    - `urn:agentsone:problem:payload-too-large` (413) body or file exceeds the stated limit.
+    - `urn:agentsone:problem:unsupported-media-type` (415) wrong `Content-Type`.
+    - `urn:agentsone:problem:rate-limited` (429) too many requests or wakes; see `Retry-After`.
+    - `urn:agentsone:problem:budget-exhausted` (402) the budget for this caller or the total is spent.
+    - `urn:agentsone:problem:engine-unavailable` (503) the runner or engine is not ready.
+    - `urn:agentsone:problem:unavailable` (503) a dependency is down; retry later.
+    - `urn:agentsone:problem:internal` (500) unexpected daemon error.
+  required: [type, title, status]
+  properties:
+    type:
+      type: string
+      format: uri
+      description: Stable problem type URN from the list above.
+      examples: ["urn:agentsone:problem:not-found"]
+    title:
+      type: string
+      description: Short human summary of the problem type.
+    status:
+      type: integer
+      minimum: 400
+      maximum: 599
+      description: HTTP status code, repeated for convenience.
+    detail:
+      type: string
+      description: Human explanation of this occurrence.
+    instance:
+      type: string
+      description: Request path or id of this occurrence.
+    errors:
+      type: array
+      description: Field level issues for `urn:agentsone:problem:validation`.
+      items:
+        $ref: "#/ValidationIssue"
+
+ValidationIssue:
+  type: object
+  required: [pointer, message]
+  properties:
+    pointer:
+      type: string
+      description: JSON Pointer (RFC 6901) into the request body, or `query:<name>` for a query parameter.
+    message:
+      type: string
+
+AgentName:
+  type: string
+  pattern: "^[a-z][a-z0-9-]{0,30}$"
+  description: Agent name. It is also the agent's Linux username and the instance of `agent@<name>.service`.
+  examples: [founder]
+
+HumanName:
+  type: string
+  pattern: "^[a-z][a-z0-9-]{0,30}$"
+  description: Human login name. It is also the human's Linux username, checked through PAM.
+  examples: [ada]
+
+DisplayName:
+  type: string
+  minLength: 1
+  maxLength: 80
+  description: Free display name shown in the interface.
+
+Timestamp:
+  type: string
+  format: date-time
+  description: RFC 3339 time in UTC with a `Z` suffix.
+  examples: ["2026-11-19T18:40:00Z"]
+
+OneLineText:
+  type: string
+  minLength: 1
+  maxLength: 255
+  description: One line (no line breaks, at most 255 characters) saying the agent's goal and what it does now.
+  pattern: '^[^\r\n]*$'
+
+Actor:
+  type: string
+  pattern: "^((agent|human|system|host):[a-z][a-z0-9-]{0,30}|plugin:plg_[0-9A-HJKMNP-TV-Z]{26})$"
+  description: |
+    Who did something, as `<kind>:<name>`, the same form as the event `actor`:
+    `agent:<name>`, `human:<name>`, `system:<part>` for a daemon part (for example
+    `system:daemon`, `system:disk`), `host:<part>` for the host tool (for example
+    `host:agentsone`), and `plugin:<plugin id>` for a panel plugin token.
+  examples: ["agent:founder"]
+
+Wall:
+  type: string
+  enum: [hard, soft]
+  description: |
+    How strongly a limit holds. `hard` is enforced by the host tool outside the VM and cannot
+    be bypassed from inside. `soft` is enforced by the daemon inside the VM; a root agent can bypass it.
+
+Cursor:
+  type: [string, "null"]
+  description: Opaque cursor for the next page, or null when this is the last page.
+
+Heartbeat:
+  type: object
+  description: Sent every 15 seconds on every stream so clients can detect dead connections.
+  required: [kind, time]
+  properties:
+    kind:
+      type: string
+      const: heartbeat
+    time:
+      $ref: "#/Timestamp"
+
+TaskId:
+  type: string
+  pattern: "^tsk_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Task id, `tsk_` plus a ULID.
+GoalId:
+  type: string
+  pattern: "^gol_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Goal id, `gol_` plus a ULID.
+MessageId:
+  type: string
+  pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Bus message id, `msg_` plus a ULID.
+ChatMessageId:
+  type: string
+  pattern: "^cht_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Chat message id, `cht_` plus a ULID.
+MemoryId:
+  type: string
+  pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Memory record id, `mem_` plus a ULID.
+PluginId:
+  type: string
+  pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Installed plugin id, `plg_` plus a ULID.
+ScheduleId:
+  type: string
+  pattern: "^sch_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Schedule id, `sch_` plus a ULID.
+TriggerId:
+  type: string
+  pattern: "^trg_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Trigger id, `trg_` plus a ULID.
+EventId:
+  type: string
+  pattern: "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Event id, `evt_` plus a ULID.
+EmitterId:
+  type: string
+  pattern: "^emt_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Emitter id, `emt_` plus a ULID.
+AssignmentId:
+  type: string
+  pattern: "^asg_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Router assignment id, `asg_` plus a ULID.
+TokenId:
+  type: string
+  pattern: "^tok_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Token id, `tok_` plus a ULID. The id is not the secret.
+PtyId:
+  type: string
+  pattern: "^pty_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Terminal session id, `pty_` plus a ULID.
+ThemeId:
+  type: string
+  pattern: "^thm_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Installed theme id, `thm_` plus a ULID.
+FreezeId:
+  type: string
+  pattern: "^frz_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Freeze id, `frz_` plus a ULID.
+JobId:
+  type: string
+  pattern: "^job_[0-9A-HJKMNP-TV-Z]{26}$"
+  description: Background job id, `job_` plus a ULID.

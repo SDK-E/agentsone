@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: MIT
+# Org chart.
+
+chart:
+  get:
+    operationId: getChart
+    tags: [chart]
+    summary: Get the org chart
+    description: The whole chart of agents as a tree. Humans are not in the chart.
+    responses:
+      "200":
+        description: The chart.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/chart.yaml#/Chart"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+
+move:
+  post:
+    operationId: moveAgent
+    tags: [chart]
+    summary: Move an agent in the chart
+    description: Moves an agent and its branch under a new manager. Both must be below the caller. Audited.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/chart.yaml#/ChartMove"
+    responses:
+      "200":
+        description: The chart after the move.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/chart.yaml#/Chart"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

@@ -1,0 +1,52 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "source": "mcp-registry",
+        "ref": "io.github.sdk-e/sample-mcp",
+        "name": "sample-mcp",
+        "version": "0.3.1",
+        "summary": "Sample MCP server with a clock and a dice tool, used in the guides.",
+        "kinds": ["mcp-server"],
+        "publisher": "SDK-E",
+        "homepage": "https://github.com/SDK-E/agentsone",
+        "installed": true
+      },
+      {
+        "source": "agent-skills",
+        "ref": "anthropics/skills/pdf",
+        "name": "pdf",
+        "version": "1.2.0",
+        "summary": "Read, fill and create PDF files.",
+        "kinds": ["skill"],
+        "publisher": "Anthropic",
+        "homepage": "https://github.com/anthropics/skills",
+        "installed": true
+      },
+      {
+        "source": "claude-code",
+        "ref": "claude-plugins-official/code-review",
+        "name": "code-review",
+        "version": "1.0.4",
+        "summary": "Review a diff for correctness bugs and suggest fixes.",
+        "kinds": ["skill", "agent-template"],
+        "publisher": "Anthropic",
+        "homepage": null,
+        "installed": false
+      },
+      {
+        "source": "agentsone",
+        "ref": "SDK-E/agentsone/plugins/disk-watch-panel",
+        "name": "disk-watch-panel",
+        "version": "0.1.0",
+        "summary": "Interface panel that charts disk usage per mount.",
+        "kinds": ["panel", "emitter"],
+        "publisher": "SDK-E",
+        "homepage": null,
+        "installed": false
+      }
+    ],
+    "next_cursor": "cGFnZToy"
+  }
+}

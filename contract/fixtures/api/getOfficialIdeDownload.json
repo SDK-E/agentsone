@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "state": "downloading",
+    "progress": 0.42,
+    "version": "1.106.0",
+    "error": null
+  }
+}

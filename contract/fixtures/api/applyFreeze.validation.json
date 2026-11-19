@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "A team or agent freeze needs a target.",
+    "instance": "/v1/host/freezes",
+    "errors": [
+      { "pointer": "/target", "message": "is required when scope is team" }
+    ]
+  }
+}

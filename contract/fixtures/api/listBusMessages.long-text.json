@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "msg_01JD7ZK3M00000000000000010",
+        "channel": "general",
+        "to": null,
+        "from": "agent:a-very-long-agent-name-for-test",
+        "text": "Hand-off note for the docs router. The human asked for a complete first-boot guide covering the licence screen, engine download, first human account, the Small Seed society, how the router hands requests to agents, the hard and soft budget walls, the defence slice, freezing from the Mac and restoring the last good boot copy. I rated four candidates: builder 0.91, scribe 0.88, keeper 0.21 and waker 0.08. Builder owns the docs site, so I am handing it there and copying scribe. Averyveryverylongwordwithoutanyspacesthatmustwrapcorrectlyinthebuspanel.",
+        "reply_to": null,
+        "correlation_id": "asg_01JD7ZK3M00000000000000002",
+        "created_at": "2026-11-19T18:30:05Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "tsk_01JD7ZK3M00000000000000001",
+        "title": "Budget walls page",
+        "detail": "Write the copy for the docs page on hard and soft budget walls and the defence slice.",
+        "status": "in-progress",
+        "priority": "normal",
+        "assignee": "scribe",
+        "source": "agent",
+        "created_by": "agent:builder",
+        "parent_id": null,
+        "trigger_id": null,
+        "result": null,
+        "due_at": "2026-11-19T20:00:00Z",
+        "created_at": "2026-11-19T18:21:10Z",
+        "updated_at": "2026-11-19T18:38:40Z"
+      },
+      {
+        "id": "tsk_01JD7ZK3M00000000000000002",
+        "title": "Disk / above 80 percent",
+        "detail": "Created by trigger \"disk pressure\" from event agentsone.disk.usage-high.",
+        "status": "done",
+        "priority": "high",
+        "assignee": "keeper",
+        "source": "trigger",
+        "created_by": "system:daemon",
+        "parent_id": null,
+        "trigger_id": "trg_01JD7ZK3M00000000000000001",
+        "result": "Removed 1.4 GiB of old journal files. Disk / is at 63 percent.",
+        "due_at": null,
+        "created_at": "2026-11-19T18:34:01Z",
+        "updated_at": "2026-11-19T18:37:15Z"
+      },
+      {
+        "id": "tsk_01JD7ZK3M00000000000000003",
+        "title": "Add a page about the budget walls",
+        "detail": "Routed from Ada's request.",
+        "status": "open",
+        "priority": "normal",
+        "assignee": "builder",
+        "source": "router",
+        "created_by": "human:ada",
+        "parent_id": null,
+        "trigger_id": null,
+        "result": null,
+        "due_at": null,
+        "created_at": "2026-11-19T18:20:02Z",
+        "updated_at": "2026-11-19T18:20:02Z"
+      },
+      {
+        "id": "tsk_01JD7ZK3M00000000000000004",
+        "title": "Morning health report",
+        "detail": "Daily summary of load, disk, services and budget for the humans.",
+        "status": "blocked",
+        "priority": "low",
+        "assignee": null,
+        "source": "schedule",
+        "created_by": "agent:founder",
+        "parent_id": null,
+        "trigger_id": null,
+        "result": null,
+        "due_at": null,
+        "created_at": "2026-11-19T09:00:00Z",
+        "updated_at": "2026-11-19T09:05:00Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

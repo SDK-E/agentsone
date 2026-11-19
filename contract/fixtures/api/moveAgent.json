@@ -1,0 +1,65 @@
+{
+  "status": 200,
+  "body": {
+    "roots": [
+      {
+        "agent": "founder",
+        "display_name": "Founder",
+        "kind": "always-on",
+        "is_root": true,
+        "state": "working",
+        "role": "Founder",
+        "children": [
+          {
+            "agent": "router",
+            "display_name": "Router",
+            "kind": "chat",
+            "is_root": false,
+            "state": "awake",
+            "role": "Router",
+            "children": []
+          },
+          {
+            "agent": "waker",
+            "display_name": "Waker",
+            "kind": "waker",
+            "is_root": false,
+            "state": "sleeping",
+            "role": "Watcher",
+            "children": []
+          },
+          {
+            "agent": "builder",
+            "display_name": "Builder",
+            "kind": "always-on",
+            "is_root": false,
+            "state": "working",
+            "role": "Builder",
+            "children": [
+              {
+                "agent": "scribe",
+                "display_name": "Scribe",
+                "kind": "chat",
+                "is_root": false,
+                "state": "sleeping",
+                "role": "Docs writer",
+                "children": []
+              },
+              {
+                "agent": "keeper",
+                "display_name": "Keeper",
+                "kind": "always-on",
+                "is_root": false,
+                "state": "awake",
+                "role": "Disk and package keeper",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "agent_count": 6,
+    "updated_at": "2026-11-19T18:40:00Z"
+  }
+}

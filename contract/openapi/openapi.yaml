@@ -1,0 +1,341 @@
+# SPDX-License-Identifier: MIT
+openapi: 3.1.1
+info:
+  title: Agents One machine API
+  version: 1.0.0
+  summary: The daemon API every part of Agents One builds against.
+  description: |
+    REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event
+    streams, one WebSocket terminal channel and the machine MCP endpoint.
+
+    ## Callers and identity
+    - **Humans** log in with their Linux password (PAM) and carry the `agentsone_session` cookie.
+    - **Agents** call over the Unix socket `/run/agentsone/api.sock`. The daemon reads the
+      socket peer credentials (`SO_PEERCRED`) and the caller's cgroup `agent@<name>.service`,
+      so several uid-0 root agents stay distinct. No token is needed on the socket.
+    - **Bearer tokens** are scoped: agent tokens (for tools outside the socket) and panel
+      plugin tokens (for sandboxed panel frames).
+    - **The host tool** on the Mac calls the `host` group over vsock only.
+
+    ## Conventions
+    - Times are RFC 3339 in UTC. Ids are a type prefix plus a ULID (`tsk_`, `evt_`, `msg_`,
+      `mem_`, `plg_`, `sch_`, `trg_`, `aud_`, `gol_`, `cht_`, `asg_`, `emt_`, `tok_`, `pty_`,
+      `thm_`, `frz_`, `job_`). Agent and human names are Linux usernames.
+    - Lists use cursor pagination: `cursor` and `limit` in, `{items, next_cursor}` out.
+    - Errors are RFC 9457 `application/problem+json` with stable `urn:agentsone:problem:*` types.
+    - Every limit shown carries `wall`: `hard` (held by the host tool outside the VM) or `soft`
+      (held by the daemon inside the VM; a root agent can bypass it).
+    - Streams are `text/event-stream`. Each SSE message has `id`, `event` equal to the frame
+      `kind`, and `data` holding one JSON frame of the documented schema. A `heartbeat` frame
+      is sent every 15 seconds. Reconnect with `Last-Event-ID`. The `x-stream` extension on
+      each stream names its frame schema.
+  license:
+    name: MIT
+    identifier: MIT
+  contact:
+    name: Agents One
+    url: https://github.com/SDK-E/agentsone
+servers:
+  - url: http://127.0.0.1:7700/v1
+    description: Loopback TCP inside the VM, used by the kiosk interface and the web door.
+  - url: http+unix://%2Frun%2Fagentsone%2Fapi.sock/v1
+    description: |
+      HTTP over the Unix socket `/run/agentsone/api.sock` (percent-encoded socket path as the
+      host, the usual `http+unix` form). Agents use this; they are identified by peer
+      credentials and cgroup, with no token.
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+  - peerCredentials: []
+tags:
+  - name: setup
+    description: First-boot status, first human, Claude engine licence and engine fetch.
+  - name: session
+    description: Human login through PAM, logout, the current caller and token revocation.
+  - name: humans
+    description: Human accounts. Soft wall; the host tool keeps the hard record.
+  - name: agents
+    description: Hire, edit, retire, wake and sleep agents; their one-line, output and chat.
+  - name: chart
+    description: The org chart of agents.
+  - name: charter
+    description: The society's charter and agents' goals.
+  - name: bus
+    description: Messages between agents on channels or direct.
+  - name: router
+    description: Route a human request to the best agent; the live list it rates.
+  - name: tasks
+    description: Work items for agents.
+  - name: schedules
+    description: Agents' own timers.
+  - name: triggers
+    description: Event filters that wake an agent or create a task, with a wake-rate limit.
+  - name: events
+    description: The open event bus, emitters and webhook intake.
+  - name: memory
+    description: Private, team and common memory with full-text search.
+  - name: plugins
+    description: Plugin catalog, install, enable, disable and panel tokens.
+  - name: runners
+    description: Registered runner adapters.
+  - name: budget
+    description: Total budget from the host (hard) and its split down the chart (soft).
+  - name: net
+    description: Internet allow list (read-only, hard) and per-agent network rules (soft).
+  - name: audit
+    description: Hash-chained audit log, chain verification and stream.
+  - name: ide
+    description: Open-source VS Code server per human and the optional official build.
+  - name: themes
+    description: Installed themes and the caller's theme and mode.
+  - name: machine
+    description: Metrics, processes, services, packages, users, files, reboot and terminals.
+  - name: mcp
+    description: The machine MCP server over Streamable HTTP.
+  - name: host
+    description: Door API for the host tool on the Mac, over vsock only.
+paths:
+  /setup:
+    $ref: paths/setup.yaml#/setup
+  /setup/first-human:
+    $ref: paths/setup.yaml#/first-human
+  /setup/engine-licence:
+    $ref: paths/setup.yaml#/engine-licence
+  /setup/engine-fetch:
+    $ref: paths/setup.yaml#/engine-fetch
+  /session:
+    $ref: paths/session.yaml#/session
+  /session/me:
+    $ref: paths/session.yaml#/me
+  /tokens/{token_id}:
+    $ref: paths/session.yaml#/token
+  /humans:
+    $ref: paths/humans.yaml#/humans
+  /humans/{human_name}:
+    $ref: paths/humans.yaml#/human
+  /agents:
+    $ref: paths/agents.yaml#/agents
+  /agents/{agent_name}:
+    $ref: paths/agents.yaml#/agent
+  /agents/{agent_name}/wake:
+    $ref: paths/agents.yaml#/wake
+  /agents/{agent_name}/sleep:
+    $ref: paths/agents.yaml#/sleep
+  /agents/{agent_name}/one-line:
+    $ref: paths/agents.yaml#/one-line
+  /agents/{agent_name}/output:
+    $ref: paths/agents.yaml#/output
+  /agents/{agent_name}/chat:
+    $ref: paths/agents.yaml#/chat
+  /agents/{agent_name}/chat/stream:
+    $ref: paths/agents.yaml#/chat-stream
+  /agents/{agent_name}/tokens:
+    $ref: paths/agents.yaml#/tokens
+  /agent-templates:
+    $ref: paths/agents.yaml#/templates
+  /chart:
+    $ref: paths/chart.yaml#/chart
+  /chart/move:
+    $ref: paths/chart.yaml#/move
+  /charter:
+    $ref: paths/charter.yaml#/charter
+  /goals:
+    $ref: paths/charter.yaml#/goals
+  /goals/{goal_id}:
+    $ref: paths/charter.yaml#/goal
+  /bus/channels:
+    $ref: paths/bus.yaml#/channels
+  /bus/channels/{channel_name}:
+    $ref: paths/bus.yaml#/channel
+  /bus/messages:
+    $ref: paths/bus.yaml#/messages
+  /bus/stream:
+    $ref: paths/bus.yaml#/stream
+  /router/route:
+    $ref: paths/router.yaml#/route
+  /router/assignments/{assignment_id}:
+    $ref: paths/router.yaml#/assignment
+  /router/live:
+    $ref: paths/router.yaml#/live
+  /router/live/stream:
+    $ref: paths/router.yaml#/live-stream
+  /tasks:
+    $ref: paths/tasks.yaml#/tasks
+  /tasks/stream:
+    $ref: paths/tasks.yaml#/stream
+  /tasks/{task_id}:
+    $ref: paths/tasks.yaml#/task
+  /tasks/{task_id}/assign:
+    $ref: paths/tasks.yaml#/assign
+  /tasks/{task_id}/complete:
+    $ref: paths/tasks.yaml#/complete
+  /tasks/{task_id}/cancel:
+    $ref: paths/tasks.yaml#/cancel
+  /schedules:
+    $ref: paths/schedules.yaml#/schedules
+  /schedules/{schedule_id}:
+    $ref: paths/schedules.yaml#/schedule
+  /triggers:
+    $ref: paths/triggers.yaml#/triggers
+  /triggers/{trigger_id}:
+    $ref: paths/triggers.yaml#/trigger
+  /events:
+    $ref: paths/events.yaml#/events
+  /events/stream:
+    $ref: paths/events.yaml#/stream
+  /emitters:
+    $ref: paths/events.yaml#/emitters
+  /emitters/{emitter_id}:
+    $ref: paths/events.yaml#/emitter
+  /emitters/{emitter_id}/enable:
+    $ref: paths/events.yaml#/emitter-enable
+  /emitters/{emitter_id}/disable:
+    $ref: paths/events.yaml#/emitter-disable
+  /webhooks/{emitter_id}:
+    $ref: paths/events.yaml#/webhook
+  /memory:
+    $ref: paths/memory.yaml#/memory
+  /memory/search:
+    $ref: paths/memory.yaml#/search
+  /memory/{memory_id}:
+    $ref: paths/memory.yaml#/record
+  /plugin-sources:
+    $ref: paths/plugins.yaml#/sources
+  /plugin-catalog:
+    $ref: paths/plugins.yaml#/catalog
+  /plugins:
+    $ref: paths/plugins.yaml#/plugins
+  /plugins/{plugin_id}:
+    $ref: paths/plugins.yaml#/plugin
+  /plugins/{plugin_id}/enable:
+    $ref: paths/plugins.yaml#/enable
+  /plugins/{plugin_id}/disable:
+    $ref: paths/plugins.yaml#/disable
+  /plugins/{plugin_id}/panel-token:
+    $ref: paths/plugins.yaml#/panel-token
+  /runners:
+    $ref: paths/runners.yaml#/runners
+  /runners/{runner_name}:
+    $ref: paths/runners.yaml#/runner
+  /budget:
+    $ref: paths/budget.yaml#/budget
+  /budget/split:
+    $ref: paths/budget.yaml#/split
+  /budget/allocations/{agent_name}:
+    $ref: paths/budget.yaml#/allocation
+  /net/allow-list:
+    $ref: paths/net.yaml#/allow-list
+  /net/agents:
+    $ref: paths/net.yaml#/agents
+  /net/agents/{agent_name}:
+    $ref: paths/net.yaml#/agent
+  /audit:
+    $ref: paths/audit.yaml#/audit
+  /audit/verify:
+    $ref: paths/audit.yaml#/verify
+  /audit/stream:
+    $ref: paths/audit.yaml#/stream
+  /ide:
+    $ref: paths/ide.yaml#/ide
+  /ide/servers/{human_name}:
+    $ref: paths/ide.yaml#/server
+  /ide/official:
+    $ref: paths/ide.yaml#/official
+  /themes:
+    $ref: paths/themes.yaml#/themes
+  /themes/{theme_id}:
+    $ref: paths/themes.yaml#/theme
+  /settings/theme:
+    $ref: paths/themes.yaml#/selection
+  /machine/metrics:
+    $ref: paths/machine.yaml#/metrics
+  /machine/processes:
+    $ref: paths/machine.yaml#/processes
+  /machine/processes/{pid}/signal:
+    $ref: paths/machine.yaml#/process-signal
+  /machine/services:
+    $ref: paths/machine.yaml#/services
+  /machine/services/{unit}/start:
+    $ref: paths/machine.yaml#/service-start
+  /machine/services/{unit}/stop:
+    $ref: paths/machine.yaml#/service-stop
+  /machine/services/{unit}/restart:
+    $ref: paths/machine.yaml#/service-restart
+  /machine/packages:
+    $ref: paths/machine.yaml#/packages
+  /machine/packages/{package_name}:
+    $ref: paths/machine.yaml#/package
+  /machine/users:
+    $ref: paths/machine.yaml#/users
+  /machine/files:
+    $ref: paths/machine.yaml#/files
+  /machine/files/content:
+    $ref: paths/machine.yaml#/file-content
+  /machine/power/reboot:
+    $ref: paths/machine.yaml#/reboot
+  /machine/pty:
+    $ref: paths/machine.yaml#/ptys
+  /machine/pty/{pty_id}:
+    $ref: paths/machine.yaml#/pty
+  /machine/pty/{pty_id}/socket:
+    $ref: paths/machine.yaml#/pty-socket
+  /mcp:
+    $ref: paths/mcp.yaml#/mcp
+  /host/health:
+    $ref: paths/host.yaml#/health
+  /host/freezes:
+    $ref: paths/host.yaml#/freezes
+  /host/release:
+    $ref: paths/host.yaml#/release
+  /host/budget:
+    $ref: paths/host.yaml#/budget
+  /host/audit:
+    $ref: paths/host.yaml#/audit
+  /host/audit/ack:
+    $ref: paths/host.yaml#/audit-ack
+  /host/allow-list:
+    $ref: paths/host.yaml#/allow-list
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: agentsone_session
+      description: Human session cookie set by `createSession` after a PAM login. HttpOnly, SameSite=Strict.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: agentsone-token
+      description: |
+        Scoped token: an agent token from `issueAgentToken`, or a panel plugin token from
+        `issuePanelToken`. Scopes are `<group>:<read|write|admin>`.
+    peerCredentials:
+      type: mutualTLS
+      description: |
+        Transport identity on the Unix socket `/run/agentsone/api.sock`. No TLS and no token:
+        the daemon reads `SO_PEERCRED` (pid, uid) and the caller's cgroup, which must be
+        `agent@<name>.service`. Code generators should send nothing for this scheme.
+    hostDoor:
+      type: mutualTLS
+      description: |
+        Transport identity on the door listener (vsock port 7701). Only connections from the
+        host (vsock CID 2) are accepted. No TLS and no token; the `host` group is reachable
+        only this way. Code generators should send nothing for this scheme.
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Agentsone-Signature
+      description: "`sha256=<hex HMAC-SHA256 of the raw body>` using the emitter's webhook secret."
+  schemas:
+    Event:
+      $ref: ../schemas/event.schema.json
+    PluginManifest:
+      $ref: ../schemas/plugin-manifest.schema.json
+    Theme:
+      $ref: ../schemas/theme.schema.json
+    MemoryRecord:
+      $ref: ../schemas/memory-record.schema.json
+    AuditRecord:
+      $ref: ../schemas/audit-record.schema.json
+    AgentTemplate:
+      $ref: ../schemas/agent-template.schema.json

@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: MIT
+# Shared parameters.
+
+Cursor:
+  name: cursor
+  in: query
+  required: false
+  description: Opaque cursor from a previous page's `next_cursor`.
+  schema:
+    type: string
+    maxLength: 512
+Limit:
+  name: limit
+  in: query
+  required: false
+  description: Page size.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 200
+    default: 50
+LastEventId:
+  name: Last-Event-ID
+  in: header
+  required: false
+  description: Resume a stream after this SSE `id`. Frames newer than it are replayed when still buffered.
+  schema:
+    type: string
+    maxLength: 128
+AgentName:
+  name: agent_name
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/AgentName"
+HumanName:
+  name: human_name
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/HumanName"
+TaskId:
+  name: task_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/TaskId"
+GoalId:
+  name: goal_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/GoalId"
+ChannelName:
+  name: channel_name
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/bus.yaml#/ChannelName"
+AssignmentId:
+  name: assignment_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/AssignmentId"
+ScheduleId:
+  name: schedule_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/ScheduleId"
+TriggerId:
+  name: trigger_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/TriggerId"
+EmitterId:
+  name: emitter_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/EmitterId"
+MemoryId:
+  name: memory_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/MemoryId"
+PluginId:
+  name: plugin_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/PluginId"
+RunnerName:
+  name: runner_name
+  in: path
+  required: true
+  schema:
+    type: string
+    pattern: "^[a-z][a-z0-9-]{0,62}$"
+ThemeId:
+  name: theme_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/ThemeId"
+TokenId:
+  name: token_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/TokenId"
+Pid:
+  name: pid
+  in: path
+  required: true
+  schema:
+    type: integer
+    minimum: 1
+Unit:
+  name: unit
+  in: path
+  required: true
+  description: systemd unit name including its suffix.
+  schema:
+    type: string
+    pattern: '^[A-Za-z0-9@._:-]+\.(service|timer|socket|target|mount|path)$'
+PackageName:
+  name: package_name
+  in: path
+  required: true
+  schema:
+    type: string
+    pattern: "^[a-z0-9][a-z0-9+.-]+$"
+FilePath:
+  name: path
+  in: query
+  required: true
+  description: Absolute path inside the VM.
+  schema:
+    type: string
+    pattern: "^/"
+    maxLength: 4096
+PtyId:
+  name: pty_id
+  in: path
+  required: true
+  schema:
+    $ref: "./schemas/common.yaml#/PtyId"
+McpSessionId:
+  name: Mcp-Session-Id
+  in: header
+  required: false
+  description: MCP session id returned by the `initialize` response. Required after initialization.
+  schema:
+    type: string
+    maxLength: 128
+McpProtocolVersion:
+  name: MCP-Protocol-Version
+  in: header
+  required: false
+  description: MCP protocol revision negotiated at `initialize`.
+  schema:
+    type: string
+    examples: ["2025-06-18"]

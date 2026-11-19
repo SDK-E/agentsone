@@ -1,0 +1,226 @@
+# SPDX-License-Identifier: MIT
+# Budget (total from host, split down the chart) and network rules.
+# Money is integer micro-units of `currency` (1 USD = 1000000).
+
+BudgetState:
+  type: string
+  enum: [ok, low, exhausted]
+  description: "`exhausted` means model calls fail; agents resume where they stopped when budget returns."
+
+DefenceSlice:
+  type: object
+  description: Budget reserved for wakers and security work. The human can switch it off on the host.
+  required: [enabled, reserved_micros, spent_micros, wall]
+  properties:
+    enabled:
+      type: boolean
+    reserved_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    spent_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    wall:
+      $ref: "./common.yaml#/Wall"
+
+Budget:
+  type: object
+  description: |
+    The human's total budget as pushed by the host gateway. The total is a HARD wall: the
+    gateway on the Mac refuses model calls past it, whatever happens inside the VM.
+  required:
+    [
+      currency,
+      total_micros,
+      spent_micros,
+      remaining_micros,
+      state,
+      wall,
+      defence,
+      period_start,
+      period_end,
+      check_interval_seconds,
+      as_of,
+    ]
+  properties:
+    currency:
+      type: string
+      pattern: "^[A-Z]{3}$"
+      examples: [USD]
+    total_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    spent_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    remaining_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    state:
+      $ref: "#/BudgetState"
+    wall:
+      type: string
+      const: hard
+    defence:
+      $ref: "#/DefenceSlice"
+    period_start:
+      $ref: "./common.yaml#/Timestamp"
+    period_end:
+      $ref: "./common.yaml#/Timestamp"
+    check_interval_seconds:
+      type: integer
+      minimum: 1
+      description: How often the gateway checks usage in chunks.
+    as_of:
+      $ref: "./common.yaml#/Timestamp"
+      description: When the host last pushed this state.
+
+BudgetNode:
+  type: object
+  description: |
+    One agent's share. The split is a SOFT wall: the daemon enforces it inside the VM, and a
+    root agent can bypass it. Only the total is hard.
+  required: [agent, manager, allocated_micros, spent_micros, remaining_micros, state, wall]
+  properties:
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    manager:
+      type: [string, "null"]
+      pattern: "^[a-z][a-z0-9-]{0,30}$"
+    allocated_micros:
+      type: [integer, "null"]
+      format: int64
+      minimum: 0
+      description: Soft allocation set by the manager; null means "share the manager's remainder".
+    spent_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    remaining_micros:
+      type: integer
+      format: int64
+      minimum: 0
+    state:
+      $ref: "#/BudgetState"
+    wall:
+      type: string
+      const: soft
+
+BudgetSplit:
+  type: object
+  required: [currency, nodes, as_of]
+  properties:
+    currency:
+      type: string
+      pattern: "^[A-Z]{3}$"
+    nodes:
+      type: array
+      description: Every agent, parents before children.
+      items:
+        $ref: "#/BudgetNode"
+    as_of:
+      $ref: "./common.yaml#/Timestamp"
+
+BudgetAllocationSet:
+  type: object
+  additionalProperties: false
+  required: [allocated_micros]
+  properties:
+    allocated_micros:
+      type: [integer, "null"]
+      format: int64
+      minimum: 0
+      description: New soft allocation, or null to share the manager's remainder.
+
+AllowEntry:
+  type: object
+  required: [domain, reason]
+  properties:
+    domain:
+      type: string
+      pattern: '^(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
+      description: Domain name; a leading `*.` allows subdomains.
+      examples: [api.anthropic.com]
+    reason:
+      type: string
+      maxLength: 200
+
+AllowList:
+  type: object
+  description: |
+    Internet allow list owned by the host tool. HARD wall: the host network stack answers DNS
+    only for these names. Read-only inside the VM; humans change it on the host.
+  required: [version, entries, wall, read_only, as_of]
+  properties:
+    version:
+      type: integer
+      minimum: 0
+    entries:
+      type: array
+      items:
+        $ref: "#/AllowEntry"
+    wall:
+      type: string
+      const: hard
+    read_only:
+      type: boolean
+      const: true
+    as_of:
+      $ref: "./common.yaml#/Timestamp"
+
+NetMode:
+  type: string
+  enum: [inherit, allow-only, deny-all]
+  description: "`inherit` uses the whole allow list; `allow-only` narrows it to `allow`; `deny-all` blocks the agent's traffic."
+
+AgentNetRules:
+  type: object
+  description: Per-agent narrowing of the allow list, enforced by nftables by uid inside the VM. SOFT wall.
+  required: [agent, mode, allow, wall, updated_at, updated_by]
+  properties:
+    agent:
+      $ref: "./common.yaml#/AgentName"
+    mode:
+      $ref: "#/NetMode"
+    allow:
+      type: array
+      items:
+        type: string
+        maxLength: 253
+    wall:
+      type: string
+      const: soft
+    updated_at:
+      $ref: "./common.yaml#/Timestamp"
+    updated_by:
+      $ref: "./common.yaml#/Actor"
+
+AgentNetRulesList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AgentNetRules"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+AgentNetRulesSet:
+  type: object
+  additionalProperties: false
+  required: [mode]
+  properties:
+    mode:
+      $ref: "#/NetMode"
+    allow:
+      type: array
+      maxItems: 200
+      items:
+        type: string
+        maxLength: 253

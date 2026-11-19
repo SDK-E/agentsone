@@ -1,0 +1,63 @@
+{
+  "status": 200,
+  "body": {
+    "currency": "USD",
+    "nodes": [
+      {
+        "agent": "founder",
+        "manager": null,
+        "allocated_micros": 45000000,
+        "spent_micros": 3120000,
+        "remaining_micros": 32040000,
+        "state": "ok",
+        "wall": "soft"
+      },
+      {
+        "agent": "router",
+        "manager": "founder",
+        "allocated_micros": 3000000,
+        "spent_micros": 640000,
+        "remaining_micros": 2360000,
+        "state": "ok",
+        "wall": "soft"
+      },
+      {
+        "agent": "waker",
+        "manager": "founder",
+        "allocated_micros": null,
+        "spent_micros": 410000,
+        "remaining_micros": 32040000,
+        "state": "ok",
+        "wall": "soft"
+      },
+      {
+        "agent": "builder",
+        "manager": "founder",
+        "allocated_micros": 15000000,
+        "spent_micros": 6900000,
+        "remaining_micros": 8100000,
+        "state": "ok",
+        "wall": "soft"
+      },
+      {
+        "agent": "scribe",
+        "manager": "builder",
+        "allocated_micros": 2000000,
+        "spent_micros": 1770000,
+        "remaining_micros": 230000,
+        "state": "low",
+        "wall": "soft"
+      },
+      {
+        "agent": "keeper",
+        "manager": "founder",
+        "allocated_micros": 5000000,
+        "spent_micros": 0,
+        "remaining_micros": 5000000,
+        "state": "ok",
+        "wall": "soft"
+      }
+    ],
+    "as_of": "2026-11-19T12:44:00Z"
+  }
+}

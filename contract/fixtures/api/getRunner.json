@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "body": {
+    "name": "claude",
+    "display_name": "Claude",
+    "version": "1.0.0",
+    "protocol_version": "1.0.0",
+    "builtin": true,
+    "plugin_id": null,
+    "model": "autoagents/one",
+    "status": "ready",
+    "description": "Runs the Claude engine fetched at first boot. Routed to Claude models only."
+  }
+}

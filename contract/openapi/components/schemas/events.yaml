@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: MIT
+# Events, emitters and webhook intake. The event envelope itself is Ben's event.schema.json.
+
+EventList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "../../../schemas/event.schema.json"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+EventPublish:
+  type: object
+  additionalProperties: false
+  description: |
+    Publish an event. The daemon fills `id`, `time`, `sequence`, `actor` (the caller) and
+    `source` (`/agents/<name>` unless the caller owns a registered emitter named in `source`).
+  required: [type, data]
+  properties:
+    type:
+      type: string
+      pattern: '^[a-z0-9]+(\.[a-z0-9-]+)+$'
+      maxLength: 200
+      examples: [agentsone.agents.report-ready]
+    source:
+      type: string
+      maxLength: 200
+    subject:
+      type: string
+      maxLength: 500
+    data:
+      type: object
+      description: Event payload, at most 64 KiB once encoded.
+    causationid:
+      $ref: "./common.yaml#/EventId"
+    correlationid:
+      type: string
+      maxLength: 200
+
+EventFrame:
+  type: object
+  required: [kind, event]
+  properties:
+    kind:
+      type: string
+      const: event
+    event:
+      $ref: "../../../schemas/event.schema.json"
+
+EventStreamFrame:
+  oneOf:
+    - $ref: "#/EventFrame"
+    - $ref: "./common.yaml#/Heartbeat"
+  discriminator:
+    propertyName: kind
+    mapping:
+      event: "#/EventFrame"
+      heartbeat: "./common.yaml#/Heartbeat"
+
+EmitterKind:
+  type: string
+  enum: [builtin, process, webhook]
+  description: |
+    `builtin` runs inside the daemon (auth, services, disk, load, files, git, agents, clock, webhooks);
+    `process` runs as `emitter@<id>.service`; `webhook` turns signed HTTP posts into events.
+
+Emitter:
+  type: object
+  required:
+    [
+      id,
+      name,
+      kind,
+      description,
+      event_types,
+      enabled,
+      unit,
+      owner,
+      plugin_id,
+      webhook_path,
+      created_at,
+      last_event_at,
+    ]
+  properties:
+    id:
+      $ref: "./common.yaml#/EmitterId"
+    name:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+      examples: [disk]
+    kind:
+      $ref: "#/EmitterKind"
+    description:
+      type: string
+      maxLength: 500
+    event_types:
+      type: array
+      description: Event types this emitter may publish. Patterns end in `*`.
+      items:
+        type: string
+        maxLength: 200
+    enabled:
+      type: boolean
+    unit:
+      type: [string, "null"]
+      description: "`emitter@<id>.service` for `process` emitters, null otherwise."
+    owner:
+      $ref: "./common.yaml#/Actor"
+    plugin_id:
+      type: [string, "null"]
+      pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
+    webhook_path:
+      type: [string, "null"]
+      description: Intake path for `webhook` emitters, for example `/v1/webhooks/emt_...`.
+    created_at:
+      $ref: "./common.yaml#/Timestamp"
+    last_event_at:
+      type: [string, "null"]
+      format: date-time
+
+EmitterList:
+  type: object
+  required: [items, next_cursor]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Emitter"
+    next_cursor:
+      $ref: "./common.yaml#/Cursor"
+
+EmitterRegister:
+  type: object
+  additionalProperties: false
+  description: Register a new emitter. `process` needs `command`; `webhook` returns its secret once in the response.
+  required: [name, kind, description, event_types]
+  properties:
+    name:
+      type: string
+      pattern: "^[a-z][a-z0-9-]{0,62}$"
+    kind:
+      type: string
+      enum: [process, webhook]
+    description:
+      type: string
+      maxLength: 500
+    event_types:
+      type: array
+      minItems: 1
+      items:
+        type: string
+        maxLength: 200
+    command:
+      type: array
+      description: Program and arguments for `emitter@<id>.service`. It prints one event JSON per line.
+      items:
+        type: string
+
+EmitterRegistered:
+  type: object
+  required: [emitter, webhook_secret]
+  properties:
+    emitter:
+      $ref: "#/Emitter"
+    webhook_secret:
+      type: [string, "null"]
+      description: HMAC-SHA256 secret for `webhook` emitters. Shown once. Null for other kinds.
+
+WebhookAccepted:
+  type: object
+  required: [event_id]
+  properties:
+    event_id:
+      $ref: "./common.yaml#/EventId"

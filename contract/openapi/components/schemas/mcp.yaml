@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# Machine MCP over Streamable HTTP. Bodies are JSON-RPC 2.0 messages defined by MCP.
+
+JsonRpcError:
+  type: object
+  required: [code, message]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      description: Extra error data defined by MCP.
+
+JsonRpcMessage:
+  type: object
+  additionalProperties: false
+  description: |
+    One JSON-RPC 2.0 message: a request (`id` + `method`), a notification (`method`, no `id`)
+    or a response (`id` + `result` or `error`). The MCP specification defines methods and params.
+  required: [jsonrpc]
+  properties:
+    jsonrpc:
+      type: string
+      const: "2.0"
+    id:
+      type: [string, integer]
+    method:
+      type: string
+      examples: [tools/call]
+    params:
+      type: object
+    result:
+      type: object
+    error:
+      $ref: "#/JsonRpcError"

@@ -1,0 +1,10 @@
+{
+  "status": 201,
+  "body": {
+    "name": "ada",
+    "display_name": "Ada Lovelace",
+    "uid": 1000,
+    "created_at": "2026-11-19T07:59:12Z",
+    "last_login_at": null
+  }
+}

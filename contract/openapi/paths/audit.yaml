@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: MIT
+audit:
+  get:
+    operationId: listAuditRecords
+    tags: [audit]
+    summary: List audit records
+    description: Lists audit records in sequence order. Records from inside the VM are hash-chained testimony.
+    parameters:
+      - name: actor
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/common.yaml#/Actor"
+      - name: action
+        in: query
+        required: false
+        description: Action name; trailing `*` allowed.
+        schema:
+          type: string
+          maxLength: 200
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of audit records.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/audit.yaml#/AuditList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+verify:
+  post:
+    operationId: verifyAuditChain
+    tags: [audit]
+    summary: Verify the audit chain
+    description: Re-hashes the chain in the given range and reports the first break. Compare the head hash with the host's copy for proof.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/audit.yaml#/AuditVerifyRequest"
+    responses:
+      "200":
+        description: The verification result.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/audit.yaml#/AuditVerification"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+stream:
+  get:
+    operationId: streamAudit
+    tags: [audit]
+    summary: Stream audit records
+    description: Streams new audit records as Server-Sent Events.
+    x-stream:
+      protocol: sse
+      frame: AuditStreamFrame
+      heartbeat_seconds: 15
+    parameters:
+      - $ref: "../components/parameters.yaml#/LastEventId"
+    responses:
+      "200":
+        description: An SSE stream of audit frames.
+        content:
+          text/event-stream:
+            schema:
+              $ref: "../components/schemas/audit.yaml#/AuditStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

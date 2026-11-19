@@ -1,0 +1,13 @@
+{
+  "status": 201,
+  "body": {
+    "id": "gol_01JD7ZK3M00000000000000004",
+    "owner": "scribe",
+    "title": "Write the budget walls page",
+    "detail": "Explain hard and soft walls and the defence slice in plain words.",
+    "status": "open",
+    "parent_id": "gol_01JD7ZK3M00000000000000002",
+    "created_at": "2026-11-19T18:40:00Z",
+    "updated_at": "2026-11-19T18:40:00Z"
+  }
+}

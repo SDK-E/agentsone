@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Theme in use",
+    "status": 409,
+    "detail": "The built-in Agents One Theme cannot be deleted, and a theme someone has selected cannot be deleted.",
+    "instance": "/v1/themes/thm_01JD7ZK3M00000000000000001"
+  }
+}

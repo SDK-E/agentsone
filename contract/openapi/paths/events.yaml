@@ -1,0 +1,270 @@
+# SPDX-License-Identifier: MIT
+events:
+  get:
+    operationId: listEvents
+    tags: [events]
+    summary: Query events
+    description: Queries stored events, oldest first. All filters combine; `type` and `source` accept a trailing `*`.
+    parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+      - name: subject
+        in: query
+        required: false
+        description: Subject prefix.
+        schema:
+          type: string
+          maxLength: 500
+      - name: actor
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/common.yaml#/Actor"
+      - name: since
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/common.yaml#/Timestamp"
+      - name: until
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/common.yaml#/Timestamp"
+      - name: after_sequence
+        in: query
+        required: false
+        description: Only events with a larger `sequence`.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of events.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/EventList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: publishEvent
+    tags: [events]
+    summary: Publish an event
+    description: Publishes an event on the open bus. The daemon fills id, time, sequence, actor and source, then runs matching triggers.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/events.yaml#/EventPublish"
+    responses:
+      "201":
+        description: The stored event.
+        content:
+          application/json:
+            schema:
+              $ref: "../../schemas/event.schema.json"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+stream:
+  get:
+    operationId: streamEvents
+    tags: [events]
+    summary: Stream events
+    description: Streams new events as Server-Sent Events. Repeat `type` to match several types.
+    x-stream:
+      protocol: sse
+      frame: EventStreamFrame
+      heartbeat_seconds: 15
+    parameters:
+      - name: type
+        in: query
+        required: false
+        description: Event type filter; trailing `*` allowed; repeatable.
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+      - $ref: "../components/parameters.yaml#/LastEventId"
+    responses:
+      "200":
+        description: An SSE stream of event frames.
+        content:
+          text/event-stream:
+            schema:
+              $ref: "../components/schemas/events.yaml#/EventStreamFrame"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+emitters:
+  get:
+    operationId: listEmitters
+    tags: [events]
+    summary: List emitters
+    description: |
+      Lists event emitters. Built-in emitters are auth, services, disk, load, files, git, agents,
+      clock and webhooks; agents and plugins register more.
+    parameters:
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of emitters.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/EmitterList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: registerEmitter
+    tags: [events]
+    summary: Register an emitter
+    description: Registers a process or webhook emitter owned by the caller. A webhook emitter's secret is returned once.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/events.yaml#/EmitterRegister"
+    responses:
+      "201":
+        description: The registered emitter.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/EmitterRegistered"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+emitter:
+  parameters:
+    - $ref: "../components/parameters.yaml#/EmitterId"
+  get:
+    operationId: getEmitter
+    tags: [events]
+    summary: Get an emitter
+    description: Returns one emitter.
+    responses:
+      "200":
+        description: The emitter.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+emitter-enable:
+  parameters:
+    - $ref: "../components/parameters.yaml#/EmitterId"
+  post:
+    operationId: enableEmitter
+    tags: [events]
+    summary: Enable an emitter
+    description: Turns an emitter on. Process emitters start their `emitter@<id>.service` unit.
+    responses:
+      "200":
+        description: The emitter, now enabled.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+emitter-disable:
+  parameters:
+    - $ref: "../components/parameters.yaml#/EmitterId"
+  post:
+    operationId: disableEmitter
+    tags: [events]
+    summary: Disable an emitter
+    description: Turns an emitter off. Process emitters stop their unit; webhook intake returns 404.
+    responses:
+      "200":
+        description: The emitter, now disabled.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/Emitter"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+webhook:
+  parameters:
+    - $ref: "../components/parameters.yaml#/EmitterId"
+  post:
+    operationId: receiveWebhook
+    tags: [events]
+    summary: Receive a webhook
+    description: |
+      Intake for a webhook emitter. The body is the foreign sender's JSON payload, so any object
+      is accepted (at most 1 MiB). It becomes the `data` of one event from this emitter.
+    security:
+      - webhookSignature: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Foreign payload; any properties.
+    responses:
+      "202":
+        description: Accepted and published as an event.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/events.yaml#/WebhookAccepted"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"

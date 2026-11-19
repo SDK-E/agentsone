@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: MIT
+# First-boot setup.
+
+setup:
+  get:
+    operationId: getSetupStatus
+    tags: [setup]
+    summary: Get first-boot status
+    description: Where first boot stands. Open to anyone on loopback so the kiosk can show the right first screen.
+    security: []
+    responses:
+      "200":
+        description: Current setup status.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/setup.yaml#/SetupStatus"
+      "429":
+        $ref: "../components/responses.yaml#/TooManyRequests"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+
+first-human:
+  post:
+    operationId: createFirstHuman
+    tags: [setup]
+    summary: Create the first human
+    description: |
+      Creates the first human as a Linux user with a PAM password. Works only once; afterwards
+      returns 409 `setup-complete`. Human accounts are a soft wall.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/setup.yaml#/FirstHumanCreate"
+    responses:
+      "201":
+        description: The first human was created.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+
+engine-licence:
+  get:
+    operationId: getEngineLicence
+    tags: [setup]
+    summary: Get the Claude engine licence
+    description: Licence text shown on screen before the Claude engine is downloaded.
+    responses:
+      "200":
+        description: Licence text and acceptance state.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/setup.yaml#/EngineLicence"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: acceptEngineLicence
+    tags: [setup]
+    summary: Accept the Claude engine licence
+    description: A human accepts the licence version they read. The engine download starts right away.
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/setup.yaml#/LicenceAccept"
+    responses:
+      "202":
+        description: Accepted; the engine fetch is queued.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/setup.yaml#/EngineFetchStatus"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+
+engine-fetch:
+  get:
+    operationId: getEngineFetchStatus
+    tags: [setup]
+    summary: Get the engine download status
+    description: Progress of the Claude engine download that follows licence acceptance.
+    responses:
+      "200":
+        description: Engine fetch status.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/setup.yaml#/EngineFetchStatus"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"

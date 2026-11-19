@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: MIT
+# IDE: open-source VS Code server per human, optional official build download.
+
+IdeServerState:
+  type: string
+  enum: [stopped, starting, running, failed]
+
+IdeServer:
+  type: object
+  required: [human, state, url, started_at, error]
+  properties:
+    human:
+      $ref: "./common.yaml#/HumanName"
+    state:
+      $ref: "#/IdeServerState"
+    url:
+      type: [string, "null"]
+      description: Loopback path served through the daemon proxy, for example `/ide/ada/`. Null unless running.
+    started_at:
+      type: [string, "null"]
+      format: date-time
+    error:
+      type: [string, "null"]
+
+OfficialIdeState:
+  type: string
+  enum: [not-requested, downloading, ready, failed]
+
+OfficialIdeDownload:
+  type: object
+  description: Optional download of the official VS Code build, after the human accepts its licence.
+  required: [state, progress, version, error]
+  properties:
+    state:
+      $ref: "#/OfficialIdeState"
+    progress:
+      type: number
+      minimum: 0
+      maximum: 1
+    version:
+      type: [string, "null"]
+    error:
+      type: [string, "null"]
+
+IdeStatus:
+  type: object
+  required: [build, version, active_build, official, servers]
+  properties:
+    build:
+      type: string
+      description: Baked-in open-source build name.
+      examples: [code-oss]
+    version:
+      type: string
+    active_build:
+      type: string
+      enum: [open, official]
+    official:
+      $ref: "#/OfficialIdeDownload"
+    servers:
+      type: array
+      items:
+        $ref: "#/IdeServer"
+
+OfficialIdeRequest:
+  type: object
+  additionalProperties: false
+  required: [accept_licence]
+  properties:
+    accept_licence:
+      type: boolean
+      const: true
+      description: The human accepts the official VS Code licence shown in the interface.

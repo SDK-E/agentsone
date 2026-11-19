@@ -1,0 +1,10 @@
+{
+  "status": 429,
+  "body": {
+    "type": "urn:agentsone:problem:rate-limited",
+    "title": "Too many wakes",
+    "status": 429,
+    "detail": "keeper was woken 10 times in the last 60 seconds. Retry after 30 seconds.",
+    "instance": "/v1/agents/keeper/wake"
+  }
+}

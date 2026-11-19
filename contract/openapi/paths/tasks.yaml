@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: MIT
+# Tasks.
+
+tasks:
+  get:
+    operationId: listTasks
+    tags: [tasks]
+    summary: List tasks
+    description: Tasks, newest first, filtered by status, assignee or source.
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/tasks.yaml#/TaskStatus"
+      - name: assignee
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/common.yaml#/AgentName"
+      - name: source
+        in: query
+        required: false
+        schema:
+          $ref: "../components/schemas/tasks.yaml#/TaskSource"
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of tasks.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/TaskList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: createTask
+    tags: [tasks]
+    summary: Create a task
+    description: Creates a task. Assigning it wakes a sleeping assignee.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TaskCreate"
+    responses:
+      "201":
+        description: Created.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
+
+stream:
+  get:
+    operationId: streamTasks
+    tags: [tasks]
+    summary: Stream task updates
+    description: Task creations and changes as Server-Sent Events.
+    parameters:
+      - $ref: "../components/parameters.yaml#/LastEventId"
+    x-stream:
+      protocol: sse
+      frame: TaskStreamFrame
+      heartbeat_seconds: 15
+    responses:
+      "200":
+        description: Event stream of `TaskStreamFrame`.
+        content:
+          text/event-stream:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/TaskStreamFrame"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+
+task:
+  parameters:
+    - $ref: "../components/parameters.yaml#/TaskId"
+  get:
+    operationId: getTask
+    tags: [tasks]
+    summary: Get a task
+    description: One task.
+    responses:
+      "200":
+        description: The task.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  patch:
+    operationId: updateTask
+    tags: [tasks]
+    summary: Edit a task
+    description: |
+      Edits a task's wording and priority. The creator, the assignee or an agent above either
+      may edit. Assigning and finishing have rules, so they are the actions `assignTask` and
+      `completeTask`, not edits.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TaskUpdate"
+    responses:
+      "200":
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+
+assign:
+  parameters:
+    - $ref: "../components/parameters.yaml#/TaskId"
+  post:
+    operationId: assignTask
+    tags: [tasks]
+    summary: Assign a task
+    description: |
+      Gives the task to an agent and wakes it if it sleeps. A caller may assign to itself or to
+      an agent below it; humans may assign to any agent. Frozen agents cannot take tasks.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TaskAssign"
+    responses:
+      "200":
+        description: Assigned.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "423":
+        $ref: "../components/responses.yaml#/Locked"
+
+complete:
+  parameters:
+    - $ref: "../components/parameters.yaml#/TaskId"
+  post:
+    operationId: completeTask
+    tags: [tasks]
+    summary: Complete a task
+    description: |
+      The assignee reports the outcome: `done` or `failed`, with a result text. Only the
+      assignee may complete; a task that is already closed returns 409.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/tasks.yaml#/TaskCompletion"
+    responses:
+      "200":
+        description: Completed.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+
+cancel:
+  parameters:
+    - $ref: "../components/parameters.yaml#/TaskId"
+  post:
+    operationId: cancelTask
+    tags: [tasks]
+    summary: Cancel a task
+    description: Sets the task to `cancelled` and tells the assignee's runner to stop work on it.
+    responses:
+      "200":
+        description: Cancelled.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/tasks.yaml#/Task"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

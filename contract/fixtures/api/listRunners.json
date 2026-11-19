@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "echo",
+        "display_name": "Echo",
+        "version": "1.0.0",
+        "protocol_version": "1.0.0",
+        "builtin": true,
+        "plugin_id": null,
+        "model": null,
+        "status": "ready",
+        "description": "Repeats what it receives. Costs nothing; doubles as the runner protocol conformance test."
+      },
+      {
+        "name": "openai",
+        "display_name": "OpenAI-compatible",
+        "version": "1.0.0",
+        "protocol_version": "1.0.0",
+        "builtin": true,
+        "plugin_id": null,
+        "model": "autoagents/one",
+        "status": "ready",
+        "description": "Talks to any OpenAI-compatible provider through the host gateway."
+      },
+      {
+        "name": "claude",
+        "display_name": "Claude",
+        "version": "1.0.0",
+        "protocol_version": "1.0.0",
+        "builtin": true,
+        "plugin_id": null,
+        "model": "autoagents/one",
+        "status": "ready",
+        "description": "Runs the Claude engine fetched at first boot. Routed to Claude models only."
+      }
+    ],
+    "next_cursor": null
+  }
+}

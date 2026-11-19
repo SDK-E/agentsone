@@ -1,0 +1,12 @@
+{
+  "status": 202,
+  "body": {
+    "state": "queued",
+    "progress": 0,
+    "bytes_done": 0,
+    "bytes_total": null,
+    "version": null,
+    "error": null,
+    "updated_at": "2026-11-19T08:00:01Z"
+  }
+}

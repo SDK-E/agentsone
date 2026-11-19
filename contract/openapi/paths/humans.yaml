@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: MIT
+# Human accounts.
+
+humans:
+  get:
+    operationId: listHumans
+    tags: [humans]
+    summary: List humans
+    description: Human accounts on this machine.
+    parameters:
+      - $ref: "../components/parameters.yaml#/Cursor"
+      - $ref: "../components/parameters.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of humans.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/session.yaml#/HumanList"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+  post:
+    operationId: createHuman
+    tags: [humans]
+    summary: Create a human
+    description: |
+      Human-only. Creates a Linux user with a PAM password. Soft wall: a root agent could change
+      Linux accounts, so the host tool keeps the hard record.
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/session.yaml#/HumanCreate"
+    responses:
+      "201":
+        description: Created.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+
+human:
+  parameters:
+    - $ref: "../components/parameters.yaml#/HumanName"
+  get:
+    operationId: getHuman
+    tags: [humans]
+    summary: Get a human
+    description: One human account.
+    responses:
+      "200":
+        description: The human.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/session.yaml#/Human"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  patch:
+    operationId: updateHuman
+    tags: [humans]
+    summary: Edit a human
+    description: Human-only. Changes display name or password. Soft wall.
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/session.yaml#/HumanUpdate"
+    responses:
+      "200":
+        description: Updated.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/session.yaml#/Human"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+  delete:
+    operationId: deleteHuman
+    tags: [humans]
+    summary: Delete a human
+    description: Human-only. Removes the Linux user; the last human cannot be deleted (409). Soft wall.
+    security:
+      - cookieAuth: []
+    responses:
+      "204":
+        description: Deleted.
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"

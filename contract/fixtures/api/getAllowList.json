@@ -1,0 +1,35 @@
+{
+  "status": 200,
+  "body": {
+    "version": 3,
+    "entries": [
+      {
+        "domain": "api.anthropic.com",
+        "reason": "Claude engine model calls through the host gateway."
+      },
+      {
+        "domain": "*.anthropic.com",
+        "reason": "Claude engine download hosts."
+      },
+      {
+        "domain": "deb.debian.org",
+        "reason": "Debian packages."
+      },
+      {
+        "domain": "registry.npmjs.org",
+        "reason": "npm packages for agents' projects."
+      },
+      {
+        "domain": "github.com",
+        "reason": "Plugin sources and repositories."
+      },
+      {
+        "domain": "registry.modelcontextprotocol.io",
+        "reason": "MCP registry plugin source."
+      }
+    ],
+    "wall": "hard",
+    "read_only": true,
+    "as_of": "2026-11-19T08:00:05Z"
+  }
+}

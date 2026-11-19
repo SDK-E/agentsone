@@ -1,0 +1,19 @@
+{
+  "status": 201,
+  "body": {
+    "specversion": "1.0",
+    "id": "evt_01JD7ZK3M00000000000000007",
+    "source": "/agents/scribe",
+    "type": "agentsone.agents.report-ready",
+    "time": "2026-11-19T11:30:00Z",
+    "datacontenttype": "application/json",
+    "subject": "mem_01JD7ZK3M00000000000000004",
+    "data": {
+      "title": "Disk clean-up summary",
+      "memory_id": "mem_01JD7ZK3M00000000000000004"
+    },
+    "sequence": "00000000000000000007",
+    "actor": "agent:scribe",
+    "chartscope": "team:builder"
+  }
+}

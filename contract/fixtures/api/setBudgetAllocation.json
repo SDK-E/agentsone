@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "agent": "scribe",
+    "manager": "builder",
+    "allocated_micros": 4000000,
+    "spent_micros": 1770000,
+    "remaining_micros": 2230000,
+    "state": "ok",
+    "wall": "soft"
+  }
+}

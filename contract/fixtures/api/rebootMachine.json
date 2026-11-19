@@ -1,0 +1,9 @@
+{
+  "status": 202,
+  "body": {
+    "action": "reboot",
+    "reason": "Kernel update installed; reboot to load it.",
+    "requested_by": "agent:founder",
+    "at": "2026-11-19T12:48:10Z"
+  }
+}

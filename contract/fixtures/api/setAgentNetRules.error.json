@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:not-below-you",
+    "title": "Agent is not below you",
+    "status": 403,
+    "detail": "scribe cannot change network rules for keeper, who is not below it.",
+    "instance": "/v1/net/agents/keeper"
+  }
+}

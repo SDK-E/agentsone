@@ -1,0 +1,14 @@
+{
+  "status": 201,
+  "body": {
+    "id": "pty_01JD7ZK3M00000000000000003",
+    "user": "ada",
+    "command": ["/bin/bash", "-l"],
+    "cols": 120,
+    "rows": 32,
+    "socket_path": "/v1/machine/pty/pty_01JD7ZK3M00000000000000003/socket",
+    "created_at": "2026-11-19T12:49:00Z",
+    "exited": false,
+    "exit_code": null
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/home/agents/keeper/inbox",
+    "items": [],
+    "next_cursor": null
+  }
+}

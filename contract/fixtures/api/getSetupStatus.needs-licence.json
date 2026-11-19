@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "body": {
+    "phase": "needs-licence",
+    "first_human_created": true,
+    "licence_accepted": false,
+    "engine": {
+      "state": "waiting-licence",
+      "progress": 0,
+      "bytes_done": 0,
+      "bytes_total": null,
+      "version": null,
+      "error": null,
+      "updated_at": "2026-11-19T07:59:30Z"
+    },
+    "seed_installed": false,
+    "contract_version": "1.0.0"
+  }
+}

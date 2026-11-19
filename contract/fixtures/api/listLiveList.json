@@ -1,0 +1,80 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "agent": "founder",
+        "display_name": "Founder",
+        "kind": "always-on",
+        "state": "working",
+        "team": "founder",
+        "role": "Founder",
+        "one_line": {
+          "text": "Goal: keep the society healthy. Now: reviewing builder's plan for the docs site.",
+          "updated_at": "2026-11-19T18:39:12Z"
+        }
+      },
+      {
+        "agent": "router",
+        "display_name": "Router",
+        "kind": "chat",
+        "state": "awake",
+        "team": "founder",
+        "role": "Router",
+        "one_line": {
+          "text": "Goal: get every human to the right agent fast. Now: waiting for the next request.",
+          "updated_at": "2026-11-19T18:31:40Z"
+        }
+      },
+      {
+        "agent": "waker",
+        "display_name": "Waker",
+        "kind": "waker",
+        "state": "sleeping",
+        "team": "founder",
+        "role": "Watcher",
+        "one_line": {
+          "text": "Goal: notice trouble early. Now: asleep, watching disk, auth and service events.",
+          "updated_at": "2026-11-19T17:58:02Z"
+        }
+      },
+      {
+        "agent": "builder",
+        "display_name": "Builder",
+        "kind": "always-on",
+        "state": "working",
+        "team": "builder",
+        "role": "Builder",
+        "one_line": {
+          "text": "Goal: ship the docs site. Now: writing the page layout and asking scribe for copy.",
+          "updated_at": "2026-11-19T18:38:55Z"
+        }
+      },
+      {
+        "agent": "scribe",
+        "display_name": "Scribe",
+        "kind": "chat",
+        "state": "sleeping",
+        "team": "builder",
+        "role": "Docs writer",
+        "one_line": {
+          "text": "Goal: clear docs for humans. Now: asleep until builder sends the page outline.",
+          "updated_at": "2026-11-19T18:02:17Z"
+        }
+      },
+      {
+        "agent": "keeper",
+        "display_name": "Keeper",
+        "kind": "always-on",
+        "state": "awake",
+        "team": "keeper",
+        "role": "Disk and package keeper",
+        "one_line": {
+          "text": "Goal: keep disk under 70 percent. Now: cleaning old logs in /var/log/journal.",
+          "updated_at": "2026-11-19T18:36:09Z"
+        }
+      }
+    ],
+    "next_cursor": null
+  }
+}

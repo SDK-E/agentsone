@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "The request text is empty.",
+    "instance": "/v1/router/route",
+    "errors": [
+      { "pointer": "/text", "message": "must have at least 1 character" }
+    ]
+  }
+}

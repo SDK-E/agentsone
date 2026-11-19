@@ -84,6 +84,9 @@ func (s *Service) CreateFirstHuman(ctx context.Context, n NewHuman) (domain.Huma
 		return domain.Human{}, err
 	}
 	s.audit(ctx, core.Caller{Kind: core.CallerSystem, Name: "setup"}, "human.create-first", "human:"+h.Name)
+	// The society seeds itself on this event; it is stored, so a daemon
+	// restarted before seeding replays it.
+	s.publish(ctx, "agentsone.setup.first-human.created", map[string]string{"human": h.Name})
 	return h, nil
 }
 
@@ -113,7 +116,7 @@ func (s *Service) AcceptEngineLicence(ctx context.Context, by core.Caller, versi
 	if !accept {
 		return domain.EngineFetch{}, fmt.Errorf("accept must be true: %w", core.ErrInvalid)
 	}
-	_, current, _, err := s.d.Licence.EngineLicence(ctx)
+	engine, current, _, err := s.d.Licence.EngineLicence(ctx)
 	if err != nil {
 		return domain.EngineFetch{}, fmt.Errorf("accept licence: %w", err)
 	}
@@ -129,7 +132,7 @@ func (s *Service) AcceptEngineLicence(ctx context.Context, by core.Caller, versi
 		return domain.EngineFetch{}, fmt.Errorf("queue engine fetch: %w", err)
 	}
 	s.audit(ctx, by, "setup.licence-accept", "licence:"+version)
-	s.publish(ctx, "agentsone.setup.licence.accepted", map[string]string{"version": version, "by": by.Name})
+	s.publish(ctx, "agentsone.setup.licence.accepted", map[string]string{"engine": engine, "version": version, "accepted_by": by.Name})
 	return f, nil
 }
 

@@ -5,6 +5,7 @@ package app_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/auth/app"
@@ -112,6 +113,38 @@ func TestAcceptEngineLicence_QueuesTheFetchAndEmitsAnEvent(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("events %v", eventTypes(env))
+	}
+}
+
+// eventData returns the data of the last event of type typ.
+func eventData(t *testing.T, env *authtest.Env, typ string) string {
+	t.Helper()
+	for _, e := range slices.Backward(env.Events.Published()) {
+		if e.Type == typ {
+			return string(e.Data)
+		}
+	}
+	t.Fatalf("no %s event in %v", typ, eventTypes(env))
+	return ""
+}
+
+func TestCreateFirstHuman_EmitsFirstHumanCreatedWithTheNameOnly(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	if got := eventData(t, env, "agentsone.setup.first-human.created"); got != `{"human":"ada"}` {
+		t.Fatalf("data %s", got)
+	}
+}
+
+func TestAcceptEngineLicence_EventCarriesEngineVersionAndWho(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	if _, err := env.Service.AcceptEngineLicence(context.Background(), authtest.Human("ada"), authtest.DefaultLicence.Version, true); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"accepted_by":"ada","engine":"claude-code","version":"2026-11"}`
+	if got := eventData(t, env, "agentsone.setup.licence.accepted"); got != want {
+		t.Fatalf("data %s, want %s", got, want)
 	}
 }
 

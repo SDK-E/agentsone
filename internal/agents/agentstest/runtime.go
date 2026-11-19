@@ -12,15 +12,15 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
-// Runtime is an in-memory runner supervisor. It hands out uids from 1100,
-// tracks frozen agents and refuses to wake them, like the real one.
+// Runtime is an in-memory runner supervisor. It tracks frozen scopes and
+// refuses to wake frozen agents, like the real one.
 type Runtime struct {
 	// FailProvision, when set, is returned by Provision.
 	FailProvision error
 
 	mu           sync.Mutex
-	nextUID      int
 	provisioned  []string
+	uids         map[string]int
 	reconfigured []string
 	retired      []string
 	slept        []string
@@ -29,9 +29,9 @@ type Runtime struct {
 }
 
 // NewRuntime returns a runtime with nothing provisioned.
-func NewRuntime() *Runtime { return &Runtime{nextUID: 1100, frozen: map[string]bool{}} }
+func NewRuntime() *Runtime { return &Runtime{frozen: map[string]bool{}, uids: map[string]int{}} }
 
-// Provision records a and returns its uid: 0 for root agents.
+// Provision records a with the uid it was given and echoes that uid.
 func (r *Runtime) Provision(_ context.Context, a core.Agent, _ *domain.Limits) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -39,11 +39,15 @@ func (r *Runtime) Provision(_ context.Context, a core.Agent, _ *domain.Limits) (
 		return 0, r.FailProvision
 	}
 	r.provisioned = append(r.provisioned, a.Name)
-	if a.IsRoot {
-		return 0, nil
-	}
-	r.nextUID++
-	return r.nextUID, nil
+	r.uids[a.Name] = a.UID
+	return a.UID, nil
+}
+
+// UID returns the uid name was last provisioned with.
+func (r *Runtime) UID(name string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.uids[name]
 }
 
 // Reconfigure records a.

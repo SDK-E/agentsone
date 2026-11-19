@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/SDK-E/agentsone/internal/core"
 )
 
 // Chart is the org chart: every agent, retired ones included, keyed by
@@ -121,8 +123,8 @@ func (c Chart) atOrBelow(actor, name string) error {
 
 // Hire returns the agent actor hires with spec at time at. The new agent
 // sits below spec.Manager, which defaults to actor and must be actor or
-// below it. Only root agents hire root agents. Its UID is -1 for a custom
-// agent until it is provisioned.
+// below it. Only root agents hire root agents. A root agent gets uid 0; a
+// custom agent gets the next uid of the agent range.
 func (c Chart) Hire(actor string, spec HireSpec, at time.Time) (Agent, error) {
 	hirer, err := c.active(actor)
 	if err != nil {
@@ -153,12 +155,42 @@ func (c Chart) Hire(actor string, spec HireSpec, at time.Time) (Agent, error) {
 		a.UID = 0
 		return a, nil
 	}
+	uid, err := c.nextUID()
+	if err != nil {
+		return Agent{}, err
+	}
 	limits := DefaultLimits
 	if spec.Limits != nil {
 		limits = *spec.Limits
 	}
-	a.Limits = &limits
+	a.UID, a.Limits = uid, &limits
 	return a, nil
+}
+
+// Custom agents get uids (and equal gids) from a dedicated range, so they
+// never share a uid, and its per-uid limits, with a human or system user.
+const (
+	FirstAgentUID = 200000
+	LastAgentUID  = 299999
+)
+
+// ErrUIDsExhausted means every uid of the agent range has been handed out.
+var ErrUIDsExhausted = fmt.Errorf("no agent uid left in %d..%d: %w", FirstAgentUID, LastAgentUID, core.ErrConflict)
+
+// nextUID returns the uid after the highest one any agent, retired ones
+// included, ever held in the range. Uids are never reused, so files and
+// audit records of a retired agent stay its own.
+func (c Chart) nextUID() (int, error) {
+	next := FirstAgentUID
+	for _, a := range c.byName {
+		if a.UID >= FirstAgentUID && a.UID <= LastAgentUID && a.UID >= next {
+			next = a.UID + 1
+		}
+	}
+	if next > LastAgentUID {
+		return 0, ErrUIDsExhausted
+	}
+	return next, nil
 }
 
 // Found returns the founder: the first agent, a root agent at the top of

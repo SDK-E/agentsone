@@ -16,8 +16,11 @@ import (
 // Runtime is the runner supervisor (internal/agents/supervisor): it turns
 // society decisions into Linux users, systemd units and runner turns.
 type Runtime interface {
-	// Provision creates the agent's user, home and unit, and returns its
-	// uid (0 for root agents). Limits is nil for root agents.
+	// Provision creates the agent's user and group, home and unit, with
+	// exactly a.UID as uid and gid. The society hands out uids, so the
+	// returned uid is only an echo. It is idempotent: it runs again for every
+	// agent at start, since the container's root file system resets. Limits
+	// is nil for root agents.
 	Provision(ctx context.Context, a core.Agent, limits *domain.Limits) (int, error)
 	// Reconfigure applies a kind, runner or limits change and restarts the unit.
 	Reconfigure(ctx context.Context, a core.Agent, limits *domain.Limits) error
@@ -175,11 +178,9 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 // provisionAndStore gives a its Linux user and unit, then stores it. When
 // the store fails the provisioning is undone.
 func (s *Society) provisionAndStore(ctx context.Context, a *domain.Agent) error {
-	uid, err := s.rt.Provision(ctx, a.Core(), a.Limits)
-	if err != nil {
+	if _, err := s.rt.Provision(ctx, a.Core(), a.Limits); err != nil {
 		return fmt.Errorf("provision %s: %w", a.Name, err)
 	}
-	a.UID = uid
 	if err := s.repo.CreateAgent(ctx, *a); err != nil {
 		if undo := s.rt.Retire(ctx, a.Name); undo != nil {
 			return fmt.Errorf("store %s: %w (undo provisioning: %w)", a.Name, err, undo)

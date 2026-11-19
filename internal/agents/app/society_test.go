@@ -86,8 +86,11 @@ func TestHire_StoresProvisionsPublishesAndAudits(t *testing.T) {
 	}
 
 	stored, err := e.repo.GetAgent(context.Background(), "mira")
-	if err != nil || stored.Manager != "lead" || stored.UID != got.UID || got.UID < 1000 {
+	if err != nil || stored.Manager != "lead" || stored.UID != domain.FirstAgentUID || got.UID != stored.UID {
 		t.Fatalf("stored %+v %v, returned uid %d", stored, err, got.UID)
+	}
+	if uid := e.rt.UID("mira"); uid != domain.FirstAgentUID {
+		t.Errorf("provisioned with uid %d, want %d", uid, domain.FirstAgentUID)
 	}
 	if diff := cmp.Diff([]string{"mira"}, e.rt.Provisioned()); diff != "" {
 		t.Errorf("provisioned (-want +got):\n%s", diff)

@@ -93,7 +93,8 @@ type Agent struct {
 	State       State
 	// Limits is nil for root agents.
 	Limits *Limits
-	// UID is the Linux uid: 0 for root agents, -1 until provisioned.
+	// UID is the Linux uid and gid: 0 for root agents, FirstAgentUID to
+	// LastAgentUID for custom agents.
 	UID        int
 	Home       string
 	Template   string

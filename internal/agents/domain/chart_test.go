@@ -120,7 +120,7 @@ func TestHire_PlacesTheAgentBelowTheActorByDefault(t *testing.T) {
 
 	want := domain.Agent{
 		Name: "mira", DisplayName: "New", Kind: domain.KindChat, Runner: "echo", Manager: "lead",
-		Role: "Helper", State: domain.StateSleeping, Limits: &domain.DefaultLimits, UID: -1,
+		Role: "Helper", State: domain.StateSleeping, Limits: &domain.DefaultLimits, UID: domain.FirstAgentUID,
 		Home: "/home/agents/mira", CreatedAt: agentstest.At, CreatedBy: "agent:lead",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {

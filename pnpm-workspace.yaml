@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+packages:
+  - packages/*
+  - ui
+  - runners/claude
+  - plugins/*
+
+# eslint-plugin-jsx-a11y 6.10.2 is the latest release and has not yet widened its
+# peer range to ESLint 10. It works with flat config, so allow it explicitly.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-jsx-a11y>eslint: "10"

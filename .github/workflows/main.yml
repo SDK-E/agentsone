@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: MIT
+name: main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Detect Go files
+        id: detect
+        run: |
+          if [ -n "$(find . -name '*.go' -not -path './node_modules/*' -print -quit)" ]; then
+            echo "has_go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_go=false" >> "$GITHUB_OUTPUT"
+            echo "No Go files yet, skipping Go checks."
+          fi
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        if: steps.detect.outputs.has_go == 'true'
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        if: steps.detect.outputs.has_go == 'true'
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+      - name: go vet
+        if: steps.detect.outputs.has_go == 'true'
+        run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        if: steps.detect.outputs.has_go == 'true'
+        with:
+          version: latest
+      - name: go test
+        if: steps.detect.outputs.has_go == 'true'
+        run: go test -race ./...
+      - name: govulncheck
+        if: steps.detect.outputs.has_go == 'true'
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  ts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: |
+          {
+            git ls-files -z '*.sh'
+            printf '%s\0' scripts/heavy
+          } | xargs -0 shellcheck
+
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --no-progress --exclude-loopback --accept '100..=103,200..=299,429' './**/*.md'
+          fail: true
+      - uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
+
+  spdx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/check-spdx.sh
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
+          rm gitleaks.tar.gz
+      - name: Scan the full history
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner .'

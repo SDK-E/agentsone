@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+bin/
+mkosi.output/
+*.raw
+*.qcow2
+.claude/settings.local.json
+.claude/worktrees/
+.DS_Store

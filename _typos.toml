@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+[default]
+extend-ignore-re = ["[0-9a-f]{40}"]
+
+[default.extend-words]
+agentsone = "agentsone"
+agentsoned = "agentsoned"
+agentctl = "agentctl"
+mkosi = "mkosi"
+vfkit = "vfkit"
+
+[files]
+extend-exclude = ["pnpm-lock.yaml", "go.sum", "contract/fixtures/**", ".claude/**"]

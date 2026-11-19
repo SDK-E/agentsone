@@ -22,12 +22,22 @@ func TestSystemdNotifySendsState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = conn.Close() }()
+	t.Cleanup(func() { _ = conn.Close() })
 
 	sd := systemd{socket: sock}
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go sd.keepAlive(ctx, time.Millisecond, func(err error) { t.Error(err) })
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		sd.keepAlive(ctx, time.Millisecond, func(err error) { t.Error(err) })
+	}()
+	// Cleanups run last in, first out: stop the watchdog goroutine and wait for
+	// it to return before the socket is closed and before the test ends, so it
+	// can neither dial a closed socket nor report to a finished test.
+	t.Cleanup(func() {
+		cancel()
+		<-stopped
+	})
 	if err := sd.notify("READY=1"); err != nil {
 		t.Fatal(err)
 	}

@@ -13,6 +13,7 @@
 #   */app/*       90
 #   */adapters/*  70
 #   runners/claude 90 (holds the token proxy, the wall that keeps tokens from the engine)
+#   emitters/*     90 (the built-in event sources; their mains under cmd/ are excluded)
 # Excluded from the gate: cmd/*, generated code and packages (gen, generated, *.gen.go,
 # *_gen.go, *.pb.go, zz_generated*.go, internal/contract/*), testdata, and test-support
 # packages (any directory whose name ends in "test", such as coretest).
@@ -25,6 +26,7 @@ readonly MIN_DOMAIN=90
 readonly MIN_APP=90
 readonly MIN_ADAPTERS=70
 readonly MIN_RUNNER_CLAUDE=90
+readonly MIN_EMITTER=90
 
 usage() {
   echo "usage: scripts/check-coverage.sh <coverprofile>" >&2
@@ -63,6 +65,7 @@ layer_of() {
     */app/*) echo "app $MIN_APP" ;;
     */adapters/*) echo "adapters $MIN_ADAPTERS" ;;
     */runners/claude/) echo "runner $MIN_RUNNER_CLAUDE" ;;
+    */emitters/*) echo "emitter $MIN_EMITTER" ;;
     *) echo "unchecked -" ;;
   esac
 }

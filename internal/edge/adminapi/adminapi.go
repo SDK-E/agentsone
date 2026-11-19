@@ -48,6 +48,16 @@ const (
 	RouteEgressFreeze   = "GET /v1/net/freeze"
 )
 
+// Routes lists every route above, so tests can check that none of them is served anywhere the
+// machine reaches.
+func Routes() []string {
+	return []string{
+		RouteProviders, RouteAddProvider, RouteRemoveProvider, RouteSetKey, RouteClearKey,
+		RouteBudget, RouteSetBudget, RouteSetDefence,
+		RouteAllowList, RouteAddAllowed, RouteRemoveAllowed, RouteEgressFreeze,
+	}
+}
+
 // Model is one model a provider serves.
 type Model struct {
 	ID   string `json:"id"`

@@ -103,6 +103,46 @@ func TestComponent_ServesModelCallsOnTheInnerAddressOnly(t *testing.T) {
 	}
 }
 
+// The machine reaches the inner listener, so it must serve model calls and the two reads only:
+// no admin route and no write, even with a valid agent token.
+func TestComponent_InnerListenerServesNoAdminRouteAndNoWrite(t *testing.T) {
+	srv, addr, _, _ := startComponent(t, &switchFreezer{})
+	tok := agentToken(t, srv, time.Now())
+	params := strings.NewReplacer("{id}", "fake", "{pattern}", "example.com")
+	type call struct{ method, path string }
+	var calls []call
+	for _, r := range adminapi.Routes() {
+		method, path, _ := strings.Cut(r, " ")
+		calls = append(calls, call{method, params.Replace(path)})
+	}
+	for _, path := range []string{"/v1/models", "/v1/budget"} {
+		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+			calls = append(calls, call{method, path})
+		}
+	}
+	for _, path := range []string{"/v1/allocations", "/v1/budget/allocations", "/v1/budget/defence", "/v1/freeze"} {
+		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch} {
+			calls = append(calls, call{method, path})
+		}
+	}
+
+	for _, c := range calls {
+		req, err := http.NewRequestWithContext(t.Context(), c.method, "http://"+addr.String()+c.path, strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+tok)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", c.method, c.path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("%s %s on the inner listener = %d, want 404 or 405", c.method, c.path, resp.StatusCode)
+		}
+	}
+}
+
 func TestComponent_StopsModelCallsWhileFrozen(t *testing.T) {
 	fr := &switchFreezer{}
 	srv, addr, _, _ := startComponent(t, fr)

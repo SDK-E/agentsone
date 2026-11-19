@@ -104,6 +104,27 @@ func TestClient_SendsEachCallToItsRoute(t *testing.T) {
 	}
 }
 
+func TestRoutes_ListsEveryRouteOnce(t *testing.T) {
+	t.Parallel()
+	routes := adminapi.Routes()
+	mux := http.NewServeMux()
+	seenRoute := map[string]bool{}
+	for _, r := range routes {
+		if seenRoute[r] {
+			t.Errorf("route %q is listed twice", r)
+		}
+		seenRoute[r] = true
+		mux.HandleFunc(r, func(http.ResponseWriter, *http.Request) {}) // panics on a bad pattern
+	}
+	if len(routes) != 12 {
+		t.Errorf("Routes() has %d routes, want 12", len(routes))
+	}
+	routes[0] = "changed"
+	if adminapi.Routes()[0] == "changed" {
+		t.Error("Routes() returned its own slice")
+	}
+}
+
 func TestClient_DecodesAnswers(t *testing.T) {
 	t.Parallel()
 	c, _ := fakeEdge(t, 200, `{"currency":"USD","total_micros":5,"period":"day","period_start":"2026-11-19T00:00:00Z",

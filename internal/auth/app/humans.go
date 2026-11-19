@@ -37,11 +37,11 @@ type HumanUpdate struct {
 	Session string
 }
 
-// Own password changes are refused with these; all wrap core.ErrInvalid.
+// Own password changes are refused with these; both wrap core.ErrInvalid.
+// While the name is locked by the throttle the error is *TooManyAttempts.
 var (
-	ErrCurrentPasswordMissing   = fmt.Errorf("enter your current password: %w", core.ErrInvalid)
-	ErrCurrentPasswordWrong     = fmt.Errorf("the current password is wrong: %w", core.ErrInvalid)
-	ErrCurrentPasswordThrottled = fmt.Errorf("too many wrong passwords, wait a minute and try again: %w", core.ErrInvalid)
+	ErrCurrentPasswordMissing = fmt.Errorf("enter your current password: %w", core.ErrInvalid)
+	ErrCurrentPasswordWrong   = fmt.Errorf("the current password is wrong: %w", core.ErrInvalid)
 )
 
 // requireHuman is the soft wall inside the machine: human accounts are a
@@ -164,8 +164,8 @@ func (s *Service) checkCurrentPassword(h domain.Human, current *string) error {
 		return ErrCurrentPasswordMissing
 	}
 	now := s.d.Clock.Now()
-	if s.checkThrottle(h.Name, now) != nil {
-		return ErrCurrentPasswordThrottled
+	if err := s.checkThrottle(h.Name, now); err != nil {
+		return err
 	}
 	if !domain.VerifyPassword(h.PasswordHash, *current) {
 		s.mu.Lock()

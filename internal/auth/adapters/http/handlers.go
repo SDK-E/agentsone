@@ -75,16 +75,24 @@ func toHuman(h domain.Human) contract.Human {
 	return out
 }
 
+// rateLimited turns the throttle's error into the contract's 429 problem
+// and the Retry-After seconds.
+func rateLimited(err error, detail string) (contract.Problem, int, bool) {
+	var tooMany *app.TooManyAttempts
+	if !errors.As(err, &tooMany) {
+		return contract.Problem{}, 0, false
+	}
+	retry := int((tooMany.RetryAfter + time.Second - 1) / time.Second)
+	return problem(core.NewProblem(http.StatusTooManyRequests, "rate-limited", detail)), retry, true
+}
+
 // CreateSession signs a human in and sets the session cookie.
 func (h sessionHandlers) CreateSession(ctx context.Context, req sessionapi.CreateSessionRequestObject) (sessionapi.CreateSessionResponseObject, error) {
 	info := infoFrom(ctx)
 	sess, secret, human, err := h.svc.SignIn(ctx, req.Body.Name, password(req.Body.Password), info.remote)
-	var tooMany *app.TooManyAttempts
-	if errors.As(err, &tooMany) {
-		retry := int(tooMany.RetryAfter.Round(time.Second) / time.Second)
+	if p, retry, ok := rateLimited(err, "Too many sign-in attempts. Wait a minute and try again."); ok {
 		return sessionapi.CreateSession429ApplicationProblemPlusJSONResponse{
-			Body:    problem(core.NewProblem(http.StatusTooManyRequests, "too-many-requests", "too many sign-in attempts")),
-			Headers: sessionapi.TooManyRequestsResponseHeaders{RetryAfter: &retry},
+			Body: p, Headers: sessionapi.TooManyRequestsResponseHeaders{RetryAfter: &retry},
 		}, nil
 	}
 	if err != nil {
@@ -206,6 +214,11 @@ func (h humansHandlers) UpdateHuman(ctx context.Context, req humansapi.UpdateHum
 	u, err := h.svc.UpdateHuman(ctx, caller(ctx), req.HumanName, app.HumanChange{
 		DisplayName: req.Body.DisplayName, Password: req.Body.Password, CurrentPassword: req.Body.CurrentPassword,
 	})
+	if p, retry, ok := rateLimited(err, "Too many wrong passwords. Wait a minute and try again."); ok {
+		return humansapi.UpdateHuman429ApplicationProblemPlusJSONResponse{TooManyRequestsApplicationProblemPlusJSONResponse: humansapi.TooManyRequestsApplicationProblemPlusJSONResponse{
+			Body: p, Headers: humansapi.TooManyRequestsResponseHeaders{RetryAfter: &retry},
+		}}, nil
+	}
 	if msg, ok := currentPasswordMessage(err); ok {
 		p := problem(core.ProblemFrom(err))
 		p.Detail = &msg
@@ -231,8 +244,6 @@ func currentPasswordMessage(err error) (string, bool) {
 		return "Enter your current password.", true
 	case errors.Is(err, app.ErrCurrentPasswordWrong):
 		return "That is not your current password.", true
-	case errors.Is(err, app.ErrCurrentPasswordThrottled):
-		return "Too many wrong passwords. Wait a minute and try again.", true
 	}
 	return "", false
 }

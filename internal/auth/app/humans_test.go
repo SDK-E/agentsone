@@ -171,7 +171,9 @@ func TestUpdateHuman_WrongCurrentPasswordIsThrottled(t *testing.T) {
 		_, _ = env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c)
 	}
 	c.CurrentPassword = ptr(password)
-	if _, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c); !errors.Is(err, app.ErrCurrentPasswordThrottled) {
+	_, err := env.Service.UpdateHuman(ctx, authtest.Human("ada"), "ada", c)
+	var tooMany *app.TooManyAttempts
+	if !errors.As(err, &tooMany) || tooMany.RetryAfter != domain.FailureWindow {
 		t.Fatalf("err %v", err)
 	}
 	env.Clock.Advance(domain.FailureWindow)

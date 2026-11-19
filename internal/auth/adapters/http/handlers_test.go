@@ -156,10 +156,30 @@ func TestCreateSession_ThrottledIs429WithRetryAfter(t *testing.T) {
 	for range 6 {
 		rec = d.call(core.Anonymous, http.MethodPost, "/v1/session", `{"name":"ada","password":"wrong password!"}`, "")
 	}
+	wantRateLimited(t, rec)
+}
+
+func wantRateLimited(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
 	want(t, rec, http.StatusTooManyRequests)
 	if rec.Header().Get("Retry-After") != "60" {
 		t.Fatalf("retry after %q", rec.Header().Get("Retry-After"))
 	}
+	if !strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:rate-limited"`) {
+		t.Fatalf("problem %s", rec.Body)
+	}
+}
+
+func TestUpdateHuman_WrongCurrentPasswordsAreRateLimited(t *testing.T) {
+	t.Parallel()
+	d := start(t)
+	cookie := signIn(t, d)
+	wrong := `{"password":"a brand new passphrase","current_password":"not my password"}`
+	for range 5 {
+		want(t, d.call(ada, http.MethodPatch, "/v1/humans/ada", wrong, cookie), http.StatusBadRequest)
+	}
+	right := `{"password":"a brand new passphrase","current_password":"correct horse battery"}`
+	wantRateLimited(t, d.call(ada, http.MethodPatch, "/v1/humans/ada", right, cookie))
 }
 
 func signIn(t *testing.T, d *daemon) string {

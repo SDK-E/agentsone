@@ -33,7 +33,7 @@ func contractProblemSlugs(t *testing.T) map[string]bool {
 	}
 	desc := doc.Components.Schemas["Problem"].Description
 	slugs := map[string]bool{}
-	for _, m := range regexp.MustCompile("`" + problemTypePrefix + `([a-z-]+)` + "`").FindAllStringSubmatch(desc, -1) {
+	for _, m := range regexp.MustCompile("`"+problemTypePrefix+`([a-z-]+)`+"`").FindAllStringSubmatch(desc, -1) {
 		slugs[m[1]] = true
 	}
 	if len(slugs) == 0 {

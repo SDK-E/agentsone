@@ -195,3 +195,11 @@ HumanUpdate:
       writeOnly: true
       minLength: 12
       maxLength: 256
+    current_password:
+      type: string
+      format: password
+      writeOnly: true
+      maxLength: 256
+      description: |
+        The caller's present password. Required when a human changes their own `password`; not
+        needed when another human resets it.

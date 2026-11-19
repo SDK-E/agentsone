@@ -75,7 +75,12 @@ human:
     operationId: updateHuman
     tags: [humans]
     summary: Edit a human
-    description: Human-only. Changes display name or password. Soft wall.
+    description: |
+      Human-only. Changes display name or password. Soft wall. A human who changes their own
+      password sends `current_password`; a missing or wrong value answers 400
+      `urn:agentsone:problem:validation` with an issue at `/current_password`. Another human may
+      reset the password without it. A password change ends all other sessions of that human; the
+      session that made the change stays.
     security:
       - cookieAuth: []
     requestBody:

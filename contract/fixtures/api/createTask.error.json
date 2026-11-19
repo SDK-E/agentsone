@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:not-below-you",
+    "title": "Agent is not below you",
+    "status": 403,
+    "detail": "scribe may only give tasks to itself or to agents below it; keeper is in another team.",
+    "instance": "/v1/tasks"
+  }
+}

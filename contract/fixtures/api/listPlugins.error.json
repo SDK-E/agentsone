@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "Invalid request",
+    "status": 400,
+    "detail": "The cursor is not valid. Start again from the first page.",
+    "instance": "/v1/plugins",
+    "errors": [
+      { "pointer": "/cursor", "message": "is not a cursor this daemon issued" }
+    ]
+  }
+}

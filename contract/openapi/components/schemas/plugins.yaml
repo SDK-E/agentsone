@@ -69,6 +69,12 @@ Plugin:
       type: boolean
     health:
       $ref: "#/PluginHealth"
+    health_detail:
+      type: [string, "null"]
+      maxLength: 500
+      description: |
+        Plain words that say why `health` is `degraded` or `failed`, for example "The server
+        stopped answering at 14:02." Absent or `null` when `health` is `ok` or the cause is unknown.
     installed_by:
       $ref: "./common.yaml#/Actor"
     installed_at:

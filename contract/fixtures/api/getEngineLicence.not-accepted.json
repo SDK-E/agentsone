@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "body": {
+    "engine": "claude-code",
+    "version": "2026-10-01",
+    "text": "# Claude Code licence\n\nThis fixture stands in for the real licence text, which the daemon fetches and shows in full before acceptance.\n",
+    "accepted": false,
+    "accepted_at": null,
+    "accepted_by": null
+  }
+}

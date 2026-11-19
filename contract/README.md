@@ -91,6 +91,23 @@ content" warnings.
 
 ## Changelog
 
+### 1.0.2
+
+All changes are additive and backward compatible.
+
+- `Plugin.health_detail` (optional, string or null): plain words that say why a plugin is
+  `degraded` or `failed`.
+- `updateHuman` accepts `current_password`. A human who changes their own password must send it
+  (a missing or wrong value answers 400 `validation` with an issue at `/current_password`);
+  another human resetting the password does not. A password change ends all other sessions of that
+  human.
+- `deleteMemory`: humans may delete any record, with an optional `reason` query parameter kept in
+  the audit record. Humans cannot edit records.
+- New fixture variants: `createTask.error`, `createTask.frozen`, `verifyAuditChain.broken`,
+  `verifyAuditChain.empty`, `getBudgetSplit.empty`, `getBudgetSplit.long-text`,
+  `listPlugins.long-text`, `listPlugins.error`, `searchPluginCatalog.error`,
+  `listHumans.long-text`, `getEngineLicence.not-accepted` and `getEngineFetchStatus.failed`.
+
 ### 1.0.1
 
 All changes are additive and backward compatible.

@@ -3141,6 +3141,10 @@ type HumanPrincipalKind string
 
 // HumanUpdate defines model for HumanUpdate.
 type HumanUpdate struct {
+	// CurrentPassword The caller's present password. Required when a human changes their own `password`; not
+	// needed when another human resets it.
+	CurrentPassword *string `json:"current_password,omitempty"`
+
 	// DisplayName Free display name shown in the interface.
 	DisplayName *DisplayName `json:"display_name,omitempty"`
 	Password    *string      `json:"password,omitempty"`
@@ -3730,6 +3734,10 @@ type PanelTokenCreate struct {
 type Plugin struct {
 	Enabled bool         `json:"enabled"`
 	Health  PluginHealth `json:"health"`
+
+	// HealthDetail Plain words that say why `health` is `degraded` or `failed`, for example "The server
+	// stopped answering at 14:02." Absent or `null` when `health` is `ok` or the cause is unknown.
+	HealthDetail *string `json:"health_detail,omitempty"`
 
 	// Id Installed plugin id, `plg_` plus a ULID.
 	Id PluginId `json:"id"`
@@ -4699,6 +4707,9 @@ type ChannelNameParameter = ChannelName
 // CursorParameter defines model for CursorParameter.
 type CursorParameter = string
 
+// DeleteReason defines model for DeleteReason.
+type DeleteReason = string
+
 // EmitterIdParameter Emitter id, `emt_` plus a ULID.
 type EmitterIdParameter = EmitterId
 
@@ -5365,6 +5376,12 @@ type SearchMemoryParams struct {
 
 	// Limit Page size.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// DeleteMemoryParams defines parameters for DeleteMemory.
+type DeleteMemoryParams struct {
+	// Reason Why the record is deleted. Kept in the audit record.
+	Reason *DeleteReason `form:"reason,omitempty" json:"reason,omitempty"`
 }
 
 // ListAgentNetRulesParams defines parameters for ListAgentNetRules.

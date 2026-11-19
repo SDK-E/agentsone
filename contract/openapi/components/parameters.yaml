@@ -87,6 +87,14 @@ MemoryId:
   required: true
   schema:
     $ref: "./schemas/common.yaml#/MemoryId"
+DeleteReason:
+  name: reason
+  in: query
+  required: false
+  description: Why the record is deleted. Kept in the audit record.
+  schema:
+    type: string
+    maxLength: 500
 PluginId:
   name: plugin_id
   in: path

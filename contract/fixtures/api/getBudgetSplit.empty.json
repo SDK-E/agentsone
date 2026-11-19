@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "currency": "USD",
+    "nodes": [],
+    "as_of": "2026-11-19T08:00:00Z"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "plg_01JD7ZK3M00000000000000009",
+        "name": "a-plugin-with-a-really-long-name-that-uses-every-allowed-chars",
+        "version": "12.345.6789-beta.1",
+        "kinds": ["mcp-server", "skill", "agent-template", "panel", "theme", "emitter"],
+        "source": "mcp-registry",
+        "ref": "io.github.example-organisation-with-a-long-name/a-plugin-with-a-really-long-name-that-uses-every-allowed-character",
+        "enabled": true,
+        "health": "failed",
+        "health_detail": "The server stopped answering at 14:02 and did not start again after three tries. Its last message was: could not open the database file because the disk is full. Free some space, then enable the plugin again.",
+        "installed_by": "agent:a-very-long-agent-name-thirty1",
+        "installed_at": "2026-11-19T11:00:00Z",
+        "manifest": {
+          "name": "a-plugin-with-a-really-long-name-that-uses-every-allowed-chars",
+          "version": "12.345.6789-beta.1",
+          "description": "Exists to test long text. It bundles a server, a skill, a template, a panel, a theme and an emitter, and its description runs to the full length of one line so every panel can be checked for wrapping and truncation at phone and desktop widths.",
+          "author": {
+            "name": "An Organisation With A Very Long Name That Needs Wrapping"
+          },
+          "license": "Apache-2.0 OR MIT",
+          "source": {
+            "kind": "mcp-registry",
+            "ref": "io.github.example-organisation-with-a-long-name/a-plugin-with-a-really-long-name-that-uses-every-allowed-character"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [],
+            "skills": [],
+            "agentTemplates": [],
+            "runners": [],
+            "panels": [],
+            "themes": [],
+            "emitters": []
+          }
+        }
+      },
+      {
+        "id": "plg_01JD7ZK3M00000000000000010",
+        "name": "flaky-sync",
+        "version": "0.2.0",
+        "kinds": ["emitter"],
+        "source": "agentsone",
+        "ref": "SDK-E/agentsone/plugins/flaky-sync",
+        "enabled": true,
+        "health": "degraded",
+        "health_detail": null,
+        "installed_by": "human:ada",
+        "installed_at": "2026-11-19T11:30:00Z",
+        "manifest": {
+          "name": "flaky-sync",
+          "version": "0.2.0",
+          "description": "Syncs events to a remote service.",
+          "author": {
+            "name": "SDK-E"
+          },
+          "license": "MIT",
+          "source": {
+            "kind": "agentsone",
+            "ref": "SDK-E/agentsone/plugins/flaky-sync"
+          },
+          "compat": {
+            "agentsone": "^1.0.0"
+          },
+          "contents": {
+            "mcpServers": [],
+            "skills": [],
+            "agentTemplates": [],
+            "runners": [],
+            "panels": [],
+            "themes": [],
+            "emitters": []
+          }
+        }
+      }
+    ],
+    "next_cursor": null
+  }
+}

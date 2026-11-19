@@ -118,7 +118,12 @@ record:
     operationId: deleteMemory
     tags: [memory]
     summary: Delete a memory record
-    description: Deletes a record. Agents delete their own records; root agents delete any.
+    description: |
+      Deletes a record and writes an audit record. Agents delete their own records; root agents and
+      humans delete any. A human may pass `reason`, which the audit record keeps. Humans cannot edit
+      a record, because that would silently rewrite what an agent remembers.
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeleteReason"
     responses:
       "204":
         description: Deleted.

@@ -21,7 +21,7 @@ import (
 const (
 	promptHold   = "HOLD"
 	promptBudget = "BUDGET"
-	mcpToken     = "test-mcp-token-founder-0001"
+	mcpToken     = "test-mcp-token-founder-0001" //nolint:gosec // G101: the made-up token of the PROTOCOL.md transcript
 )
 
 var longRe = regexp.MustCompile(`LONG (\d+)`)
@@ -51,7 +51,6 @@ type rig struct {
 	gw     *fakeGateway
 	mcp    *fakeMCP
 	tokens atomic.Int64
-	runner *openai.Runner
 }
 
 func newRig(t *testing.T, respond func(gwRequest) reply) *rig {
@@ -147,7 +146,7 @@ func TestPlainTurn(t *testing.T) {
 // a call runs, its result goes back, and the model answers (PROTOCOL.md T2).
 func TestToolLoop(t *testing.T) {
 	var step atomic.Int64
-	respond := func(r gwRequest) reply {
+	respond := func(gwRequest) reply {
 		switch step.Add(1) {
 		case 1:
 			return reply{Calls: []fakeCall{{ID: "call-1", Name: "add", Args: `{"a":2,"b":3}`}, {ID: "call-2", Name: "fail", Args: `{"a":0,"b":0}`}, {ID: "call-3", Name: "nope", Args: `{`}}}
@@ -395,8 +394,8 @@ func TestWakeKinds(t *testing.T) {
 func TestBusDeliveryReachesTheModel(t *testing.T) {
 	var step atomic.Int64
 	release := make(chan struct{})
-	respond := func(r gwRequest) reply {
-		if strings.HasPrefix(r.last().Content, "Summarise this session") {
+	respond := func(req gwRequest) reply {
+		if strings.HasPrefix(req.last().Content, "Summarise this session") {
 			return reply{Text: []string{"Summary: we talked."}}
 		}
 		if step.Add(1) == 1 {
@@ -430,9 +429,9 @@ func TestBusDeliveryReachesTheModel(t *testing.T) {
 	}
 }
 
-func sleepSummary(t *testing.T, h *conformance.H, max int) string {
+func sleepSummary(t *testing.T, h *conformance.H, limit int) string {
 	t.Helper()
-	m := h.AwaitResponse(h.Request("sleep", map[string]any{"reason": "idle", "maxSummaryChars": max}))
+	m := h.AwaitResponse(h.Request("sleep", map[string]any{"reason": "idle", "maxSummaryChars": limit}))
 	var res struct {
 		Summary string `json:"summary"`
 	}

@@ -36,7 +36,7 @@ func (r *recorder) Fatalf(f string, args ...any) {
 	r.failure = fmt.Sprintf(f, args...)
 	runtime.Goexit()
 }
-func (r *recorder) Skipf(f string, args ...any) { r.skipped = true; runtime.Goexit() }
+func (r *recorder) Skipf(string, ...any) { r.skipped = true; runtime.Goexit() }
 
 // runRule runs one rule against the subject and returns what it recorded.
 func runRule(t *testing.T, id string, s conformance.Subject) *recorder {

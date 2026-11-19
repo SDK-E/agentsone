@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -116,35 +117,38 @@ func (g *fakeGateway) serve(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	flusher, _ := w.(http.Flusher)
 	if rep.Hold {
-		fmt.Fprint(w, "data: "+chunk(`{"content":"working"}`)+"\n\n")
+		sse(w, "data: "+chunk(`{"content":"working"}`)+"\n\n")
 		flusher.Flush()
 		<-r.Context().Done()
 		return
 	}
 	if rep.Raw != "" {
-		fmt.Fprint(w, rep.Raw)
+		sse(w, rep.Raw)
 		return
 	}
 	for _, text := range rep.Text {
 		enc, _ := json.Marshal(text)
-		fmt.Fprint(w, "data: "+chunk(`{"content":`+string(enc)+`}`)+"\n\n")
+		sse(w, "data: "+chunk(`{"content":`+string(enc)+`}`)+"\n\n")
 		flusher.Flush()
 	}
 	for i, c := range rep.Calls {
 		first, _ := json.Marshal(map[string]any{"tool_calls": []any{map[string]any{"index": i, "id": c.ID, "type": "function",
 			"function": map[string]any{"name": c.Name, "arguments": ""}}}})
-		fmt.Fprint(w, "data: "+chunk(string(first))+"\n\n")
+		sse(w, "data: "+chunk(string(first))+"\n\n")
 		half := len(c.Args) / 2
 		for _, part := range []string{c.Args[:half], c.Args[half:]} {
 			more, _ := json.Marshal(map[string]any{"tool_calls": []any{map[string]any{"index": i, "function": map[string]any{"arguments": part}}}})
-			fmt.Fprint(w, "data: "+chunk(string(more))+"\n\n")
+			sse(w, "data: "+chunk(string(more))+"\n\n")
 		}
 	}
 	if !rep.NoUse {
-		fmt.Fprintf(w, `data: {"model":"autoagents/one-actual","choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7,"prompt_tokens_details":{"cached_tokens":%d}}}`+"\n\n", rep.Cached)
+		sse(w, fmt.Sprintf(`data: {"model":"autoagents/one-actual","choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7,"prompt_tokens_details":{"cached_tokens":%d}}}`+"\n\n", rep.Cached))
 	}
-	fmt.Fprint(w, "data: [DONE]\n\n")
+	sse(w, "data: [DONE]\n\n")
 }
+
+// sse writes to the event stream; a client that left is not an error here.
+func sse(w http.ResponseWriter, s string) { _, _ = io.WriteString(w, s) }
 
 func chunk(delta string) string {
 	return `{"model":"autoagents/one-actual","choices":[{"index":0,"delta":` + delta + `}]}`

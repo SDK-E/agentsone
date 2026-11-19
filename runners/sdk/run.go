@@ -182,8 +182,8 @@ func (s *session) handshake(ctx context.Context) error {
 	if !slices.Contains(versions, s.welcome.ProtocolVersion) {
 		return fmt.Errorf("%w: daemon chose %q", ErrUnsupportedVersion, s.welcome.ProtocolVersion)
 	}
-	if max := s.welcome.Config.MaxLineBytes; max > 0 {
-		s.conn.setMaxLine(max)
+	if limit := s.welcome.Config.MaxLineBytes; limit > 0 {
+		s.conn.setMaxLine(limit)
 	}
 	return nil
 }

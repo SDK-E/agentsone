@@ -157,12 +157,12 @@ func modelError(msg string) error {
 }
 
 func statusError(resp *http.Response) error {
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return nil
-	case resp.StatusCode == http.StatusPaymentRequired:
+	case http.StatusPaymentRequired:
 		return sdk.ErrBudgetExhausted
-	case resp.StatusCode == http.StatusTooManyRequests:
+	case http.StatusTooManyRequests:
 		return &sdk.CodedError{Code: sdk.CodeRateLimited, Message: "model gateway rate limit"}
 	}
 	snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 256))

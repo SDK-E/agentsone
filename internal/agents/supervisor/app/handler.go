@@ -106,9 +106,9 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 	if err != nil {
 		return protocol.HelloResult{}, fmt.Errorf("mcp token for %s: %w", h.agent, err)
 	}
-	gw, err := s.d.Gateway.GatewayToken(ctx, h.agent)
+	gw, err := s.gatewayToken(ctx, h.agent)
 	if err != nil {
-		return protocol.HelloResult{}, fmt.Errorf("gateway token for %s: %w", h.agent, err)
+		return protocol.HelloResult{}, err
 	}
 
 	s.mu.Lock()

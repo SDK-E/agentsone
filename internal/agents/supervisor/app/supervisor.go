@@ -223,6 +223,15 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		_ = r.session.Start(s.d.Clock.Now())
 		r.pending = append(r.pending, req)
 		s.mu.Unlock()
+		// A runner without the model gateway cannot work: do not start it.
+		if _, err := s.gatewayToken(ctx, name); err != nil {
+			s.mu.Lock()
+			r.session.Fail()
+			r.pending = nil
+			s.mu.Unlock()
+			s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+			return fmt.Errorf("wake %s: %w", name, err)
+		}
 		if err := s.d.Launcher.Start(ctx, name); err != nil {
 			s.mu.Lock()
 			r.session.Fail()

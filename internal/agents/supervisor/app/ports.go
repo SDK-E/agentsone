@@ -99,11 +99,6 @@ type UsageRecorder interface {
 	RecordUsage(ctx context.Context, agent string, u Usage) error
 }
 
-// GatewayTokens issues the agent's model gateway token (internal/gatewaytoken).
-type GatewayTokens interface {
-	GatewayToken(ctx context.Context, agent string) (string, error)
-}
-
 // RunnerConn is the daemon's half of one runner connection.
 type RunnerConn interface {
 	Call(ctx context.Context, method string, params, result any) error
@@ -118,6 +113,9 @@ type Config struct {
 	MCPTokenTTL time.Duration
 	// GatewayURL is the model gateway base URL.
 	GatewayURL string
+	// GatewayTokenTTL is how long a gateway token lives; the gateway
+	// refuses more than 15 minutes.
+	GatewayTokenTTL time.Duration
 	// HeartbeatInterval and HeartbeatTimeout go into the welcome config.
 	HeartbeatInterval time.Duration
 	HeartbeatTimeout  time.Duration
@@ -132,6 +130,7 @@ func DefaultConfig() Config {
 		MCPURL:            "http://127.0.0.1:7700/mcp",
 		MCPTokenTTL:       24 * time.Hour,
 		GatewayURL:        "http://gateway.agentsone.internal:4000",
+		GatewayTokenTTL:   10 * time.Minute,
 		HeartbeatInterval: 15 * time.Second,
 		HeartbeatTimeout:  45 * time.Second,
 		MaxLineBytes:      1 << 20,
@@ -152,6 +151,5 @@ type Deps struct {
 	Output    OutputSink
 	Summaries SummaryStore
 	Usage     UsageRecorder
-	Gateway   GatewayTokens
 	Config    Config
 }

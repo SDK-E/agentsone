@@ -79,7 +79,7 @@ func (openaiRunner) Exec(_ context.Context, _ core.Agent, socket string) (core.E
 
 // With the runner supervisor wired, the Small Seed installs (users and
 // runner units for founder, router and waker), the setup status says so,
-// and waking the founder starts its runner.
+// and the always-on founder's runner starts.
 func TestModule_WithTheSupervisorTheSeedInstallsAndTheFounderStarts(t *testing.T) {
 	t.Parallel()
 	deps, fakes := coretest.NewDeps(t)
@@ -110,6 +110,8 @@ func TestModule_WithTheSupervisorTheSeedInstallsAndTheFounderStarts(t *testing.T
 		t.Fatalf("SeedInstalled = %v, %v; want true", ok, err)
 	}
 
+	// The always-on founder's runner started idle with the seed; a wake
+	// waits for its handshake instead of starting a second one.
 	if err := deps.Ports.Waker.Wake(ctx, "founder", core.WakeEvent, json.RawMessage(`{}`)); err != nil {
 		t.Fatalf("wake founder: %v", err)
 	}

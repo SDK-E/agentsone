@@ -59,8 +59,27 @@ difference, and CI runs it.
 - oapi-codegen cannot express a schema typed with several non-null types, such as the JSON-RPC
   id (`["string", "integer"]`). For code generation only, such a schema is untyped (Go `any`).
   `contract/dist/openapi.json` and validation keep the exact types.
+- Every operation may answer 501 `urn:agentsone:problem:not-implemented`. The bundle step adds the
+  shared `NotImplemented` response to every operation that does not declare a 501 itself; the
+  sources under `contract/openapi` stay unchanged.
 - A parameter, response, request body or header component that shares its name with a schema is
   renamed for code generation only (`Cursor` becomes `CursorParameter`).
+
+## Names that keep their old spelling
+
+Descriptions use the compose terms (edge, machine container, cgroup `/agents/<id>`). These
+identifiers date from the first design. Renaming any of them would break generated clients, so they
+stay until a major version, and their descriptions say what they mean today:
+
+| Name | Where | Means now |
+| --- | --- | --- |
+| tag `host`, paths `/host/*`, operation ids `getDoorHealth`, `listFreezes`, ... | OpenAPI | The door API called only by the edge service. |
+| security scheme `hostDoor` | OpenAPI | Transport identity of the edge service. |
+| problem type `urn:agentsone:problem:host-only` | Problem | Only the edge service may call this. |
+| actor kind `host:<part>`, `CallerHost` | Actor, event `actor`, `internal/core` | The edge service. |
+| audit record origin `host` | `audit-record.schema.json` | Written by the edge. |
+| `Agent.unit` pattern `agent@<name>.service`, event examples with it | `Agent` schema, event catalog | The unit name of an agent; the pattern is unchanged. |
+| `host_acked_seq`, `HostBudgetPush` and similar field and schema names | OpenAPI | Set by the edge. |
 
 ## How to request a change
 

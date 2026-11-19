@@ -1,0 +1,21 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F63",
+  "source": "/emitters/plugin",
+  "type": "agentsone.plugin.installed",
+  "subject": "pretty-diff",
+  "time": "2026-11-19T19:04:00.000Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/events/catalog.json",
+  "data": {
+    "plugin_id": "plg_01JD8X3Q5Y6Z7A8B9C0D1E2F3G",
+    "name": "pretty-diff",
+    "version": "1.2.0",
+    "kinds": ["panel", "skill"],
+    "source": "agentsone",
+    "enabled": true
+  },
+  "sequence": "00000000000000000009",
+  "actor": "human:alice",
+  "chartscope": "machine"
+}

@@ -23,7 +23,7 @@ PluginSource:
     url:
       type: string
       format: uri
-      description: Where the catalog is read from. The host must be on the allow list.
+      description: Where the catalog is read from. The host name must be on the edge's allow list.
     enabled:
       type: boolean
 
@@ -183,7 +183,7 @@ Runner:
       pattern: "^plg_[0-9A-HJKMNP-TV-Z]{26}$"
     model:
       type: [string, "null"]
-      description: Model name the runner calls through the host gateway, `autoagents/one`; null for `echo`.
+      description: Model name the runner calls through the edge's model gateway, `autoagents/one`; null for `echo`.
     status:
       $ref: "#/RunnerStatus"
     description:

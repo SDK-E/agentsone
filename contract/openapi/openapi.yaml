@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: Agents One machine API
-  version: 1.0.0
+  version: 1.0.1
   summary: The daemon API every part of Agents One builds against.
   description: |
     REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event
@@ -11,11 +11,13 @@ info:
     ## Callers and identity
     - **Humans** log in with their Linux password (PAM) and carry the `agentsone_session` cookie.
     - **Agents** call over the Unix socket `/run/agentsone/api.sock`. The daemon reads the
-      socket peer credentials (`SO_PEERCRED`) and the caller's cgroup `agent@<name>.service`,
+      socket peer credentials (`SO_PEERCRED`) and the caller's cgroup `/agents/<id>`,
       so several uid-0 root agents stay distinct. No token is needed on the socket.
     - **Bearer tokens** are scoped: agent tokens (for tools outside the socket) and panel
       plugin tokens (for sandboxed panel frames).
-    - **The host tool** on the Mac calls the `host` group over vsock only.
+    - **The edge** is the `edge` service of the compose stack (the web door, the model gateway,
+      the budget and the audit sink). It forwards human requests from the web door as a trusted
+      proxy and is the only caller of the `host` group.
 
     ## Conventions
     - Times are RFC 3339 in UTC. Ids are a type prefix plus a ULID (`tsk_`, `evt_`, `msg_`,
@@ -23,8 +25,8 @@ info:
       `thm_`, `frz_`, `job_`). Agent and human names are Linux usernames.
     - Lists use cursor pagination: `cursor` and `limit` in, `{items, next_cursor}` out.
     - Errors are RFC 9457 `application/problem+json` with stable `urn:agentsone:problem:*` types.
-    - Every limit shown carries `wall`: `hard` (held by the host tool outside the VM) or `soft`
-      (held by the daemon inside the VM; a root agent can bypass it).
+    - Every limit shown carries `wall`: `hard` (held by the edge, outside the machine container)
+      or `soft` (held by the daemon inside the machine container; a root agent can bypass it).
     - Streams are `text/event-stream`. Each SSE message has `id`, `event` equal to the frame
       `kind`, and `data` holding one JSON frame of the documented schema. A `heartbeat` frame
       is sent every 15 seconds. Reconnect with `Last-Event-ID`. The `x-stream` extension on
@@ -37,12 +39,15 @@ info:
     url: https://github.com/SDK-E/agentsone
 servers:
   - url: http://127.0.0.1:7700/v1
-    description: Loopback TCP inside the VM, used by the kiosk interface and the web door.
+    description: |
+      TCP on port 7700. Loopback inside the machine container serves tools and interfaces there;
+      the inner network address serves the web door in the edge service. The daemon refuses every
+      other address.
   - url: http+unix://%2Frun%2Fagentsone%2Fapi.sock/v1
     description: |
       HTTP over the Unix socket `/run/agentsone/api.sock` (percent-encoded socket path as the
       host, the usual `http+unix` form). Agents use this; they are identified by peer
-      credentials and cgroup, with no token.
+      credentials and cgroup `/agents/<id>`, with no token.
 security:
   - cookieAuth: []
   - bearerAuth: []
@@ -53,7 +58,7 @@ tags:
   - name: session
     description: Human login through PAM, logout, the current caller and token revocation.
   - name: humans
-    description: Human accounts. Soft wall; the host tool keeps the hard record.
+    description: Human accounts. Soft wall; the edge keeps the hard record.
   - name: agents
     description: Hire, edit, retire, wake and sleep agents; their one-line, output and chat.
   - name: chart
@@ -79,7 +84,7 @@ tags:
   - name: runners
     description: Registered runner adapters.
   - name: budget
-    description: Total budget from the host (hard) and its split down the chart (soft).
+    description: Total budget from the edge (hard) and its split down the chart (soft).
   - name: net
     description: Internet allow list (read-only, hard) and per-agent network rules (soft).
   - name: audit
@@ -93,7 +98,7 @@ tags:
   - name: mcp
     description: The machine MCP server over Streamable HTTP.
   - name: host
-    description: Door API for the host tool on the Mac, over vsock only.
+    description: Door API for the edge service. Only the edge calls it (the tag keeps its name `host`).
 paths:
   /setup:
     $ref: paths/setup.yaml#/setup
@@ -316,13 +321,14 @@ components:
       description: |
         Transport identity on the Unix socket `/run/agentsone/api.sock`. No TLS and no token:
         the daemon reads `SO_PEERCRED` (pid, uid) and the caller's cgroup, which must be
-        `agent@<name>.service`. Code generators should send nothing for this scheme.
+        `/agents/<id>`. Code generators should send nothing for this scheme.
     hostDoor:
       type: mutualTLS
       description: |
-        Transport identity on the door listener (vsock port 7701). Only connections from the
-        host (vsock CID 2) are accepted. No TLS and no token; the `host` group is reachable
-        only this way. Code generators should send nothing for this scheme.
+        Transport identity of the edge service. Only connections from the edge's inner network
+        address (the daemon's `[edge] trusted_proxies` setting) are accepted. No TLS and no
+        token; the `host` group is reachable only this way. The scheme keeps its name `hostDoor`.
+        Code generators should send nothing for this scheme.
     webhookSignature:
       type: apiKey
       in: header

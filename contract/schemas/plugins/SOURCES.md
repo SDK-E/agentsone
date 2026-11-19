@@ -71,7 +71,7 @@ Agents One reads the marketplace to offer its plugins on the Plugins page. `sour
 | `archive` | `url` (HTTPS zip), `sha256` | Download; `sha256` copied to `source.sha256` |
 | `command` | `command`, `timeout`, `mode` | Refused: Agents One does not run marketplace-supplied commands at install time |
 
-Every fetch host must be on the host tool's allow list.
+Every fetch host must be on the edge's allow list.
 
 ## Agent Skills (`source.kind: agent-skills`)
 

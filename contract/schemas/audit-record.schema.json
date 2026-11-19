@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/audit-record.schema.json",
   "title": "AuditRecord",
-  "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the VM have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the host as written and the host keeps its own copy. Records written by the host tool have origin host and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
+  "description": "One entry in a hash-chained audit log. Hash rule: hash is the SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the RFC 8785 (JSON Canonicalization Scheme) form of the whole record with the hash property removed (prev_hash stays in). The first record of a log has seq 1 and prev_hash of 64 zeros; every later record has seq one higher than the record before it and prev_hash equal to that record's hash. Records written inside the machine container have origin inside and are testimony: real root inside can rewrite them, so they are shipped to the edge as written and the edge keeps its own copy. Records written by the edge have origin host (the value keeps its name) and are proof. Keep details free of floating-point numbers so every language canonicalises them the same way.",
   "type": "object",
   "required": [
     "seq",
@@ -43,7 +43,7 @@
       "maxProperties": 64
     },
     "origin": {
-      "description": "inside: written by the daemon in the VM (testimony). host: written by the host tool (proof).",
+      "description": "inside: written by the daemon in the machine container (testimony). host: written by the edge (proof).",
       "type": "string",
       "enum": ["inside", "host"]
     },

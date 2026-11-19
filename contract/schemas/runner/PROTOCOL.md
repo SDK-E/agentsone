@@ -1,7 +1,7 @@
 # Runner protocol 1.0
 
 A runner is the program that thinks for one agent. The daemon, `agentsoned`, starts one runner process per
-agent (as `agent@<name>.service`) and talks to it over this protocol. Tools never travel over this
+agent (in the agent's cgroup `/agents/<id>`) and talks to it over this protocol. Tools never travel over this
 protocol: the runner reaches the machine through the MCP endpoint it receives in the welcome.
 
 The exact message shapes are in [`messages.schema.json`](messages.schema.json). The method list, in

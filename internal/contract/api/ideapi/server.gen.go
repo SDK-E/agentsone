@@ -307,6 +307,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type GetIdeStatusRequestObject struct {
@@ -346,6 +348,22 @@ func (response GetIdeStatus401ApplicationProblemPlusJSONResponse) VisitGetIdeSta
 	return err
 }
 
+type GetIdeStatus501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetIdeStatus501ApplicationProblemPlusJSONResponse) VisitGetIdeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetOfficialIdeDownloadRequestObject struct {
 }
 
@@ -379,6 +397,22 @@ func (response GetOfficialIdeDownload401ApplicationProblemPlusJSONResponse) Visi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOfficialIdeDownload501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetOfficialIdeDownload501ApplicationProblemPlusJSONResponse) VisitGetOfficialIdeDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -453,6 +487,22 @@ func (response StartOfficialIdeDownload409ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type StartOfficialIdeDownload501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StartOfficialIdeDownload501ApplicationProblemPlusJSONResponse) VisitStartOfficialIdeDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StopIdeServerRequestObject struct {
 	HumanName HumanNameParameter `json:"human_name"`
 }
@@ -517,6 +567,22 @@ func (response StopIdeServer404ApplicationProblemPlusJSONResponse) VisitStopIdeS
 	return err
 }
 
+type StopIdeServer501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StopIdeServer501ApplicationProblemPlusJSONResponse) VisitStopIdeServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetIdeServerRequestObject struct {
 	HumanName HumanNameParameter `json:"human_name"`
 }
@@ -567,6 +633,22 @@ func (response GetIdeServer404ApplicationProblemPlusJSONResponse) VisitGetIdeSer
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetIdeServer501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetIdeServer501ApplicationProblemPlusJSONResponse) VisitGetIdeServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -637,6 +719,22 @@ func (response StartIdeServer404ApplicationProblemPlusJSONResponse) VisitStartId
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartIdeServer501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StartIdeServer501ApplicationProblemPlusJSONResponse) VisitStartIdeServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

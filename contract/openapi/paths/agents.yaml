@@ -53,7 +53,7 @@ agents:
     tags: [agents]
     summary: Hire an agent
     description: |
-      Creates the agent's Linux user, home and `agent@<name>.service`, below the caller. Only
+      Creates the agent's Linux user, home and cgroup `/agents/<id>`, below the caller. Only
       root agents may create root agents. No approval gate; the hire is audited.
     requestBody:
       required: true
@@ -102,7 +102,7 @@ agent:
     operationId: updateAgent
     tags: [agents]
     summary: Edit an agent
-    description: Edits an agent below the caller. Limits are a soft wall (cgroups inside the VM).
+    description: Edits an agent below the caller. Limits are a soft wall (cgroups inside the machine container).
     requestBody:
       required: true
       content:

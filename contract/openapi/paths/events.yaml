@@ -171,6 +171,8 @@ emitters:
         $ref: "../components/responses.yaml#/Forbidden"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 emitter:
   parameters:
     - $ref: "../components/parameters.yaml#/EmitterId"
@@ -211,6 +213,8 @@ emitter-enable:
         $ref: "../components/responses.yaml#/Forbidden"
       "404":
         $ref: "../components/responses.yaml#/NotFound"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 emitter-disable:
   parameters:
     - $ref: "../components/parameters.yaml#/EmitterId"
@@ -232,6 +236,8 @@ emitter-disable:
         $ref: "../components/responses.yaml#/Forbidden"
       "404":
         $ref: "../components/responses.yaml#/NotFound"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
 webhook:
   parameters:
     - $ref: "../components/parameters.yaml#/EmitterId"

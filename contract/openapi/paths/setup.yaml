@@ -6,7 +6,7 @@ setup:
     operationId: getSetupStatus
     tags: [setup]
     summary: Get first-boot status
-    description: Where first boot stands. Open to anyone on loopback so the kiosk can show the right first screen.
+    description: Where first boot stands. Open to anyone on loopback and through the edge's web door, so the interface can show the right first screen.
     security: []
     responses:
       "200":

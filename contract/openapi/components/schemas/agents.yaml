@@ -15,8 +15,8 @@ AgentState:
 AgentLimits:
   type: object
   description: |
-    Linux cgroup limits for `agent@<name>.service`. Root agents run without a sandbox and have no
-    limits. Wall is soft: a root agent can change cgroups inside the VM.
+    Linux cgroup limits for the agent's cgroup `/agents/<id>`. Root agents run without a sandbox
+    and have no limits. Wall is soft: a root agent can change cgroups inside the machine container.
   required: [cpu_percent, memory_mb, tasks, wall]
   properties:
     cpu_percent:
@@ -133,6 +133,7 @@ Agent:
       description: Home folder, `/home/agents/<name>` for custom agents, `/root/agents/<name>` for root agents.
     unit:
       type: string
+      description: The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.
       pattern: '^agent@[a-z][a-z0-9-]{0,30}\.service$'
     template:
       type: [string, "null"]

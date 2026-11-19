@@ -5,8 +5,8 @@ budget:
     tags: [budget]
     summary: Get the total budget
     description: |
-      Returns the human's total budget as last pushed by the host gateway. The total is a hard
-      wall held outside the VM; it can only be changed on the host.
+      Returns the human's total budget as last pushed by the edge's model gateway. The total is a
+      hard wall held outside the machine container; it can only be changed through the edge.
     responses:
       "200":
         description: The total budget.
@@ -23,7 +23,7 @@ split:
     operationId: getBudgetSplit
     tags: [budget]
     summary: Get the budget split
-    description: Returns every agent's share down the chart. The split is a soft wall enforced inside the VM.
+    description: Returns every agent's share down the chart. The split is a soft wall enforced inside the machine container.
     responses:
       "200":
         description: The split.

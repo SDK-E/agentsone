@@ -216,7 +216,7 @@
       "pattern": "^[A-Za-z0-9._~+/=-]+$"
     },
     "ModelGateway": {
-      "description": "The model gateway. It speaks an OpenAI-compatible HTTP API, lives in the host tool, and picks the real model. Provider keys never reach the VM.",
+      "description": "The model gateway. It speaks an OpenAI-compatible HTTP API, lives in the edge service, and picks the real model. Provider keys never reach the machine container.",
       "type": "object",
       "required": ["baseUrl", "name", "token", "weights", "defaultWeight"],
       "properties": {
@@ -418,10 +418,19 @@
       "required": ["scheduleId", "name", "due", "firedAt"],
       "properties": {
         "scheduleId": { "$ref": "../common.schema.json#/$defs/ScheduleId" },
-        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "name": {
+          "description": "The schedule's name: 1 to 80 characters, as in the API.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
         "due": { "$ref": "../common.schema.json#/$defs/Timestamp" },
         "firedAt": { "$ref": "../common.schema.json#/$defs/Timestamp" },
-        "note": { "$ref": "../common.schema.json#/$defs/OneLine" }
+        "note": {
+          "description": "The schedule's message: up to 2000 characters, as in the API.",
+          "type": "string",
+          "maxLength": 2000
+        }
       },
       "additionalProperties": false
     },
@@ -687,7 +696,7 @@
     },
 
     "UsageNotification": {
-      "description": "Runner to daemon, notification. Model usage for one or more calls in a turn. Feeds the soft per-agent budget; the host gateway keeps the authoritative count.",
+      "description": "Runner to daemon, notification. Model usage for one or more calls in a turn. Feeds the soft per-agent budget; the edge's gateway keeps the authoritative count.",
       "type": "object",
       "required": ["jsonrpc", "method", "params"],
       "properties": {

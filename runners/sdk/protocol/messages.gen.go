@@ -405,8 +405,9 @@ type McpEndpointStdio struct {
 	Transport interface{} `json:"transport"`
 }
 
-// The model gateway. It speaks an OpenAI-compatible HTTP API, lives in the host
-// tool, and picks the real model. Provider keys never reach the VM.
+// The model gateway. It speaks an OpenAI-compatible HTTP API, lives in the edge
+// service, and picks the real model. Provider keys never reach the machine
+// container.
 type ModelGateway struct {
 	// BaseUrl corresponds to the JSON schema field "baseUrl".
 	BaseUrl string `json:"baseUrl"`
@@ -739,18 +740,19 @@ type TimerFired struct {
 	// FiredAt corresponds to the JSON schema field "firedAt".
 	FiredAt common.Timestamp `json:"firedAt"`
 
-	// Name corresponds to the JSON schema field "name".
+	// The schedule's name: 1 to 80 characters, as in the API.
 	Name string `json:"name"`
 
-	// Note corresponds to the JSON schema field "note".
-	Note *common.OneLine `json:"note,omitempty,omitzero"`
+	// The schedule's message: up to 2000 characters, as in the API.
+	Note *string `json:"note,omitempty,omitzero"`
 
 	// ScheduleID corresponds to the JSON schema field "scheduleId".
 	ScheduleID common.ScheduleID `json:"scheduleId"`
 }
 
 // Runner to daemon, notification. Model usage for one or more calls in a turn.
-// Feeds the soft per-agent budget; the host gateway keeps the authoritative count.
+// Feeds the soft per-agent budget; the edge's gateway keeps the authoritative
+// count.
 type UsageNotification struct {
 	// Jsonrpc corresponds to the JSON schema field "jsonrpc".
 	Jsonrpc JsonRpcVersion `json:"jsonrpc"`

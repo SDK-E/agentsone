@@ -90,7 +90,7 @@
       "pattern": "^[0-9a-f]{64}$"
     },
     "ActorKind": {
-      "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the VM. host: the host tool on the Mac. plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
+      "description": "Who acted. agent: an agent in the society. human: a human account. system: the daemon or one of its emitters inside the machine container. host: the edge service (the kind keeps its name). plugin: a panel plugin acting with a scoped token, named by its plugin id (plg_ and a ULID).",
       "type": "string",
       "enum": ["agent", "human", "system", "host", "plugin"]
     },

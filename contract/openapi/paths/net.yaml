@@ -4,7 +4,7 @@ allow-list:
     operationId: getAllowList
     tags: [net]
     summary: Get the internet allow list
-    description: Returns the allow list synced from the host. Read-only here and a hard wall; humans change it on the host.
+    description: Returns the allow list synced from the edge. Read-only here and a hard wall; humans change it through the edge.
     responses:
       "200":
         description: The allow list.

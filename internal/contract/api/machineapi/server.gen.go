@@ -45,7 +45,7 @@ type ServerInterface interface {
 	// RemovePackage Remove a package
 	// (DELETE /machine/packages/{package_name})
 	RemovePackage(w http.ResponseWriter, r *http.Request, packageName PackageName)
-	// RebootMachine Reboot the VM
+	// RebootMachine Reboot the machine
 	// (POST /machine/power/reboot)
 	RebootMachine(w http.ResponseWriter, r *http.Request)
 	// ListProcesses List processes
@@ -948,6 +948,8 @@ type LockedApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type PayloadTooLargeApplicationProblemPlusJSONResponse Problem
 
 type TooManyRequestsResponseHeaders struct {
@@ -1047,6 +1049,22 @@ func (response ListFiles404ApplicationProblemPlusJSONResponse) VisitListFilesRes
 	return err
 }
 
+type ListFiles501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListFiles501ApplicationProblemPlusJSONResponse) VisitListFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteFileRequestObject struct {
 	Params DeleteFileParams
 }
@@ -1139,6 +1157,22 @@ func (response DeleteFile409ApplicationProblemPlusJSONResponse) VisitDeleteFileR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteFile501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteFile501ApplicationProblemPlusJSONResponse) VisitDeleteFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1245,6 +1279,22 @@ func (response ReadFile413ApplicationProblemPlusJSONResponse) VisitReadFileRespo
 	return err
 }
 
+type ReadFile501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ReadFile501ApplicationProblemPlusJSONResponse) VisitReadFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type WriteFileRequestObject struct {
 	Body *WriteFileJSONRequestBody
 }
@@ -1347,6 +1397,22 @@ func (response WriteFile413ApplicationProblemPlusJSONResponse) VisitWriteFileRes
 	return err
 }
 
+type WriteFile501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response WriteFile501ApplicationProblemPlusJSONResponse) VisitWriteFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMachineMetricsRequestObject struct {
 }
 
@@ -1380,6 +1446,22 @@ func (response GetMachineMetrics401ApplicationProblemPlusJSONResponse) VisitGetM
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMachineMetrics501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetMachineMetrics501ApplicationProblemPlusJSONResponse) VisitGetMachineMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1434,6 +1516,22 @@ func (response ListPackages401ApplicationProblemPlusJSONResponse) VisitListPacka
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackages501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPackages501ApplicationProblemPlusJSONResponse) VisitListPackagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1508,6 +1606,22 @@ func (response InstallPackage403ApplicationProblemPlusJSONResponse) VisitInstall
 	return err
 }
 
+type InstallPackage501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response InstallPackage501ApplicationProblemPlusJSONResponse) VisitInstallPackageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RemovePackageRequestObject struct {
 	PackageName PackageName `json:"package_name"`
 }
@@ -1574,6 +1688,22 @@ func (response RemovePackage404ApplicationProblemPlusJSONResponse) VisitRemovePa
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePackage501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response RemovePackage501ApplicationProblemPlusJSONResponse) VisitRemovePackageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1664,6 +1794,22 @@ func (response RebootMachine423ApplicationProblemPlusJSONResponse) VisitRebootMa
 	return err
 }
 
+type RebootMachine501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response RebootMachine501ApplicationProblemPlusJSONResponse) VisitRebootMachineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListProcessesRequestObject struct {
 	Params ListProcessesParams
 }
@@ -1714,6 +1860,22 @@ func (response ListProcesses401ApplicationProblemPlusJSONResponse) VisitListProc
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProcesses501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListProcesses501ApplicationProblemPlusJSONResponse) VisitListProcessesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1799,6 +1961,22 @@ func (response SignalProcess404ApplicationProblemPlusJSONResponse) VisitSignalPr
 	return err
 }
 
+type SignalProcess501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SignalProcess501ApplicationProblemPlusJSONResponse) VisitSignalProcessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPtySessionsRequestObject struct {
 	Params ListPtySessionsParams
 }
@@ -1849,6 +2027,22 @@ func (response ListPtySessions401ApplicationProblemPlusJSONResponse) VisitListPt
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPtySessions501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPtySessions501ApplicationProblemPlusJSONResponse) VisitListPtySessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1942,6 +2136,22 @@ func (response CreatePtySession429ApplicationProblemPlusJSONResponse) VisitCreat
 	return err
 }
 
+type CreatePtySession501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePtySession501ApplicationProblemPlusJSONResponse) VisitCreatePtySessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ClosePtySessionRequestObject struct {
 	PtyId PtyIdParameter `json:"pty_id"`
 }
@@ -2006,6 +2216,22 @@ func (response ClosePtySession404ApplicationProblemPlusJSONResponse) VisitCloseP
 	return err
 }
 
+type ClosePtySession501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ClosePtySession501ApplicationProblemPlusJSONResponse) VisitClosePtySessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPtySessionRequestObject struct {
 	PtyId PtyIdParameter `json:"pty_id"`
 }
@@ -2056,6 +2282,22 @@ func (response GetPtySession404ApplicationProblemPlusJSONResponse) VisitGetPtySe
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPtySession501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPtySession501ApplicationProblemPlusJSONResponse) VisitGetPtySessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2180,6 +2422,22 @@ func (response ConnectPty409ApplicationProblemPlusJSONResponse) VisitConnectPtyR
 	return err
 }
 
+type ConnectPty501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ConnectPty501ApplicationProblemPlusJSONResponse) VisitConnectPtyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListServicesRequestObject struct {
 	Params ListServicesParams
 }
@@ -2230,6 +2488,22 @@ func (response ListServices401ApplicationProblemPlusJSONResponse) VisitListServi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServices501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListServices501ApplicationProblemPlusJSONResponse) VisitListServicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2320,6 +2594,22 @@ func (response RestartService423ApplicationProblemPlusJSONResponse) VisitRestart
 	return err
 }
 
+type RestartService501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response RestartService501ApplicationProblemPlusJSONResponse) VisitRestartServiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartServiceRequestObject struct {
 	Unit Unit `json:"unit"`
 }
@@ -2406,6 +2696,22 @@ func (response StartService423ApplicationProblemPlusJSONResponse) VisitStartServ
 	return err
 }
 
+type StartService501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StartService501ApplicationProblemPlusJSONResponse) VisitStartServiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StopServiceRequestObject struct {
 	Unit Unit `json:"unit"`
 }
@@ -2476,6 +2782,22 @@ func (response StopService404ApplicationProblemPlusJSONResponse) VisitStopServic
 	return err
 }
 
+type StopService501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StopService501ApplicationProblemPlusJSONResponse) VisitStopServiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListMachineUsersRequestObject struct {
 	Params ListMachineUsersParams
 }
@@ -2530,6 +2852,22 @@ func (response ListMachineUsers401ApplicationProblemPlusJSONResponse) VisitListM
 	return err
 }
 
+type ListMachineUsers501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListMachineUsers501ApplicationProblemPlusJSONResponse) VisitListMachineUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListFiles List a folder
@@ -2556,7 +2894,7 @@ type StrictServerInterface interface {
 	// RemovePackage Remove a package
 	// (DELETE /machine/packages/{package_name})
 	RemovePackage(ctx context.Context, request RemovePackageRequestObject) (RemovePackageResponseObject, error)
-	// RebootMachine Reboot the VM
+	// RebootMachine Reboot the machine
 	// (POST /machine/power/reboot)
 	RebootMachine(ctx context.Context, request RebootMachineRequestObject) (RebootMachineResponseObject, error)
 	// ListProcesses List processes

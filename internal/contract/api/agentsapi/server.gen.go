@@ -787,6 +787,8 @@ type LockedApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
+type NotImplementedApplicationProblemPlusJSONResponse Problem
+
 type PaymentRequiredApplicationProblemPlusJSONResponse Problem
 
 type TooManyRequestsResponseHeaders struct {
@@ -854,6 +856,22 @@ func (response ListAgentTemplates401ApplicationProblemPlusJSONResponse) VisitLis
 	return err
 }
 
+type ListAgentTemplates501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListAgentTemplates501ApplicationProblemPlusJSONResponse) VisitListAgentTemplatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAgentsRequestObject struct {
 	Params ListAgentsParams
 }
@@ -904,6 +922,22 @@ func (response ListAgents401ApplicationProblemPlusJSONResponse) VisitListAgentsR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAgents501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListAgents501ApplicationProblemPlusJSONResponse) VisitListAgentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1010,6 +1044,22 @@ func (response HireAgent423ApplicationProblemPlusJSONResponse) VisitHireAgentRes
 	return err
 }
 
+type HireAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response HireAgent501ApplicationProblemPlusJSONResponse) VisitHireAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RetireAgentRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 }
@@ -1090,6 +1140,22 @@ func (response RetireAgent409ApplicationProblemPlusJSONResponse) VisitRetireAgen
 	return err
 }
 
+type RetireAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response RetireAgent501ApplicationProblemPlusJSONResponse) VisitRetireAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAgentRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 }
@@ -1140,6 +1206,22 @@ func (response GetAgent404ApplicationProblemPlusJSONResponse) VisitGetAgentRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetAgent501ApplicationProblemPlusJSONResponse) VisitGetAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1247,6 +1329,22 @@ func (response UpdateAgent423ApplicationProblemPlusJSONResponse) VisitUpdateAgen
 	return err
 }
 
+type UpdateAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateAgent501ApplicationProblemPlusJSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListChatMessagesRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 	Params    ListChatMessagesParams
@@ -1314,6 +1412,22 @@ func (response ListChatMessages404ApplicationProblemPlusJSONResponse) VisitListC
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChatMessages501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response ListChatMessages501ApplicationProblemPlusJSONResponse) VisitListChatMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1440,6 +1554,22 @@ func (response SendChatMessage429ApplicationProblemPlusJSONResponse) VisitSendCh
 	return err
 }
 
+type SendChatMessage501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SendChatMessage501ApplicationProblemPlusJSONResponse) VisitSendChatMessageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamChatRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 	Params    StreamChatParams
@@ -1524,6 +1654,22 @@ func (response StreamChat404ApplicationProblemPlusJSONResponse) VisitStreamChatR
 	return err
 }
 
+type StreamChat501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StreamChat501ApplicationProblemPlusJSONResponse) VisitStreamChatResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAgentOneLineRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 }
@@ -1574,6 +1720,22 @@ func (response GetAgentOneLine404ApplicationProblemPlusJSONResponse) VisitGetAge
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentOneLine501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetAgentOneLine501ApplicationProblemPlusJSONResponse) VisitGetAgentOneLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1661,6 +1823,22 @@ func (response SetAgentOneLine404ApplicationProblemPlusJSONResponse) VisitSetAge
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAgentOneLine501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SetAgentOneLine501ApplicationProblemPlusJSONResponse) VisitSetAgentOneLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1765,6 +1943,22 @@ func (response StreamAgentOutput404ApplicationProblemPlusJSONResponse) VisitStre
 	return err
 }
 
+type StreamAgentOutput501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response StreamAgentOutput501ApplicationProblemPlusJSONResponse) VisitStreamAgentOutputResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SleepAgentRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 	Body      *SleepAgentJSONRequestBody
@@ -1852,6 +2046,22 @@ func (response SleepAgent404ApplicationProblemPlusJSONResponse) VisitSleepAgentR
 	return err
 }
 
+type SleepAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response SleepAgent501ApplicationProblemPlusJSONResponse) VisitSleepAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type IssueAgentTokenRequestObject struct {
 	AgentName AgentNameParameter `json:"agent_name"`
 	Body      *IssueAgentTokenJSONRequestBody
@@ -1935,6 +2145,22 @@ func (response IssueAgentToken404ApplicationProblemPlusJSONResponse) VisitIssueA
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueAgentToken501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response IssueAgentToken501ApplicationProblemPlusJSONResponse) VisitIssueAgentTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2073,6 +2299,22 @@ func (response WakeAgent429ApplicationProblemPlusJSONResponse) VisitWakeAgentRes
 		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
 	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WakeAgent501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response WakeAgent501ApplicationProblemPlusJSONResponse) VisitWakeAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }

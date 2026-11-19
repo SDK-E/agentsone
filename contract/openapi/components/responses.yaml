@@ -45,7 +45,7 @@ PayloadTooLarge:
       schema:
         $ref: "./schemas/common.yaml#/Problem"
 Locked:
-  description: Frozen by the host (`urn:agentsone:problem:frozen`).
+  description: Frozen by the edge (`urn:agentsone:problem:frozen`).
   content:
     application/problem+json:
       schema:

@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: MIT
-# Door API. Only the host tool on the Mac calls these, over vsock. 403 host-only elsewhere.
+# Door API (tag `host`). Only the edge service calls these. Any other caller gets 403 host-only.
 health:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   get:
     operationId: getDoorHealth
     tags: [host]
     summary: Door health
-    description: Returns daemon health for the host tool's watchdog and status command.
+    description: Returns daemon health for the edge's watchdog and status command.
     security:
       - hostDoor: []
     responses:
@@ -25,7 +25,7 @@ health:
 freezes:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   get:
     operationId: listFreezes
     tags: [host]
@@ -54,7 +54,7 @@ freezes:
     tags: [host]
     summary: Freeze all, a team or an agent
     description: |
-      Freezes agents. Scope `all` is a hard wall (the host also stops model calls and traffic);
+      Freezes agents. Scope `all` is a hard wall (the edge also stops model calls and traffic);
       `team` and `agent` are soft (the daemon stops those units).
     security:
       - hostDoor: []
@@ -82,7 +82,7 @@ freezes:
 release:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   post:
     operationId: releaseFreeze
     tags: [host]
@@ -114,7 +114,7 @@ release:
 budget:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   put:
     operationId: pushBudgetState
     tags: [host]
@@ -140,12 +140,12 @@ budget:
 audit:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   get:
     operationId: pullAuditRecords
     tags: [host]
     summary: Pull audit records
-    description: The host audit sink pulls records after its last acknowledged sequence, in order.
+    description: The edge's audit sink pulls records after its last acknowledged sequence, in order.
     security:
       - hostDoor: []
     parameters:
@@ -173,12 +173,12 @@ audit:
 audit-ack:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   post:
     operationId: ackAuditRecords
     tags: [host]
     summary: Acknowledge audit records
-    description: The host confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.
+    description: The edge confirms it stored records up to a sequence. A head hash mismatch returns 409 and is itself audited.
     security:
       - hostDoor: []
     requestBody:
@@ -205,12 +205,12 @@ audit-ack:
 allow-list:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   put:
     operationId: syncAllowList
     tags: [host]
     summary: Sync the allow list
-    description: The host pushes the current internet allow list so the interface and agents can read it.
+    description: The edge pushes the current internet allow list so the interface and agents can read it.
     security:
       - hostDoor: []
     requestBody:
@@ -231,13 +231,13 @@ allow-list:
 gateway-secret:
   servers:
     - url: http://agentsone-door/v1
-      description: Door listener on vsock port 7701 inside the VM; only the host tool (CID 2) connects.
+      description: The daemon's door, reachable only from the edge service; the daemon refuses every other caller.
   put:
     operationId: setGatewaySecret
     tags: [host]
     summary: Set the gateway secret
     description: >-
-      The host sends a fresh key on every boot. The daemon signs agents' model gateway tokens with
+      The edge sends a fresh key on every boot. The daemon signs agents' model gateway tokens with
       it (HMAC), and the gateway checks them. The key is never returned.
     security:
       - hostDoor: []

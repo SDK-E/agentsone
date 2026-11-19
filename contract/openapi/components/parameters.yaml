@@ -138,7 +138,7 @@ FilePath:
   name: path
   in: query
   required: true
-  description: Absolute path inside the VM.
+  description: Absolute path inside the machine container.
   schema:
     type: string
     pattern: "^/"

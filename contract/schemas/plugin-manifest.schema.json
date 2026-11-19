@@ -159,7 +159,7 @@
       "additionalProperties": false
     },
     "McpServerHttp": {
-      "description": "A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.",
+      "description": "A remote MCP server reached over Streamable HTTP. Its host name must be on the edge's allow list.",
       "type": "object",
       "required": ["name", "transport", "url"],
       "properties": {

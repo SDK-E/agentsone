@@ -28,6 +28,7 @@ func writeDist(r repo, bundlePath string) error {
 		stripSchemaIdentity(v, key)
 	}
 	renameFileSchemas(doc)
+	injectNotImplemented(doc)
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)

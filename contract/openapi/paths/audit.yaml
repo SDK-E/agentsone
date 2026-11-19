@@ -4,7 +4,7 @@ audit:
     operationId: listAuditRecords
     tags: [audit]
     summary: List audit records
-    description: Lists audit records in sequence order. Records from inside the VM are hash-chained testimony.
+    description: Lists audit records in sequence order. Records from inside the machine container are hash-chained testimony.
     parameters:
       - name: actor
         in: query
@@ -43,7 +43,7 @@ verify:
     operationId: verifyAuditChain
     tags: [audit]
     summary: Verify the audit chain
-    description: Re-hashes the chain in the given range and reports the first break. Compare the head hash with the host's copy for proof.
+    description: Re-hashes the chain in the given range and reports the first break. Compare the head hash with the edge's copy for proof.
     requestBody:
       required: true
       content:

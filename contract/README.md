@@ -17,6 +17,7 @@ CI fails when generated code drifts from them.
 | `schemas/` | JSON Schemas for the runner protocol, event envelope, plugin manifest, theme, memory record, audit record and agent template. The API references them whole. |
 | `fixtures/api/<operationId>[.<variant>].json` | Golden responses served by the fake daemon: `{"status": <http>, "body": <body>}`. Variants include `empty`, `long-text` and failing cases such as `error`, `validation`, `conflict`, `root-only`. |
 | `redocly.yaml` | Lint and bundle configuration. |
+| `vendor/openrpc/` | The OpenRPC 1.3 meta-schema (Apache-2.0) that CI validates the runner protocol against. |
 
 ## Lint and bundle
 
@@ -33,10 +34,11 @@ output; do not commit it.
 ## API conventions
 
 - Base path `/v1` on `http://127.0.0.1:7700` and on the Unix socket `/run/agentsone/api.sock`.
-  The `host` group is served only on the vsock door to the host tool.
-- Callers: humans with the `agentsone_session` cookie, agents by socket peer credentials and
-  cgroup `agent@<name>.service`, scoped bearer tokens (agent and panel plugin tokens), and the
-  host tool over vsock.
+  The web door in the `edge` service reaches the daemon on TCP port 7700 as a trusted proxy. The
+  `host` group is served only to the edge service.
+- Callers: humans with the `agentsone_session` cookie (through the web door), agents by socket
+  peer credentials and cgroup `/agents/<id>`, scoped bearer tokens (agent and panel plugin tokens),
+  and the edge service.
 - API fields are `snake_case`, including the memory record, the audit record and event `data`
   (see [Naming](#naming)).
 - Ids are a type prefix plus a ULID. Agent and human names are Linux usernames. Times are RFC 3339 UTC.
@@ -77,9 +79,41 @@ content" warnings.
 ## Versioning and stability
 
 - `VERSION` and `info.version` in `openapi/openapi.yaml` always match.
-- The contract is frozen at 1.0.0. Any change after the freeze needs a version bump by the contract
+- The contract was frozen at 1.0.0. Any change after the freeze needs a version bump by the contract
   owner: patch for wording only, minor for additions (new operations, optional fields, new enum
   values clients must tolerate), major for anything that breaks a generated client.
 - Additions to problem types or enums are minor changes; clients must treat unknown values as
   unknown, not as errors.
 - Fixtures change with the contract in the same pull request.
+- Every operation may answer 501 `urn:agentsone:problem:not-implemented`. The sources do not repeat
+  it: the bundle step of `scripts/gen.sh` adds the shared `NotImplemented` response to every
+  operation of `contract/dist/openapi.json`, so generated code and response validation cover it.
+
+## Changelog
+
+### 1.0.1
+
+All changes are additive and backward compatible.
+
+- Event catalog 1.1.0: new type `agentsone.setup.licence.accepted` (emitter `setup`) and the plugin
+  types `agentsone.plugin.installed`, `.removed`, `.enabled`, `.disabled` and `.failed` (emitter
+  `plugin`), each with a data schema, an example and event fixtures.
+- New problem type `urn:agentsone:problem:not-implemented` (501), answered by any operation the
+  daemon does not serve yet. Every operation in the bundle declares the 501 response.
+- `createTask` declares a 403 response (`forbidden`).
+- `registerEmitter`, `enableEmitter`, `disableEmitter` and `receiveWebhook` declare a 503
+  response (`unavailable`).
+- Every 429 response carries a `Retry-After` header (the shared `TooManyRequests` response did
+  already; the bundle check now guards it).
+- Runner protocol stays 1.0. `TimerFired.name` follows the schedule name (1 to 80 characters, was
+  a 64-character kebab-case pattern) and `TimerFired.note` follows the schedule message (up to
+  2000 characters, was one line of 255). The old values were stricter than the API that feeds them.
+- Descriptions now use the compose terms: the web door and caller are the `edge` service, the
+  daemon runs in the `machine` container, and an agent's cgroup is `/agents/<id>`. No name,
+  value or shape changed (see "Names that keep their old spelling" in `FREEZE.md`).
+- CI validates `schemas/runner/runner.openrpc.json` against the vendored OpenRPC 1.3 meta-schema in
+  `vendor/openrpc/`.
+
+### 1.0.0
+
+First frozen contract.

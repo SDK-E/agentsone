@@ -131,7 +131,7 @@ func toInstalledTheme(t domain.InstalledTheme) (api.InstalledTheme, error) {
 		return api.InstalledTheme{}, fmt.Errorf("theme %s: stored document: %w", t.ID, err)
 	}
 	dto := api.InstalledTheme{
-		Id: t.ID, Name: t.Name, Builtin: t.Builtin, InstalledAt: t.InstalledAt, Theme: doc,
+		Id: t.ID, Name: t.Name, Builtin: t.Builtin, InstalledAt: api.Timestamp(t.InstalledAt), Theme: doc,
 	}
 	if t.PluginID != "" {
 		dto.PluginId = &t.PluginID

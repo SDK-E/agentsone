@@ -233,7 +233,7 @@ func (h *PluginsHandler) IssuePanelToken(ctx context.Context, req pluginsapi.Iss
 	}
 	return pluginsapi.IssuePanelToken201JSONResponse{
 		Id: tok.ID, Token: tok.Value, Label: tok.Label, Subject: tok.Subject, Scopes: scopes,
-		CreatedAt: tok.CreatedAt, ExpiresAt: tok.ExpiresAt,
+		CreatedAt: api.Timestamp(tok.CreatedAt), ExpiresAt: api.Timestamp(tok.ExpiresAt),
 	}, nil
 }
 
@@ -349,6 +349,6 @@ func toPlugin(p domain.Plugin) (api.Plugin, error) {
 	return api.Plugin{
 		Id: p.ID, Name: p.Name, Version: p.Version, Kinds: kinds, Source: api.PluginSourceId(p.Source),
 		Ref: p.Ref, Enabled: p.Enabled, Health: api.PluginHealth(p.Health),
-		InstalledBy: p.InstalledBy.Kind + ":" + p.InstalledBy.Name, InstalledAt: p.InstalledAt, Manifest: manifest,
+		InstalledBy: p.InstalledBy.Kind + ":" + p.InstalledBy.Name, InstalledAt: api.Timestamp(p.InstalledAt), Manifest: manifest,
 	}, nil
 }

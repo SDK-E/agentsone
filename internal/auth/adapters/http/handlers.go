@@ -28,7 +28,7 @@ func Groups(svc *app.Service, agents AgentReader) []core.APIGroup {
 	h := &handlers{svc: svc, agents: agents}
 	return []core.APIGroup{
 		sessionapi.Group(sessionHandlers{h}, captureRequest[sessionapi.StrictHandlerFunc]),
-		humansapi.Group(humansHandlers{h}),
+		humansapi.Group(humansHandlers{h}, captureRequest[humansapi.StrictHandlerFunc]),
 		setupapi.Group(setupHandlers{h}),
 	}
 }
@@ -200,13 +200,41 @@ func (h humansHandlers) CreateHuman(ctx context.Context, req humansapi.CreateHum
 	return humansapi.CreateHuman201JSONResponse(toHuman(x)), nil
 }
 
-// UpdateHuman changes a human; only humans may.
+// UpdateHuman changes a human; only humans may. After an own password
+// change the response carries the caller's new session cookie.
 func (h humansHandlers) UpdateHuman(ctx context.Context, req humansapi.UpdateHumanRequestObject) (humansapi.UpdateHumanResponseObject, error) {
-	x, err := h.svc.UpdateHuman(ctx, caller(ctx), req.HumanName, app.HumanChange{DisplayName: req.Body.DisplayName, Password: req.Body.Password})
+	u, err := h.svc.UpdateHuman(ctx, caller(ctx), req.HumanName, app.HumanChange{
+		DisplayName: req.Body.DisplayName, Password: req.Body.Password, CurrentPassword: req.Body.CurrentPassword,
+	})
+	if msg, ok := currentPasswordMessage(err); ok {
+		p := problem(core.ProblemFrom(err))
+		p.Detail = &msg
+		p.Errors = &[]contract.ValidationIssue{{Pointer: "/current_password", Message: msg}}
+		return humansapi.UpdateHuman400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: humansapi.BadRequestApplicationProblemPlusJSONResponse(p)}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	return humansapi.UpdateHuman200JSONResponse{Body: toHuman(x)}, nil
+	out := humansapi.UpdateHuman200JSONResponse{Body: toHuman(u.Human)}
+	if u.Session != "" {
+		cookie := sessionCookie(u.Session, int(domain.SessionTTL/time.Second), infoFrom(ctx).secure)
+		out.Headers.SetCookie = &cookie
+	}
+	return out, nil
+}
+
+// currentPasswordMessage is the plain message for a refused own password
+// change, shown next to the current password field.
+func currentPasswordMessage(err error) (string, bool) {
+	switch {
+	case errors.Is(err, app.ErrCurrentPasswordMissing):
+		return "Enter your current password.", true
+	case errors.Is(err, app.ErrCurrentPasswordWrong):
+		return "That is not your current password.", true
+	case errors.Is(err, app.ErrCurrentPasswordThrottled):
+		return "Too many wrong passwords. Wait a minute and try again.", true
+	}
+	return "", false
 }
 
 // DeleteHuman removes a human; only humans may.

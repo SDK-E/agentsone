@@ -254,6 +254,72 @@ func TestHumans_AreAHumanPower(t *testing.T) {
 	want(t, d.call(ada, http.MethodGet, "/v1/humans/bob", "", ""), http.StatusNotFound)
 }
 
+func TestUpdateHuman_OwnPasswordRotatesTheSessionCookie(t *testing.T) {
+	t.Parallel()
+	d := start(t)
+	mine := signIn(t, d)
+	other := sessionCookie(t, d.call(core.Anonymous, http.MethodPost, "/v1/session", `{"name":"ada","password":"correct horse battery"}`, "")).Value
+	rec := d.call(ada, http.MethodPatch, "/v1/humans/ada",
+		`{"password":"a brand new passphrase","current_password":"correct horse battery"}`, mine)
+	want(t, rec, http.StatusOK)
+	fresh := sessionCookie(t, rec)
+	if !fresh.HttpOnly || fresh.SameSite != http.SameSiteStrictMode || fresh.Value == mine || fresh.MaxAge <= 0 {
+		t.Fatalf("cookie %+v", fresh)
+	}
+	for name, v := range map[string]string{"old": mine, "other": other} {
+		if _, err := d.deps.Ports.Tokens.Verify(context.Background(), v); err == nil {
+			t.Fatalf("%s session survived the password change", name)
+		}
+	}
+	if c, err := d.deps.Ports.Tokens.Verify(context.Background(), fresh.Value); err != nil || c.Name != "ada" {
+		t.Fatalf("new session %+v err %v", c, err)
+	}
+}
+
+func TestUpdateHuman_OwnPasswordProblemPointsAtCurrentPassword(t *testing.T) {
+	t.Parallel()
+	for name, body := range map[string]string{
+		"missing": `{"password":"a brand new passphrase"}`,
+		"wrong":   `{"password":"a brand new passphrase","current_password":"not my password"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			d := start(t)
+			cookie := signIn(t, d)
+			rec := d.call(ada, http.MethodPatch, "/v1/humans/ada", body, cookie)
+			want(t, rec, http.StatusBadRequest)
+			var p struct {
+				Type   string `json:"type"`
+				Errors []struct {
+					Pointer string `json:"pointer"`
+				} `json:"errors"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil || p.Type != "urn:agentsone:problem:validation" ||
+				len(p.Errors) != 1 || p.Errors[0].Pointer != "/current_password" {
+				t.Fatalf("problem %s", rec.Body)
+			}
+			if rec.Header().Get("Set-Cookie") != "" {
+				t.Fatal("refused change set a cookie")
+			}
+		})
+	}
+}
+
+func TestUpdateHuman_ResetOfAnotherHumanSetsNoCookie(t *testing.T) {
+	t.Parallel()
+	d := start(t)
+	cookie := signIn(t, d)
+	want(t, d.call(ada, http.MethodPost, "/v1/humans", `{"name":"bob","display_name":"Bob","password":"another long passphrase"}`, cookie), http.StatusCreated)
+	rec := d.call(ada, http.MethodPatch, "/v1/humans/bob", `{"password":"a brand new passphrase"}`, cookie)
+	want(t, rec, http.StatusOK)
+	if rec.Header().Get("Set-Cookie") != "" {
+		t.Fatal("reset of another human set a cookie")
+	}
+	if _, err := d.deps.Ports.Tokens.Verify(context.Background(), cookie); err != nil {
+		t.Fatalf("caller's session ended: %v", err)
+	}
+}
+
 func TestRevokeToken_EndsAToken(t *testing.T) {
 	t.Parallel()
 	d := start(t)

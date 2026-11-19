@@ -34,6 +34,17 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["GET", /^\/v1\/settings\/theme$/, "getThemeSelection"],
   ["PUT", /^\/v1\/settings\/theme$/, "setThemeSelection"],
   ["GET", /^\/v1\/themes\/[^/]+$/, "getTheme"],
+  // juno: monitor, tasks and audit
+  ["GET", /^\/v1\/budget$/, "getBudget"],
+  ["GET", /^\/v1\/budget\/split$/, "getBudgetSplit"],
+  ["GET", /^\/v1\/machine\/metrics$/, "getMachineMetrics"],
+  ["GET", /^\/v1\/tasks$/, "listTasks"],
+  ["POST", /^\/v1\/tasks$/, "createTask"],
+  ["GET", /^\/v1\/tasks\/stream$/, "streamTasks"],
+  ["GET", /^\/v1\/tasks\/[^/]+$/, "getTask"],
+  ["GET", /^\/v1\/schedules$/, "listSchedules"],
+  ["GET", /^\/v1\/audit$/, "listAuditRecords"],
+  ["POST", /^\/v1\/audit\/verify$/, "verifyAuditChain"],
 ];
 
 function operationOf(method: string, path: string): string | undefined {

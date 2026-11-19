@@ -10,7 +10,7 @@ import { media } from "../test/setup";
 import { PanelsArea } from "./panel-tabs";
 
 describe("Panels", () => {
-  it("lists every panel from the registry as a tab, Monitor first", async () => {
+  it("lists every panel from the registry as a tab, Monitor first", () => {
     renderWith(<PanelsArea />);
 
     const tabs = screen.getAllByRole("tab");
@@ -26,7 +26,7 @@ describe("Panels", () => {
       "Settings",
     ]);
     expect(tabs).toHaveLength(PANEL_IDS.length);
-    expect(await screen.findByRole("heading", { name: "Monitor" })).toBeVisible();
+    expect(screen.getByRole("tabpanel", { name: "Monitor" })).toBeVisible();
   });
 
   it("moves between tabs with the arrow, Home and End keys", async () => {
@@ -46,16 +46,16 @@ describe("Panels", () => {
     expect(tasks).toHaveFocus();
     expect(tasks).toHaveAttribute("aria-selected", "true");
     const panel = screen.getByRole("tabpanel", { name: "Tasks" });
-    expect(await within(panel).findByText(/Tasks the agents gave each other/)).toBeVisible();
+    expect(await within(panel).findByRole("list", { name: "Tasks, newest first" })).toBeVisible();
   });
 
-  it("opens every placeholder panel without error", async () => {
+  it("opens every panel in its own tab panel", async () => {
     const user = userEvent.setup();
     renderWith(<PanelsArea />);
 
     for (const name of ["Memory", "Plugins", "IDE", "Desktop", "Machine", "Audit"]) {
       await user.click(screen.getByRole("tab", { name }));
-      expect(await screen.findByRole("heading", { name })).toBeVisible();
+      expect(screen.getByRole("tabpanel", { name })).toBeVisible();
     }
   });
 
@@ -75,7 +75,7 @@ describe("Panels", () => {
 
   it("has no accessibility violations", async () => {
     const { container } = renderWith(<PanelsArea />);
-    await screen.findByRole("heading", { name: "Monitor" });
+    await screen.findByText("Hard limit");
 
     await expectNoAxeViolations(container);
   });

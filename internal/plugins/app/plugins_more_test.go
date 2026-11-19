@@ -228,7 +228,7 @@ func TestPlugins_ListPagesAndFilters(t *testing.T) {
 		t.Errorf("enabled = %d", len(enabled))
 	}
 	infos, _ := svc.RunnerEntries(context.Background())
-	if len(infos) != 4 { // echo, openai and the two enabled plugin runners
+	if len(infos) != 5 { // claude, echo, openai and the two enabled plugin runners
 		t.Errorf("runner entries = %d", len(infos))
 	}
 	if e, err := svc.RunnerEntry(context.Background(), "r-aa"); err != nil || e.PluginID == "" || e.Builtin {
@@ -237,7 +237,7 @@ func TestPlugins_ListPagesAndFilters(t *testing.T) {
 	if _, err := svc.RunnerEntry(context.Background(), "ghost"); !errors.Is(err, core.ErrNotFound) {
 		t.Errorf("RunnerEntry ghost error = %v", err)
 	}
-	if got, _ := svc.Runners(context.Background()); len(got) != 4 || got[0].Source == "" {
+	if got, _ := svc.Runners(context.Background()); len(got) != 5 || got[0].Source == "" {
 		t.Errorf("Runners = %+v", got)
 	}
 	ad, _ := svc.Runner(context.Background(), "echo")

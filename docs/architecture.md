@@ -83,6 +83,30 @@ The interface labels every limit as hard or soft, so humans know what to trust.
 | Gateway identity | The daemon and `edge` | `edge` trusts the agent identity the daemon vouches for. A root agent can pose as another agent. It cannot spend more than the total. |
 | Machine audit records | The daemon and `edge` | Only the daemon's audit token can send records to the `edge` audit sink, so custom agents cannot. A root agent can read the gateway key and send false records. See [The audit trail](#the-audit-trail). |
 | Per-agent limits for root agents | The daemon | Root agents can rewrite any agent's limits. They are bound only by the container ceiling. |
+| Claude engine token wall | The Claude runner | See [The Claude runner](#the-claude-runner). |
+
+### The Claude runner
+
+The `claude` runner (`runners/claude`) drives the Claude Code engine. The engine is not in the
+image: the machine downloads the pinned release after a human accepts its licence on the setup
+page. Until then each turn fails with a plain message and the runner keeps running.
+
+- **Token wall (soft).** The engine never holds the gateway token or the MCP token. It calls a
+  loopback proxy in the runner with a per-process secret, and the proxy forwards each call with
+  the agent's latest token. Other agents in the container can reach the loopback port, and the
+  secret keeps them out. A root agent can read other processes' environments, so it could read the
+  secret, just as it could read a token. The secret is never in process arguments or logs; the
+  engine's MCP config and system prompt are 0600 files in the agent's
+  `~/.local/state/agentsone/claude`.
+- **Sandbox label.** Root agents run the engine with `bypassPermissions` and `IS_SANDBOX=1`: the
+  machine container is their sandbox. Custom agents run with `dontAsk`, the machine tools and the
+  extra rules of their template's `runner.config`. `WebFetch` is always off, because it would call
+  the internet outside the gateway.
+- The engine reaches only the proxy. Its environment is an allow list, so no inherited proxy
+  variable, Anthropic key or Claude setting reaches it. A stdio MCP server is refused, because it
+  would need the real token in the engine's environment.
+- A stopped runner leaves no engine behind: the engine runs in its own process group, which the
+  runner kills after a short grace.
 
 ### Per-agent limits
 

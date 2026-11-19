@@ -43,7 +43,7 @@ func TestModuleProvidesTheRunnerRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(infos) != 2 || infos[0].Name != "echo" || infos[1].Name != "openai" || infos[0].Source != "builtin" {
+	if len(infos) != 3 || infos[0].Name != "claude" || infos[1].Name != "echo" || infos[2].Name != "openai" || infos[0].Source != "builtin" {
 		t.Fatalf("runners = %+v", infos)
 	}
 }
@@ -171,7 +171,7 @@ func TestModuleBootstrapsTheDefaultThemeOnceOnFirstStart(t *testing.T) {
 		t.Errorf("plugins = %v", list)
 	}
 	runners := get(t, mux, "/runners")
-	if items, _ := runners["items"].([]any); len(items) != 2 {
+	if items, _ := runners["items"].([]any); len(items) != 3 {
 		t.Errorf("runners = %v", runners)
 	}
 }

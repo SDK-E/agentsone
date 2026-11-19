@@ -23,6 +23,7 @@ jobs:
     outputs:
       go: ${{ steps.filter.outputs.go }}
       ts: ${{ steps.filter.outputs.ts }}
+      stack: ${{ steps.filter.outputs.stack }}
       shell: ${{ steps.filter.outputs.shell }}
       docs: ${{ steps.filter.outputs.docs }}
       workflows: ${{ steps.filter.outputs.workflows }}
@@ -54,6 +55,11 @@ jobs:
               - 'pnpm-workspace.yaml'
               - '.prettierrc.json'
               - '.prettierignore'
+              - '.github/workflows/pr.yml'
+            stack:
+              - 'compose*.yaml'
+              - 'image/edge/**'
+              - 'e2e/**'
               - '.github/workflows/pr.yml'
             shell:
               - '**/*.sh'
@@ -178,6 +184,40 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
+
+  # Narrow checks for the compose stack; image builds and the compose end-to-end run are on main
+  # only (images.yml).
+  stack:
+    needs: changes
+    if: needs.changes.outputs.stack == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      HADOLINT_IMAGE: hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: compose config
+        run: docker compose config -q
+      - name: Coolify file matches compose.yaml with the overlay
+        env:
+          AGENTSONE_DOMAIN: door.example.test
+          AGENTSONE_CONTROL_DOMAIN: control.example.test
+        run: |
+          docker compose -f compose.coolify.yaml config -q
+          if ! diff -u \
+            <(docker compose -f compose.yaml -f compose.coolify-overlay.yaml config --format json) \
+            <(docker compose -f compose.coolify.yaml config --format json); then
+            echo "compose.coolify.yaml is out of date; remake it as its header says" >&2
+            exit 1
+          fi
+      - name: hadolint
+        run: docker run --rm -v "$PWD/image/edge:/work:ro" --workdir /work "$HADOLINT_IMAGE" hadolint Dockerfile
+      - name: e2e stage list
+        run: e2e/run.sh list
 
   shell:
     needs: changes
@@ -344,6 +384,7 @@ jobs:
       - go
       - contract
       - ts
+      - stack
       - shell
       - workflows
       - image

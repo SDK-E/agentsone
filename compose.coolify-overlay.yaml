@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT
+#
+# Coolify overlay for compose.yaml: domains and TLS through Coolify's Traefik proxy.
+# Coolify deploys one complete file, so do not deploy this one: compose.coolify.yaml is
+# compose.yaml with this overlay applied, and CI fails when the two drift apart. After a change
+# here or in compose.yaml, remake it (keep its header) from:
+#
+#   docker compose -f compose.yaml -f compose.coolify-overlay.yaml config --no-interpolate
+#
+# Use it only with Raw Compose Deployment; see docs/deploy/coolify.md for why the normal mode
+# breaks the machine's network wall.
+#
+# Only edge (the web door) and control (the human-only page) join Coolify's proxy network.
+# machine never does: that network has a gateway, so it would give agents direct internet.
+# Values checked against a Coolify server with Traefik 3.7 (entry points http and https,
+# certificate resolver letsencrypt).
+
+services:
+  edge:
+    command:
+      - edge
+      - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
+      - --door-addr=${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}:8080
+      # Second door address, on the proxy network, so Traefik can reach the door. The name is a
+      # network alias of edge on that network only; it never resolves to the inner address.
+      - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
+    networks:
+      coolify:
+        aliases:
+          - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
+      - traefik.http.routers.agentsone-door-http.rule=Host(`${AGENTSONE_DOMAIN:?set AGENTSONE_DOMAIN to the web door domain}`)
+      - traefik.http.routers.agentsone-door-http.entrypoints=http
+      - traefik.http.routers.agentsone-door-http.middlewares=agentsone-https
+      - traefik.http.routers.agentsone-door.rule=Host(`${AGENTSONE_DOMAIN:?set AGENTSONE_DOMAIN to the web door domain}`)
+      - traefik.http.routers.agentsone-door.entrypoints=https
+      - traefik.http.routers.agentsone-door.tls=true
+      - traefik.http.routers.agentsone-door.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentsone-door.service=agentsone-door
+      - traefik.http.services.agentsone-door.loadbalancer.server.port=8080
+
+  control:
+    networks:
+      coolify: {}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
+      - traefik.http.routers.agentsone-control-http.rule=Host(`${AGENTSONE_CONTROL_DOMAIN:?set AGENTSONE_CONTROL_DOMAIN to the control page domain}`)
+      - traefik.http.routers.agentsone-control-http.entrypoints=http
+      - traefik.http.routers.agentsone-control-http.middlewares=agentsone-https
+      - traefik.http.routers.agentsone-control.rule=Host(`${AGENTSONE_CONTROL_DOMAIN:?set AGENTSONE_CONTROL_DOMAIN to the control page domain}`)
+      - traefik.http.routers.agentsone-control.entrypoints=https
+      - traefik.http.routers.agentsone-control.tls=true
+      - traefik.http.routers.agentsone-control.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentsone-control.service=agentsone-control
+      - traefik.http.services.agentsone-control.loadbalancer.server.port=8081
+
+networks:
+  # Created by Coolify; its Traefik proxy is on it.
+  coolify:
+    external: true

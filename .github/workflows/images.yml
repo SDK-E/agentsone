@@ -1,0 +1,248 @@
+# SPDX-License-Identifier: MIT
+#
+# Images: build the machine and edge images for linux/amd64 and linux/arm64 on native runners,
+# push them to ghcr.io by digest with a parts list (SBOM) and build provenance, join each pair
+# into one multi-arch tag sha-<commit>, run the compose end-to-end scenario on that tag, and
+# only then move the `edge` tag to it.
+name: images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io/sdk-e
+
+jobs:
+  build:
+    name: build ${{ matrix.image }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [machine, edge]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      IMAGE: ${{ matrix.image }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Find the Dockerfile
+        id: dockerfile
+        run: |
+          if [ -f "image/${IMAGE}/Dockerfile" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=image not built::image/${IMAGE}/Dockerfile is not on main yet"
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.dockerfile.outputs.present == 'true'
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        if: steps.dockerfile.outputs.present == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        if: steps.dockerfile.outputs.present == 'true'
+        id: meta
+        with:
+          images: ${{ env.REGISTRY }}/agentsone-${{ matrix.image }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        if: steps.dockerfile.outputs.present == 'true'
+        id: build
+        with:
+          context: .
+          file: image/${{ matrix.image }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.sha }}
+          outputs: type=image,name=${{ env.REGISTRY }}/agentsone-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+      - name: Keep the digest
+        if: steps.dockerfile.outputs.present == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.dockerfile.outputs.present == 'true'
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: merge ${{ matrix.image }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [machine, edge]
+    env:
+      IMAGE: ${{ matrix.image }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digests-${{ matrix.image }}-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - name: Count the digests
+        id: count
+        run: |
+          n="$(find "$RUNNER_TEMP/digests" -type f 2>/dev/null | wc -l)"
+          echo "found=$n" >> "$GITHUB_OUTPUT"
+          if [ "$n" -eq 0 ]; then
+            echo "::notice title=image not merged::no agentsone-${IMAGE} build on main yet"
+          elif [ "$n" -ne 2 ]; then
+            echo "expected 2 digests for agentsone-${IMAGE}, found $n" >&2
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.count.outputs.found == '2'
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        if: steps.count.outputs.found == '2'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Join amd64 and arm64 into sha-<commit>
+        if: steps.count.outputs.found == '2'
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          repo="${REGISTRY}/agentsone-${IMAGE}"
+          sources=()
+          for d in *; do sources+=("${repo}@sha256:${d}"); done
+          docker buildx imagetools create -t "${repo}:sha-${SHA}" "${sources[@]}"
+          docker buildx imagetools inspect "${repo}:sha-${SHA}"
+
+  e2e:
+    needs: merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      AGENTSONE_IMAGE_TAG: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Docker versions
+        run: |
+          docker version --format 'Docker Engine {{.Server.Version}}'
+          docker compose version
+      - name: Compose file is valid
+        run: docker compose config -q
+      - name: Start the stack
+        run: e2e/run.sh up
+      - name: "Wall: machine has no route out"
+        run: e2e/run.sh wall-route
+      - name: "Wall: no direct address, no door from inside"
+        run: e2e/run.sh wall-direct
+      - name: "Wall: allow list blocks"
+        run: e2e/run.sh wall-blocked
+      - name: "Wall: allow list passes"
+        run: e2e/run.sh wall-allowed
+      - name: "Wall: outer network cannot reach inside"
+        run: e2e/run.sh wall-outer
+      - name: "Rescue: recreate resets the machine, volumes stay"
+        run: e2e/run.sh rescue
+      - name: Web door
+        run: e2e/run.sh web-door
+      - name: Setup page
+        run: e2e/run.sh setup-page
+      - name: Login
+        run: e2e/run.sh login
+      - name: Small Seed
+        run: e2e/run.sh small-seed
+      - name: Hire
+        run: e2e/run.sh hire
+      - name: Bus message
+        run: e2e/run.sh bus
+      - name: Live list and router
+        run: e2e/run.sh router
+      - name: Echo chat
+        run: e2e/run.sh echo-chat
+      - name: Event to task
+        run: e2e/run.sh event-to-task
+      - name: Memory
+        run: e2e/run.sh memory
+      - name: Plugin install
+        run: e2e/run.sh plugin-install
+      - name: agentctl parity
+        run: e2e/run.sh agentctl-parity
+      - name: Budget wall and defence slice
+        run: e2e/run.sh budget-wall
+      - name: Freeze all and release
+        run: e2e/run.sh freeze-all
+      - name: Stack state and logs
+        if: always()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --timestamps
+      - name: Stop the stack
+        if: always()
+        run: e2e/run.sh down
+
+  promote:
+    name: promote ${{ matrix.image }}
+    needs: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        image: [machine, edge]
+    env:
+      IMAGE: ${{ matrix.image }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Move the edge tag to the tested build
+        run: |
+          repo="${REGISTRY}/agentsone-${IMAGE}"
+          if ! docker buildx imagetools inspect "${repo}:sha-${SHA}" > /dev/null 2>&1; then
+            echo "::notice title=not promoted::agentsone-${IMAGE} was not built on main yet"
+            exit 0
+          fi
+          docker buildx imagetools create -t "${repo}:edge" "${repo}:sha-${SHA}"

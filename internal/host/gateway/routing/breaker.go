@@ -114,6 +114,15 @@ func (b *Breaker) Success(p ProviderID) {
 	*b.entry(p) = breakerEntry{}
 }
 
+// Abandon reports a call that was allowed but never reached the provider (the
+// caller went away, or no key is set). It frees a half-open probe and leaves
+// everything else as it was.
+func (b *Breaker) Abandon(p ProviderID) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.entry(p).probing = false
+}
+
 // Failure records a failed call at now.
 func (b *Breaker) Failure(p ProviderID, now time.Time) {
 	b.mu.Lock()

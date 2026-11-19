@@ -206,14 +206,16 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 			budgetErr = err
 			continue
 		}
-		if !r.d.Breaker.Allow(m.Provider, r.d.Clock.Now()) {
-			r.release(id)
-			continue
-		}
+		// The key comes before the breaker, so a key store error cannot use up
+		// a half-open provider's only probe.
 		key, err := r.d.Keys.Get(ctx, m.Provider)
 		if err != nil && !errors.Is(err, ErrKeyNotFound) {
 			r.release(id)
 			lastErr = err
+			continue
+		}
+		if !r.d.Breaker.Allow(m.Provider, r.d.Clock.Now()) {
+			r.release(id)
 			continue
 		}
 		attempts++
@@ -221,11 +223,17 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 			Provider: m.Provider, API: req.Engine, Model: m.ID, Key: key, Body: req.Body,
 			Stream: req.Stream, MaxOutputTokens: maxOut, Header: req.Header,
 		})
+		if err != nil && ctx.Err() != nil {
+			// The caller went away; that says nothing about the provider.
+			r.release(id)
+			r.d.Breaker.Abandon(m.Provider)
+			return nil, ctx.Err()
+		}
 		if errors.Is(err, ErrKeyRequired) {
 			r.release(id)
 			// A provider without its key is not used, and not counted against
 			// its health either: the human has not finished setting it up.
-			r.d.Breaker.Success(m.Provider)
+			r.d.Breaker.Abandon(m.Provider)
 			lastErr = err
 			continue
 		}

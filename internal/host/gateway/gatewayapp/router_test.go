@@ -444,6 +444,72 @@ func TestHalfOpenProviderGetsOnlyOneProbe(t *testing.T) {
 	}
 }
 
+type flakyKeys struct {
+	fakeKeys
+	fail bool
+}
+
+func (f *flakyKeys) Get(ctx context.Context, p routing.ProviderID) (string, error) {
+	if f.fail {
+		return "", errors.New("keychain locked")
+	}
+	return f.fakeKeys.Get(ctx, p)
+}
+
+func TestKeyErrorDoesNotUseUpTheProbe(t *testing.T) {
+	r := newRig(t, 10*usd)
+	keys := &flakyKeys{fakeKeys: fakeKeys{"openai": "k", "anthropic": "k"}, fail: true}
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{testCatalog()}, Keys: keys, Upstream: r.upstream,
+		Budget: r.budget, Breaker: r.breaker, Clock: r.clock,
+	})
+	r.breaker.Failure("openai", r.clock.now)
+	r.breaker.Failure("openai", r.clock.now)
+	r.clock.now = r.clock.now.Add(time.Minute) // half-open: one probe allowed
+
+	if _, err := r.router.Call(context.Background(), call(routing.APIOpenAI)); err == nil {
+		t.Fatal("Call succeeded with a locked keychain")
+	}
+	// The keychain is back: the probe must still be available.
+	keys.fail = false
+	r.upstream.answers["openai"] = []scripted{{status: 200, body: `{}`, usage: &routing.Usage{}}}
+	res, err := r.router.Call(context.Background(), call(routing.APIOpenAI))
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	_ = drain(t, res)
+	if res.Model.Provider != "openai" {
+		t.Fatalf("served by %s; the probe was used up by a key error", res.Model.Provider)
+	}
+}
+
+type cancelUpstream struct{}
+
+func (cancelUpstream) Call(ctx context.Context, _ gatewayapp.UpstreamCall) (*gatewayapp.UpstreamResponse, error) {
+	return nil, ctx.Err()
+}
+
+func TestCallerGoneDoesNotTripBreaker(t *testing.T) {
+	r := newRig(t, 10*usd)
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{testCatalog()}, Keys: fakeKeys{}, Upstream: cancelUpstream{},
+		Budget: r.budget, Breaker: r.breaker, Clock: r.clock,
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for range 3 {
+		if _, err := r.router.Call(ctx, call(routing.APIOpenAI)); !errors.Is(err, context.Canceled) {
+			t.Fatalf("error = %v, want context.Canceled", err)
+		}
+	}
+	if !r.breaker.Healthy("openai", r.clock.now) {
+		t.Fatal("a caller that went away tripped the provider's breaker")
+	}
+	if st := r.budget.state(); st.Reserved != 0 || st.Spent != 0 {
+		t.Fatalf("state = %+v", st)
+	}
+}
+
 func TestNoRoute(t *testing.T) {
 	r := newRig(t, 10*usd)
 	r.router = gatewayapp.NewRouter(gatewayapp.Deps{

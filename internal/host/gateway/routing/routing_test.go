@@ -274,6 +274,31 @@ func TestBreakerTripsAndRecovers(t *testing.T) {
 	}
 }
 
+func TestBreakerAbandonFreesTheProbeAndKeepsTheCount(t *testing.T) {
+	t0 := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
+	b := routing.NewBreaker(2, time.Minute)
+	const p = routing.ProviderID("x")
+	b.Failure(p, t0)
+	b.Failure(p, t0)
+	t1 := t0.Add(time.Minute)
+	if !b.Allow(p, t1) {
+		t.Fatal("probe not allowed")
+	}
+	b.Abandon(p) // the probe never reached the provider
+	if !b.Allow(p, t1) {
+		t.Fatal("probe not allowed again after Abandon")
+	}
+
+	// In closed state Abandon keeps the failure count.
+	c := routing.NewBreaker(2, time.Minute)
+	c.Failure(p, t0)
+	c.Abandon(p)
+	c.Failure(p, t0)
+	if c.Healthy(p, t0) {
+		t.Fatal("Abandon reset the failure count")
+	}
+}
+
 func TestCatalogValidate(t *testing.T) {
 	if err := catalog.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)

@@ -293,7 +293,7 @@ func finishBody(op Operation, req Request, rest map[string]any) (Request, error)
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return Request{}, fmt.Errorf("%w: body: %v", ErrBadArgument, err)
+		return Request{}, fmt.Errorf("%w: body: %w", ErrBadArgument, err)
 	}
 	req.Body = b
 	return req, nil

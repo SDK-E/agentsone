@@ -12,7 +12,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/mcp/domain"
 )
 
-func callWith(t *testing.T, d *fakeDispatcher, ctx context.Context, name string, args map[string]any) (app.Result, error) {
+func callWith(ctx context.Context, t *testing.T, d *fakeDispatcher, name string, args map[string]any) (app.Result, error) {
 	t.Helper()
 	return app.NewCallTool(newCatalog(t), d).Do(ctx, name, args)
 }
@@ -21,7 +21,7 @@ func TestCallTool_ReturnsTheResponseBody(t *testing.T) {
 	t.Parallel()
 	d := &fakeDispatcher{reply: app.Reply{Status: 200, Body: []byte(`{"name":"mira"}`)}}
 
-	got, err := callWith(t, d, t.Context(), "get_agent", map[string]any{"agent_name": "mira"})
+	got, err := callWith(t.Context(), t, d, "get_agent", map[string]any{"agent_name": "mira"})
 
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
@@ -38,7 +38,7 @@ func TestCallTool_AnswersOKForAnEmptySuccess(t *testing.T) {
 	t.Parallel()
 	d := &fakeDispatcher{reply: app.Reply{Status: 204}}
 
-	got, err := callWith(t, d, t.Context(), "get_agent", map[string]any{"agent_name": "mira"})
+	got, err := callWith(t.Context(), t, d, "get_agent", map[string]any{"agent_name": "mira"})
 
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
@@ -53,7 +53,7 @@ func TestCallTool_TurnsAProblemIntoAToolError(t *testing.T) {
 	body := `{"type":"urn:agentsone:problem:not-found","title":"Not found","status":404,"detail":"no agent mira"}`
 	d := &fakeDispatcher{reply: app.Reply{Status: 404, Body: []byte(body)}}
 
-	got, err := callWith(t, d, t.Context(), "get_agent", map[string]any{"agent_name": "mira"})
+	got, err := callWith(t.Context(), t, d, "get_agent", map[string]any{"agent_name": "mira"})
 
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
@@ -69,7 +69,7 @@ func TestCallTool_KeepsTheCallersIdentityOnTheDispatchedRequest(t *testing.T) {
 	ctx := core.WithCaller(t.Context(), agent)
 	d := &fakeDispatcher{reply: app.Reply{Status: 200, Body: []byte(`{}`)}}
 
-	if _, err := callWith(t, d, ctx, "get_agent", map[string]any{"agent_name": "mira"}); err != nil {
+	if _, err := callWith(ctx, t, d, "get_agent", map[string]any{"agent_name": "mira"}); err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestCallTool_RefusesAnUnknownTool(t *testing.T) {
 	t.Parallel()
 	d := &fakeDispatcher{}
 
-	_, err := callWith(t, d, t.Context(), "get_nothing", nil)
+	_, err := callWith(t.Context(), t, d, "get_nothing", nil)
 
 	if !errors.Is(err, app.ErrUnknownTool) {
 		t.Fatalf("Do() error = %v, want ErrUnknownTool", err)
@@ -96,7 +96,7 @@ func TestCallTool_RefusesBadArgumentsWithoutDispatching(t *testing.T) {
 	t.Parallel()
 	d := &fakeDispatcher{}
 
-	_, err := callWith(t, d, t.Context(), "get_agent", map[string]any{})
+	_, err := callWith(t.Context(), t, d, "get_agent", map[string]any{})
 
 	if !errors.Is(err, domain.ErrMissingArgument) {
 		t.Fatalf("Do() error = %v, want ErrMissingArgument", err)
@@ -111,7 +111,7 @@ func TestCallTool_ReportsAFailedDispatch(t *testing.T) {
 	boom := errors.New("handler gone")
 	d := &fakeDispatcher{err: boom}
 
-	_, err := callWith(t, d, t.Context(), "get_agent", map[string]any{"agent_name": "mira"})
+	_, err := callWith(t.Context(), t, d, "get_agent", map[string]any{"agent_name": "mira"})
 
 	if !errors.Is(err, app.ErrDispatch) || !errors.Is(err, boom) {
 		t.Fatalf("Do() error = %v, want ErrDispatch wrapping the cause", err)

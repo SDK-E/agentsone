@@ -22,7 +22,7 @@ var httpMethods = []string{"get", "put", "post", "delete", "patch"}
 func ParseOperations(doc []byte) ([]Operation, error) {
 	var root map[string]any
 	if err := json.Unmarshal(doc, &root); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSpec, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSpec, err)
 	}
 	r := &resolver{root: root}
 	base := basePath(root)
@@ -117,7 +117,7 @@ func (r *resolver) params(id string, item, raw map[string]any) ([]Param, error) 
 		for _, entry := range list {
 			resolved, err := r.deref(entry)
 			if err != nil {
-				return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+				return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 			}
 			m, _ := resolved.(map[string]any)
 			in := str(m["in"])
@@ -126,7 +126,7 @@ func (r *resolver) params(id string, item, raw map[string]any) ([]Param, error) 
 			}
 			schema, err := r.schema(m["schema"], nil)
 			if err != nil {
-				return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+				return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 			}
 			p := Param{
 				Name:        str(m["name"]),
@@ -169,7 +169,7 @@ func (r *resolver) body(id string, raw map[string]any) (*Body, error) {
 	}
 	resolved, err := r.deref(rb)
 	if err != nil {
-		return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+		return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 	}
 	m, _ := resolved.(map[string]any)
 	content, _ := m["content"].(map[string]any)
@@ -179,7 +179,7 @@ func (r *resolver) body(id string, raw map[string]any) (*Body, error) {
 	}
 	schema, err := r.schema(media["schema"], nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+		return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 	}
 	return &Body{Required: m["required"] == true, Schema: schema}, nil
 }
@@ -199,7 +199,7 @@ func (r *resolver) success(id string, raw map[string]any) (*Response, error) {
 	}
 	resolved, err := r.deref(responses[strconv.Itoa(best)])
 	if err != nil {
-		return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+		return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 	}
 	m, _ := resolved.(map[string]any)
 	resp := &Response{Status: best}
@@ -207,7 +207,7 @@ func (r *resolver) success(id string, raw map[string]any) (*Response, error) {
 	if media, ok := content["application/json"].(map[string]any); ok {
 		schema, err := r.schema(media["schema"], nil)
 		if err != nil {
-			return nil, fmt.Errorf("%w: operation %s: %v", ErrInvalidSpec, id, err)
+			return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 		}
 		resp.Schema = schema
 	}

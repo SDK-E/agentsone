@@ -178,6 +178,9 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.15.0(supports-color@7.2.0))
+      '@redocly/cli':
+        specifier: 2.82.0
+        version: 2.82.0
       eslint:
         specifier: 10.15.0
         version: 10.15.0(supports-color@7.2.0)
@@ -376,6 +379,11 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
+
+  '@redocly/cli@2.82.0':
+    resolution: {integrity: sha512-yyd53xbJgLRa1qyFhaxf9PxOnccjfWJmVRC7uqY7lRUhSq7Zo0id8lHLblpJKMjj4fE2t5zKDF3xml3hnBscJw==}
+    engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
+    hasBin: true
 
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -1479,6 +1487,8 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
+
+  '@redocly/cli@2.82.0': {}
 
   '@types/esrecurse@4.3.1': {}
 

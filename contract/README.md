@@ -45,8 +45,8 @@ output; do not commit it.
   `Problem` schema).
 - Streams are Server-Sent Events whose `data` is one JSON frame; `x-stream` names the frame schema.
   Terminals use a WebSocket (`connectPty`).
-- Limits carry `wall`: `hard` is held by the host tool outside the VM, `soft` by the daemon inside
-  it, where a root agent can bypass it.
+- Limits carry `wall`: `hard` is held by `edge`, a separate container that `machine` cannot reach,
+  `soft` by the daemon inside `machine`, where a root agent can bypass it.
 - Domain actions with rules are their own operations (`hireAgent`, `retireAgent`, `wakeAgent`,
   `assignTask`, `completeTask`, `applyFreeze`), not generic edits.
 

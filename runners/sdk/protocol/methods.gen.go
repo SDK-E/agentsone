@@ -10,6 +10,8 @@ const (
 	MethodBusSend = "bus.send"
 	// MethodCancel: Stop a turn.
 	MethodCancel = "cancel"
+	// MethodCredentialsUpdate: Fresh gateway and MCP tokens (protocol 1.1).
+	MethodCredentialsUpdate = "credentials.update"
 	// MethodDeliver: Hand a bus or chat message to a runner that is in a turn.
 	MethodDeliver = "deliver"
 	// MethodError: Something failed outside a request, such as a model call.

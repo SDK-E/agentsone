@@ -91,6 +91,18 @@ content" warnings.
 
 ## Changelog
 
+### 1.0.3
+
+Additive. Runner protocol 1.1 (the API is unchanged).
+
+- New daemon-to-runner notification `credentials.update` with `gatewayToken`,
+  `gatewayTokenExpiresAt`, `mcpToken` and `mcpTokenExpiresAt`. The runner uses the latest tokens for
+  every new model call and MCP request, and sends no response. The daemon sends it only on a
+  connection that negotiated 1.1; a runner that speaks only 1.0 is unaffected.
+- `PROTOCOL.md` has a Credentials section and rules K1 to K3, the OpenRPC document lists the method
+  (`x-since` 1.1), and the fixtures have a valid and two invalid messages plus
+  `transcript-1.1.ndjson`. `transcript.ndjson` stays the 1.0 conformance transcript.
+
 ### 1.0.2
 
 All changes are additive and backward compatible.

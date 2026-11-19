@@ -8430,7 +8430,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.2"
+    "version": "1.0.3"
   },
   "openapi": "3.1.1",
   "paths": {

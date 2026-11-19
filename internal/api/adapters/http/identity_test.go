@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strings"
 	"testing"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/api/adapters/http"
@@ -262,4 +263,47 @@ func TestSocketIdentity_RefusesABadToken(t *testing.T) {
 	if rec := socketAs("aot_forged"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d", rec.Code)
 	}
+}
+
+// refusedFirstHuman checks the door-only problem for createFirstHuman.
+func refusedFirstHuman(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	if rec.Code != http.StatusForbidden ||
+		!strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:forbidden"`) ||
+		!strings.Contains(rec.Body.String(), "Open the web door to finish setup.") {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestFirstHuman_RefusedOnTheSocket(t *testing.T) {
+	t.Parallel()
+	r := httptest.NewRequest("POST", "/v1/setup/first-human", nil)
+	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerAgent, Name: "founder", IsRoot: true}))
+	rec := httptest.NewRecorder()
+	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, r)
+	refusedFirstHuman(t, rec)
+}
+
+func TestFirstHuman_RefusedOnLoopbackTCP(t *testing.T) {
+	t.Parallel()
+	refusedFirstHuman(t, send(req{method: "POST", path: "/v1/setup/first-human", origin: "http://example.com"}))
+}
+
+func TestFirstHuman_RefusedFromTheMachinesOwnAddress(t *testing.T) {
+	t.Parallel()
+	refusedFirstHuman(t, send(req{method: "POST", path: "/v1/setup/first-human", remote: machineIP + ":4000", origin: "http://example.com"}))
+}
+
+func TestFirstHuman_AcceptedFromTheEdgeIP(t *testing.T) {
+	t.Parallel()
+	rec := send(req{method: "POST", path: "/v1/setup/first-human", remote: "172.18.0.2:4000", origin: "https://example.com", headers: forged})
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Caller") != "human:" {
+		t.Fatalf("got %d %q: %s", rec.Code, rec.Header().Get("X-Caller"), rec.Body)
+	}
+}
+
+func TestFirstHuman_ForwardedHeadersCannotFakeTheEdge(t *testing.T) {
+	t.Parallel()
+	h := map[string]string{"X-Forwarded-For": "172.18.0.2", "X-Forwarded-Proto": "https", httpadapter.ViaHeader: "edge"}
+	refusedFirstHuman(t, send(req{method: "POST", path: "/v1/setup/first-human", origin: "http://example.com", headers: h}))
 }

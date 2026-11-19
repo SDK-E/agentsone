@@ -49,6 +49,10 @@ func WithPeerCaller(ctx context.Context, c core.Caller) context.Context {
 // outside an agent cgroup prove who they are this way.
 func SocketIdentity(verify Verifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isFirstHuman(r) {
+			refuseFirstHuman(w, r)
+			return
+		}
 		if v, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
 			c, err := verify(r.Context(), strings.TrimSpace(v))
 			if err != nil {
@@ -100,9 +104,13 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del(ViaHeader)
 		dropIdentityHeaders(r.Header)
-		r, err := t.place(r)
+		r, fromEdge, err := t.place(r)
 		if err != nil {
 			core.WriteError(w, r, err)
+			return
+		}
+		if isFirstHuman(r) && !fromEdge {
+			refuseFirstHuman(w, r)
 			return
 		}
 		value, fromCookie := credential(r)
@@ -139,10 +147,11 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 // addresses are local: forwarded headers from them are dropped. The edge
 // proxy, matched by exact address, is believed about two things only: the
 // client address and the scheme. Anyone else is refused.
-func (t TCPIdentity) place(r *http.Request) (*http.Request, error) {
+// The second result is true when the peer is the edge itself.
+func (t TCPIdentity) place(r *http.Request) (*http.Request, bool, error) {
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
-		return r, fmt.Errorf("peer address %q: %w", r.RemoteAddr, core.ErrForbidden)
+		return r, false, fmt.Errorf("peer address %q: %w", r.RemoteAddr, core.ErrForbidden)
 	}
 	addr := ap.Addr().Unmap()
 	local := addr.IsLoopback() || (t.IsOwn != nil && t.IsOwn(addr))
@@ -150,9 +159,9 @@ func (t TCPIdentity) place(r *http.Request) (*http.Request, error) {
 		r.Header.Del("X-Forwarded-For")
 		r.Header.Del("X-Forwarded-Proto")
 		if !local {
-			return r, fmt.Errorf("requests must come through the edge: %w", core.ErrForbidden)
+			return r, false, fmt.Errorf("requests must come through the edge: %w", core.ErrForbidden)
 		}
-		return r, nil
+		return r, false, nil
 	}
 	if client := lastForwarded(r.Header.Get("X-Forwarded-For")); client.IsValid() {
 		r.RemoteAddr = netip.AddrPortFrom(client, 0).String()
@@ -160,7 +169,19 @@ func (t TCPIdentity) place(r *http.Request) (*http.Request, error) {
 	if r.Header.Get("X-Forwarded-Proto") == "https" {
 		r.Header.Set(ViaHeader, "edge")
 	}
-	return r, nil
+	return r, true, nil
+}
+
+// isFirstHuman reports a createFirstHuman request. The first human claims
+// the machine, so only a browser through the web door may send it: agents
+// inside the machine reach the socket and loopback, never the door.
+func isFirstHuman(r *http.Request) bool {
+	route, ok := contract.Match(r.Method, r.URL.Path)
+	return ok && route.OperationID == "createFirstHuman"
+}
+
+func refuseFirstHuman(w http.ResponseWriter, r *http.Request) {
+	core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden", "Open the web door to finish setup."))
 }
 
 func (t TCPIdentity) isEdge(a netip.Addr) bool {

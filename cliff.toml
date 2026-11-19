@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+#
+# git-cliff settings for the release notes. The release workflow (.github/workflows/release.yml)
+# runs `git-cliff --current` on the release tag. Only conventional commits are listed, and only
+# tags of the form vX.Y.Z count as releases: the contract-v* tags are not.
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") -%}
+### {{ group | striptags | trim | upper_first }}
+
+{% for commit in commits -%}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif -%}
+  {% if commit.breaking %}**breaking** {% endif -%}
+  {{ commit.message | upper_first }}
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+postprocessors = []
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+sort_commits = "oldest"
+topo_order = false
+# A squash-merged pull request ends its title with (#123): link it.
+commit_preprocessors = [
+  { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/SDK-E/agentsone/pull/${1}))" },
+]
+# The groups sort by name; the comment in front sets the order and the body strips it.
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Refactoring" },
+  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  { message = "^(build|ci)", group = "<!-- 5 -->Build and CI" },
+  { message = "^(chore|style|test)", skip = true },
+]

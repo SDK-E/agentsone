@@ -27,6 +27,30 @@ Put TLS and a sign-in in front before you open them to a network.
 Stop it with `docker compose down`. Your data stays in named volumes; `docker compose down -v`
 deletes it.
 
+## Versions
+
+`compose.yaml` pins the images to the release in the [`VERSION`](../../VERSION) file, so the
+same file always starts the same build. Set `AGENTSONE_IMAGE_TAG` to pick another one:
+
+| Tag | What it is | Use it for |
+| --- | --- | --- |
+| `v0.1.0` | One release. Never changes. | Running Agents One. This is the default. |
+| `v0.1` | The newest patch release of `0.1`. Moves with each patch release. | Staying on a minor version without editing the tag. |
+| `main` | The newest build of `main` that passed the end-to-end checks. Moves with every merge. | The development stack. |
+| `sha-<commit>` | The build of one commit. Never changes. | Testing one commit, as the end-to-end run does. |
+
+There is no `latest` tag.
+
+Until `v0.1.0` is released, the default tag does not exist yet. Set `AGENTSONE_IMAGE_TAG=main`
+in your environment or in a `.env` file next to `compose.yaml`:
+
+```sh
+AGENTSONE_IMAGE_TAG=main docker compose up -d --wait
+```
+
+A release gives the already tested `sha-<commit>` images their version tags and does not rebuild
+them, see [Releasing](../../CONTRIBUTING.md#releasing).
+
 ## The three services
 
 | Service | Image | What it does |
@@ -60,7 +84,7 @@ Every setting has a default. Change one with an environment variable or a `.env`
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `AGENTSONE_IMAGE_TAG` | `edge` | Image tag for all three services: `edge` (latest from `main`) or `sha-<commit>`. |
+| `AGENTSONE_IMAGE_TAG` | `v0.1.0` | Image tag for all three services. The default is the release in the [`VERSION`](../../VERSION) file. See [Versions](#versions). |
 | `AGENTSONE_BIND_ADDR` | `127.0.0.1` | Host address the web door and control page listen on. |
 | `AGENTSONE_WEB_DOOR_PORT` | `7780` | Host port of the web door. |
 | `AGENTSONE_CONTROL_PORT` | `7781` | Host port of the control page. |

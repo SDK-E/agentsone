@@ -137,5 +137,23 @@ libraries are not allowed. [TESTING.md](TESTING.md) has the full rules and the c
 4. Open a pull request with a conventional title and fill in the template.
 5. CI must pass. The `gate` check is the required one.
 
+## Releasing
+
+Images are built once, on `main` (`images.yml`), and tested as `sha-<commit>`. A release gives that
+tested build its version tags and does not rebuild it. Maintainers release like this:
+
+1. Set the new version in the [`VERSION`](VERSION) file (plain `X.Y.Z`) and change the default
+   image tag in `compose.yaml` and `compose.coolify.yaml` to `v<VERSION>`. CI checks that they
+   agree (`scripts/check-version.sh`). Merge that pull request.
+2. Wait until `images.yml` is green for the merge commit: the images are built and the
+   end-to-end run passed.
+3. Push the tag `vX.Y.Z` on that commit.
+
+The `release` workflow then refuses to go on unless the tag is `v<VERSION>`, the commit is on
+`main` and every `images.yml` job passed for it. It tags the images `vX.Y.Z` and `vX.Y` (never
+`latest`, and an existing `vX.Y.Z` is never moved), writes the changelog from the conventional
+commit titles with [git-cliff](https://git-cliff.org), and publishes a GitHub release with the
+compose files, the image SBOMs, `SHA256SUMS` and a build provenance attestation.
+
 Security problems go through private reporting, see [SECURITY.md](SECURITY.md). By taking part
 you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).

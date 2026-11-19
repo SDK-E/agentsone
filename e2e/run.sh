@@ -14,7 +14,8 @@
 # yet is SKIP, never PASS. The script exits 1 when any check fails.
 #
 # The stack comes from compose.yaml in the repository root (or COMPOSE_FILE). Images default to
-# the `edge` tag; set AGENTSONE_IMAGE_TAG to test another build.
+# the release tag pinned in compose.yaml; set AGENTSONE_IMAGE_TAG to test another build, for
+# example `main` (newest tested build of main) or `sha-<commit>` (CI does that).
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 2

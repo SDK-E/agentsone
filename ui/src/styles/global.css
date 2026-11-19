@@ -667,7 +667,9 @@ ul.notice {
   inset-block: 0 1px;
   display: none;
   align-items: center;
-  inline-size: 44px;
+  inline-size: 48px;
+  /* Fully covering up to here, so the arrow never sits on top of tab text; then it fades out. */
+  --cue-solid: 26px;
   color: var(--color-text);
   pointer-events: none;
 }
@@ -675,15 +677,15 @@ ul.notice {
 .tabs__cue--start {
   inset-inline-start: 0;
   justify-content: flex-start;
-  padding-inline-start: 2px;
-  background: linear-gradient(to right, var(--color-surface) 35%, transparent);
+  padding-inline-start: 4px;
+  background: linear-gradient(to right, var(--color-surface) var(--cue-solid), transparent);
 }
 
 .tabs__cue--end {
   inset-inline-end: 0;
   justify-content: flex-end;
-  padding-inline-end: 2px;
-  background: linear-gradient(to left, var(--color-surface) 35%, transparent);
+  padding-inline-end: 4px;
+  background: linear-gradient(to left, var(--color-surface) var(--cue-solid), transparent);
 }
 
 .tabs__scroller[data-more-start] .tabs__cue--start,
@@ -782,7 +784,7 @@ ul.notice {
   outline-offset: 2px;
 }
 
-/* taro: shared bits for the Memory, Plugins and Settings panels (start) */
+/* Shared bits for the Memory, Plugins and Settings panels (start) */
 
 .notice__list {
   margin: 0;
@@ -1350,7 +1352,7 @@ mark {
     width: 100%;
   }
 }
-/* taro: shared bits for the Memory, Plugins and Settings panels (end) */
+/* Shared bits for the Memory, Plugins and Settings panels (end) */
 
 .sheet-open {
   width: 100%;
@@ -1578,7 +1580,7 @@ body:has(.sheet[open]) {
   }
 }
 
-/* ---- juno: monitor, tasks and audit panels (start) ---- */
+/* ---- Monitor, tasks and audit panels (start) ---- */
 
 .card {
   display: grid;
@@ -2084,7 +2086,7 @@ body:has(.sheet[open]) {
   }
 }
 
-/* ---- juno: monitor, tasks and audit panels (end) ---- */
+/* ---- Monitor, tasks and audit panels (end) ---- */
 
 @media (prefers-reduced-motion: reduce) {
   *,

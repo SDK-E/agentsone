@@ -174,6 +174,44 @@ test("panel tabs, a cue shows where more tabs hide and the chosen tab comes into
   clean();
 });
 
+test("panel tabs, the arrows on both sides sit on a solid fade, clear of tab text", async ({
+  page,
+}, testInfo) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the tabs only overflow on a phone");
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Monitor");
+  // Half way along the row, so tabs hide on both sides.
+  await page.getByRole("tablist").evaluate((el) => {
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+  });
+
+  const scroller = page.locator(".tabs__scroller");
+  await expect(scroller).toHaveAttribute("data-more-start", "true");
+  await expect(scroller).toHaveAttribute("data-more-end", "true");
+
+  for (const side of ["start", "end"] as const) {
+    const cue = page.locator(`.tabs__cue--${side}`);
+    const { solid, reach } = await cue.evaluate((el, edge) => {
+      const arrow = el.querySelector("svg")?.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      return {
+        solid: parseFloat(getComputedStyle(el).getPropertyValue("--cue-solid")),
+        // How far from its own edge the arrow reaches into the row.
+        reach: arrow ? (edge === "start" ? arrow.right - box.left : box.right - arrow.left) : NaN,
+      };
+    }, side);
+    expect(reach, `the ${side} arrow is drawn`).toBeGreaterThan(0);
+    expect(reach, `the ${side} arrow stays on the solid part of its fade`).toBeLessThanOrEqual(
+      solid,
+    );
+    expect(await cue.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("26px");
+  }
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/panel-tabs-both-cues-viewport.png`,
+  });
+  clean();
+});
+
 test("panels sheet, it reaches the screen bottom, keeps its header in view and holds the page still", async ({
   page,
 }) => {

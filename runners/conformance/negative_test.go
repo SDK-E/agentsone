@@ -139,6 +139,45 @@ func TestRuleT3FailsWithoutProfileUpdate(t *testing.T) {
 	}
 }
 
+// answersBefore makes the proxied echo answer a notification: it puts an
+// error response with id null in front of the runner's response with id.
+func answersBefore(id string) conformance.Subject {
+	ack := []byte(`{"jsonrpc":"2.0","id":` + id + `,"result":{}}`)
+	return echoBehind(func(line []byte) []byte {
+		if bytes.Equal(line, ack) {
+			return append([]byte(`{"jsonrpc":"2.0","id":null,"error":{"code":-32601,"message":"Method not found"}}`+"\n"), line...)
+		}
+		return line
+	})
+}
+
+// TestRulesK2AndK3PassThroughTheProxy proves the proxy keeps both rules
+// green, so the failures below come from the answer it adds.
+func TestRulesK2AndK3PassThroughTheProxy(t *testing.T) {
+	for _, id := range []string{"K2", "K3"} {
+		rec := runRule(t, id, echoBehind(passThrough))
+		if rec.failure != "" || rec.skipped {
+			t.Fatalf("rule %s must pass through the plain proxy: %q (skipped %v)", id, rec.failure, rec.skipped)
+		}
+	}
+}
+
+// TestRuleK2FailsWhenTheNotificationIsAnswered: in K2 the deliver after the
+// credentials.update has id 2; an answer in front of it breaks the rule.
+func TestRuleK2FailsWhenTheNotificationIsAnswered(t *testing.T) {
+	if rec := runRule(t, "K2", answersBefore("2")); !strings.Contains(rec.failure, "K2") {
+		t.Fatalf("want a K2 failure, got %q", rec.failure)
+	}
+}
+
+// TestRuleK3FailsWhenTheNotificationIsAnswered: in K3 the wake after the
+// credentials.update has id 1.
+func TestRuleK3FailsWhenTheNotificationIsAnswered(t *testing.T) {
+	if rec := runRule(t, "K3", answersBefore("1")); !strings.Contains(rec.failure, "K3") {
+		t.Fatalf("want a K3 failure, got %q", rec.failure)
+	}
+}
+
 // TestRuleF1FailsOnWrongJSONRPCVersion: a runner that writes jsonrpc 1.0 on
 // its status lines is not schema-valid, so F1 fails.
 func TestRuleF1FailsOnWrongJSONRPCVersion(t *testing.T) {

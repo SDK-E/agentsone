@@ -11,6 +11,10 @@ import (
 // transcript comes from the runner.
 var daemonMethods = map[string]bool{"wake": true, "deliver": true, "cancel": true, "sleep": true, "shutdown": true}
 
+// daemonNotifications are the notifications the daemon sends (protocol 1.1).
+// Any other notification in a transcript comes from the runner.
+var daemonNotifications = map[string]bool{"credentials.update": true}
+
 // ReplayTranscript plays a transcript against a runner. The transcript is an
 // NDJSON file in the form of PROTOCOL.md's example (one line per message, both
 // directions in one stream). Daemon lines are sent to the runner; every line
@@ -19,8 +23,9 @@ var daemonMethods = map[string]bool{"wake": true, "deliver": true, "cancel": tru
 // clock the suite does not control.
 //
 // The direction of a line follows from its content: requests with the method
-// of the daemon (wake, deliver, cancel, sleep, shutdown) and responses to
-// runner requests come from the daemon; everything else comes from the runner.
+// of the daemon (wake, deliver, cancel, sleep, shutdown), the daemon's
+// notification credentials.update and responses to runner requests come from
+// the daemon; everything else comes from the runner.
 //
 // A runner that makes decisions of its own (a model) cannot be replayed. Use
 // ReplayTranscript with a scripted runner, as the SDK tests do.
@@ -64,6 +69,8 @@ func fromDaemon(m Msg, runnerOpen map[int]bool) bool {
 	switch {
 	case m.IsRequest():
 		return daemonMethods[m.Method]
+	case m.IsNotification():
+		return daemonNotifications[m.Method]
 	case m.IsResponse() && m.ID != nil && runnerOpen[*m.ID]:
 		delete(runnerOpen, *m.ID)
 		return true

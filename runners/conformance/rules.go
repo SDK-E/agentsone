@@ -19,7 +19,7 @@ type Rule struct {
 }
 
 // Rules lists the runner-side rules of PROTOCOL.md that the suite checks, in
-// document order. The daemon-side rules H3 to H6, B2 and P1 are checked
+// document order. The daemon-side rules H3 to H6, B2, P1 and K1 are checked
 // against the daemon.
 func Rules() []Rule {
 	return []Rule{
@@ -52,6 +52,8 @@ func Rules() []Rule {
 		{"R1", "a budget refusal sends error 1010 and status idle with pausedTurnId", ruleR1},
 		{"R2", "a budget.restored wake resumes the paused turn", ruleR2},
 		{"R3", "a resume wake the runner cannot resume gets error 1011", ruleR3},
+		{"K2", "on 1.1, credentials.update gets no response and the running turn goes on", ruleK2},
+		{"K3", "on 1.0, credentials.update changes nothing", ruleK3},
 	}
 }
 

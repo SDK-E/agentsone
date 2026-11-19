@@ -8,8 +8,16 @@ import (
 	"time"
 )
 
-// ProtocolVersion is the runner protocol version this SDK speaks.
-const ProtocolVersion = "1.0"
+// ProtocolVersion is the newest runner protocol version this SDK speaks.
+// Version 1.1 adds credentials.update; the SDK also speaks 1.0.
+const ProtocolVersion = "1.1"
+
+// protocolVersions are the versions the SDK speaks, highest first (rule H2).
+var protocolVersions = []string{ProtocolVersion, "1.0"}
+
+// EnvMCPToken is the variable in the welcome's mcp.env that holds the MCP
+// token of a stdio endpoint.
+const EnvMCPToken = "AGENTSONE_TOKEN"
 
 // MaxOneLine is the longest profile line, in characters.
 const MaxOneLine = 255
@@ -63,6 +71,10 @@ type Welcome struct {
 	Model           Model    `json:"model"`
 	Session         Session  `json:"session"`
 	Config          Settings `json:"config"`
+	// Credentials hold the latest gateway and MCP tokens. They start as the
+	// welcome's tokens and are renewed in place on protocol 1.1. Read them
+	// before every model call and MCP request; never keep a token copy.
+	Credentials *Credentials `json:"-"`
 }
 
 // Agent is the identity of the agent this runner serves.
@@ -79,7 +91,8 @@ type Agent struct {
 }
 
 // MCP is the machine MCP endpoint. For streamable-http, URL and Token are
-// set; for stdio, Command, Args and Env.
+// set; for stdio, Command, Args and Env. Token (or AGENTSONE_TOKEN in Env) is
+// the first token only: it expires, so use Welcome.Credentials for requests.
 type MCP struct {
 	Transport      string            `json:"transport"`
 	URL            string            `json:"url"`
@@ -91,6 +104,8 @@ type MCP struct {
 }
 
 // Model is the model gateway: an OpenAI-compatible API with a scoped token.
+// Token is the first token only: it expires, so use Welcome.Credentials for
+// calls.
 type Model struct {
 	BaseURL       string   `json:"baseUrl"`
 	Name          string   `json:"name"`

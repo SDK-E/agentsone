@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -45,6 +46,9 @@ type reply struct {
 	Raw    string // replaces the whole stream body
 	NoUse  bool   // leave out the usage chunk
 	Cached int    // cached prompt tokens
+	// EchoAuth puts the request's Authorization header in the body of a
+	// Status answer, the way a careless server would.
+	EchoAuth bool
 }
 
 // fakeGateway is an OpenAI-compatible chat-completions server.
@@ -111,7 +115,11 @@ func (g *fakeGateway) serve(w http.ResponseWriter, r *http.Request) {
 	g.mu.Unlock()
 	rep := g.respond(req)
 	if rep.Status != 0 {
-		http.Error(w, "refused", rep.Status)
+		body := "refused"
+		if rep.EchoAuth {
+			body += " " + req.Auth
+		}
+		http.Error(w, body, rep.Status)
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -155,7 +163,7 @@ func chunk(delta string) string {
 }
 
 // fakeMCP is an in-process MCP server with two tools, add and fail. It records
-// the bearer tokens it saw.
+// the bearer tokens it saw and accepts only the allowed ones.
 type fakeMCP struct {
 	srv *httptest.Server
 
@@ -173,7 +181,7 @@ type addOut struct {
 	Sum int `json:"sum"`
 }
 
-func newMCP(t testing.TB, wantToken string) *fakeMCP {
+func newMCP(t testing.TB, allowed ...string) *fakeMCP {
 	t.Helper()
 	f := &fakeMCP{}
 	server := mcp.NewServer(&mcp.Implementation{Name: "fake", Version: "0"}, nil)
@@ -193,7 +201,7 @@ func newMCP(t testing.TB, wantToken string) *fakeMCP {
 		f.mu.Lock()
 		f.tokens = append(f.tokens, got)
 		f.mu.Unlock()
-		if got != wantToken {
+		if !slices.Contains(allowed, got) {
 			http.Error(w, "bad token", http.StatusUnauthorized)
 			return
 		}

@@ -5,6 +5,7 @@ package domain_test
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/plugins/domain"
@@ -58,5 +59,12 @@ func TestBuiltinRunners_AreEchoAndOpenAIUnderTheLibDir(t *testing.T) {
 	}
 	if got[1].Model != "autoagents/one" || got[0].Model != "" {
 		t.Errorf("models = %q, %q", got[0].Model, got[1].Model)
+	}
+	// Both renew their tokens on protocol 1.1 and still speak 1.0
+	// (runners/echo and runners/openai, version 1.1.0).
+	for _, b := range got {
+		if b.Version != "1.1.0" || strings.Join(b.ProtocolVersions, ",") != "1.1,1.0" {
+			t.Errorf("%s: version %q, protocols %v, want 1.1.0 speaking 1.1 then 1.0", b.Name, b.Version, b.ProtocolVersions)
+		}
 	}
 }

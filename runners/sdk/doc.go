@@ -16,7 +16,14 @@
 //     at a time, queued wakes (T1 to T8),
 //   - cancel, sleep and shutdown (C1, C2, S1, X1, X2),
 //   - the heartbeat loop (B1),
-//   - pausing a turn for budget and resuming it (R1 to R3).
+//   - pausing a turn for budget and resuming it (R1 to R3),
+//   - token renewal: on protocol 1.1 the daemon's credentials.update swaps
+//     both tokens in Welcome.Credentials while turns run (K2); a 1.0
+//     connection keeps the welcome's tokens (K3).
+//
+// A runner takes its gateway and MCP tokens from Welcome.Credentials right
+// before each call, never from Welcome.Model.Token or Welcome.MCP.Token, so a
+// renewed token serves the next call without a restart.
 //
 // A runner implements Handler and, if it can resume a paused turn, Resumer.
 // Inside a turn it talks to the daemon only through *Turn, which stamps every

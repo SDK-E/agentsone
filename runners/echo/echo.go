@@ -24,8 +24,8 @@ import (
 	"github.com/SDK-E/agentsone/runners/sdk"
 )
 
-// Version is the runner version sent in hello.
-const Version = "1.0.0"
+// Version is the runner version sent in hello. 1.1.0 speaks protocol 1.1.
+const Version = "1.1.0"
 
 // Command texts the runner reacts to.
 const (

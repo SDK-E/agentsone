@@ -27,12 +27,15 @@ type ToolBox interface {
 	Close() error
 }
 
-// Dialer opens a ToolBox for the MCP endpoint of a welcome.
-type Dialer func(ctx context.Context, m sdk.MCP, client *http.Client) (ToolBox, error)
+// Dialer opens a ToolBox for the MCP endpoint of a welcome. token returns the
+// scoped token for the next request; the runner passes
+// Credentials.MCPToken.
+type Dialer func(ctx context.Context, m sdk.MCP, token func() sdk.Secret, client *http.Client) (ToolBox, error)
 
-// DialMCP connects to the streamable-HTTP MCP endpoint of the welcome with its
-// scoped token.
-func DialMCP(ctx context.Context, m sdk.MCP, client *http.Client) (ToolBox, error) {
+// DialMCP connects to the streamable-HTTP MCP endpoint of the welcome. Every
+// HTTP request reads the token afresh, so a renewed token serves the next
+// request on the same MCP session, and a request in flight keeps its own.
+func DialMCP(ctx context.Context, m sdk.MCP, token func() sdk.Secret, client *http.Client) (ToolBox, error) {
 	if m.Transport != "streamable-http" || m.URL == "" {
 		return nil, fmt.Errorf("mcp transport %q is not supported; need streamable-http with a url", m.Transport)
 	}
@@ -41,7 +44,7 @@ func DialMCP(ctx context.Context, m sdk.MCP, client *http.Client) (ToolBox, erro
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	hc.Transport = bearer{token: m.Token, next: base}
+	hc.Transport = bearer{token: token, next: base}
 	c := mcp.NewClient(&mcp.Implementation{Name: "agentsone-runner-openai", Version: Version}, nil)
 	session, err := c.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: m.URL, HTTPClient: &hc, MaxRetries: -1, DisableStandaloneSSE: true}, nil)
 	if err != nil {
@@ -50,15 +53,15 @@ func DialMCP(ctx context.Context, m sdk.MCP, client *http.Client) (ToolBox, erro
 	return &mcpBox{session: session}, nil
 }
 
-// bearer adds the scoped token to every request.
+// bearer adds the latest scoped token to every request.
 type bearer struct {
-	token sdk.Secret
+	token func() sdk.Secret
 	next  http.RoundTripper
 }
 
 func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.Clone(r.Context())
-	r.Header.Set("Authorization", "Bearer "+b.token.Reveal())
+	r.Header.Set("Authorization", "Bearer "+b.token().Reveal())
 	return b.next.RoundTrip(r) //nolint:wrapcheck // transport errors pass through unchanged
 }
 

@@ -22,8 +22,9 @@ import (
 	"github.com/SDK-E/agentsone/runners/sdk"
 )
 
-// Version is the runner version sent in hello.
-const Version = "1.0.0"
+// Version is the runner version sent in hello. 1.1.0 renews its tokens on
+// protocol 1.1 without a restart.
+const Version = "1.1.0"
 
 // DefaultMaxSteps bounds the model calls of one turn, so a model that keeps
 // calling tools cannot spend the budget in a loop.
@@ -60,6 +61,7 @@ type Runner struct {
 
 	mu      sync.Mutex
 	welcome sdk.Welcome
+	creds   *sdk.Credentials
 	gw      *Gateway
 	weight  string
 	system  string
@@ -100,7 +102,10 @@ func (r *Runner) Start(_ context.Context, w sdk.Welcome) error {
 	if r.weight == "" {
 		r.weight = weightNormal
 	}
-	r.gw = &Gateway{BaseURL: w.Model.BaseURL, Token: w.Model.Token, Model: w.Model.Name, HTTP: r.cfg.HTTP}
+	// The tokens come from the credentials, which the SDK renews in place, so
+	// the runner never restarts for a new token.
+	r.creds = w.Credentials
+	r.gw = &Gateway{BaseURL: w.Model.BaseURL, Token: w.Credentials.GatewayToken, Model: w.Model.Name, HTTP: r.cfg.HTTP}
 	r.system = systemPrompt(w.Agent)
 	if w.Session.Summary != nil {
 		r.summary = *w.Session.Summary
@@ -249,9 +254,9 @@ func (r *Runner) toolDefs(ctx context.Context, t *sdk.Turn) []ToolDef {
 		r.mu.Unlock()
 		return defs
 	}
-	mcp := r.welcome.MCP
+	mcp, creds := r.welcome.MCP, r.creds
 	r.mu.Unlock()
-	box, err := r.cfg.Dial(ctx, mcp, r.cfg.HTTP)
+	box, err := r.cfg.Dial(ctx, mcp, creds.MCPToken, r.cfg.HTTP)
 	if err == nil {
 		var defs []ToolDef
 		if defs, err = box.Tools(ctx); err == nil {

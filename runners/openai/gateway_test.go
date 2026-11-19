@@ -14,7 +14,7 @@ import (
 )
 
 func newClient(url string) *openai.Gateway {
-	return &openai.Gateway{BaseURL: url, Token: "gw-token-1", Model: "autoagents/one", HTTP: http.DefaultClient}
+	return &openai.Gateway{BaseURL: url, Token: func() sdk.Secret { return "gw-token-1" }, Model: "autoagents/one", HTTP: http.DefaultClient}
 }
 
 func discard(string) error { return nil }

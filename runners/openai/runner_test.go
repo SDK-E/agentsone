@@ -213,7 +213,7 @@ func TestNoToolsWhenMCPDown(t *testing.T) {
 
 // TestStdioMCPIsRefused: only the streamable-HTTP transport is supported.
 func TestStdioMCPIsRefused(t *testing.T) {
-	if _, err := openai.DialMCP(context.Background(), sdk.MCP{Transport: "stdio"}, http.DefaultClient); err == nil {
+	if _, err := openai.DialMCP(context.Background(), sdk.MCP{Transport: "stdio"}, func() sdk.Secret { return "" }, http.DefaultClient); err == nil {
 		t.Fatal("stdio transport must be refused")
 	}
 }

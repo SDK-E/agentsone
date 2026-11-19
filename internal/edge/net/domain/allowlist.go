@@ -169,7 +169,8 @@ func DefaultAllowList() AllowList {
 	defaults := []struct{ pattern, why string }{
 		{"deb.debian.org", "Debian packages: apt updates and installs inside the machine."},
 		{"security.debian.org", "Debian security updates."},
-		{"registry.npmjs.org", "npm registry: the Claude engine is fetched from here at first boot, after the licence is accepted."},
+		{"registry.npmjs.org", "npm registry: packages for the machine and its tools."},
+		{"downloads.claude.ai", "Claude engine downloads: the Claude runner fetches the engine from here, after the licence is accepted."},
 		{"open-vsx.org", "Open VSX: the extension store of the built-in IDE."},
 		{"openvsxorg.blob.core.windows.net", "Open VSX download host: extension files are served from here."},
 		{"github.com", "GitHub: plugins and agent templates are fetched from repositories."},

@@ -246,6 +246,7 @@ func TestDefaultAllowList_HoldsTheDocumentedHosts(t *testing.T) {
 	want := []string{
 		"codeload.github.com",
 		"deb.debian.org",
+		"downloads.claude.ai",
 		"github.com",
 		"objects.githubusercontent.com",
 		"open-vsx.org",

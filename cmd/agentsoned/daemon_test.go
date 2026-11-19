@@ -11,42 +11,60 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
-func TestDaemon_ServesItsModulesOnTheSocket(t *testing.T) {
-	short, err := os.MkdirTemp("", "a1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(short) })
-	deps, _ := coretest.NewDeps(t)
-	deps.Config.RuntimeDir = short
+// startDaemon runs serve on deps until the test ends and returns a client
+// for its socket once the daemon logged that it is ready. The socket lives
+// in the test's own temporary directory. Test names stay short so the
+// socket path fits the macOS limit of 104 bytes.
+func startDaemon(t *testing.T, deps core.Deps) *http.Client {
+	t.Helper()
+	deps.Config.RuntimeDir = t.TempDir()
 	deps.Config.API.Addr = "127.0.0.1:0"
+	logs, _ := newMessageLog()
+	deps.Log = slog.New(logs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- serve(ctx, deps) }()
+	select {
+	case <-logs.ready:
+	case err := <-done:
+		cancel()
+		t.Fatalf("daemon stopped before it was ready: %v", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	})
+	return unixClient(deps.Config.SocketPath())
+}
 
-	client := unixClient(deps.Config.SocketPath())
-	// An operation a module implements answers 2xx.
-	resp := waitFor(t, client, "http://agentsoned/v1/agents")
+func get(t *testing.T, c *http.Client, url string) int {
+	t.Helper()
+	resp, err := c.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_ = resp.Body.Close() // test response body
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		t.Fatalf("GET /v1/agents status %d, want 2xx", resp.StatusCode)
+	return resp.StatusCode
+}
+
+func TestDaemon_Serves(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	client := startDaemon(t, deps)
+	// An operation a module implements answers 2xx.
+	if code := get(t, client, "http://agentsoned/v1/agents"); code < 200 || code > 299 {
+		t.Fatalf("GET /v1/agents status %d, want 2xx", code)
 	}
 	// A path outside the API is not found.
-	resp = waitFor(t, client, "http://agentsoned/v1/no-such-resource")
-	_ = resp.Body.Close() // test response body
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("GET /v1/no-such-resource status %d, want 404", resp.StatusCode)
-	}
-	cancel()
-	if err := <-done; err != nil {
-		t.Fatal(err)
+	if code := get(t, client, "http://agentsoned/v1/no-such-resource"); code != http.StatusNotFound {
+		t.Fatalf("GET /v1/no-such-resource status %d, want 404", code)
 	}
 }
 
@@ -137,21 +155,4 @@ func unixClient(sock string) *http.Client {
 			return (&net.Dialer{}).DialContext(ctx, "unix", sock)
 		},
 	}}
-}
-
-// waitFor retries until the daemon accepts connections, using a deadline
-// instead of sleeping.
-func waitFor(t *testing.T, c *http.Client, url string) *http.Response {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		resp, err := c.Get(url)
-		if err == nil {
-			return resp
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("daemon never answered: %v", err)
-		}
-		<-time.After(20 * time.Millisecond)
-	}
 }

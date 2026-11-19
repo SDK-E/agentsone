@@ -3,9 +3,7 @@
 package main
 
 import (
-	"context"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -16,32 +14,12 @@ import (
 
 // Integration test: an MCP tool call on the real socket reaches a real
 // operation (getSetupStatus, served by the auth module) in process.
-func TestDaemon_MCPToolCallReachesARealOperation(t *testing.T) {
-	short, err := os.MkdirTemp("", "a1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(short) })
+func TestDaemon_MCPCall(t *testing.T) {
 	deps, _ := coretest.NewDeps(t)
-	deps.Config.RuntimeDir = short
 	deps.Config.LibDir = t.TempDir()
-	deps.Config.API.Addr = "127.0.0.1:0"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- serve(ctx, deps) }()
-	t.Cleanup(func() {
-		cancel()
-		if err := <-done; err != nil {
-			t.Error(err)
-		}
-	})
-
-	httpc := unixClient(deps.Config.SocketPath())
-	resp := waitFor(t, httpc, "http://agentsoned/v1/setup")
-	_ = resp.Body.Close() // test response body
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("setup status %d", resp.StatusCode)
+	httpc := startDaemon(t, deps)
+	if code := get(t, httpc, "http://agentsoned/v1/setup"); code != http.StatusOK {
+		t.Fatalf("setup status %d", code)
 	}
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "1"}, nil)

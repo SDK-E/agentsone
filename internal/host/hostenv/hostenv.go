@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -31,9 +32,9 @@ type Env struct {
 
 // New builds the environment for the current user.
 func New(out, errOut io.Writer) (*Env, error) {
-	dir, err := os.UserConfigDir()
+	dir, err := dataHome()
 	if err != nil {
-		return nil, fmt.Errorf("find the user config folder: %w", err)
+		return nil, err
 	}
 	return &Env{
 		Out:     out,
@@ -41,6 +42,26 @@ func New(out, errOut io.Writer) (*Env, error) {
 		Log:     slog.New(slog.NewTextHandler(errOut, &slog.HandlerOptions{Level: slog.LevelInfo})),
 		DataDir: filepath.Join(dir, "agentsone"),
 	}, nil
+}
+
+// dataHome is ~/Library/Application Support on macOS and $XDG_DATA_HOME
+// (default ~/.local/share) elsewhere, such as Linux CI.
+func dataHome() (string, error) {
+	if runtime.GOOS == "darwin" {
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("find Application Support: %w", err)
+		}
+		return dir, nil
+	}
+	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {
+		return dir, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find the home folder: %w", err)
+	}
+	return filepath.Join(home, ".local", "share"), nil
 }
 
 // ErrNotBuilt is returned by commands whose work package has not landed.

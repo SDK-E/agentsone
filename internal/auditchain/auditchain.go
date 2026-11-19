@@ -3,7 +3,7 @@
 // Package auditchain canonicalises, hashes and verifies hash-chained audit records.
 //
 // A record is a JSON object. Its "hash" is the lowercase hex SHA-256 of the RFC 8785 (JCS)
-// canonical form of the record without the "hash" member. Its "prev_hash" is the previous
+// canonical form of the record without the "hash" member. Its "prevHash" is the previous
 // record's hash, or Genesis for the first record. The daemon's audit module and the host's audit
 // sink both use this package, so both sides agree byte for byte.
 //
@@ -21,13 +21,13 @@ import (
 	"github.com/gowebpki/jcs"
 )
 
-// Genesis is the prev_hash of the first record in a chain: 64 zeros.
+// Genesis is the prevHash of the first record in a chain: 64 zeros.
 const Genesis = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // Field names used by the chain.
 const (
 	FieldHash     = "hash"
-	FieldPrevHash = "prev_hash"
+	FieldPrevHash = "prevHash"
 )
 
 // Canonicalize returns the RFC 8785 JSON Canonicalization Scheme form of raw.
@@ -85,7 +85,7 @@ func Hash(record []byte) (string, error) {
 	return hashObject(obj)
 }
 
-// Seal sets record's prev_hash to prev, computes its hash, and returns the record in JCS form
+// Seal sets record's prevHash to prev, computes its hash, and returns the record in JCS form
 // with both members set. Writers call it for every new record.
 func Seal(record []byte, prev string) ([]byte, error) {
 	obj, err := decodeObject(record)
@@ -94,7 +94,7 @@ func Seal(record []byte, prev string) ([]byte, error) {
 	}
 	p, err := json.Marshal(prev)
 	if err != nil {
-		return nil, fmt.Errorf("auditchain: encode prev_hash: %w", err)
+		return nil, fmt.Errorf("auditchain: encode prevHash: %w", err)
 	}
 	obj[FieldPrevHash] = p
 	h, err := hashObject(obj)
@@ -137,8 +137,8 @@ func stringField(obj map[string]json.RawMessage, name string) (string, bool) {
 	return s, true
 }
 
-// Verify checks a chain in order: the first prev_hash is Genesis, every record's hash matches
-// its content, and every prev_hash equals the hash before it. It returns a *BreakError for the
+// Verify checks a chain in order: the first prevHash is Genesis, every record's hash matches
+// its content, and every prevHash equals the hash before it. It returns a *BreakError for the
 // first bad record, or nil when the whole chain holds.
 func Verify(records []json.RawMessage) error {
 	prev := Genesis
@@ -149,13 +149,13 @@ func Verify(records []json.RawMessage) error {
 		}
 		got, ok := stringField(obj, FieldPrevHash)
 		if !ok {
-			return &BreakError{Index: i, Reason: "missing or non-string prev_hash"}
+			return &BreakError{Index: i, Reason: "missing or non-string prevHash"}
 		}
 		if got != prev {
 			if i == 0 {
-				return &BreakError{Index: i, Reason: "first prev_hash is not the genesis hash"}
+				return &BreakError{Index: i, Reason: "first prevHash is not the genesis hash"}
 			}
-			return &BreakError{Index: i, Reason: "prev_hash does not match the previous record's hash"}
+			return &BreakError{Index: i, Reason: "prevHash does not match the previous record's hash"}
 		}
 		stated, ok := stringField(obj, FieldHash)
 		if !ok {

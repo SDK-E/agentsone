@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -129,39 +130,30 @@ func TestTamperWrongGenesis(t *testing.T) {
 }
 
 func TestTamperMissingHash(t *testing.T) {
-	expectBreak(t, []json.RawMessage{json.RawMessage(`{"prev_hash":"` + Genesis + `"}`)}, 0)
+	expectBreak(t, []json.RawMessage{json.RawMessage(`{"prevHash":"` + Genesis + `"}`)}, 0)
 }
 
-// TestContractFixtureChains verifies every JSON array (a chain) in the contract's valid
-// audit-record fixtures.
-func TestContractFixtureChains(t *testing.T) {
-	dir := filepath.Join("..", "..", "contract", "fixtures", "schemas", "audit-record", "valid")
-	entries, err := os.ReadDir(dir)
-	if errors.Is(err, os.ErrNotExist) {
-		t.Skip("no audit-record fixtures yet")
-	}
+// TestContractFixtureChain verifies the contract's valid chain-<n>.json audit
+// fixtures, one record per file, as one chain in name order.
+func TestContractFixtureChain(t *testing.T) {
+	pattern := filepath.Join("..", "..", "contract", "fixtures", "schemas", "audit-record", "valid", "chain-*.json")
+	files, err := filepath.Glob(pattern)
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := 0
-	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-			continue
-		}
-		raw, err := os.ReadFile(filepath.Join(dir, e.Name())) // #nosec G304 -- fixed test directory
+	if len(files) == 0 {
+		t.Skip("no audit chain fixtures yet")
+	}
+	sort.Strings(files)
+	records := make([]json.RawMessage, 0, len(files))
+	for _, f := range files {
+		raw, err := os.ReadFile(f) // #nosec G304 -- fixed test directory
 		if err != nil {
 			t.Fatal(err)
 		}
-		var records []json.RawMessage
-		if err := json.Unmarshal(raw, &records); err != nil {
-			continue // a single record, not a chain
-		}
-		found++
-		if err := Verify(records); err != nil {
-			t.Errorf("%s: %v", e.Name(), err)
-		}
+		records = append(records, raw)
 	}
-	if found == 0 {
-		t.Skip("no chain fixtures (JSON arrays) found")
+	if err := Verify(records); err != nil {
+		t.Fatal(err)
 	}
 }

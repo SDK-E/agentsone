@@ -24,6 +24,7 @@ const (
 var schemaPackages = map[string]string{
 	"common":          "internal/contract/common",
 	"event":           "internal/contract/event",
+	"events-catalog":  "internal/contract/event",
 	"plugin-manifest": "internal/contract/plugin",
 	"theme":           "internal/contract/theme",
 	"memory-record":   "internal/contract/memory",

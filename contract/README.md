@@ -95,7 +95,7 @@ content" warnings.
 
 All changes are additive and backward compatible.
 
-- Event catalog 1.1.0: new type `agentsone.setup.licence.accepted` (emitter `setup`) and the plugin
+- Event catalog 1.1.0: new types `agentsone.setup.licence.accepted` and `agentsone.setup.first-human.created` (emitter `setup`) and the plugin
   types `agentsone.plugin.installed`, `.removed`, `.enabled`, `.disabled` and `.failed` (emitter
   `plugin`), each with a data schema, an example and event fixtures.
 - New problem type `urn:agentsone:problem:not-implemented` (501), answered by any operation the

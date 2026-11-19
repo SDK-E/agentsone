@@ -543,6 +543,19 @@
       }
     },
     {
+      "type": "agentsone.setup.first-human.created",
+      "emitter": "setup",
+      "description": "The first human account was created during first-boot setup.",
+      "chartscope": "machine",
+      "dataSchema": {
+        "type": "object",
+        "required": ["human"],
+        "properties": { "human": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$" } },
+        "additionalProperties": false
+      },
+      "example": { "human": "alice" }
+    },
+    {
       "type": "agentsone.setup.licence.accepted",
       "emitter": "setup",
       "description": "A human accepted the Claude engine licence during first-boot setup.",

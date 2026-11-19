@@ -121,6 +121,10 @@ jobs:
         if: steps.detect.outputs.has_go == 'true'
         with:
           go-version-file: go.mod
+      - name: go mod tidy
+        if: steps.detect.outputs.has_go == 'true'
+        # Fails when go.mod or go.sum differ from what `go mod tidy` writes; run it and commit.
+        run: go mod tidy -diff
       - name: gofmt
         if: steps.detect.outputs.has_go == 'true'
         run: |

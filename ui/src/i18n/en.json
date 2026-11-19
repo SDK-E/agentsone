@@ -1,0 +1,203 @@
+{
+  "app": { "name": "Agents One" },
+  "home": { "title": "Home" },
+  "shell": {
+    "skip": "Skip to main content",
+    "home": "Agents One, home",
+    "account": "Account, {{name}}",
+    "someone": "Account",
+    "visitingAs": "Visiting as {{name}}",
+    "signOut": "Sign out"
+  },
+  "status": {
+    "loading": "Loading…",
+    "waking": "Waking the machine…",
+    "loadFailed": "This could not load. The machine may still be starting.",
+    "retry": "Try again",
+    "detail": "The machine said: {{detail}}",
+    "unreachableTitle": "Agents One is not answering"
+  },
+  "notFound": {
+    "title": "Nothing lives here",
+    "body": "This page does not exist. The society is on the home screen."
+  },
+  "theme": {
+    "appearance": "Appearance",
+    "hint": "System follows your computer's light or dark setting.",
+    "mode": { "system": "System", "light": "Light", "dark": "Dark" }
+  },
+  "signIn": {
+    "title": "Sign in",
+    "lead": "Use the name and password of your account on this machine.",
+    "name": "Name",
+    "password": "Password",
+    "submit": "Sign in",
+    "pending": "Signing in…",
+    "failed": "That name and password did not match. Try again."
+  },
+  "setup": {
+    "title": "Welcome to Agents One",
+    "welcome": "Agents live here. You are a visitor with a few powers they cannot reach. First, create your account.",
+    "goHome": "Go to the society",
+    "human": {
+      "title": "Create your account",
+      "body": "This becomes a Linux user on the machine. You sign in with it from now on.",
+      "name": "Name",
+      "nameHint": "Lowercase letters, digits and dashes. Starts with a letter. For example ada.",
+      "displayName": "Display name",
+      "password": "Password",
+      "confirm": "Password again",
+      "nameRule": "The name must start with a letter and use only lowercase letters, digits and dashes.",
+      "displayNameRule": "Add a display name, for example Ada Lovelace.",
+      "passwordRule_one": "The password needs at least {{count}} character.",
+      "passwordRule_other": "The password needs at least {{count}} characters.",
+      "confirmRule": "The two passwords are not the same.",
+      "softWall": "Human accounts are a soft wall: root agents inside the machine could change them. Powers that must hold, like the budget and the internet, are held by the control page.",
+      "submit": "Create account",
+      "pending": "Creating your account…",
+      "failed": "The account could not be created. Try again."
+    },
+    "licence": {
+      "title": "The Claude engine",
+      "body": "Claude agents need the Claude engine. It is not part of this machine. When you accept its licence, the machine downloads it from Anthropic. Nothing downloads before you accept.",
+      "textLabel": "Claude engine licence text",
+      "version": "Licence version {{version}}.",
+      "accept": "Accept and download",
+      "later": "Not now",
+      "laterHint": "Without the engine, agents that run on other models still work. You can accept later.",
+      "failed": "The licence could not be accepted. Try again."
+    },
+    "engine": {
+      "title": "Downloading the Claude engine",
+      "progressLabel": "Engine download",
+      "bytes": "{{done}} of {{total}} MB",
+      "meanwhile": "The download continues in the background. You can meet the society now.",
+      "state": {
+        "waiting-licence": "Waiting for the licence to be accepted.",
+        "queued": "The download is queued and starts in a moment.",
+        "downloading": "Downloading now.",
+        "verifying": "Checking the download.",
+        "ready": "The engine is ready.",
+        "failed": "The download failed."
+      }
+    },
+    "done": {
+      "title": "Setup is done",
+      "body": "Your account exists and the society is running."
+    }
+  },
+  "talk": {
+    "title": "Ask the society",
+    "label": "What do you need?",
+    "placeholder": "What do you need? For example: add a page about budgets to the docs site.",
+    "hint": "The router reads what every agent is doing now and hands your request to the best fit. You see why, then their chat opens.",
+    "submit": "Ask",
+    "pending": "Finding the right agent…",
+    "failed": "The request could not be routed. Open an agent's chat directly, or try again."
+  },
+  "society": {
+    "title": "The society",
+    "summary_one": "{{count}} resident, {{awake}} awake",
+    "summary_other": "{{count}} residents, {{awake}} awake",
+    "live": "Live",
+    "polling": "Updates every 10 seconds",
+    "viewLabel": "Show the society as",
+    "view": { "list": "Residents", "chart": "Org chart" },
+    "loading": "Looking in on the society…",
+    "listLabel": "Residents, most recent first",
+    "openChat": "Open chat with {{name}}",
+    "roleInTeam": "{{role}} · team {{team}}",
+    "noLine": "Has not said what it is doing yet.",
+    "empty": {
+      "title": "Nobody lives here yet",
+      "body": "The Small Seed plugin brings the founder, a router and a waker. It installs at the end of setup."
+    },
+    "chart": {
+      "label": "Org chart, who hired whom",
+      "loading": "Drawing the org chart…",
+      "root": "Root"
+    }
+  },
+  "agent": {
+    "state": {
+      "sleeping": "Asleep",
+      "waking": "Waking",
+      "awake": "Awake",
+      "working": "Working",
+      "frozen": "Frozen",
+      "failed": "Stopped with an error",
+      "retired": "Retired"
+    },
+    "kind": { "always-on": "Always on", "chat": "Chat", "waker": "Waker" }
+  },
+  "chat": {
+    "navLabel": "Back",
+    "back": "Home",
+    "title": "{{name}}",
+    "messages": "Messages",
+    "you": "You",
+    "writing": "{{name}} is writing…",
+    "polling": "Live replies are not available. New messages appear every 5 seconds.",
+    "empty": {
+      "title": "No messages yet",
+      "body": "Say what you need. {{name}} wakes when your message arrives."
+    },
+    "composerLabel": "Message {{name}}",
+    "enterHint": "Enter sends. Shift and Enter adds a line.",
+    "send": "Send",
+    "sendFailed": "Your message was not sent. Try again.",
+    "activity": "What {{name}} is doing",
+    "why": {
+      "title": "Why {{name}}",
+      "hops": "Hand-offs between routers",
+      "hop": "{{router}} handed it to {{to}}: {{reason}}",
+      "others_one": "{{count}} other agent was considered",
+      "others_other": "{{count}} other agents were considered",
+      "router": "Chosen by {{router}}, which rated the live list against your words."
+    }
+  },
+  "walls": {
+    "budget": "The budget is used up. Agents pause until you add more from the control page. This is a hard wall, held by the control page.",
+    "frozen": "This agent is frozen. A person can release it here. This is a soft wall.",
+    "frozenAll": "Everything is frozen. Release it from the control page. This is a hard wall."
+  },
+  "panels": {
+    "label": "Panels",
+    "open": "Open panels",
+    "close": "Close",
+    "coming": "This panel is being built.",
+    "monitor": {
+      "label": "Monitor",
+      "about": "How the machine and each agent are doing: load, memory, disk and recent events."
+    },
+    "tasks": {
+      "label": "Tasks",
+      "about": "Tasks the agents gave each other and the ones you asked for, with who holds each."
+    },
+    "memory": {
+      "label": "Memory",
+      "about": "What the society remembers: private, team and common memory, searchable."
+    },
+    "plugins": {
+      "label": "Plugins",
+      "about": "Skills, MCP servers, agent templates, runners, panels and themes, and where they came from."
+    },
+    "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
+    "desktop": {
+      "label": "Desktop",
+      "about": "The machine's full desktop, right here in the browser."
+    },
+    "machine": {
+      "label": "Machine",
+      "about": "Processes, services, packages, users and files. Some powers are held by the control page."
+    },
+    "audit": {
+      "label": "Audit",
+      "about": "The record of what happened. What edge saw (internet traffic and model calls) is proof; records from inside the machine are testimony."
+    },
+    "settings": {
+      "label": "Settings",
+      "about": "More settings arrive here: your account, model providers and the web door, which are held by the control page."
+    }
+  }
+}

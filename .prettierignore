@@ -8,6 +8,9 @@ contract/fixtures
 packages/contract-ts/src/generated
 internal/contract/api/openapi.json
 .claude/worktrees
+# Playwright run output from ui/.
+test-results
+screenshots
 # Markdown, YAML and shell are checked by their own linters.
 *.md
 .github

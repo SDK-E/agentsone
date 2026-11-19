@@ -107,7 +107,6 @@ func (c *collect) Save(_ context.Context, a string, s app.Summary) error {
 	c.sums[a] = s
 	return nil
 }
-func (c *collect) GatewayToken(context.Context, string) (string, error) { return "test-gw", nil }
 func (c *collect) Identity(_ context.Context, a string) (app.AgentIdentity, error) {
 	return app.AgentIdentity{Agent: core.Agent{Name: a, Kind: core.AgentAlwaysOn, IsRoot: true}, Team: a, Charter: "c", OneLine: "Goal: g. Now: n.", Goals: []string{"g"}}, nil
 }
@@ -122,6 +121,7 @@ func TestServer_RunsAgentLifecycleOverRealSocket(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	fakes, ports := coretest.NewFakes()
+	fakes.Agents.Add(core.Agent{Name: "founder", Kind: core.AgentAlwaysOn, IsRoot: true})
 	c := &collect{sums: map[string]app.Summary{}}
 	inner := &startLauncher{started: make(chan string, 4)}
 	srv := &socket.Server{Dir: dir, HelloDeadline: func() <-chan struct{} { return make(chan struct{}) }}
@@ -129,7 +129,7 @@ func TestServer_RunsAgentLifecycleOverRealSocket(t *testing.T) {
 	srv.Chown = func(_ string, uid int) error { chowned = uid; return nil }
 	launcher := &socket.Launcher{Inner: inner, Server: srv, Ctx: t.Context()}
 	t.Cleanup(func() { _ = srv.Shutdown() })
-	sup := app.New(app.Deps{Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: launcher, Identity: c, Output: c, Summaries: c, Usage: c, Gateway: c, Config: app.DefaultConfig()})
+	sup := app.New(app.Deps{Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: launcher, Identity: c, Output: c, Summaries: c, Usage: c, Config: app.DefaultConfig()})
 	srv.Supervisor = sup
 	if err := launcher.Install(t.Context(), domain.UnitSpec{Agent: "founder", Account: domain.AccountFor("founder", true)}); err != nil {
 		t.Fatal(err)

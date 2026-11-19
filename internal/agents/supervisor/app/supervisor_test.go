@@ -5,6 +5,7 @@ package app_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -245,6 +246,67 @@ func TestWake_RefusesBadNameAndReportsStartFailure(t *testing.T) {
 	}
 }
 
+// The gateway token comes from the daemon's one minter, for the agent's
+// chart path and defence flag, with the default lifetime.
+func TestHello_GatewayTokenIsMintedForTheAgentsChartPathAndDefence(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	w.fakes.Budget.Set(core.Budget{Agent: "mira", Defence: true})
+	_ = w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`))
+
+	_, _, res := w.connect(t, "mira")
+
+	if res.Model.Token != "fake-gateway-token-mira" {
+		t.Fatalf("model token = %q", res.Model.Token)
+	}
+	want := core.GatewayGrant{Subject: "mira", ChartPath: "founder/mira", Defence: true, TTL: 10 * time.Minute}
+	grants := w.fakes.GatewayTokens.Grants()
+	if len(grants) == 0 || grants[len(grants)-1] != want {
+		t.Fatalf("grants = %+v, want last %+v", grants, want)
+	}
+}
+
+// Without the model gateway the runner is not started, and the wake says why.
+func TestWake_GatewayNotReachableDoesNotStartTheRunner(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: the gateway key file is missing: %w", core.ErrUnavailable)
+
+	err := w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`))
+
+	if !errors.Is(err, core.ErrUnavailable) || !strings.Contains(err.Error(), "model gateway not reachable") {
+		t.Fatalf("Wake error = %v, want ErrUnavailable saying the model gateway is not reachable", err)
+	}
+	if w.launcher.isRunning("mira") {
+		t.Fatal("runner started without the model gateway")
+	}
+	if w.sup.SessionState("mira") != domain.StateFailed {
+		t.Fatalf("state = %s, want failed", w.sup.SessionState("mira"))
+	}
+	if diff := cmp.Diff([]string{"agent.runner.error agent:mira"}, w.actions()); diff != "" {
+		t.Errorf("audit (-want +got):\n%s", diff)
+	}
+	w.fakes.GatewayTokens.Err = nil
+	if err := w.sup.Wake(t.Context(), "mira", core.WakeChat, json.RawMessage(`{}`)); err != nil || !w.launcher.isRunning("mira") {
+		t.Fatalf("wake after the gateway came back: %v, running %v", err, w.launcher.isRunning("mira"))
+	}
+}
+
+// A chart with a manager loop gets no token instead of a hang.
+func TestWake_ChartLoopGetsNoGatewayToken(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	w.fakes.Agents.Add(core.Agent{Name: "ann", Kind: core.AgentChat, Manager: "bob", Runner: "echo", UID: 200010})
+	w.fakes.Agents.Add(core.Agent{Name: "bob", Kind: core.AgentChat, Manager: "ann", Runner: "echo", UID: 200011})
+
+	if err := w.sup.Wake(t.Context(), "ann", core.WakeChat, nil); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("Wake error = %v, want ErrInvalid", err)
+	}
+	if w.launcher.isRunning("ann") || len(w.fakes.GatewayTokens.Grants()) != 0 {
+		t.Fatal("runner started or token minted for a looping chart")
+	}
+}
+
 func TestFreeze_PutsRunningAgentToSleep(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)
@@ -283,7 +345,7 @@ func TestHello_WelcomeCarriesIdentityTokensGatewayAndSummary(t *testing.T) {
 		t.Errorf("agent = %+v", res.Agent)
 	case mcp.Url != "http://127.0.0.1:7700/mcp" || mcp.Token == "":
 		t.Errorf("mcp = %+v", mcp)
-	case res.Model.BaseUrl != "http://gateway.agentsone.internal:4000" || res.Model.Name != "autoagents/one" || res.Model.Token != "test-gw-mira":
+	case res.Model.BaseUrl != "http://gateway.agentsone.internal:4000" || res.Model.Name != "autoagents/one" || res.Model.Token != "fake-gateway-token-mira":
 		t.Errorf("model = %+v", res.Model)
 	case res.Session.Summary == nil || *res.Session.Summary != "Chatted with alice." || res.Session.CompactedAt == nil:
 		t.Errorf("session = %+v", res.Session)

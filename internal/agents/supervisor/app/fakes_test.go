@@ -147,10 +147,6 @@ func (s *summaries) Save(_ context.Context, a string, v app.Summary) error {
 	return nil
 }
 
-type gateway struct{}
-
-func (gateway) GatewayToken(_ context.Context, a string) (string, error) { return "test-gw-" + a, nil }
-
 // call is one request the supervisor sent to the fake runner.
 type call struct {
 	method string
@@ -223,7 +219,7 @@ func newWorld(t *testing.T) *world {
 	w.sup = app.New(app.Deps{
 		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
 		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
-		Gateway: gateway{}, Config: app.DefaultConfig(),
+		Config: app.DefaultConfig(),
 	})
 	return w
 }

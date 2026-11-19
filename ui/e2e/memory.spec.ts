@@ -33,6 +33,24 @@ for (const state of STATES) {
   });
 }
 
+test("memory, what the screen shows before and after scrolling", async ({ page }, testInfo) => {
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Memory");
+
+  const list = page.getByRole("list", { name: "Memory notes, newest first" });
+  await expect(list.getByRole("listitem").first()).toBeVisible();
+  await page.screenshot({ path: `screenshots/${testInfo.project.name}/memory-viewport.png` });
+
+  const panel = page.getByRole("tabpanel", { name: "Memory" });
+  await panel.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/memory-viewport-scrolled.png`,
+  });
+  clean();
+});
+
 test("memory, read a note", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Memory");

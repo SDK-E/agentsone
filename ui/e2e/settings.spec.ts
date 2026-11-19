@@ -60,7 +60,13 @@ test("settings, password change asks for the current password", async ({ page },
 
   await expect(page.getByLabel("Current password")).toBeVisible();
   await expect(page.getByText("Type your current password.")).toBeVisible();
-  await page.getByLabel("Current password").scrollIntoViewIfNeeded();
+  // Start at the first label so it, all three fields, the errors and the button share the screen.
+  await page.locator("label", { hasText: "Current password" }).evaluate((el) => {
+    el.scrollIntoView({ block: "start" });
+  });
+  await page.getByRole("tabpanel", { name: "Settings" }).evaluate((el) => {
+    el.scrollTop -= 12;
+  });
   await checkPage(page, testInfo, "settings-password-rules");
   // Only what the phone or desktop screen shows, for a human look at the form.
   await page.screenshot({

@@ -5,7 +5,7 @@
     "checked": 5,
     "from_seq": 1,
     "to_seq": 5,
-    "head_hash": "7e1f3a2c9b4d6e8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f",
+    "head_hash": "4cf6324de9e073bb473e08959302def1747887eb233b955ac9c55f105401c572",
     "broken_at_seq": null,
     "host_acked_seq": 4,
     "verified_at": "2026-11-19T12:45:00Z"

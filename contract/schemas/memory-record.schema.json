@@ -14,8 +14,8 @@
     "tags",
     "links",
     "source",
-    "createdAt",
-    "updatedAt",
+    "created_at",
+    "updated_at",
     "revision"
   ],
   "properties": {
@@ -43,8 +43,8 @@
       "items": { "$ref": "#/$defs/Link" }
     },
     "source": { "$ref": "#/$defs/Source" },
-    "createdAt": { "$ref": "common.schema.json#/$defs/Timestamp" },
-    "updatedAt": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "updated_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
     "revision": {
       "description": "Starts at 1 and rises by 1 on every change. Writers send the revision they read; a mismatch is a conflict.",
       "type": "integer",

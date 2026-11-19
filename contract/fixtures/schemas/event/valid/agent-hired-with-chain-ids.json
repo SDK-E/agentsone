@@ -6,7 +6,7 @@
   "subject": "builder",
   "time": "2026-11-19T19:04:00Z",
   "datacontenttype": "application/json",
-  "data": { "agent": "builder", "manager": "founder", "kind": "always-on", "isRoot": false, "template": "small-seed/builder" },
+  "data": { "agent": "builder", "manager": "founder", "kind": "always-on", "is_root": false, "template": "small-seed/builder" },
   "sequence": "00000000000000000008",
   "actor": "agent:founder",
   "chartscope": "team:founder",

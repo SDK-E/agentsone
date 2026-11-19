@@ -16,11 +16,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
+	"sync"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -67,51 +66,9 @@ type Provider struct {
 	Models           []Model `toml:"model"`
 }
 
-// AdminSocketName is the admin socket's default name inside the data folder.
-const AdminSocketName = "admin.sock"
-
-// Server says where the gateway and its admin socket listen.
-type Server struct {
-	Listen      string `toml:"listen,omitempty" comment:"Gateway address on the machine-side inner network only, <inner-addr>:4000. Required."`
-	AdminSocket string `toml:"admin_socket,omitempty" comment:"Absolute path of the admin socket; empty means admin.sock in the data folder."`
-	AdminGID    int    `toml:"admin_gid" comment:"Group id shared by the edge and control containers; the socket is mode 0660 in it. -1 keeps the edge's own group."`
-}
-
-// AdminSocketPath gives the admin socket path, defaulting into dataDir.
-func (s Server) AdminSocketPath(dataDir string) string {
-	if s.AdminSocket != "" {
-		return s.AdminSocket
-	}
-	return filepath.Join(dataDir, AdminSocketName)
-}
-
-func (s Server) validate() error {
-	if s.Listen == "" {
-		return s.validateAdmin()
-	}
-	_, port, err := net.SplitHostPort(s.Listen)
-	if err != nil {
-		return fmt.Errorf("server: listen %q must be host:port: %w", s.Listen, err)
-	}
-	if n, err := strconv.Atoi(port); err != nil || n < 0 || n > 65535 {
-		return fmt.Errorf("server: listen %q has a bad port", s.Listen)
-	}
-	return s.validateAdmin()
-}
-
-func (s Server) validateAdmin() error {
-	if s.AdminSocket != "" && !filepath.IsAbs(s.AdminSocket) {
-		return fmt.Errorf("server: admin_socket %q must be an absolute path", s.AdminSocket)
-	}
-	if s.AdminGID < -1 {
-		return fmt.Errorf("server: admin_gid %d must be a group id or -1", s.AdminGID)
-	}
-	return nil
-}
-
-// File is the whole config.
+// File is the whole config. Where the gateway listens is not here: the edge serve command binds
+// it to the edge inner address, port 4000.
 type File struct {
-	Server    Server     `toml:"server"`
 	Limits    Limits     `toml:"limits"`
 	Providers []Provider `toml:"provider"`
 }
@@ -119,7 +76,6 @@ type File struct {
 // Default returns the built-in config.
 func Default() File {
 	return File{
-		Server: Server{AdminGID: -1},
 		Limits: Limits{
 			DefaultMaxOutputTokens: 4096,
 			MaxOutputTokensCap:     32768,
@@ -201,8 +157,7 @@ func Load(path string) (File, error) {
 	if err != nil {
 		return File{}, fmt.Errorf("gatewayconfig: read %s: %w", path, err)
 	}
-	def := Default()
-	f := File{Server: def.Server, Limits: def.Limits}
+	f := File{Limits: Default().Limits}
 	dec := toml.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&f); err != nil {
@@ -220,10 +175,10 @@ func Save(path string, f File) error {
 	if err != nil {
 		return fmt.Errorf("gatewayconfig: encode: %w", err)
 	}
-	header := "# Agents One model gateway. Edit freely; `agentsone gateway providers enable <id>` also\n" +
-		"# writes here. Prices are US dollars per million tokens. Keys are not kept here: they are\n" +
-		"# files in the edge volume, written only through the admin socket\n" +
-		"# (`agentsone gateway key set <provider>`).\n\n"
+	header := "# Agents One model gateway. Edit freely; `agentsone gateway providers add <id>` also\n" +
+		"# writes here, and a running edge picks changes up within a few seconds. Prices are US\n" +
+		"# dollars per million tokens. Keys are not kept here: they are files in the edge volume,\n" +
+		"# written only through the admin socket (`agentsone gateway key set <provider>`).\n\n"
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".gateway-*.toml")
 	if err != nil {
 		return fmt.Errorf("gatewayconfig: save %s: %w", path, err)
@@ -244,6 +199,38 @@ func Save(path string, f File) error {
 	return nil
 }
 
+// Store is gateway.toml on disk, for the admin routes: list the providers and switch them.
+type Store struct {
+	path string
+	mu   sync.Mutex
+}
+
+// NewStore uses the file at path. A missing file reads as Default.
+func NewStore(path string) *Store { return &Store{path: path} }
+
+// List returns the providers in the file.
+func (s *Store) List() ([]Provider, error) {
+	f, err := Load(s.path)
+	if err != nil {
+		return nil, err
+	}
+	return f.Providers, nil
+}
+
+// SetEnabled switches a provider on or off and saves the file.
+func (s *Store) SetEnabled(id string, on bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := Load(s.path)
+	if err != nil {
+		return err
+	}
+	if err := f.SetEnabled(id, on); err != nil {
+		return err
+	}
+	return Save(s.path, f)
+}
+
 // SetEnabled switches a provider on or off.
 func (f *File) SetEnabled(id string, on bool) error {
 	for i := range f.Providers {
@@ -257,9 +244,6 @@ func (f *File) SetEnabled(id string, on bool) error {
 
 // Validate checks URLs, output limit fields and the catalog.
 func (f File) Validate() error {
-	if err := f.Server.validate(); err != nil {
-		return err
-	}
 	for _, p := range f.Providers {
 		for _, u := range []string{p.OpenAIBaseURL, p.AnthropicBaseURL} {
 			if u == "" {

@@ -5,7 +5,6 @@ package gateway_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -16,11 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/edge/adminapi"
 	budgetstore "github.com/SDK-E/agentsone/internal/edge/budget/adapters/sqlite"
 	budgetapp "github.com/SDK-E/agentsone/internal/edge/budget/app"
 	ledger "github.com/SDK-E/agentsone/internal/edge/budget/domain"
 	"github.com/SDK-E/agentsone/internal/edge/gateway"
-	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/admin"
 	gatewayconfig "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/config"
 	gatewayapp "github.com/SDK-E/agentsone/internal/edge/gateway/app"
 	routing "github.com/SDK-E/agentsone/internal/edge/gateway/domain"
@@ -50,6 +49,8 @@ func (m memKeys) Delete(_ context.Context, p routing.ProviderID) error {
 	delete(m, p)
 	return nil
 }
+
+func notFrozen(context.Context) (bool, error) { return false, nil }
 
 type fixedClock struct{ t time.Time }
 
@@ -95,6 +96,7 @@ func setup(t *testing.T, total ledger.Micros) (*gateway.Server, string, *time.Ti
 	now := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
 	srv, err := gateway.Open(ctx, gateway.Options{
 		DataDir:    dir,
+		Frozen:     notFrozen,
 		Keys:       memKeys{"fake": "test-provider-key"},
 		Clock:      fixedClock{now},
 		HTTPClient: fake.Client(),
@@ -114,7 +116,7 @@ func serve(t *testing.T, srv *gateway.Server) (string, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	ticks := make(chan time.Time)
-	go func() { done <- srv.Run(ctx, ticks, gateway.Listeners{Gateway: ln}) }()
+	go func() { done <- srv.Run(ctx, ticks, ln) }()
 	stop := func() {
 		cancel()
 		if err := <-done; err != nil {
@@ -218,7 +220,7 @@ func TestAnthropicStreamIsChargedFromItsUsageEvents(t *testing.T) {
 	_ = st.Close()
 	now := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
 	srv, err := gateway.Open(ctx, gateway.Options{
-		DataDir: dir, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
+		DataDir: dir, Frozen: notFrozen, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +276,7 @@ func TestCountTokensWorksWithNoBudget(t *testing.T) {
 	}
 	now := time.Date(2026, 11, 19, 20, 0, 0, 0, time.UTC)
 	srv, err := gateway.Open(context.Background(), gateway.Options{
-		DataDir: dir, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
+		DataDir: dir, Frozen: notFrozen, Keys: memKeys{"anthropic": "test-claude-key"}, Clock: fixedClock{now}, HTTPClient: fake.Client(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -288,51 +290,61 @@ func TestCountTokensWorksWithNoBudget(t *testing.T) {
 	}
 }
 
-func TestKeySetThroughAdminSocketIsUsedByCalls(t *testing.T) {
+func TestKeySetThroughTheAdminRoutesIsUsedByCalls(t *testing.T) {
 	srv, _, now := setup(t, 10*ledger.MicrosPerUSD)
-	if srv.ListenAddr() != "" {
-		t.Fatalf("listen addr = %q", srv.ListenAddr())
-	}
-	sockDir, err := os.MkdirTemp("", "ao-gw")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(sockDir) }()
-	sock := filepath.Join(sockDir, "admin.sock")
-	adminLn, err := admin.Listen(sock, admin.KeepGroup)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gwLn, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- srv.Run(ctx, make(chan time.Time), gateway.Listeners{Gateway: gwLn, Admin: adminLn}) }()
-	defer func() {
-		cancel()
-		if err := <-done; err != nil {
-			t.Errorf("Run: %v", err)
-		}
-	}()
+	mux := http.NewServeMux()
+	srv.RegisterAdmin(mux)
+	adminSrv := httptest.NewServer(mux)
+	defer adminSrv.Close()
+	c := adminapi.NewHTTPClient(adminSrv.URL, adminSrv.Client())
+	base, stop := serve(t, srv)
+	defer stop()
 
-	c := admin.NewClient(sock)
 	// Replace the key with a wrong one: the provider refuses it.
-	if err := c.SetKey(ctx, "fake", "wrong-key"); err != nil {
+	if _, err := c.SetKey(t.Context(), "fake", "wrong-key"); err != nil {
 		t.Fatalf("SetKey: %v", err)
 	}
-	base := "http://" + gwLn.Addr().String()
 	if status, _ := post(t, base+"/v1/chat/completions", agentToken(t, srv, *now),
 		`{"model":"autoagents/one","messages":[]}`); status == 200 {
 		t.Fatal("call with a wrong key succeeded")
 	}
-	list, err := c.Keys(ctx)
-	if err != nil || !list["fake"] {
-		t.Fatalf("Keys = %v, %v", list, err)
-	}
-	if err := c.SetKey(ctx, "nope", "k"); !errors.Is(err, admin.ErrUnknownProvider) {
+	if _, err := c.SetKey(t.Context(), "nope", "k"); !adminapi.IsProblem(err, adminapi.SlugNotFound) {
 		t.Fatalf("unknown provider error = %v", err)
+	}
+}
+
+func TestRemovingTheProviderThroughTheAdminRoutesAppliesAtOnce(t *testing.T) {
+	srv, _, now := setup(t, 10*ledger.MicrosPerUSD)
+	mux := http.NewServeMux()
+	srv.RegisterAdmin(mux)
+	adminSrv := httptest.NewServer(mux)
+	defer adminSrv.Close()
+	base, stop := serve(t, srv)
+	defer stop()
+
+	if err := adminapi.NewHTTPClient(adminSrv.URL, adminSrv.Client()).RemoveProvider(t.Context(), "fake"); err != nil {
+		t.Fatalf("RemoveProvider: %v", err)
+	}
+
+	if status, _ := post(t, base+"/v1/chat/completions", agentToken(t, srv, *now), `{"model":"autoagents/one"}`); status != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 at once after the only provider was removed", status)
+	}
+}
+
+func TestBudgetThroughTheAdminRoutes(t *testing.T) {
+	srv, _, _ := setup(t, 10*ledger.MicrosPerUSD)
+	defer func() { _ = srv.Close() }()
+	mux := http.NewServeMux()
+	srv.RegisterAdmin(mux)
+	adminSrv := httptest.NewServer(mux)
+	defer adminSrv.Close()
+	c := adminapi.NewHTTPClient(adminSrv.URL, adminSrv.Client())
+	total := int64(3_000_000)
+
+	got, err := c.SetBudget(t.Context(), adminapi.SetBudgetRequest{TotalMicros: &total})
+
+	if err != nil || got.TotalMicros != total || got.Period != "month" {
+		t.Fatalf("SetBudget = %+v, %v", got, err)
 	}
 }
 
@@ -347,8 +359,21 @@ func TestDefaultKeyStoreIsTheKeysFolder(t *testing.T) {
 	if err != nil || info.Mode().Perm() != 0o700 {
 		t.Fatalf("keys folder = %v, %v", info, err)
 	}
-	if srv.AdminSocketPath() != filepath.Join(dir, "admin.sock") {
-		t.Fatalf("admin socket = %q", srv.AdminSocketPath())
+}
+
+func TestModelCallsAreRefusedWithoutAFreezeSwitch(t *testing.T) {
+	dir := t.TempDir()
+	srv, err := gateway.Open(context.Background(), gateway.Options{DataDir: dir})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	base, stop := serve(t, srv)
+	defer stop()
+
+	status, body := post(t, base+"/v1/chat/completions", agentToken(t, srv, time.Now()), `{"model":"autoagents/one"}`)
+
+	if status != http.StatusLocked || !strings.Contains(body, "urn:agentsone:problem:frozen") {
+		t.Fatalf("status %d body %s, want 423 frozen", status, body)
 	}
 }
 
@@ -384,22 +409,35 @@ func TestSoftAllocationsFromTheDaemon(t *testing.T) {
 	}
 }
 
-func TestTokenKeyIsPerBootAndCopied(t *testing.T) {
-	a, _, _ := setup(t, 1)
-	b, _, _ := setup(t, 1)
-	ka, kb := a.TokenKey(), b.TokenKey()
-	if len(ka) != 32 || string(ka) == string(kb) {
-		t.Fatalf("token keys not random per boot: %d bytes", len(ka))
+func TestTokenKeyIsKeptAcrossStartsAndCopied(t *testing.T) {
+	a, dir, _ := setup(t, 1)
+	other, _, _ := setup(t, 1)
+	ka := a.TokenKey()
+	if len(ka) != 32 || string(ka) == string(other.TokenKey()) {
+		t.Fatalf("token keys not random per install: %d bytes", len(ka))
 	}
 	ka[0] ^= 0xff
 	if a.TokenKey()[0] == ka[0] {
 		t.Fatal("TokenKey returned the internal slice")
 	}
-	if err := a.Close(); err != nil {
-		t.Fatal(err)
+	ka[0] ^= 0xff
+	for _, s := range []*gateway.Server{a, other} {
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := b.Close(); err != nil {
-		t.Fatal(err)
+	info, err := os.Stat(filepath.Join(dir, "gateway-key"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("gateway-key = %v, %v; want a 0600 file", info, err)
+	}
+
+	again, err := gateway.Open(context.Background(), gateway.Options{DataDir: dir, Keys: memKeys{}})
+	if err != nil {
+		t.Fatalf("Open again: %v", err)
+	}
+	defer func() { _ = again.Close() }()
+	if string(again.TokenKey()) != string(ka) {
+		t.Fatal("a restart made a new token key; tokens the daemon issued would stop working")
 	}
 }
 

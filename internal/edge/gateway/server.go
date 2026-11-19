@@ -4,7 +4,6 @@ package gateway
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,6 +22,7 @@ import (
 	gatewayhttp "github.com/SDK-E/agentsone/internal/edge/gateway/adapters/http"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/keyfile"
 	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/providers"
+	"github.com/SDK-E/agentsone/internal/edge/gateway/adapters/tokenkey"
 	gatewayapp "github.com/SDK-E/agentsone/internal/edge/gateway/app"
 	routing "github.com/SDK-E/agentsone/internal/edge/gateway/domain"
 )
@@ -33,20 +33,24 @@ const BudgetFileName = budgetstore.FileName
 // InternalName is the gateway's name on the machine-side inner network.
 const InternalName = "gateway.agentsone.internal"
 
+// Port is the gateway port on the edge inner address.
+const Port = 4000
+
 // shutdownGrace is how long running calls may finish when the gateway stops.
 const shutdownGrace = 10 * time.Second
 
-// KeyStore holds provider keys: the router reads them, the admin socket
-// writes them.
+// KeyStore holds provider keys: the router reads them, the admin routes write them.
 type KeyStore interface {
 	gatewayapp.KeyStore
 	admin.Keys
 }
 
-// Options configure Open. Zero fields take the real implementations.
+// Options configure Open. Zero fields take the real implementations, except Frozen.
 type Options struct {
-	// DataDir holds gateway.toml, budget.db and the keys folder.
+	// DataDir holds gateway.toml, budget.db, gateway-key and the keys folder.
 	DataDir string
+	// Frozen reads the edge freeze switch before every model call. Nil refuses every call.
+	Frozen func(ctx context.Context) (bool, error)
 	// Keys defaults to key files in DataDir/keys.
 	Keys KeyStore
 	// Clock defaults to the system clock.
@@ -66,34 +70,23 @@ type catalogSource struct {
 
 func (c *catalogSource) Catalog() routing.Catalog { return *c.p.Load() }
 
-func (c *catalogSource) providerIDs() []string {
-	cat := c.Catalog()
-	ids := make([]string, 0, len(cat.Providers))
-	for _, p := range cat.Providers {
-		ids = append(ids, string(p.ID))
-	}
-	return ids
-}
-
-// Server is the running model gateway: config, budget, router, HTTP handler
-// and admin socket handler wired together.
+// Server is the model gateway: config, budget, router, HTTP handler and admin routes wired
+// together.
 type Server struct {
-	dataDir  string
 	cfgPath  string
-	server   gatewayconfig.Server
 	limits   gatewayconfig.Limits
 	log      *slog.Logger
 	store    *budgetstore.Store
 	budget   *budgetapp.Service
 	catalog  *catalogSource
 	upstream *providers.Client
+	keys     KeyStore
 	handler  http.Handler
-	admin    http.Handler
 	key      []byte
 }
 
-// Open loads gateway.toml and budget.db from the data folder and builds the
-// gateway. It makes a fresh per-boot token key.
+// Open loads gateway.toml, budget.db and the gateway key from the data folder and builds the
+// gateway. The gateway key is made on first start and kept.
 func Open(ctx context.Context, o Options) (*Server, error) {
 	if o.Log == nil {
 		o.Log = slog.New(slog.DiscardHandler)
@@ -123,23 +116,23 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 	if o.HTTPClient == nil {
 		o.HTTPClient = providers.NewHTTPClient(time.Duration(cfg.Limits.HeaderTimeoutSeconds) * time.Second)
 	}
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil, fmt.Errorf("gateway: token key: %w", err)
+	key, err := tokenkey.LoadOrCreate(filepath.Join(o.DataDir, tokenkey.FileName))
+	if err != nil {
+		return nil, err
 	}
 
 	store, err := budgetstore.Open(ctx, filepath.Join(o.DataDir, BudgetFileName))
 	if err != nil {
 		return nil, err
 	}
-	bsvc, err := budgetapp.Open(ctx, store)
+	bsvc, err := budgetapp.Open(ctx, store, o.Clock)
 	if err != nil {
 		return nil, errors.Join(err, store.Close())
 	}
 
 	s := &Server{
-		dataDir: o.DataDir, cfgPath: cfgPath, server: cfg.Server, limits: cfg.Limits, log: o.Log,
-		store: store, budget: bsvc, catalog: &catalogSource{},
+		cfgPath: cfgPath, limits: cfg.Limits, log: o.Log,
+		store: store, budget: bsvc, catalog: &catalogSource{}, keys: o.Keys,
 		upstream: providers.New(o.HTTPClient, cfg.ProviderConfigs()), key: key,
 	}
 	s.catalog.p.Store(&cat)
@@ -162,16 +155,15 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 		Key:        func() []byte { return s.key },
 		Clock:      o.Clock,
 		RetryAfter: time.Duration(cfg.Limits.RetryAfterSeconds) * time.Second,
+		Frozen:     o.Frozen,
 		Log:        o.Log,
 	})
-	s.admin = admin.New(admin.Options{Keys: o.Keys, Providers: s.catalog.providerIDs})
 	return s, nil
 }
 
-// TokenKey returns a copy of the per-boot key that signs agent gateway
-// tokens. The edge hands it to the daemon, which issues the tokens. Root in
-// the agent machine can read it there, which is why the token identity is
-// soft.
+// TokenKey returns a copy of the key that signs agent gateway tokens. The edge hands it to the
+// daemon, which issues the tokens. Root in the agent machine can read it there, which is why the
+// token identity is soft.
 func (s *Server) TokenKey() []byte { return append([]byte(nil), s.key...) }
 
 // SetAllocations takes the soft per-agent allocations the daemon pushes.
@@ -180,24 +172,23 @@ func (s *Server) SetAllocations(a map[string]ledger.Micros) { s.budget.SetAlloca
 // Handler is the gateway's HTTP handler.
 func (s *Server) Handler() http.Handler { return s.handler }
 
-// AdminHandler is the admin socket's HTTP handler.
-func (s *Server) AdminHandler() http.Handler { return s.admin }
-
-// ListenAddr is the configured gateway address.
-func (s *Server) ListenAddr() string { return s.server.Listen }
-
-// AdminSocketPath is the configured admin socket path.
-func (s *Server) AdminSocketPath() string { return s.server.AdminSocketPath(s.dataDir) }
-
-// ListenAdmin opens the admin socket at its configured path, mode 0660, in
-// the configured group shared by the edge and control containers.
-func (s *Server) ListenAdmin() (net.Listener, error) {
-	return admin.Listen(s.AdminSocketPath(), s.server.AdminGID)
+// RegisterAdmin adds the gateway's admin routes (providers, keys, budget) to mux.
+func (s *Server) RegisterAdmin(mux *http.ServeMux) {
+	admin.Register(mux, admin.Options{
+		Keys:      s.keys,
+		Providers: gatewayconfig.NewStore(s.cfgPath),
+		Budget:    s.budget,
+		Changed: func() {
+			if err := s.Reload(); err != nil {
+				s.log.Error("gateway: reload config after an admin change", "err", err)
+			}
+		},
+		Log: s.log,
+	})
 }
 
-// Reload rereads gateway.toml: providers, models and prices. On error the
-// running config stays. Limits and the server section apply at the next
-// start.
+// Reload rereads gateway.toml: providers, models and prices. On error the running config stays.
+// Limits apply at the next start.
 func (s *Server) Reload() error {
 	cfg, err := gatewayconfig.Load(s.cfgPath)
 	if err != nil {
@@ -217,40 +208,23 @@ func (s *Server) FlushInterval() time.Duration {
 	return time.Duration(max(s.limits.FlushIntervalSeconds, 1)) * time.Second
 }
 
-// Listeners are what Run serves. Admin may be nil.
-type Listeners struct {
-	Gateway net.Listener
-	Admin   net.Listener
-}
-
-func serve(hs *http.Server, ln net.Listener, errs chan<- error) {
-	if err := hs.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
-		errs <- fmt.Errorf("gateway: serve %s: %w", ln.Addr(), err)
-	}
-}
-
-// Run serves the gateway and the admin socket until ctx ends. On each tick
-// (nil means every FlushInterval) it reloads the config and flushes the
-// budget. When it stops it lets running calls finish for a short grace,
-// flushes the budget a last time and closes budget.db.
-func (s *Server) Run(ctx context.Context, ticks <-chan time.Time, ls Listeners) error {
+// Run serves the gateway on ln until ctx ends. On each tick (nil means every FlushInterval) it
+// reloads the config and flushes the budget. When it stops it lets running calls finish for a
+// short grace, flushes the budget a last time and closes budget.db.
+func (s *Server) Run(ctx context.Context, ticks <-chan time.Time, ln net.Listener) error {
 	if ticks == nil {
 		t := time.NewTicker(s.FlushInterval())
 		defer t.Stop()
 		ticks = t.C
 	}
-	servers := []*http.Server{}
-	serveErr := make(chan error, 2)
-	if ls.Gateway != nil {
-		hs := &http.Server{Handler: s.handler, ReadHeaderTimeout: 10 * time.Second}
-		servers = append(servers, hs)
-		go serve(hs, ls.Gateway, serveErr)
-	}
-	if ls.Admin != nil {
-		hs := &http.Server{Handler: s.admin, ReadHeaderTimeout: 10 * time.Second}
-		servers = append(servers, hs)
-		go serve(hs, ls.Admin, serveErr)
-	}
+	hs := &http.Server{Handler: s.handler, ReadHeaderTimeout: 10 * time.Second,
+		ErrorLog: slog.NewLogLogger(s.log.Handler(), slog.LevelWarn)}
+	serveErr := make(chan error, 1)
+	go func() {
+		if err := hs.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- fmt.Errorf("gateway: serve %s: %w", ln.Addr(), err)
+		}
+	}()
 
 	budgetCtx, stopBudget := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopBudget()
@@ -281,12 +255,10 @@ loop:
 
 	grace, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 	defer cancel()
-	for _, hs := range servers {
-		if err := hs.Shutdown(grace); err != nil {
-			// Calls still running are cut. Their reservations were already
-			// counted as spent by the last flush, so no money is forgotten.
-			_ = hs.Close()
-		}
+	if err := hs.Shutdown(grace); err != nil {
+		// Calls still running are cut. Their reservations were already counted as spent by the
+		// last flush, so no money is forgotten.
+		_ = hs.Close()
 	}
 	stopBudget()
 	return errors.Join(runErr, <-budgetDone, s.store.Close())

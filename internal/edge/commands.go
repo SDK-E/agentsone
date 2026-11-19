@@ -19,14 +19,17 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/adminsock"
 	"github.com/SDK-E/agentsone/internal/edge/component"
 	"github.com/SDK-E/agentsone/internal/edge/edgeenv"
+	"github.com/SDK-E/agentsone/internal/edge/gateway"
 	edgenet "github.com/SDK-E/agentsone/internal/edge/net"
 )
 
 // Components are the parts of the edge, in start order. Add a part here; see package component.
-// The internet filter comes first: it shares the freeze switch with the parts after it.
+// The internet filter shares the freeze switch, so it starts before the parts that use it; the
+// model gateway refuses to start without one.
 func Components() []component.Component {
 	return []component.Component{
 		edgenet.Component{},
+		gateway.Component{},
 	}
 }
 

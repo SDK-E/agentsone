@@ -97,15 +97,71 @@ func token(t *testing.T, defence bool, exp time.Time) string {
 
 func server(t *testing.T, r *fakeRouter) *httptest.Server {
 	t.Helper()
+	return serverWithFreeze(t, r, func(context.Context) (bool, error) { return false, nil })
+}
+
+func serverWithFreeze(t *testing.T, r *fakeRouter, frozen func(context.Context) (bool, error)) *httptest.Server {
+	t.Helper()
 	h := gatewayhttp.New(gatewayhttp.Options{
 		Router:     r,
 		Key:        func() []byte { return key },
 		Clock:      fakeClock{},
 		RetryAfter: 30 * time.Second,
+		Frozen:     frozen,
 	})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+func TestFreeze_RefusesEveryModelCallWith423(t *testing.T) {
+	t.Parallel()
+	for name, frozen := range map[string]func(context.Context) (bool, error){
+		"frozen":                 func(context.Context) (bool, error) { return true, nil },
+		"switch cannot be read":  func(context.Context) (bool, error) { return false, errors.New("disk gone") },
+		"no switch given at all": nil,
+	} {
+		r := &fakeRouter{}
+		srv := serverWithFreeze(t, r, frozen)
+		auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(time.Hour))}
+		for _, path := range []string{"/v1/chat/completions", "/anthropic/v1/messages", "/anthropic/v1/messages/count_tokens"} {
+			got := do(t, srv, http.MethodPost, path, `{"model":"autoagents/one"}`, auth)
+			var p map[string]any
+			_ = json.NewDecoder(got.Body).Decode(&p)
+			if got.StatusCode != http.StatusLocked || got.Header.Get("Content-Type") != "application/problem+json" ||
+				got.Header.Get("Cache-Control") != "no-store" || got.Header.Get("Retry-After") != "" ||
+				p["type"] != "urn:agentsone:problem:frozen" || p["title"] != "Frozen" || p["status"] != float64(423) ||
+				p["detail"] != "A human froze all agents. Model calls are off until a human releases the freeze." {
+				t.Errorf("%s %s: %d %v %v", name, path, got.StatusCode, got.Header, p)
+			}
+		}
+		if len(r.got)+len(r.counts) != 0 {
+			t.Errorf("%s: %d calls reached the router", name, len(r.got)+len(r.counts))
+		}
+	}
+}
+
+func TestFreeze_StillChecksTheTokenFirst(t *testing.T) {
+	t.Parallel()
+	srv := serverWithFreeze(t, &fakeRouter{}, func(context.Context) (bool, error) { return true, nil })
+
+	got := do(t, srv, http.MethodPost, "/v1/chat/completions", `{"model":"autoagents/one"}`, nil)
+
+	if got.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 before the freeze answer", got.StatusCode)
+	}
+}
+
+func TestFreeze_LeavesReadsOpen(t *testing.T) {
+	t.Parallel()
+	srv := serverWithFreeze(t, &fakeRouter{}, func(context.Context) (bool, error) { return true, nil })
+	auth := map[string]string{"Authorization": "Bearer " + token(t, false, now.Add(time.Hour))}
+
+	for _, path := range []string{"/v1/models", "/v1/budget"} {
+		if got := do(t, srv, http.MethodGet, path, "", auth); got.StatusCode != http.StatusOK {
+			t.Errorf("GET %s while frozen = %d, want 200", path, got.StatusCode)
+		}
+	}
 }
 
 // reply is a fully read answer.

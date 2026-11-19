@@ -25,7 +25,9 @@
 //
 // Errors are application/problem+json (RFC 9457). When the budget is spent
 // the answer is 402 with type urn:agentsone:problem:budget-exhausted and a
-// Retry-After header.
+// Retry-After header. While a human freeze is on, every model call (POST)
+// answers 423 with type urn:agentsone:problem:frozen and no Retry-After: only
+// a human ends a freeze. The reads stay open.
 package httpadapter
 
 import (
@@ -65,6 +67,7 @@ const (
 	ProblemModelUnavailable = "urn:agentsone:problem:model-unavailable"
 	ProblemUpstreamFailed   = "urn:agentsone:problem:upstream-failed"
 	ProblemInternal         = "urn:agentsone:problem:internal"
+	ProblemFrozen           = "urn:agentsone:problem:frozen"
 )
 
 // Router is the part of the gateway application the handlers use.
@@ -87,7 +90,10 @@ type Options struct {
 	Clock Clock
 	// RetryAfter is sent with 402 and 503 answers.
 	RetryAfter time.Duration
-	Log        *slog.Logger
+	// Frozen reads the edge freeze switch before every model call. Frozen, an error, or no
+	// switch at all refuses the call: the gateway fails closed.
+	Frozen func(ctx context.Context) (bool, error)
+	Log    *slog.Logger
 }
 
 type handler struct {
@@ -104,9 +110,9 @@ func New(o Options) http.Handler {
 	}
 	h := &handler{o: o}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.call(routing.APIOpenAI)))
-	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.call(routing.APIAnthropic)))
-	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.countTokens))
+	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.unfrozen(h.call(routing.APIOpenAI))))
+	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.unfrozen(h.call(routing.APIAnthropic))))
+	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.unfrozen(h.countTokens)))
 	mux.HandleFunc("GET /v1/models", h.authed(false, h.models))
 	mux.HandleFunc("GET /v1/budget", h.authed(false, h.budget))
 	return mux
@@ -131,6 +137,26 @@ func (h *handler) authed(allowAPIKey bool, next authedFunc) http.HandlerFunc {
 			return
 		}
 		next(w, r, claims)
+	}
+}
+
+// unfrozen refuses the call while a human freeze is on, before any budget is reserved.
+func (h *handler) unfrozen(next authedFunc) authedFunc {
+	return func(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims) {
+		frozen, err := true, error(nil)
+		if h.o.Frozen != nil {
+			frozen, err = h.o.Frozen(r.Context())
+		}
+		if err != nil {
+			h.o.Log.Error("freeze switch unreadable, refusing the model call", "error", err)
+		}
+		if frozen || err != nil {
+			w.Header().Set("Cache-Control", "no-store")
+			h.problem(w, http.StatusLocked, ProblemFrozen, "Frozen",
+				"A human froze all agents. Model calls are off until a human releases the freeze.", nil)
+			return
+		}
+		next(w, r, c)
 	}
 }
 

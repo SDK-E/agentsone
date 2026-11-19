@@ -29,7 +29,7 @@ type Human struct {
 	UID int
 	// PasswordHash is an argon2id PHC string. It never leaves this context.
 	PasswordHash string
-	CreatedAt   time.Time
+	CreatedAt    time.Time
 	// LastLoginAt is zero before the first sign-in.
 	LastLoginAt time.Time
 }

@@ -47,7 +47,7 @@ func New(deps core.Deps) *Module {
 	repo := sqlite.New(db)
 	svc, err := app.New(app.Deps{
 		Clock: deps.Clock, Rand: rand.Reader,
-		Argon2: domain.Argon2Params{Time: settings.Argon2TimeCost, Memory: settings.Argon2MemoryKiB, Threads: settings.Argon2Threads},
+		Argon2:   domain.Argon2Params{Time: settings.Argon2TimeCost, Memory: settings.Argon2MemoryKiB, Threads: settings.Argon2Threads},
 		Sessions: repo, Tokens: repo, Humans: repo, Setup: repo,
 		Licence: licencefile.New(filepath.Join(deps.Config.LibDir, "engine", "licence.json")),
 		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports},

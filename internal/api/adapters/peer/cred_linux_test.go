@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT
+
+//go:build linux
+
+package peer_test
+
+import (
+	"net"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/SDK-E/agentsone/internal/api/adapters/peer"
+)
+
+// System test (TESTING.md, Linux only): the kernel reports our own pid and
+// uid for a connection we make to ourselves.
+func TestCredentials_ReadsTheRealPeer(t *testing.T) {
+	t.Parallel()
+	sock := filepath.Join(t.TempDir(), "s.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err == nil {
+			accepted <- c
+		}
+		close(accepted)
+	}()
+	client, err := net.Dial("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+	server := <-accepted
+	if server == nil {
+		t.Fatal("accept failed")
+	}
+	defer func() { _ = server.Close() }()
+	p, err := peer.Credentials(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.PID != os.Getpid() || p.UID != os.Getuid() {
+		t.Fatalf("peer %+v, want pid %d uid %d", p, os.Getpid(), os.Getuid())
+	}
+	r := peer.Resolver{Proc: os.DirFS("/proc"), Credentials: peer.Credentials, HumanByUID: peer.NoHumans}
+	if _, err := r.Caller(server); err != nil {
+		t.Fatalf("resolve real peer: %v", err)
+	}
+}
+
+func TestCredentials_RejectsANonUnixConnection(t *testing.T) {
+	t.Parallel()
+	a, b := net.Pipe()
+	defer func() { _ = a.Close(); _ = b.Close() }()
+	if _, err := peer.Credentials(a); err == nil {
+		t.Fatal("no error for a pipe")
+	}
+}

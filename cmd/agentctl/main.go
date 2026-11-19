@@ -1,38 +1,40 @@
 // SPDX-License-Identifier: MIT
 
 // Command agentctl is the command line for the daemon API, used by humans
-// and agents. Work package 8 fills it, generated from contract/dist/openapi.json.
+// and agents. It has one command per API operation, grouped by tag, built
+// from the embedded contract, and `agentctl mcp` serves the same operations
+// as MCP tools on stdio.
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/spf13/cobra"
+	"github.com/SDK-E/agentsone/internal/contract/api"
+	"github.com/SDK-E/agentsone/internal/mcp/adapters/cli"
+	"github.com/SDK-E/agentsone/internal/mcp/app"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
 func main() {
-	if err := newRoot().Execute(); err != nil {
-		os.Exit(1)
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	code := run(ctx, os.Args[1:], cli.IO{In: os.Stdin, Out: os.Stdout, Err: os.Stderr})
+	stop()
+	os.Exit(code)
 }
 
-func newRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:          "agentctl",
-		Short:        "Talk to the Agents One daemon",
-		Version:      version,
-		SilenceUsage: true,
+// run executes agentctl and returns the exit code.
+func run(ctx context.Context, args []string, stdio cli.IO) int {
+	cat, err := app.NewCatalog(api.Spec)
+	if err != nil {
+		// A contract that cannot be mapped is a build defect, caught by the parity test.
+		_, _ = fmt.Fprintf(stdio.Err, "error: the embedded API description cannot be used: %v\n", err)
+		return cli.ExitFailure
 	}
-	root.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Print the agentctl version",
-		Args:  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Println(version)
-		},
-	})
-	return root
+	return cli.Run(ctx, cat, version, args, stdio)
 }

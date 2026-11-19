@@ -147,8 +147,12 @@ func (s *Service) Issue(ctx context.Context, subject core.Caller, scopes []strin
 	return core.Token{Value: value, Expires: t.ExpiresAt}, nil
 }
 
-// Verify returns the caller of a token value (core.TokenIssuer).
+// Verify returns the caller of a token value or a session cookie value
+// (core.TokenIssuer), so the API layer needs only this port.
 func (s *Service) Verify(ctx context.Context, value string) (core.Caller, error) {
+	if domain.IsSessionValue(value) {
+		return s.SessionCaller(ctx, value)
+	}
 	id, secret, err := domain.ParseTokenValue(value)
 	if err != nil {
 		return core.Anonymous, err

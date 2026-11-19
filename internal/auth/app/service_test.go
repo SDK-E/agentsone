@@ -95,6 +95,17 @@ func TestSignIn_ThrottlesRepeatedFailures(t *testing.T) {
 	}
 }
 
+func TestVerify_AcceptsASessionCookieValue(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
+	_, secret, _, _ := env.Service.SignIn(ctx, "ada", password, "")
+	c, err := env.Service.Verify(ctx, secret)
+	if err != nil || c.Kind != core.CallerHuman || c.Name != "ada" {
+		t.Fatalf("caller %+v err %v", c, err)
+	}
+}
+
 func TestSessionCaller_RejectsAnExpiredSession(t *testing.T) {
 	t.Parallel()
 	env := withHuman(t, "ada")

@@ -144,7 +144,9 @@ func New() *Env {
 }
 
 // Human returns a signed-in human caller.
-func Human(name string) core.Caller { return core.Caller{Kind: core.CallerHuman, Name: name, UID: 1000} }
+func Human(name string) core.Caller {
+	return core.Caller{Kind: core.CallerHuman, Name: name, UID: 1000}
+}
 
 // Agent returns a root agent caller.
 func Agent(name string) core.Caller {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
@@ -51,14 +52,22 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+// SessionPrefix starts every session cookie value, so a bearer check can
+// tell a session from a token.
+const SessionPrefix = "aos_"
+
 // NewSession starts a session for human and returns the cookie secret.
 func NewSession(rand io.Reader, human string, now time.Time) (Session, string, error) {
 	secret, err := randomText(rand, 32)
 	if err != nil {
 		return Session{}, "", fmt.Errorf("session secret: %w", err)
 	}
+	secret = SessionPrefix + secret
 	return Session{ID: SessionID(secret), Human: human, CreatedAt: now, ExpiresAt: now.Add(SessionTTL)}, secret, nil
 }
+
+// IsSessionValue reports whether a presented credential is a session cookie value.
+func IsSessionValue(v string) bool { return strings.HasPrefix(v, SessionPrefix) }
 
 // SessionID is the stored key for a cookie secret.
 func SessionID(secret string) string {

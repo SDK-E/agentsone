@@ -1,0 +1,18 @@
+{
+  "name": "agents-one-theme",
+  "version": "0.1.0",
+  "description": "Agents One Theme, the default theme. Light and dark modes that meet WCAG 2.2 AA, with the bundled Atkinson Hyperlegible fonts.",
+  "author": { "name": "Agents One" },
+  "license": "MIT",
+  "source": { "kind": "agentsone", "ref": "plugins/agents-one-theme" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": {
+    "mcpServers": [],
+    "skills": [],
+    "agentTemplates": [],
+    "runners": [],
+    "panels": [],
+    "themes": [{ "path": "./theme.json" }],
+    "emitters": []
+  }
+}

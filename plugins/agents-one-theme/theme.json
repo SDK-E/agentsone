@@ -1,0 +1,127 @@
+{
+  "name": "Agents One Theme",
+  "version": "0.1.0",
+  "author": { "name": "Agents One", "url": "https://github.com/SDK-E/agentsone" },
+  "description": "The default Agents One theme. Calm stone surfaces, tide for the society, ember for life, clay for the visitor. Light and dark both meet WCAG 2.2 AA.",
+  "modes": {
+    "light": {
+      "color": {
+        "background": "#F7F7F4",
+        "surface": "#FFFFFF",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceSunken": "#EFEFEA",
+        "border": "#D4D4CD",
+        "borderStrong": "#7A7A73",
+        "text": "#1C1C1A",
+        "textMuted": "#55554F",
+        "accent": "#137267",
+        "accentHover": "#105C54",
+        "onAccent": "#FFFFFF",
+        "accentSubtle": "#D3EEEA",
+        "onAccentSubtle": "#0D3B37",
+        "alive": "#C27A12",
+        "visitor": "#A3452A",
+        "visitorSubtle": "#FBE3D9",
+        "onVisitorSubtle": "#7A3220",
+        "success": "#2F7D32",
+        "warning": "#8F5710",
+        "danger": "#B42F30",
+        "onDanger": "#FFFFFF",
+        "info": "#2F62C4",
+        "focus": "#105C54"
+      },
+      "shadow": {
+        "sm": "0 1px 2px rgb(28 28 26 / 0.08)",
+        "md": "0 2px 8px rgb(28 28 26 / 0.10)",
+        "lg": "0 8px 24px rgb(28 28 26 / 0.14)"
+      }
+    },
+    "dark": {
+      "color": {
+        "background": "#121211",
+        "surface": "#1C1C1A",
+        "surfaceRaised": "#262624",
+        "surfaceSunken": "#0B0B0A",
+        "border": "#41413C",
+        "borderStrong": "#7A7A73",
+        "text": "#F4F4F1",
+        "textMuted": "#B5B5AD",
+        "accent": "#3FA89B",
+        "accentHover": "#72C4B9",
+        "onAccent": "#062321",
+        "accentSubtle": "#0F4944",
+        "onAccentSubtle": "#D3EEEA",
+        "alive": "#F0AE3C",
+        "visitor": "#F29B7C",
+        "visitorSubtle": "#4F2216",
+        "onVisitorSubtle": "#FBE3D9",
+        "success": "#5DBB63",
+        "warning": "#F0AE3C",
+        "danger": "#F08A85",
+        "onDanger": "#1C1C1A",
+        "info": "#79A3F0",
+        "focus": "#72C4B9"
+      },
+      "shadow": {
+        "sm": "0 1px 2px rgb(0 0 0 / 0.40)",
+        "md": "0 2px 8px rgb(0 0 0 / 0.45)",
+        "lg": "0 8px 24px rgb(0 0 0 / 0.50)"
+      }
+    }
+  },
+  "typography": {
+    "sans": "\"Atkinson Hyperlegible Next\", system-ui, sans-serif",
+    "mono": "\"Atkinson Hyperlegible Mono\", ui-monospace, monospace",
+    "scale": {
+      "xs": { "size": "0.875rem", "lineHeight": 1.4 },
+      "sm": { "size": "0.9375rem", "lineHeight": 1.45 },
+      "md": { "size": "1rem", "lineHeight": 1.5 },
+      "lg": { "size": "1.25rem", "lineHeight": 1.35 },
+      "xl": { "size": "1.5rem", "lineHeight": 1.25 },
+      "xxl": { "size": "2rem", "lineHeight": 1.2 }
+    },
+    "weights": { "regular": 400, "medium": 500, "bold": 700 }
+  },
+  "radius": { "sm": "4px", "md": "8px", "lg": "14px", "full": "9999px" },
+  "spacing": { "xs": "4px", "sm": "8px", "md": "16px", "lg": "24px", "xl": "40px" },
+  "motion": {
+    "fastMs": 120,
+    "normalMs": 200,
+    "slowMs": 320,
+    "easing": "cubic-bezier(0.2, 0, 0, 1)"
+  },
+  "contrastPairs": [
+    { "fg": "text", "bg": "background", "minRatio": 4.5 },
+    { "fg": "text", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "text", "bg": "surfaceRaised", "minRatio": 4.5 },
+    { "fg": "text", "bg": "surfaceSunken", "minRatio": 4.5 },
+    { "fg": "textMuted", "bg": "background", "minRatio": 4.5 },
+    { "fg": "textMuted", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "textMuted", "bg": "surfaceRaised", "minRatio": 4.5 },
+    { "fg": "textMuted", "bg": "surfaceSunken", "minRatio": 4.5 },
+    { "fg": "accent", "bg": "background", "minRatio": 4.5 },
+    { "fg": "accent", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "onAccent", "bg": "accent", "minRatio": 4.5 },
+    { "fg": "onAccent", "bg": "accentHover", "minRatio": 4.5 },
+    { "fg": "onAccentSubtle", "bg": "accentSubtle", "minRatio": 4.5 },
+    { "fg": "visitor", "bg": "background", "minRatio": 4.5 },
+    { "fg": "visitor", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "onVisitorSubtle", "bg": "visitorSubtle", "minRatio": 4.5 },
+    { "fg": "success", "bg": "background", "minRatio": 4.5 },
+    { "fg": "success", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "warning", "bg": "background", "minRatio": 4.5 },
+    { "fg": "warning", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "danger", "bg": "background", "minRatio": 4.5 },
+    { "fg": "danger", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "onDanger", "bg": "danger", "minRatio": 4.5 },
+    { "fg": "info", "bg": "background", "minRatio": 4.5 },
+    { "fg": "info", "bg": "surface", "minRatio": 4.5 },
+    { "fg": "borderStrong", "bg": "background", "minRatio": 3 },
+    { "fg": "borderStrong", "bg": "surface", "minRatio": 3 },
+    { "fg": "focus", "bg": "background", "minRatio": 3 },
+    { "fg": "focus", "bg": "surface", "minRatio": 3 },
+    { "fg": "alive", "bg": "background", "minRatio": 3 },
+    { "fg": "alive", "bg": "surface", "minRatio": 3 },
+    { "fg": "accent", "bg": "surfaceSunken", "minRatio": 3 }
+  ]
+}

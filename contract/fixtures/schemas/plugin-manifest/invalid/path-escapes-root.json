@@ -1,0 +1,10 @@
+{
+  "name": "bad-path",
+  "version": "1.0.0",
+  "description": "Tries to reach outside its root.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "agentsone", "ref": "https://example.com/bad-path.zip" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [], "agentTemplates": [{ "path": "./../../etc/shadow" }], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

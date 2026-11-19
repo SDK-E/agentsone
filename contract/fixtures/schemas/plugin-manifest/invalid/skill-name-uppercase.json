@@ -1,0 +1,10 @@
+{
+  "name": "skills-pack",
+  "version": "1.0.0",
+  "description": "Skill name breaks Agent Skills rules.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "agent-skills", "ref": "https://github.com/example/skills" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [{ "name": "PDF-Processing", "path": "./PDF-Processing", "description": "PDFs." }], "agentTemplates": [], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

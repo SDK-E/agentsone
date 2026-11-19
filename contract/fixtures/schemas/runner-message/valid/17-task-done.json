@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":3,"method":"task.done","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3H","taskId":"tsk_01JD8X3Q5Y6Z7A8B9C0D1E2F50","outcome":"declined","summary":"Outside my charter; passed to writer"}}

@@ -1,0 +1,15 @@
+{
+  "specversion": "1.0",
+  "id": "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F62",
+  "source": "/agents/founder",
+  "type": "agentsone.agents.hired",
+  "subject": "builder",
+  "time": "2026-11-19T19:04:00Z",
+  "datacontenttype": "application/json",
+  "data": { "agent": "builder", "manager": "founder", "kind": "always-on", "isRoot": false, "template": "small-seed/builder" },
+  "sequence": "00000000000000000008",
+  "actor": "agent:founder",
+  "chartscope": "team:founder",
+  "causationid": "msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41",
+  "correlationid": "msg_01JD8X3Q5Y6Z7A8B9C0D1E2F41"
+}

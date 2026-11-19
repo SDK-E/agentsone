@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"method":"hello","params":{"protocolVersions":["1"],"runner":{"name":"echo","version":"1.0.0"},"capabilities":{"streaming":true,"cancel":true,"compaction":true,"resume":true}}}

@@ -1,0 +1,339 @@
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "Agents One runner protocol",
+    "version": "1.0.0",
+    "description": "JSON-RPC 2.0 between the daemon (agentsoned) and one agent runner, one JSON message per line over the Unix socket named by AGENTSONE_RUNNER_SOCKET. Both sides send requests, so each method carries x-direction: daemon-to-runner or runner-to-daemon. A method without result is a notification and has no id. Protocol version 1.0. The authoritative message shapes are in messages.schema.json; x-params-schema names the full params type of each method. Read PROTOCOL.md for framing, handshake order, heartbeats, errors and resume.",
+    "license": { "name": "MIT", "url": "https://opensource.org/license/mit" }
+  },
+  "servers": [
+    {
+      "name": "runner socket",
+      "url": "unix:///run/agentsone/runners/founder.sock",
+      "summary": "Unix stream socket. The daemon listens; the runner connects. The real path is in the AGENTSONE_RUNNER_SOCKET environment variable; by convention /run/agentsone/runners/<agent>.sock."
+    }
+  ],
+  "methods": [
+    {
+      "name": "hello",
+      "summary": "Runner introduces itself; the result is the welcome.",
+      "description": "First message on a new connection. The daemon answers with the welcome: agent identity, chosen protocol version, MCP endpoint and scoped token, model gateway, compacted session summary and config.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/HelloParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "protocolVersions",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "items": { "$ref": "messages.schema.json#/$defs/ProtocolVersion" }
+          }
+        },
+        {
+          "name": "runner",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/RunnerInfo" }
+        },
+        {
+          "name": "capabilities",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/RunnerCapabilities" }
+        }
+      ],
+      "result": {
+        "name": "welcome",
+        "schema": { "$ref": "messages.schema.json#/$defs/HelloResult" }
+      },
+      "errors": [
+        { "$ref": "#/components/errors/OutOfOrder" },
+        { "$ref": "#/components/errors/UnsupportedProtocolVersion" }
+      ]
+    },
+    {
+      "name": "wake",
+      "summary": "Start a turn for a message, task, event, timer or chat.",
+      "description": "The runner answers with an empty result at once, sends status working, does the work, sends at least one profile.update, and ends with status idle. A wake that arrives during a turn is queued by the runner and started after the current turn.",
+      "x-direction": "daemon-to-runner",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/WakeParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "reason",
+          "required": true,
+          "schema": { "type": "string", "enum": ["message", "task", "event", "timer", "chat"] }
+        },
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "payload",
+          "required": true,
+          "description": "BusMessage, Task, Event, TimerFired or ChatMessage, chosen by reason.",
+          "schema": { "type": "object" }
+        }
+      ],
+      "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } },
+      "errors": [{ "$ref": "#/components/errors/ResumeUnavailable" }]
+    },
+    {
+      "name": "deliver",
+      "summary": "Hand a bus or chat message to a runner that is in a turn.",
+      "x-direction": "daemon-to-runner",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/DeliverParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "kind",
+          "required": true,
+          "schema": { "type": "string", "enum": ["bus", "chat"] }
+        },
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "message",
+          "required": true,
+          "description": "BusMessage when kind is bus, ChatMessage when kind is chat.",
+          "schema": { "type": "object" }
+        }
+      ],
+      "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } },
+      "errors": [{ "$ref": "#/components/errors/UnknownTurn" }]
+    },
+    {
+      "name": "cancel",
+      "summary": "Stop a turn.",
+      "x-direction": "daemon-to-runner",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/CancelParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "reason",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": ["human", "manager", "freeze", "timeout", "superseded"]
+          }
+        }
+      ],
+      "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } }
+    },
+    {
+      "name": "sleep",
+      "summary": "Compact the session to a summary and go idle.",
+      "x-direction": "daemon-to-runner",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/SleepParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "reason",
+          "required": true,
+          "schema": { "type": "string", "enum": ["idle", "budget", "freeze", "shutdown"] }
+        },
+        {
+          "name": "maxSummaryChars",
+          "required": true,
+          "schema": { "type": "integer", "minimum": 256, "maximum": 65536 }
+        }
+      ],
+      "result": {
+        "name": "summary",
+        "schema": { "$ref": "messages.schema.json#/$defs/SleepResult" }
+      }
+    },
+    {
+      "name": "shutdown",
+      "summary": "Stop the runner process.",
+      "x-direction": "daemon-to-runner",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/ShutdownParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "reason",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": ["stop", "restart", "retire", "update", "freeze", "power"]
+          }
+        },
+        {
+          "name": "graceMs",
+          "required": true,
+          "schema": { "type": "integer", "minimum": 0, "maximum": 300000 }
+        }
+      ],
+      "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } }
+    },
+    {
+      "name": "status",
+      "summary": "Runner state changed: idle, working, sleeping or error.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/StatusParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "state",
+          "required": true,
+          "schema": { "type": "string", "enum": ["idle", "working", "sleeping", "error"] }
+        },
+        { "name": "turnId", "schema": { "type": "string" } },
+        { "name": "pausedTurnId", "schema": { "type": "string" } },
+        { "name": "detail", "schema": { "type": "string", "maxLength": 255 } }
+      ]
+    },
+    {
+      "name": "output",
+      "summary": "A chunk of turn or chat text.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/OutputParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        { "name": "chatId", "schema": { "type": "string" } },
+        { "name": "chunk", "required": true, "schema": { "type": "integer", "minimum": 0 } },
+        { "name": "text", "required": true, "schema": { "type": "string", "maxLength": 65536 } },
+        { "name": "final", "required": true, "schema": { "type": "boolean" } }
+      ]
+    },
+    {
+      "name": "bus.send",
+      "summary": "Send a message to another agent on the bus.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/BusSendParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        { "name": "to", "required": true, "schema": { "type": "string" } },
+        { "name": "subject", "required": true, "schema": { "type": "string", "maxLength": 255 } },
+        { "name": "body", "required": true, "schema": { "type": "string", "maxLength": 65536 } },
+        { "name": "replyTo", "schema": { "type": "string" } },
+        { "name": "correlationId", "schema": { "type": "string" } }
+      ],
+      "result": {
+        "name": "sent",
+        "schema": { "$ref": "messages.schema.json#/$defs/BusSendResult" }
+      },
+      "errors": [
+        { "$ref": "#/components/errors/UnknownRecipient" },
+        { "$ref": "#/components/errors/NotPermitted" },
+        { "$ref": "#/components/errors/RateLimited" }
+      ]
+    },
+    {
+      "name": "usage",
+      "summary": "Model tokens and cost estimate for a turn; feeds the soft per-agent budget.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/UsageParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        { "name": "model", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "weight",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/Weight" }
+        },
+        { "name": "tokensIn", "required": true, "schema": { "type": "integer", "minimum": 0 } },
+        { "name": "tokensOut", "required": true, "schema": { "type": "integer", "minimum": 0 } },
+        { "name": "cacheReadTokens", "schema": { "type": "integer", "minimum": 0 } },
+        { "name": "costMicroUsd", "required": true, "schema": { "type": "integer", "minimum": 0 } }
+      ]
+    },
+    {
+      "name": "profile.update",
+      "summary": "The agent's one-line profile (goal and current work), at most 255 characters. Mandatory every turn.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/ProfileUpdateParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "line",
+          "required": true,
+          "schema": { "type": "string", "minLength": 1, "maxLength": 255 }
+        }
+      ]
+    },
+    {
+      "name": "task.done",
+      "summary": "Work on a task ended: done, failed or declined.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/TaskDoneParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "turnId", "required": true, "schema": { "type": "string" } },
+        { "name": "taskId", "required": true, "schema": { "type": "string" } },
+        {
+          "name": "outcome",
+          "required": true,
+          "schema": { "type": "string", "enum": ["done", "failed", "declined"] }
+        },
+        { "name": "summary", "required": true, "schema": { "type": "string", "maxLength": 255 } },
+        { "name": "details", "schema": { "type": "string", "maxLength": 65536 } }
+      ],
+      "result": { "name": "ack", "schema": { "$ref": "messages.schema.json#/$defs/Ack" } },
+      "errors": [
+        { "$ref": "#/components/errors/UnknownTask" },
+        { "$ref": "#/components/errors/NotPermitted" }
+      ]
+    },
+    {
+      "name": "log",
+      "summary": "A diagnostic line for the agent's journal.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/LogParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "level",
+          "required": true,
+          "schema": { "type": "string", "enum": ["debug", "info", "warn", "error"] }
+        },
+        { "name": "message", "required": true, "schema": { "type": "string", "maxLength": 4096 } },
+        { "name": "turnId", "schema": { "type": "string" } },
+        { "name": "fields", "schema": { "type": "object" } }
+      ]
+    },
+    {
+      "name": "error",
+      "summary": "Something failed outside a request, such as a model call.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/ErrorParams" },
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "code",
+          "required": true,
+          "schema": { "$ref": "messages.schema.json#/$defs/ErrorCode" }
+        },
+        { "name": "message", "required": true, "schema": { "type": "string", "maxLength": 1024 } },
+        { "name": "turnId", "schema": { "type": "string" } },
+        { "name": "fatal", "required": true, "schema": { "type": "boolean" } }
+      ]
+    },
+    {
+      "name": "heartbeat",
+      "summary": "Liveness signal every heartbeatIntervalMs.",
+      "x-direction": "runner-to-daemon",
+      "x-params-schema": { "$ref": "messages.schema.json#/$defs/HeartbeatParams" },
+      "paramStructure": "by-name",
+      "params": [
+        { "name": "uptimeMs", "required": true, "schema": { "type": "integer", "minimum": 0 } }
+      ]
+    }
+  ],
+  "components": {
+    "errors": {
+      "OutOfOrder": { "code": -32000, "message": "Out of order" },
+      "LineTooLarge": { "code": -32001, "message": "Line too large" },
+      "UnsupportedProtocolVersion": { "code": -32002, "message": "Unsupported protocol version" },
+      "HeartbeatTimeout": { "code": -32003, "message": "Heartbeat timeout" },
+      "UnknownTurn": { "code": 1001, "message": "Unknown turn" },
+      "UnknownRecipient": { "code": 1002, "message": "Unknown recipient" },
+      "NotPermitted": { "code": 1003, "message": "Not permitted" },
+      "UnknownTask": { "code": 1004, "message": "Unknown task" },
+      "BudgetExhausted": { "code": 1010, "message": "Budget exhausted" },
+      "ResumeUnavailable": { "code": 1011, "message": "Resume unavailable" },
+      "ModelUnavailable": { "code": 1020, "message": "Model unavailable" },
+      "RateLimited": { "code": 1030, "message": "Rate limited" }
+    }
+  }
+}

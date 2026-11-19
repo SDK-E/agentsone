@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/plugin-manifest.schema.json",
+  "title": "PluginManifest",
+  "description": "agentsone.plugin.json: the normalised plugin manifest. A plugin may ship this file itself, or one of the three source adapters (Claude Code, Agent Skills, MCP registry) writes it when the plugin is installed; see plugins/SOURCES.md. Every path is inside the plugin and starts with ./ or ${PLUGIN_ROOT}/; ${PLUGIN_ROOT} also expands inside command, args, env and url values. Claude Code's ${CLAUDE_PLUGIN_ROOT} is rewritten to ${PLUGIN_ROOT}.",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "license",
+    "source",
+    "compat",
+    "contents"
+  ],
+  "properties": {
+    "$schema": {
+      "description": "Optional pointer to this schema, for editors.",
+      "type": "string",
+      "format": "uri"
+    },
+    "name": { "$ref": "common.schema.json#/$defs/PluginName" },
+    "version": { "$ref": "common.schema.json#/$defs/Semver" },
+    "description": { "$ref": "common.schema.json#/$defs/OneLine" },
+    "author": { "$ref": "#/$defs/Author" },
+    "license": {
+      "description": "SPDX license expression, for example MIT or Apache-2.0 OR MIT.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9.+:() -]+$"
+    },
+    "homepage": { "type": "string", "format": "uri", "maxLength": 512 },
+    "source": { "$ref": "#/$defs/Source" },
+    "compat": { "$ref": "#/$defs/Compat" },
+    "contents": { "$ref": "#/$defs/Contents" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "url": { "type": "string", "format": "uri", "maxLength": 512 }
+      },
+      "additionalProperties": false
+    },
+    "Source": {
+      "description": "Where the plugin came from. kind names the adapter that produced this manifest. ref is what was installed: for claude-code, <marketplace>/<plugin> or a git URL with a ref; for agentsone, a git URL, an https archive URL or a local path; for agent-skills, a git URL or path to the skill directory; for mcp-registry, the server name and version as <name>@<version>.",
+      "type": "object",
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["claude-code", "agentsone", "agent-skills", "mcp-registry"]
+        },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "sha256": {
+          "description": "Digest of the fetched archive, when one was fetched.",
+          "$ref": "common.schema.json#/$defs/Sha256Hex"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Compat": {
+      "type": "object",
+      "required": ["agentsone"],
+      "properties": {
+        "agentsone": {
+          "description": "Agents One versions this plugin works with.",
+          "$ref": "common.schema.json#/$defs/SemverRange"
+        },
+        "runnerProtocol": {
+          "description": "Runner protocol versions this plugin's runners speak, as <major>.<minor> values.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }
+        },
+        "arch": {
+          "description": "CPU architectures the plugin's binaries run on. Omit for architecture-independent plugins.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["amd64", "arm64"] }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Contents": {
+      "description": "What the plugin provides. All seven lists are present; any may be empty. The plugin manager refuses a plugin whose lists are all empty (a rule the schema leaves out to stay simple for code generators).",
+      "type": "object",
+      "required": [
+        "mcpServers",
+        "skills",
+        "agentTemplates",
+        "runners",
+        "panels",
+        "themes",
+        "emitters"
+      ],
+      "properties": {
+        "mcpServers": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/McpServer" } },
+        "skills": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/Skill" } },
+        "agentTemplates": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/FileRef" }
+        },
+        "runners": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Runner" } },
+        "panels": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Panel" } },
+        "themes": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/FileRef" } },
+        "emitters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Emitter" } }
+      },
+      "additionalProperties": false
+    },
+    "ComponentName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "FileRef": {
+      "description": "A file inside the plugin: an agent template (agent-template.schema.json) or a theme (theme.schema.json).",
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "common.schema.json#/$defs/PluginPath" }
+      },
+      "additionalProperties": false
+    },
+    "Args": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "maxLength": 4096 }
+    },
+    "McpServer": {
+      "oneOf": [{ "$ref": "#/$defs/McpServerStdio" }, { "$ref": "#/$defs/McpServerHttp" }]
+    },
+    "McpServerStdio": {
+      "description": "An MCP server the daemon starts as a child process and talks to over standard input and output.",
+      "type": "object",
+      "required": ["name", "transport", "command", "args", "env"],
+      "properties": {
+        "name": { "$ref": "#/$defs/ComponentName" },
+        "transport": { "const": "stdio" },
+        "command": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "args": { "$ref": "#/$defs/Args" },
+        "env": { "$ref": "common.schema.json#/$defs/EnvMap" }
+      },
+      "additionalProperties": false
+    },
+    "McpServerHttp": {
+      "description": "A remote MCP server reached over Streamable HTTP. Its host must be on the host tool's allow list.",
+      "type": "object",
+      "required": ["name", "transport", "url"],
+      "properties": {
+        "name": { "$ref": "#/$defs/ComponentName" },
+        "transport": { "const": "streamable-http" },
+        "url": { "type": "string", "format": "uri", "maxLength": 1024 },
+        "headers": {
+          "description": "Fixed request headers. Never literal secrets; use ${user_config.KEY}-style values resolved by the daemon at start.",
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": { "pattern": "^[A-Za-z0-9-]{1,64}$" },
+          "additionalProperties": { "type": "string", "maxLength": 4096 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Skill": {
+      "description": "An Agent Skills skill: a directory holding SKILL.md. name must equal the directory's last segment and the SKILL.md frontmatter name.",
+      "type": "object",
+      "required": ["name", "path", "description"],
+      "properties": {
+        "name": { "$ref": "common.schema.json#/$defs/SkillName" },
+        "path": { "$ref": "common.schema.json#/$defs/PluginPath" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      },
+      "additionalProperties": false
+    },
+    "Runner": {
+      "description": "A runner engine: a program that speaks the runner protocol on the socket named by AGENTSONE_RUNNER_SOCKET.",
+      "type": "object",
+      "required": ["name", "command", "args", "env", "protocolVersions"],
+      "properties": {
+        "name": { "$ref": "#/$defs/ComponentName" },
+        "description": { "$ref": "common.schema.json#/$defs/OneLine" },
+        "command": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "args": { "$ref": "#/$defs/Args" },
+        "env": { "$ref": "common.schema.json#/$defs/EnvMap" },
+        "protocolVersions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Panel": {
+      "description": "An interface panel. The shell loads entry in a sandboxed iframe (allow-scripts only, no same-origin) and grants only the listed API scopes.",
+      "type": "object",
+      "required": ["name", "title", "icon", "entry", "scopes"],
+      "properties": {
+        "name": { "$ref": "#/$defs/ComponentName" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 48 },
+        "icon": {
+          "description": "An SVG file inside the plugin.",
+          "$ref": "common.schema.json#/$defs/PluginPath"
+        },
+        "entry": {
+          "description": "The panel's HTML file.",
+          "$ref": "common.schema.json#/$defs/PluginPath"
+        },
+        "scopes": {
+          "description": "API scopes the panel asks for, as <group>:read or <group>:write, using the OpenAPI groups.",
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}:(read|write)$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Emitter": {
+      "description": "An event source. The daemon runs it as emitter@<plugin>-<name>.service; it may only publish the listed event types.",
+      "type": "object",
+      "required": ["name", "command", "args", "env", "eventTypes"],
+      "properties": {
+        "name": { "$ref": "#/$defs/ComponentName" },
+        "command": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "args": { "$ref": "#/$defs/Args" },
+        "env": { "$ref": "common.schema.json#/$defs/EnvMap" },
+        "eventTypes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/EventType" }
+        },
+        "catalog": {
+          "description": "An events catalog (events-catalog.schema.json) describing the data of each event type.",
+          "$ref": "common.schema.json#/$defs/PluginPath"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

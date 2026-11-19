@@ -1,0 +1,10 @@
+{
+  "name": "loose-version",
+  "version": "v1.2",
+  "description": "Version is not semver.",
+  "author": { "name": "Someone" },
+  "license": "MIT",
+  "source": { "kind": "agentsone", "ref": "./loose-version" },
+  "compat": { "agentsone": ">=0.1.0" },
+  "contents": { "mcpServers": [], "skills": [], "agentTemplates": [{ "path": "./agents/a.json" }], "runners": [], "panels": [], "themes": [], "emitters": [] }
+}

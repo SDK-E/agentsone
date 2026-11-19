@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":4,"method":"wake","params":{"reason":"timer","turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3K","payload":{"scheduleId":"sch_01JD8X3Q5Y6Z7A8B9C0D1E2F70","name":"nightly-review","due":"2026-11-20T02:00:00Z","firedAt":"2026-11-20T02:00:00.004Z"}}}

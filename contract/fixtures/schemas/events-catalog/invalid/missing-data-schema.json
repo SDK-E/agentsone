@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "events": [
+    {
+      "type": "agentsone.soil.moisture.low",
+      "emitter": "soil",
+      "description": "Soil moisture fell below the plant's threshold.",
+      "chartscope": "machine",
+      "example": { "bed": "roses", "percent": 12 }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"usage","params":{"turnId":"trn_01JD8X3Q5Y6Z7A8B9C0D1E2F3M","model":"echo","weight":"quick","tokensIn":1,"tokensOut":1,"costMicroUsd":0.5}}

@@ -1,0 +1,14 @@
+{
+  "id": "mem_01JD8X3Q5Y6Z7A8B9C0D1E2F81",
+  "scope": "private",
+  "owner": "watcher",
+  "team": "founder",
+  "title": "Note",
+  "body": "",
+  "tags": ["Security"],
+  "links": [],
+  "source": { "kind": "agent", "ref": "watcher" },
+  "createdAt": "2026-11-19T19:02:01Z",
+  "updatedAt": "2026-11-19T19:02:01Z",
+  "revision": 1
+}

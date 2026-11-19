@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/theme.schema.json",
+  "title": "Theme",
+  "description": "An interface theme. It always carries both a light and a dark token set; the Settings choice (system, light, dark) picks one. Colors are opaque #RRGGBB so contrast can be computed. contrastPairs lists every foreground and background role pair the interface draws together, with the WCAG 2.2 AA ratio it must meet (4.5 for text, 3 for large text and interface parts); CI computes each ratio in both modes and fails the theme when one is too low.",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "author",
+    "modes",
+    "typography",
+    "radius",
+    "spacing",
+    "motion",
+    "contrastPairs"
+  ],
+  "properties": {
+    "$schema": {
+      "description": "Optional pointer to this schema, for editors.",
+      "type": "string",
+      "format": "uri"
+    },
+    "name": {
+      "description": "Theme name shown in Settings, for example Agents One Theme.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "version": { "$ref": "common.schema.json#/$defs/Semver" },
+    "author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "url": { "type": "string", "format": "uri", "maxLength": 512 }
+      },
+      "additionalProperties": false
+    },
+    "description": { "$ref": "common.schema.json#/$defs/OneLine" },
+    "modes": {
+      "type": "object",
+      "required": ["light", "dark"],
+      "properties": {
+        "light": { "$ref": "#/$defs/ModeTokens" },
+        "dark": { "$ref": "#/$defs/ModeTokens" }
+      },
+      "additionalProperties": false
+    },
+    "typography": { "$ref": "#/$defs/Typography" },
+    "radius": { "$ref": "#/$defs/Radius" },
+    "spacing": { "$ref": "#/$defs/Spacing" },
+    "motion": { "$ref": "#/$defs/Motion" },
+    "contrastPairs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/ContrastPair" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Color": {
+      "description": "Opaque sRGB color, #RRGGBB.",
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "ColorRole": {
+      "description": "Name of a color role in ColorRoles.",
+      "type": "string",
+      "enum": [
+        "background",
+        "surface",
+        "surfaceRaised",
+        "surfaceSunken",
+        "border",
+        "borderStrong",
+        "text",
+        "textMuted",
+        "accent",
+        "accentHover",
+        "onAccent",
+        "accentSubtle",
+        "onAccentSubtle",
+        "alive",
+        "visitor",
+        "visitorSubtle",
+        "onVisitorSubtle",
+        "success",
+        "warning",
+        "danger",
+        "onDanger",
+        "info",
+        "focus"
+      ]
+    },
+    "ColorRoles": {
+      "description": "Color roles, named by the brand work package. on<Role> is the text color drawn on a <role> fill.",
+      "type": "object",
+      "required": [
+        "background",
+        "surface",
+        "surfaceRaised",
+        "surfaceSunken",
+        "border",
+        "borderStrong",
+        "text",
+        "textMuted",
+        "accent",
+        "accentHover",
+        "onAccent",
+        "accentSubtle",
+        "onAccentSubtle",
+        "alive",
+        "visitor",
+        "visitorSubtle",
+        "onVisitorSubtle",
+        "success",
+        "warning",
+        "danger",
+        "onDanger",
+        "info",
+        "focus"
+      ],
+      "properties": {
+        "background": { "description": "Page background.", "$ref": "#/$defs/Color" },
+        "surface": { "description": "Panels and cards.", "$ref": "#/$defs/Color" },
+        "surfaceRaised": { "description": "Menus, dialogs, popovers.", "$ref": "#/$defs/Color" },
+        "surfaceSunken": { "description": "Wells, inputs, code blocks.", "$ref": "#/$defs/Color" },
+        "border": { "description": "Dividers and decorative outlines.", "$ref": "#/$defs/Color" },
+        "borderStrong": {
+          "description": "Outlines of controls that must be seen (WCAG 1.4.11).",
+          "$ref": "#/$defs/Color"
+        },
+        "text": { "description": "Body text.", "$ref": "#/$defs/Color" },
+        "textMuted": { "description": "Secondary text.", "$ref": "#/$defs/Color" },
+        "accent": { "description": "Primary actions and links.", "$ref": "#/$defs/Color" },
+        "accentHover": { "description": "Accent under the pointer.", "$ref": "#/$defs/Color" },
+        "onAccent": { "description": "Text on an accent fill.", "$ref": "#/$defs/Color" },
+        "accentSubtle": {
+          "description": "Quiet accent fill, such as a selected row.",
+          "$ref": "#/$defs/Color"
+        },
+        "onAccentSubtle": {
+          "description": "Text on an accentSubtle fill.",
+          "$ref": "#/$defs/Color"
+        },
+        "alive": {
+          "description": "Marks agents and the society at work (the live list, a working agent).",
+          "$ref": "#/$defs/Color"
+        },
+        "visitor": { "description": "Marks humans, the visitors.", "$ref": "#/$defs/Color" },
+        "visitorSubtle": {
+          "description": "Quiet visitor fill, such as a human's chat bubble.",
+          "$ref": "#/$defs/Color"
+        },
+        "onVisitorSubtle": {
+          "description": "Text on a visitorSubtle fill.",
+          "$ref": "#/$defs/Color"
+        },
+        "success": { "description": "Success text and icons.", "$ref": "#/$defs/Color" },
+        "warning": { "description": "Warning text and icons.", "$ref": "#/$defs/Color" },
+        "danger": {
+          "description": "Danger text, icons and destructive buttons.",
+          "$ref": "#/$defs/Color"
+        },
+        "onDanger": { "description": "Text on a danger fill.", "$ref": "#/$defs/Color" },
+        "info": { "description": "Information text and icons.", "$ref": "#/$defs/Color" },
+        "focus": { "description": "Keyboard focus indicator.", "$ref": "#/$defs/Color" }
+      },
+      "additionalProperties": false
+    },
+    "ModeTokens": {
+      "type": "object",
+      "required": ["color", "shadow"],
+      "properties": {
+        "color": { "$ref": "#/$defs/ColorRoles" },
+        "shadow": { "$ref": "#/$defs/Shadows" }
+      },
+      "additionalProperties": false
+    },
+    "Shadows": {
+      "description": "CSS box-shadow values.",
+      "type": "object",
+      "required": ["sm", "md", "lg"],
+      "properties": {
+        "sm": { "$ref": "#/$defs/BoxShadow" },
+        "md": { "$ref": "#/$defs/BoxShadow" },
+        "lg": { "$ref": "#/$defs/BoxShadow" }
+      },
+      "additionalProperties": false
+    },
+    "BoxShadow": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9 #.,()%-]+$"
+    },
+    "Length": {
+      "description": "CSS length in px or rem, or 0.",
+      "type": "string",
+      "pattern": "^(0|[0-9]+(\\.[0-9]+)?(px|rem))$"
+    },
+    "FontStack": {
+      "description": "CSS font-family list.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9 ,\"'-]+$"
+    },
+    "TextStyle": {
+      "type": "object",
+      "required": ["size", "lineHeight"],
+      "properties": {
+        "size": { "$ref": "#/$defs/Length" },
+        "lineHeight": {
+          "description": "Unitless line height.",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "Typography": {
+      "type": "object",
+      "required": ["sans", "mono", "scale", "weights"],
+      "properties": {
+        "sans": { "$ref": "#/$defs/FontStack" },
+        "mono": { "$ref": "#/$defs/FontStack" },
+        "scale": {
+          "type": "object",
+          "required": ["xs", "sm", "md", "lg", "xl", "xxl"],
+          "properties": {
+            "xs": { "$ref": "#/$defs/TextStyle" },
+            "sm": { "$ref": "#/$defs/TextStyle" },
+            "md": { "$ref": "#/$defs/TextStyle" },
+            "lg": { "$ref": "#/$defs/TextStyle" },
+            "xl": { "$ref": "#/$defs/TextStyle" },
+            "xxl": { "$ref": "#/$defs/TextStyle" }
+          },
+          "additionalProperties": false
+        },
+        "weights": {
+          "type": "object",
+          "required": ["regular", "medium", "bold"],
+          "properties": {
+            "regular": { "$ref": "#/$defs/FontWeight" },
+            "medium": { "$ref": "#/$defs/FontWeight" },
+            "bold": { "$ref": "#/$defs/FontWeight" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "FontWeight": { "type": "integer", "enum": [100, 200, 300, 400, 500, 600, 700, 800, 900] },
+    "Radius": {
+      "type": "object",
+      "required": ["sm", "md", "lg", "full"],
+      "properties": {
+        "sm": { "$ref": "#/$defs/Length" },
+        "md": { "$ref": "#/$defs/Length" },
+        "lg": { "$ref": "#/$defs/Length" },
+        "full": { "$ref": "#/$defs/Length" }
+      },
+      "additionalProperties": false
+    },
+    "Spacing": {
+      "type": "object",
+      "required": ["xs", "sm", "md", "lg", "xl"],
+      "properties": {
+        "xs": { "$ref": "#/$defs/Length" },
+        "sm": { "$ref": "#/$defs/Length" },
+        "md": { "$ref": "#/$defs/Length" },
+        "lg": { "$ref": "#/$defs/Length" },
+        "xl": { "$ref": "#/$defs/Length" }
+      },
+      "additionalProperties": false
+    },
+    "Motion": {
+      "description": "Animation timing. When the viewer asks for reduced motion, the interface uses 0 ms durations regardless.",
+      "type": "object",
+      "required": ["fastMs", "normalMs", "slowMs", "easing"],
+      "properties": {
+        "fastMs": { "type": "integer", "minimum": 0, "maximum": 2000 },
+        "normalMs": { "type": "integer", "minimum": 0, "maximum": 2000 },
+        "slowMs": { "type": "integer", "minimum": 0, "maximum": 2000 },
+        "easing": {
+          "description": "CSS easing: a keyword or cubic-bezier().",
+          "type": "string",
+          "pattern": "^(linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\\(-?[0-9.]+, ?-?[0-9.]+, ?-?[0-9.]+, ?-?[0-9.]+\\))$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ContrastPair": {
+      "description": "A foreground drawn on a background. minRatio is 4.5 for normal text and 3 for large text or interface parts (WCAG 2.2 AA 1.4.3 and 1.4.11).",
+      "type": "object",
+      "required": ["fg", "bg", "minRatio"],
+      "properties": {
+        "fg": { "$ref": "#/$defs/ColorRole" },
+        "bg": { "$ref": "#/$defs/ColorRole" },
+        "minRatio": { "type": "number", "enum": [3, 4.5, 7] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -95,6 +95,10 @@ func TestNewPortsUnavailable(t *testing.T) {
 		"PostChat":      func() error { _, err := p.Chat.PostChat(ctx, "dev", "hi", ""); return err },
 		"SeedInstalled": func() error { _, err := p.Seed.SeedInstalled(ctx); return err },
 		"Wait":          func() error { return p.Startup.Wait(ctx) },
+		"Mint": func() error {
+			_, err := p.GatewayTokens.Mint(ctx, core.GatewayGrant{Subject: "system:router"})
+			return err
+		},
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

@@ -33,6 +33,8 @@ type Fakes struct {
 	Chat      *Chat
 	Startup   *Startup
 	Seed      *Seed
+	// GatewayTokens is the fake gateway token minter.
+	GatewayTokens *GatewayTokens
 }
 
 // NewFakes returns fresh fakes and Ports wired to them.
@@ -58,6 +60,8 @@ func NewFakes() (*Fakes, *core.Ports) {
 		Chat:      NewChat(ids),
 		Startup:   NewStartup(),
 		Seed:      NewSeed(),
+
+		GatewayTokens: NewGatewayTokens(),
 	}
 	return f, f.Ports()
 }
@@ -69,6 +73,7 @@ func (f *Fakes) Ports() *core.Ports {
 		Tasks: f.Tasks, Audit: f.Audit, Live: f.Live, Budget: f.Budget, Runners: f.Runners,
 		Bus: f.Bus, Freezer: f.Freezer, Tokens: f.Tokens, Templates: f.Templates,
 		Profiles: f.Profiles, Chat: f.Chat, Startup: f.Startup, Seed: f.Seed,
+		GatewayTokens: f.GatewayTokens,
 	}
 }
 

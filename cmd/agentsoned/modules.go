@@ -10,6 +10,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/bus"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/events"
+	"github.com/SDK-E/agentsone/internal/gatewaymint"
 	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/mcp"
 	"github.com/SDK-E/agentsone/internal/memory"
@@ -23,6 +24,7 @@ import (
 func modules(deps core.Deps) []core.Module {
 	return []core.Module{
 		audit.New(deps),
+		gatewaymint.New(deps),
 		agents.New(deps),
 		auth.New(deps),
 		api.New(deps),

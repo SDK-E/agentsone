@@ -4,6 +4,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -38,5 +39,24 @@ func TestModule_ProvidesTheTokenIssuer(t *testing.T) {
 	c, err := deps.Ports.Tokens.Verify(context.Background(), tok.Value)
 	if err != nil || c.Name != "founder" {
 		t.Fatalf("caller %+v err %v", c, err)
+	}
+}
+
+func TestModule_ProvidesEngineSetup(t *testing.T) {
+	t.Parallel()
+	deps, _ := coretest.NewDeps(t)
+	m := auth.New(deps)
+	m.Provide(deps.Ports)
+	ctx := context.Background()
+	if err := m.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// No licence file is installed in the test lib dir, so acceptance
+	// cannot be checked yet.
+	if _, err := deps.Ports.EngineSetup.LicenceAccepted(ctx); !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("licence: %v", err)
+	}
+	if err := deps.Ports.EngineSetup.SaveFetchStatus(ctx, core.EngineFetchStatus{State: "queued"}); err != nil {
+		t.Fatalf("save: %v", err)
 	}
 }

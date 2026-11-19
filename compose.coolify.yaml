@@ -199,6 +199,10 @@ services:
         target: /home
         type: volume
         volume: {}
+      - source: machine-engines
+        target: /var/lib/agentsone-engines
+        type: volume
+        volume: {}
       - read_only: true
         source: gateway-key
         target: /run/agentsone/gateway-key
@@ -213,6 +217,8 @@ volumes:
     name: agentsone_gateway-key
   machine-audit:
     name: agentsone_machine-audit
+  machine-engines:
+    name: agentsone_machine-engines
   machine-home:
     name: agentsone_machine-home
   machine-plugins:

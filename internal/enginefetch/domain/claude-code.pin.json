@@ -1,0 +1,19 @@
+{
+  "engine": "claude-code",
+  "version": "2.1.328",
+  "baseUrl": "https://downloads.claude.ai/claude-code-releases",
+  "artifacts": {
+    "linux/amd64": {
+      "platform": "linux-x64",
+      "binary": "claude",
+      "sha256": "a982d38030b97e750848add2cbb2df6d9a70d5544a22ca9b216a349ba25865e8",
+      "size": 373019152
+    },
+    "linux/arm64": {
+      "platform": "linux-arm64",
+      "binary": "claude",
+      "sha256": "307f8bada27b37db7553fac75e86004e3dbff5a931ffc611b54fe710ce1eb521",
+      "size": 371844536
+    }
+  }
+}

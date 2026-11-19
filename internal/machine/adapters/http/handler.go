@@ -22,12 +22,12 @@ const defaultLimit = 50
 // HomeOf returns a custom agent's home folder.
 type HomeOf func(agent string) string
 
-// Handler serves the machine group. Terminals answer 501 until their slice
-// lands.
+// Handler serves the machine group, terminals included.
 type Handler struct {
 	machineapi.Unimplemented
-	m    *app.Machine
-	home HomeOf
+	m     *app.Machine
+	terms *app.Terminals
+	home  HomeOf
 }
 
 var _ machineapi.StrictServerInterface = (*Handler)(nil)

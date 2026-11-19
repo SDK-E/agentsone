@@ -3,12 +3,18 @@
 package router
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/core/coretest"
+	"github.com/SDK-E/agentsone/internal/gatewaymint"
+	"github.com/SDK-E/agentsone/internal/gatewaytoken"
 )
 
 type fakeProfiles struct{ profiles []core.AgentProfile }
@@ -76,6 +82,31 @@ func TestCredentialAdapter_IssuesAShortGatewayToken(t *testing.T) {
 	}
 	if _, err := (credentialAdapter{ports: core.NewPorts()}).TokenFor(context.Background(), "router"); !errors.Is(err, core.ErrUnavailable) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+// The daemon's real minter signs the router's token, and the gateway's own
+// verifier reads it as a system caller with the gateway audience.
+func TestCredentialAdapter_RealMinterSignsATokenTheGatewayAccepts(t *testing.T) {
+	key := bytes.Repeat([]byte{0x2c}, gatewaymint.KeySize)
+	path := filepath.Join(t.TempDir(), "key")
+	if err := os.WriteFile(path, key, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, ports := coretest.NewFakes()
+	ports.GatewayTokens = &gatewaymint.Minter{KeyFile: path, Clock: f.Clock, Ports: ports}
+
+	tok, err := credentialAdapter{ports: ports}.TokenFor(context.Background(), "router")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := gatewaytoken.Verify(key, tok, f.Clock.Now())
+	if err != nil {
+		t.Fatalf("gateway refused the router's token: %v", err)
+	}
+	if c.Agent != "system:router" || c.Kind != gatewaytoken.KindSystem || c.Chart != "" || c.Audience != gatewaytoken.AudienceGateway ||
+		c.ExpiresAt-c.IssuedAt != int64(tokenTTL/time.Second) {
+		t.Fatalf("claims = %+v", c)
 	}
 }
 

@@ -2321,6 +2321,12 @@ body:has(.sheet[open]) {
   overflow-wrap: anywhere;
 }
 
+/* Where a link leads: quiet, in the same text as the name after it, so it wraps with it. */
+.machine__target {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
 .machine__icon {
   flex: none;
   inline-size: 16px;

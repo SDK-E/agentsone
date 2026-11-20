@@ -599,6 +599,7 @@
           "symlink": "Link",
           "other": "Other"
         },
+        "linkTo": ", link to {{target}}",
         "meta": "{{size}} · {{owner}} · mode {{mode}}",
         "reading": "Reading the file…",
         "binary": "This file is not text, so it is not shown here. It is {{size}}.",

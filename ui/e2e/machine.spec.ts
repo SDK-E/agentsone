@@ -129,6 +129,33 @@ test("machine, files, a long name takes the row and size and owner go under it",
   clean();
 });
 
+test("machine, files, a link shows where it points and a long target stays inside the row", async ({
+  page,
+}) => {
+  const clean = await useScenario(page, { all: "long-text" });
+  await openPanel(page, "Machine");
+  await show(page, "Files");
+
+  const list = page.getByRole("list", { name: LISTS.files.list });
+  const row = list.getByRole("listitem").filter({ hasText: "latest-reading-list" });
+  await expect(row.locator(".machine__target")).toContainText(
+    "→ /home/agents/research-librarian-1",
+  );
+  await expect(row.locator(".machine__target")).toBeVisible();
+  // A screen reader hears the name and where it leads once.
+  await expect(row).toContainText(", link to /home/agents/research-librarian-1");
+  // However long the target, the row does not grow wider than the list.
+  const fits = await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+  expect(fits).toBe(true);
+  const [listBox, targetBox] = await Promise.all([
+    list.boundingBox(),
+    row.locator(".machine__target").boundingBox(),
+  ]);
+  if (!listBox || !targetBox) throw new Error("The row has no layout.");
+  expect(targetBox.x + targetBox.width).toBeLessThanOrEqual(listBox.x + listBox.width + 1);
+  clean();
+});
+
 test("machine, the row of sections fades where a section is cut off", async ({
   page,
 }, testInfo) => {

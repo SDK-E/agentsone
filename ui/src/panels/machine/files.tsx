@@ -175,10 +175,21 @@ function Entry({
   const { t } = useTranslation(undefined, { keyPrefix: "panels.machine.files" });
   // The kind is said in words too: "README.md, File". The icon alone is not enough.
   const said = `${entry.name}, ${t(`type.${entry.type}`)}`;
+  const linkTarget = entry.type === "symlink" ? entry.link_target : undefined;
+  // A link's target runs on from its name in the same text, so a long name and a long target wrap
+  // together at words, and neither is squeezed into a narrow column beside the other.
   const name = (
     <>
       <TypeIcon type={entry.type} />
-      <span className="machine__name">{entry.name}</span>
+      <span className="machine__name">
+        {entry.name}
+        {linkTarget ? (
+          <>
+            {" "}
+            <span className="machine__target" aria-hidden="true">{`→ ${linkTarget}`}</span>
+          </>
+        ) : null}
+      </span>
     </>
   );
   const onOpen = entry.type === "directory" ? onFolder : entry.type === "file" ? onFile : undefined;
@@ -191,7 +202,9 @@ function Entry({
       ) : (
         <span className="machine__open machine__open--still">
           {name}
-          <span className="visually-hidden">{`, ${t(`type.${entry.type}`)}`}</span>
+          <span className="visually-hidden">
+            {linkTarget ? t("linkTo", { target: linkTarget }) : `, ${t(`type.${entry.type}`)}`}
+          </span>
         </span>
       )}
       <span className="machine__size">{formatBytes(entry.size_bytes)}</span>

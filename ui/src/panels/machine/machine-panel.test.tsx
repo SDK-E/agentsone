@@ -176,6 +176,18 @@ describe("Machine panel, files", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("shows where a link points", async () => {
+    renderWith(<MachinePanel />);
+    await show("Files");
+
+    const list = await screen.findByRole("list", { name: "Entries in this folder, folders first" });
+    const row = within(list).getByText("current").closest("li");
+    expect(row).not.toBeNull();
+    // Seen: the name, then where it leads. Heard: "current, link to dist".
+    expect(within(row as HTMLElement).getByText("→ dist")).toBeVisible();
+    expect(row).toHaveTextContent("current → dist, link to dist");
+  });
+
   it("says a folder is not allowed and offers the way back up, not a retry", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();

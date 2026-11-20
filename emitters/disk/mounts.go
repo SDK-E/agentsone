@@ -4,6 +4,7 @@ package disk
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -51,12 +52,11 @@ type MountsFile string
 
 // List reads and parses the file.
 func (m MountsFile) List() ([]Mount, error) {
-	f, err := os.Open(string(m))
+	b, err := os.ReadFile(string(m))
 	if err != nil {
-		return nil, fmt.Errorf("open mount table: %w", err)
+		return nil, fmt.Errorf("read mount table: %w", err)
 	}
-	defer func() { _ = f.Close() }()
-	return ParseMounts(f), nil
+	return ParseMounts(bytes.NewReader(b)), nil
 }
 
 // ParseMounts reads a /proc/self/mounts table. Lines it cannot read are

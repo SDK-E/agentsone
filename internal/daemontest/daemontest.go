@@ -34,6 +34,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/daemon"
+	"github.com/SDK-E/agentsone/internal/events"
 	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 	"github.com/SDK-E/agentsone/internal/sched"
 	"github.com/SDK-E/agentsone/internal/store"
@@ -58,6 +59,7 @@ type Daemon struct {
 	ids     core.IDs
 	runners *inProcess
 	beat    chan time.Time
+	sources *sourceSleeper
 	logs    *logBuffer
 	door    *webDoor
 	tcp     string // the API's loopback address
@@ -137,6 +139,7 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, s
 		ids:     ids,
 		runners: newInProcess(cfg.RuntimeDir),
 		beat:    make(chan time.Time),
+		sources: newSourceSleeper(clock),
 		logs:    logs,
 		door:    &webDoor{},
 		setup:   setup,
@@ -158,6 +161,7 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, s
 			Config: d.setup.supervisor,
 		}),
 		daemon.WithSched(sched.WithBeat(d.beat)),
+		daemon.WithEvents(events.WithSleeper(d.sources)),
 	), d.door)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -243,6 +247,13 @@ func loadConfig(t testing.TB) (core.Config, string) {
 	if err := os.CopyFS(filepath.Join(bundled, "small-seed"), os.DirFS(filepath.Join(repoRoot(t), "plugins", "small-seed"))); err != nil {
 		t.Fatalf("copy the small-seed plugin: %v", err)
 	}
+	// The disk source reads its own mount table, empty until a test mounts
+	// a disk (MountDisk), so it never reads the host's. Any used space is
+	// over its 1 percent line, so a mounted disk reports high.
+	mounts := filepath.Join(dir, mountsFile)
+	if err := os.WriteFile(mounts, nil, 0o600); err != nil {
+		t.Fatalf("write the mount table: %v", err)
+	}
 	toml := fmt.Sprintf(`state_dir = %q
 runtime_dir = %q
 lib_dir = %q
@@ -259,7 +270,12 @@ key_file = %q
 
 [plugins]
 bundled_dir = %q
-`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled)
+
+[emitters.disk]
+mounts_file = %q
+threshold_percent = 1
+margin_percent = 0
+`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled, mounts)
 	path := filepath.Join(dir, "config.toml")
 	if err := os.WriteFile(path, []byte(toml), 0o600); err != nil {
 		t.Fatalf("write config.toml: %v", err)

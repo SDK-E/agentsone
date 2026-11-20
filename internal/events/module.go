@@ -32,17 +32,32 @@ type Module struct {
 
 var _ core.Module = (*Module)(nil)
 
+// Option changes how New builds the module.
+type Option func(*options)
+
+type options struct {
+	sleeper emitapp.Sleeper
+}
+
+// WithSleeper makes the built-in sources wait with s instead of a real
+// timer, so a test with a fake clock decides when they wake.
+func WithSleeper(s emitapp.Sleeper) Option { return func(o *options) { o.sleeper = s } }
+
 // New builds the events module on deps.Stores.Bus. The module needs no
 // systemd: process emitters stay unavailable until a unit controller is
 // supplied.
-func New(deps core.Deps) *Module {
+func New(deps core.Deps, opts ...Option) *Module {
+	o := options{sleeper: emitapp.Timer{}}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	m := &Module{db: deps.Stores.Bus, clock: deps.Clock}
 	cat, err := catalog.Builtin()
 	if err != nil {
 		m.err = fmt.Errorf("load the event catalog: %w", err)
 		return m
 	}
-	opts, err := builtin.LoadOptions(deps.Config)
+	settings, err := builtin.LoadOptions(deps.Config)
 	if err != nil {
 		m.err = err
 		return m
@@ -59,7 +74,7 @@ func New(deps core.Deps) *Module {
 		Log:      deps.Log,
 		Entropy:  rand.Reader,
 	})
-	m.runner = builtin.NewRunner(deps.Log, deps.Clock, emitapp.Timer{}, m.svc, sources(opts))
+	m.runner = builtin.NewRunner(deps.Log, deps.Clock, o.sleeper, m.svc, sources(settings))
 	return m
 }
 

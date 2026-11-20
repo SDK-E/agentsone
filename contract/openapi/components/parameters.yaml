@@ -101,6 +101,18 @@ PluginId:
   required: true
   schema:
     $ref: "./schemas/common.yaml#/PluginId"
+PluginFilePath:
+  name: path
+  in: query
+  required: true
+  description: |
+    A file inside the plugin, relative to its root, with forward slashes and an optional leading
+    `./`, for example `./panel/index.html`. No segment may start with a dot.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 512
+    pattern: "^(\\./)?([A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*/)*[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*$"
 RunnerName:
   name: runner_name
   in: path

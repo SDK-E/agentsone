@@ -59,10 +59,15 @@ func toUser(u domain.MachineUser) api.MachineUser {
 }
 
 func toFileEntry(e domain.FileEntry) api.FileEntry {
-	return api.FileEntry{
+	out := api.FileEntry{
 		Path: e.Path, Name: e.Name, Type: api.FileType(e.Type), SizeBytes: e.Size,
 		Mode: domain.FormatMode(e.Mode), Owner: e.Owner, Group: e.Group, ModifiedAt: api.Timestamp(e.Modified),
 	}
+	if e.LinkTarget != "" {
+		target := e.LinkTarget
+		out.LinkTarget = &target
+	}
+	return out
 }
 
 func mapAll[D, W any](items []D, f func(D) W) []W {

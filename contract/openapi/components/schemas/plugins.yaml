@@ -150,6 +150,33 @@ PluginInstall:
       type: boolean
       default: true
 
+PluginFile:
+  type: object
+  description: |
+    One file of a panel plugin, read for the interface's panel host. Text files use `utf-8`;
+    others use `base64`.
+  required: [plugin_id, path, media_type, encoding, content, size_bytes]
+  properties:
+    plugin_id:
+      $ref: "./common.yaml#/PluginId"
+    path:
+      type: string
+      description: The normalised path inside the plugin, without a leading `./`.
+      examples: [panel/index.html]
+    media_type:
+      type: string
+      description: Media type from the file name, for example `text/html` or `image/svg+xml`.
+      examples: [text/html]
+    encoding:
+      $ref: "./machine.yaml#/FileEncoding"
+    content:
+      type: string
+    size_bytes:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 4194304
+
 PanelTokenCreate:
   type: object
   additionalProperties: false

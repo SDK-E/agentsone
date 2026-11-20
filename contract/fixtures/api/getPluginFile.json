@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "body": {
+    "plugin_id": "plg_01JD7ZK3M00000000000000005",
+    "path": "panel/index.html",
+    "media_type": "text/html",
+    "encoding": "utf-8",
+    "content": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Disk watch</title>\n<style>body{font:16px system-ui,sans-serif;margin:16px}</style>\n</head>\n<body>\n<main>\n<h1>Disk watch</h1>\n<p id=\"disks\">Asking the machine…</p>\n</main>\n<script>\nconst ask = (path) => parent.postMessage({ type: \"agentsone.panel.request\", id: \"1\", method: \"GET\", path }, \"*\");\naddEventListener(\"message\", (e) => {\n  if (e.source !== parent || e.data?.type !== \"agentsone.panel.response\") return;\n  const out = document.getElementById(\"disks\");\n  if (e.data.status !== 200) { out.textContent = \"The machine did not answer.\"; return; }\n  out.textContent = e.data.body.disks.map((d) => d.mount + \": \" + Math.round(d.used_bytes / d.total_bytes * 100) + \"% used\").join(\", \");\n});\nask(\"/machine/metrics\");\n</script>\n</body>\n</html>\n",
+    "size_bytes": 812
+  }
+}

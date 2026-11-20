@@ -45,11 +45,12 @@ stage_small_seed() {
   expect_out "the founder heads the chart: a root, always-on agent with no manager, uid 0, no limits" '^true$' \
     small_seed_agent founder '.is_root == true and .kind == "always-on" and .manager == null and .team == "founder" and
       .uid == 0 and .limits == null and .home == "/root/agents/founder"'
-  expect_out "the router is a chat agent below the founder, not root" '^true$' \
-    small_seed_agent router '.is_root == false and .kind == "chat" and .manager == "founder" and .team == "founder" and
+  # An agent that reports to the founder heads its own team (the chart branch below the founder).
+  expect_out "the router is a chat agent below the founder, heading its own team, not root" '^true$' \
+    small_seed_agent router '.is_root == false and .kind == "chat" and .manager == "founder" and .team == "router" and
       .uid > 0 and .home == "/home/agents/router"'
-  expect_out "the waker is a waker below the founder, not root" '^true$' \
-    small_seed_agent waker '.is_root == false and .kind == "waker" and .manager == "founder" and .team == "founder" and
+  expect_out "the waker is a waker below the founder, heading its own team, not root" '^true$' \
+    small_seed_agent waker '.is_root == false and .kind == "waker" and .manager == "founder" and .team == "waker" and
       .uid > 0 and .home == "/home/agents/waker"'
   expect_out "no agent of the Small Seed has failed" '^true$' \
     jq -e '[.items[] | select(.name == "founder" or .name == "router" or .name == "waker")] | length == 3 and

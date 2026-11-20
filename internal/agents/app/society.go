@@ -176,7 +176,8 @@ func (s *Society) Hire(ctx context.Context, spec domain.HireSpec) (domain.Agent,
 	}
 	if a.Kind == domain.KindAlwaysOn {
 		// A runner that cannot start does not undo the hire: the
-		// supervisor puts the reason on the agent's status.
+		// supervisor records it in the audit trail and puts the reason on
+		// the agent's status.
 		_ = s.rt.Run(ctx, a.Name)
 	}
 	return a, nil

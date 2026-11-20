@@ -283,6 +283,7 @@ func (s *Supervisor) launch(ctx context.Context, name string, r *runner) error {
 		return err
 	}
 	if err := s.d.Launcher.Start(ctx, name); err != nil {
+		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
 		fail(ReasonStartFailed)
 		return fmt.Errorf("start: %w", err)
 	}

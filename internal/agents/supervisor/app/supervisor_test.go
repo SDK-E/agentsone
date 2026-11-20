@@ -244,6 +244,11 @@ func TestWake_RefusesBadNameAndReportsStartFailure(t *testing.T) {
 	if w.sup.SessionState("mira") != domain.StateFailed {
 		t.Fatalf("state = %s, want failed", w.sup.SessionState("mira"))
 	}
+	// Every runner that does not start is on record, so callers that go on
+	// (a hire, the daemon's start) lose nothing.
+	if diff := cmp.Diff([]string{"agent.runner.error agent:mira"}, w.actions()); diff != "" {
+		t.Errorf("audit (-want +got):\n%s", diff)
+	}
 }
 
 // The gateway token comes from the daemon's one minter, for the agent's

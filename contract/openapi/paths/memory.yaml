@@ -2,6 +2,7 @@
 memory:
   get:
     operationId: listMemory
+    security: [{ cookieAuth: [] }, { bearerAuth: [memory:read] }, { peerCredentials: [] }]
     tags: [memory]
     summary: List memory records
     description: |
@@ -39,6 +40,7 @@ memory:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: writeMemory
+    security: [{ cookieAuth: [] }, { bearerAuth: [memory:write] }, { peerCredentials: [] }]
     tags: [memory]
     summary: Write a memory record
     description: Writes a record owned by the caller. A record with the same `key` in the same scope is replaced.
@@ -66,6 +68,7 @@ memory:
 search:
   get:
     operationId: searchMemory
+    security: [{ cookieAuth: [] }, { bearerAuth: [memory:read] }, { peerCredentials: [] }]
     tags: [memory]
     summary: Search memory
     description: Full-text search over the records the caller may read, best match first.
@@ -100,6 +103,7 @@ record:
     - $ref: "../components/parameters.yaml#/MemoryId"
   get:
     operationId: getMemory
+    security: [{ cookieAuth: [] }, { bearerAuth: [memory:read] }, { peerCredentials: [] }]
     tags: [memory]
     summary: Get a memory record
     description: Returns one record if the caller may read its scope.
@@ -116,6 +120,7 @@ record:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteMemory
+    security: [{ cookieAuth: [] }, { bearerAuth: [memory:write] }, { peerCredentials: [] }]
     tags: [memory]
     summary: Delete a memory record
     description: |

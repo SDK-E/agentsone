@@ -389,6 +389,22 @@ func (response ListHumans401ApplicationProblemPlusJSONResponse) VisitListHumansR
 	return err
 }
 
+type ListHumans403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListHumans403ApplicationProblemPlusJSONResponse) VisitListHumansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListHumans501ApplicationProblemPlusJSONResponse struct {
 	NotImplementedApplicationProblemPlusJSONResponse
 }
@@ -637,6 +653,22 @@ func (response GetHuman401ApplicationProblemPlusJSONResponse) VisitGetHumanRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHuman403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetHuman403ApplicationProblemPlusJSONResponse) VisitGetHumanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }

@@ -348,6 +348,22 @@ func (response ListAgentNetRules401ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type ListAgentNetRules403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListAgentNetRules403ApplicationProblemPlusJSONResponse) VisitListAgentNetRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAgentNetRules501ApplicationProblemPlusJSONResponse struct {
 	NotImplementedApplicationProblemPlusJSONResponse
 }
@@ -398,6 +414,22 @@ func (response GetAgentNetRules401ApplicationProblemPlusJSONResponse) VisitGetAg
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentNetRules403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetAgentNetRules403ApplicationProblemPlusJSONResponse) VisitGetAgentNetRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -570,6 +602,22 @@ func (response GetAllowList401ApplicationProblemPlusJSONResponse) VisitGetAllowL
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowList403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetAllowList403ApplicationProblemPlusJSONResponse) VisitGetAllowListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }

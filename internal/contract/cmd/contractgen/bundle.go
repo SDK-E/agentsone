@@ -29,6 +29,9 @@ func writeDist(r repo, bundlePath string) error {
 	}
 	renameFileSchemas(doc)
 	injectNotImplemented(doc)
+	if err := injectForbidden(doc); err != nil {
+		return err
+	}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)

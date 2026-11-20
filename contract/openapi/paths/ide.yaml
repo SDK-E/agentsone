@@ -2,6 +2,7 @@
 ide:
   get:
     operationId: getIdeStatus
+    security: [{ cookieAuth: [] }, { bearerAuth: [ide:read] }, { peerCredentials: [] }]
     tags: [ide]
     summary: Get IDE status
     description: Returns the baked-in open VS Code build, the optional official download and every human's server.
@@ -19,6 +20,7 @@ server:
     - $ref: "../components/parameters.yaml#/HumanName"
   get:
     operationId: getIdeServer
+    security: [{ cookieAuth: [] }, { bearerAuth: [ide:read] }, { peerCredentials: [] }]
     tags: [ide]
     summary: Get a human's IDE server
     description: Returns the state and URL of one human's VS Code server.
@@ -35,6 +37,7 @@ server:
         $ref: "../components/responses.yaml#/NotFound"
   put:
     operationId: startIdeServer
+    security: [{ cookieAuth: [] }, { bearerAuth: [ide:write] }, { peerCredentials: [] }]
     tags: [ide]
     summary: Start a human's IDE server
     description: Starts `agentsone-ide@<human>.service`. A human may start only their own server; poll or read the URL when running.
@@ -53,6 +56,7 @@ server:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: stopIdeServer
+    security: [{ cookieAuth: [] }, { bearerAuth: [ide:write] }, { peerCredentials: [] }]
     tags: [ide]
     summary: Stop a human's IDE server
     description: Stops the human's VS Code server.
@@ -68,6 +72,7 @@ server:
 official:
   get:
     operationId: getOfficialIdeDownload
+    security: [{ cookieAuth: [] }, { bearerAuth: [ide:read] }, { peerCredentials: [] }]
     tags: [ide]
     summary: Get the official build download state
     description: Returns the state of the optional official VS Code download.

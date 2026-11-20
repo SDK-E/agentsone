@@ -4,6 +4,7 @@
 route:
   post:
     operationId: routeRequest
+    security: [{ cookieAuth: [] }, { bearerAuth: [router:write] }, { peerCredentials: [] }]
     tags: [router]
     summary: Route a human request
     description: |
@@ -42,6 +43,7 @@ assignment:
     - $ref: "../components/parameters.yaml#/AssignmentId"
   get:
     operationId: getAssignment
+    security: [{ cookieAuth: [] }, { bearerAuth: [router:read] }, { peerCredentials: [] }]
     tags: [router]
     summary: Get an assignment
     description: One routing result with its shortlist and router hops.
@@ -60,6 +62,7 @@ assignment:
 live:
   get:
     operationId: listLiveList
+    security: [{ cookieAuth: [] }, { bearerAuth: [router:read] }, { peerCredentials: [] }]
     tags: [router]
     summary: List the live list
     description: Every agent's latest one-line, most recent first. This is the live society view.
@@ -81,6 +84,7 @@ live:
 live-stream:
   get:
     operationId: streamLiveList
+    security: [{ cookieAuth: [] }, { bearerAuth: [router:read] }, { peerCredentials: [] }]
     tags: [router]
     summary: Stream the live list
     description: Live list changes as Server-Sent Events.

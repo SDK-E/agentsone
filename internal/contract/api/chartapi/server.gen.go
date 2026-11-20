@@ -240,6 +240,22 @@ func (response GetChart401ApplicationProblemPlusJSONResponse) VisitGetChartRespo
 	return err
 }
 
+type GetChart403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetChart403ApplicationProblemPlusJSONResponse) VisitGetChartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetChart501ApplicationProblemPlusJSONResponse struct {
 	NotImplementedApplicationProblemPlusJSONResponse
 }

@@ -2,6 +2,7 @@
 sources:
   get:
     operationId: listPluginSources
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:read] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: List plugin sources
     description: Lists the catalog sources (Claude Code marketplace, own format, Agent Skills, MCP registry).
@@ -22,6 +23,7 @@ sources:
 catalog:
   get:
     operationId: searchPluginCatalog
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:read] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Search the plugin catalog
     description: Searches all enabled sources. Results from each source are normalised into one entry shape.
@@ -60,6 +62,7 @@ catalog:
 plugins:
   get:
     operationId: listPlugins
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:read] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: List installed plugins
     description: Lists installed plugins of every kind.
@@ -89,6 +92,7 @@ plugins:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: installPlugin
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:admin] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Install a plugin
     description: Installs a plugin from a catalog source. Agents and humans may install; every install is audited.
@@ -122,6 +126,7 @@ plugin:
     - $ref: "../components/parameters.yaml#/PluginId"
   get:
     operationId: getPlugin
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:read] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Get a plugin
     description: Returns one installed plugin with its manifest.
@@ -138,6 +143,7 @@ plugin:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: uninstallPlugin
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:admin] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Uninstall a plugin
     description: Removes a plugin and everything it registered (servers, skills, runners, panels, themes, emitters).
@@ -157,6 +163,7 @@ enable:
     - $ref: "../components/parameters.yaml#/PluginId"
   post:
     operationId: enablePlugin
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:write] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Enable a plugin
     description: Turns a plugin on.
@@ -178,6 +185,7 @@ disable:
     - $ref: "../components/parameters.yaml#/PluginId"
   post:
     operationId: disablePlugin
+    security: [{ cookieAuth: [] }, { bearerAuth: [plugins:write] }, { peerCredentials: [] }]
     tags: [plugins]
     summary: Disable a plugin
     description: Turns a plugin off without removing it.

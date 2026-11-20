@@ -4,6 +4,7 @@
 agents:
   get:
     operationId: listAgents
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: List agents
     description: Every agent in the society, filtered by the query. Retired agents are left out unless `state=retired`.
@@ -50,6 +51,7 @@ agents:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: hireAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:admin] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Hire an agent
     description: |
@@ -84,6 +86,7 @@ agent:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: getAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Get an agent
     description: One agent with its state, one-line and limits.
@@ -100,6 +103,7 @@ agent:
         $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:write] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Edit an agent
     description: Edits an agent below the caller. Limits are a soft wall (cgroups inside the machine container).
@@ -128,6 +132,7 @@ agent:
         $ref: "../components/responses.yaml#/Locked"
   delete:
     operationId: retireAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:admin] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Retire an agent
     description: |
@@ -150,6 +155,7 @@ wake:
     - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: wakeAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:write] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Wake an agent
     description: Starts a turn with the given reason. Wakes are rate limited; a frozen agent returns 423.
@@ -186,6 +192,7 @@ sleep:
     - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: sleepAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:write] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Put an agent to sleep
     description: Ends the current turn, optionally compacts the session to a summary and stops the runner. Sleeping costs nothing.
@@ -216,6 +223,7 @@ one-line:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: getAgentOneLine
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Get an agent's one-line
     description: The agent's latest one-line (its live list entry).
@@ -232,6 +240,7 @@ one-line:
         $ref: "../components/responses.yaml#/NotFound"
   put:
     operationId: setAgentOneLine
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:write] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Set your one-line
     description: |
@@ -264,6 +273,7 @@ output:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: streamAgentOutput
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Stream an agent's output
     description: Live runner output, state changes and one-lines of one agent, as Server-Sent Events.
@@ -292,6 +302,7 @@ chat:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: listChatMessages
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: List chat messages
     description: Chat history with one agent, newest first.
@@ -313,6 +324,7 @@ chat:
         $ref: "../components/responses.yaml#/NotFound"
   post:
     operationId: sendChatMessage
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:write] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Send a chat message
     description: Posts a human message into the agent's chat and wakes the agent. The reply arrives on `streamChat`.
@@ -347,6 +359,7 @@ chat-stream:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: streamChat
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Stream an agent's chat
     description: New chat messages and partial reply text for one agent, as Server-Sent Events.
@@ -373,6 +386,7 @@ tokens:
     - $ref: "../components/parameters.yaml#/AgentName"
   post:
     operationId: issueAgentToken
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:admin] }, { peerCredentials: [] }]
     tags: [agents]
     summary: Issue an agent token
     description: |
@@ -403,6 +417,7 @@ tokens:
 templates:
   get:
     operationId: listAgentTemplates
+    security: [{ cookieAuth: [] }, { bearerAuth: [agents:read] }, { peerCredentials: [] }]
     tags: [agents]
     summary: List agent templates
     description: Agent templates from installed plugins, used when hiring.

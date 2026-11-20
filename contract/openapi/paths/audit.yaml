@@ -2,6 +2,7 @@
 audit:
   get:
     operationId: listAuditRecords
+    security: [{ cookieAuth: [] }, { bearerAuth: [audit:read] }, { peerCredentials: [] }]
     tags: [audit]
     summary: List audit records
     description: Lists audit records in sequence order. Records from inside the machine container are hash-chained testimony.
@@ -41,6 +42,7 @@ audit:
 verify:
   post:
     operationId: verifyAuditChain
+    security: [{ cookieAuth: [] }, { bearerAuth: [audit:read] }, { peerCredentials: [] }]
     tags: [audit]
     summary: Verify the audit chain
     description: Re-hashes the chain in the given range and reports the first break. Compare the head hash with the edge's copy for proof.
@@ -64,6 +66,7 @@ verify:
 stream:
   get:
     operationId: streamAudit
+    security: [{ cookieAuth: [] }, { bearerAuth: [audit:read] }, { peerCredentials: [] }]
     tags: [audit]
     summary: Stream audit records
     description: Streams new audit records as Server-Sent Events.

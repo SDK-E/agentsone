@@ -4,6 +4,7 @@
 chart:
   get:
     operationId: getChart
+    security: [{ cookieAuth: [] }, { bearerAuth: [chart:read] }, { peerCredentials: [] }]
     tags: [chart]
     summary: Get the org chart
     description: The whole chart of agents as a tree. Humans are not in the chart.
@@ -20,6 +21,7 @@ chart:
 move:
   post:
     operationId: moveAgent
+    security: [{ cookieAuth: [] }, { bearerAuth: [chart:write] }, { peerCredentials: [] }]
     tags: [chart]
     summary: Move an agent in the chart
     description: Moves an agent and its branch under a new manager. Both must be below the caller. Audited.

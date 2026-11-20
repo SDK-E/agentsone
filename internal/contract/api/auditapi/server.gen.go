@@ -311,6 +311,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 type BadRequestApplicationProblemPlusJSONResponse Problem
 
+type ForbiddenApplicationProblemPlusJSONResponse Problem
+
 type NotImplementedApplicationProblemPlusJSONResponse Problem
 
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
@@ -365,6 +367,22 @@ func (response ListAuditRecords401ApplicationProblemPlusJSONResponse) VisitListA
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditRecords403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListAuditRecords403ApplicationProblemPlusJSONResponse) VisitListAuditRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -452,6 +470,22 @@ func (response StreamAudit401ApplicationProblemPlusJSONResponse) VisitStreamAudi
 	return err
 }
 
+type StreamAudit403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response StreamAudit403ApplicationProblemPlusJSONResponse) VisitStreamAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamAudit501ApplicationProblemPlusJSONResponse struct {
 	NotImplementedApplicationProblemPlusJSONResponse
 }
@@ -518,6 +552,22 @@ func (response VerifyAuditChain401ApplicationProblemPlusJSONResponse) VisitVerif
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAuditChain403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response VerifyAuditChain403ApplicationProblemPlusJSONResponse) VisitVerifyAuditChainResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }

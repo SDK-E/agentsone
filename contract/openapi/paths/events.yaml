@@ -2,6 +2,7 @@
 events:
   get:
     operationId: listEvents
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:read] }, { peerCredentials: [] }]
     tags: [events]
     summary: Query events
     description: Queries stored events, oldest first. All filters combine; `type` and `source` accept a trailing `*`.
@@ -63,6 +64,7 @@ events:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: publishEvent
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:write] }, { peerCredentials: [] }]
     tags: [events]
     summary: Publish an event
     description: Publishes an event on the open bus. The daemon fills id, time, sequence, actor and source, then runs matching triggers.
@@ -92,6 +94,7 @@ events:
 stream:
   get:
     operationId: streamEvents
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:read] }, { peerCredentials: [] }]
     tags: [events]
     summary: Stream events
     description: Streams new events as Server-Sent Events. Repeat `type` to match several types.
@@ -126,6 +129,7 @@ stream:
 emitters:
   get:
     operationId: listEmitters
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:read] }, { peerCredentials: [] }]
     tags: [events]
     summary: List emitters
     description: |
@@ -147,6 +151,7 @@ emitters:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: registerEmitter
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:write] }, { peerCredentials: [] }]
     tags: [events]
     summary: Register an emitter
     description: Registers a process or webhook emitter owned by the caller. A webhook emitter's secret is returned once.
@@ -178,6 +183,7 @@ emitter:
     - $ref: "../components/parameters.yaml#/EmitterId"
   get:
     operationId: getEmitter
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:read] }, { peerCredentials: [] }]
     tags: [events]
     summary: Get an emitter
     description: Returns one emitter.
@@ -197,6 +203,7 @@ emitter-enable:
     - $ref: "../components/parameters.yaml#/EmitterId"
   post:
     operationId: enableEmitter
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:write] }, { peerCredentials: [] }]
     tags: [events]
     summary: Enable an emitter
     description: Turns an emitter on. Process emitters start their `emitter@<id>.service` unit.
@@ -220,6 +227,7 @@ emitter-disable:
     - $ref: "../components/parameters.yaml#/EmitterId"
   post:
     operationId: disableEmitter
+    security: [{ cookieAuth: [] }, { bearerAuth: [events:write] }, { peerCredentials: [] }]
     tags: [events]
     summary: Disable an emitter
     description: Turns an emitter off. Process emitters stop their unit; webhook intake returns 404.

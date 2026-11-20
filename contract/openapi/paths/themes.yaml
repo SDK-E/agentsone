@@ -2,6 +2,7 @@
 themes:
   get:
     operationId: listThemes
+    security: [{ cookieAuth: [] }, { bearerAuth: [themes:read] }, { peerCredentials: [] }]
     tags: [themes]
     summary: List themes
     description: Lists installed themes. The default is "Agents One Theme".
@@ -21,6 +22,7 @@ themes:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: importTheme
+    security: [{ cookieAuth: [] }, { bearerAuth: [themes:write] }, { peerCredentials: [] }]
     tags: [themes]
     summary: Import a theme
     description: Imports a theme file. A theme carries both light and dark modes.
@@ -50,6 +52,7 @@ theme:
     - $ref: "../components/parameters.yaml#/ThemeId"
   get:
     operationId: getTheme
+    security: [{ cookieAuth: [] }, { bearerAuth: [themes:read] }, { peerCredentials: [] }]
     tags: [themes]
     summary: Get a theme
     description: Returns one installed theme.
@@ -66,6 +69,7 @@ theme:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteTheme
+    security: [{ cookieAuth: [] }, { bearerAuth: [themes:write] }, { peerCredentials: [] }]
     tags: [themes]
     summary: Delete a theme
     description: Removes an imported theme. The built-in theme and a theme in use cannot be removed (409).

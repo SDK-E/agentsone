@@ -4,6 +4,7 @@
 humans:
   get:
     operationId: listHumans
+    security: [{ cookieAuth: [] }, { bearerAuth: [humans:read] }, { peerCredentials: [] }]
     tags: [humans]
     summary: List humans
     description: Human accounts on this machine.
@@ -57,6 +58,7 @@ human:
     - $ref: "../components/parameters.yaml#/HumanName"
   get:
     operationId: getHuman
+    security: [{ cookieAuth: [] }, { bearerAuth: [humans:read] }, { peerCredentials: [] }]
     tags: [humans]
     summary: Get a human
     description: One human account.

@@ -4,6 +4,7 @@
 channels:
   get:
     operationId: listChannels
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:read] }, { peerCredentials: [] }]
     tags: [bus]
     summary: List channels
     description: Public channels and the team channels the caller can see.
@@ -23,6 +24,7 @@ channels:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createChannel
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:write] }, { peerCredentials: [] }]
     tags: [bus]
     summary: Create a channel
     description: Creates a public channel or a team channel for the caller's branch.
@@ -51,6 +53,7 @@ channel:
     - $ref: "../components/parameters.yaml#/ChannelName"
   get:
     operationId: getChannel
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:read] }, { peerCredentials: [] }]
     tags: [bus]
     summary: Get a channel
     description: One channel.
@@ -69,6 +72,7 @@ channel:
 messages:
   get:
     operationId: listBusMessages
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:read] }, { peerCredentials: [] }]
     tags: [bus]
     summary: List bus messages
     description: Message history, newest first, filtered by channel, recipient, sender or time.
@@ -108,6 +112,7 @@ messages:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: sendBusMessage
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:write] }, { peerCredentials: [] }]
     tags: [bus]
     summary: Send a bus message
     description: Posts to a channel or directly to an agent. A direct message wakes a sleeping recipient.
@@ -138,6 +143,7 @@ messages:
 stream:
   get:
     operationId: streamBus
+    security: [{ cookieAuth: [] }, { bearerAuth: [bus:read] }, { peerCredentials: [] }]
     tags: [bus]
     summary: Stream bus messages
     description: New bus messages visible to the caller, as Server-Sent Events.

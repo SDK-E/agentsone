@@ -50,6 +50,7 @@ session:
 me:
   get:
     operationId: getMe
+    security: [{ cookieAuth: [] }, { bearerAuth: [session:read] }, { peerCredentials: [] }]
     tags: [session]
     summary: Get the current caller
     description: Who the caller is (human, agent or panel plugin) and which scopes it holds.
@@ -68,6 +69,7 @@ token:
     - $ref: "../components/parameters.yaml#/TokenId"
   delete:
     operationId: revokeToken
+    security: [{ cookieAuth: [] }, { bearerAuth: [session:write] }, { peerCredentials: [] }]
     tags: [session]
     summary: Revoke a token
     description: Revokes an agent or panel token. The issuer, the token's subject or a human may revoke it.

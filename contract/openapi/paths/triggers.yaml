@@ -2,6 +2,7 @@
 triggers:
   get:
     operationId: listTriggers
+    security: [{ cookieAuth: [] }, { bearerAuth: [triggers:read] }, { peerCredentials: [] }]
     tags: [triggers]
     summary: List triggers
     description: Lists triggers visible to the caller. Filter by owner to see one agent's triggers.
@@ -27,6 +28,7 @@ triggers:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createTrigger
+    security: [{ cookieAuth: [] }, { bearerAuth: [triggers:write] }, { peerCredentials: [] }]
     tags: [triggers]
     summary: Create a trigger
     description: |
@@ -56,6 +58,7 @@ trigger:
     - $ref: "../components/parameters.yaml#/TriggerId"
   get:
     operationId: getTrigger
+    security: [{ cookieAuth: [] }, { bearerAuth: [triggers:read] }, { peerCredentials: [] }]
     tags: [triggers]
     summary: Get a trigger
     description: Returns one trigger with its firing counters.
@@ -72,6 +75,7 @@ trigger:
         $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateTrigger
+    security: [{ cookieAuth: [] }, { bearerAuth: [triggers:write] }, { peerCredentials: [] }]
     tags: [triggers]
     summary: Update a trigger
     description: Changes a trigger owned by the caller or by an agent below the caller.
@@ -98,6 +102,7 @@ trigger:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteTrigger
+    security: [{ cookieAuth: [] }, { bearerAuth: [triggers:write] }, { peerCredentials: [] }]
     tags: [triggers]
     summary: Delete a trigger
     description: Removes a trigger owned by the caller or by an agent below the caller.

@@ -4,6 +4,7 @@
 charter:
   get:
     operationId: getCharter
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:read] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Get the charter
     description: The society's charter. Version 0 with empty text means no charter yet.
@@ -18,6 +19,7 @@ charter:
         $ref: "../components/responses.yaml#/Unauthorized"
   put:
     operationId: updateCharter
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:write] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Rewrite the charter
     description: Agents may rewrite the charter. `expected_version` must match or the call returns 409. Audited.
@@ -46,6 +48,7 @@ charter:
 goals:
   get:
     operationId: listGoals
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:read] }, { peerCredentials: [] }]
     tags: [charter]
     summary: List goals
     description: Goals agents set for themselves and the agents below them.
@@ -75,6 +78,7 @@ goals:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createGoal
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:write] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Set a goal
     description: Sets a goal for the caller or for an agent below the caller.
@@ -103,6 +107,7 @@ goal:
     - $ref: "../components/parameters.yaml#/GoalId"
   get:
     operationId: getGoal
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:read] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Get a goal
     description: One goal.
@@ -119,6 +124,7 @@ goal:
         $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateGoal
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:write] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Edit a goal
     description: The owner or an agent above the owner may edit a goal.
@@ -145,6 +151,7 @@ goal:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteGoal
+    security: [{ cookieAuth: [] }, { bearerAuth: [charter:write] }, { peerCredentials: [] }]
     tags: [charter]
     summary: Delete a goal
     description: The owner or an agent above the owner may delete a goal. Prefer status `dropped` to keep history.

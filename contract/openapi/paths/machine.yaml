@@ -4,6 +4,7 @@
 metrics:
   get:
     operationId: getMachineMetrics
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Get machine metrics
     description: Returns a snapshot of CPU, memory, disk, network and load inside the machine container.
@@ -19,6 +20,7 @@ metrics:
 wall:
   get:
     operationId: getNetworkWall
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Get the network wall
     description: >-
@@ -40,6 +42,7 @@ wall:
 processes:
   get:
     operationId: listProcesses
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List processes
     description: Lists processes, highest CPU first, with the unit and agent that own each.
@@ -73,6 +76,7 @@ process-signal:
     - $ref: "../components/parameters.yaml#/Pid"
   post:
     operationId: signalProcess
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Signal a process
     description: Sends a signal to a process. Linux permissions decide; custom agents may signal only their own processes.
@@ -96,6 +100,7 @@ process-signal:
 services:
   get:
     operationId: listServices
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List services
     description: Lists the services the daemon reports. Today these are the daemon itself (`agentsoned.service`) and the machine recipe (`machine-recipe.service`). The machine runs no systemd; the daemon supervises agent runners itself, so runners are processes, not services.
@@ -123,6 +128,7 @@ service-start:
     - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: startService
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Start a service
     description: Starts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be started this way.
@@ -146,6 +152,7 @@ service-stop:
     - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: stopService
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Stop a service
     description: Asks to stop a service the daemon reports. Both refuse today, because the daemon stops through a reboot and the recipe runs once.
@@ -167,6 +174,7 @@ service-restart:
     - $ref: "../components/parameters.yaml#/Unit"
   post:
     operationId: restartService
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Restart a service
     description: Restarts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be restarted this way.
@@ -188,6 +196,7 @@ service-restart:
 packages:
   get:
     operationId: listPackages
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List installed packages
     description: Lists installed Debian packages.
@@ -214,6 +223,7 @@ packages:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: installPackage
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Install a package
     description: Queues an apt install. Root agents and humans only. The mirror must be on the allow list.
@@ -241,6 +251,7 @@ package:
     - $ref: "../components/parameters.yaml#/PackageName"
   delete:
     operationId: removePackage
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Remove a package
     description: Queues an apt remove. Root agents and humans only.
@@ -260,6 +271,7 @@ package:
 users:
   get:
     operationId: listMachineUsers
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List Linux users
     description: Lists Linux accounts with their kind (human, agent or system).
@@ -280,6 +292,7 @@ users:
 files:
   get:
     operationId: listFiles
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List a folder
     description: Lists entries of a folder, folders first, then by name.
@@ -305,6 +318,7 @@ files:
 file-content:
   get:
     operationId: readFile
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Read a file
     description: Reads a file as UTF-8 text or base64. Reads stop at 8 MiB and set `truncated`.
@@ -329,6 +343,7 @@ file-content:
         $ref: "../components/responses.yaml#/PayloadTooLarge"
   put:
     operationId: writeFile
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:write] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Write a file
     description: Writes a whole file (at most 8 MiB decoded) as the caller's Linux user.
@@ -357,6 +372,7 @@ file-content:
         $ref: "../components/responses.yaml#/PayloadTooLarge"
   delete:
     operationId: deleteFile
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:write] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Delete a file or folder
     description: Deletes a file, or a folder when `recursive` is true. This cannot be undone.
@@ -384,6 +400,7 @@ file-content:
 reboot:
   post:
     operationId: rebootMachine
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Reboot the machine
     description: |
@@ -413,6 +430,7 @@ reboot:
 ptys:
   get:
     operationId: listPtySessions
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: List terminal sessions
     description: Lists the caller's terminal sessions. Root agents and humans see all.
@@ -432,6 +450,7 @@ ptys:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createPtySession
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Open a terminal session
     description: Starts a terminal running as the caller's Linux user. Connect to `socket_path` to use it.
@@ -461,6 +480,7 @@ pty:
     - $ref: "../components/parameters.yaml#/PtyId"
   get:
     operationId: getPtySession
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Get a terminal session
     description: Returns one terminal session.
@@ -477,6 +497,7 @@ pty:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: closePtySession
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Close a terminal session
     description: Hangs up the terminal and ends its process group.
@@ -494,6 +515,7 @@ pty-socket:
     - $ref: "../components/parameters.yaml#/PtyId"
   get:
     operationId: connectPty
+    security: [{ cookieAuth: [] }, { bearerAuth: [machine:admin] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Connect to a terminal
     description: |

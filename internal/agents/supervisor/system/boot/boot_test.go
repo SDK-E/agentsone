@@ -7,7 +7,6 @@ package boot_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -125,7 +124,9 @@ func hardLimits(t *testing.T) {
 }
 
 // softLimits: without writable cgroups the daemon still runs custom agents,
-// as their own users, with process resource limits only.
+// as their own users, with a process limit only: no rlimit caps memory,
+// neither the address space nor the data size, because Go and Node.js
+// runners do not start under one at memory_mb (runner_test.go).
 func softLimits(t *testing.T) {
 	if boot.Mode != domain.LimitsSoft || boot.Root != "" {
 		t.Fatalf("probe = %s root %q; want soft with no cgroup root on a read-only tree", boot.Line(), boot.Root)
@@ -136,11 +137,12 @@ func softLimits(t *testing.T) {
 	acc := agentUser(t, "aoboot-soft", 200203)
 	l, out := run(t, acc, domain.Limits{MemoryMaxBytes: 64 << 20, TasksMax: 64},
 		`read -r cg < /proc/self/cgroup; while read -r k v rest; do [ "$k" = Uid: ] && uid=$v; done < /proc/self/status; `+
-			`while read -r a b c d rest; do [ "$a $b $c" = "Max address space" ] && as=$d; done < /proc/self/limits; `+
-			`echo "$cg uid=$uid as=$as" > "$OUT"; exec sleep 600`)
+			`while read -r a b c d rest; do [ "$a $b $c" = "Max address space" ] && as=$d; [ "$a $b $c" = "Max data size" ] && data=$d; `+
+			`[ "$a $b" = "Max processes" ] && nproc=$c; done < /proc/self/limits; `+
+			`echo "$cg uid=$uid as=$as data=$data nproc=$nproc" > "$OUT"; exec sleep 600`)
 	got := readFifo(t, out)
 	t.Logf("proof boot soft: runner reported %q mode=%s", got, l.Mode(acc.User))
-	if want := fmt.Sprintf("0::/ uid=200203 as=%d", 64<<20); got != want || l.Mode(acc.User) != domain.LimitsSoft {
+	if want := "0::/ uid=200203 as=unlimited data=unlimited nproc=64"; got != want || l.Mode(acc.User) != domain.LimitsSoft {
 		t.Errorf("runner reported %q mode %s; want %q and soft", got, l.Mode(acc.User), want)
 	}
 }

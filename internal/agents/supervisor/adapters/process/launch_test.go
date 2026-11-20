@@ -38,7 +38,7 @@ func (f *fakeLaunch) Exec(path string, argv []string) error {
 }
 
 var fullPlan = launchPlan{Cgroup: "/sys/fs/cgroup/agents/mira", UID: 200001, GID: 200001,
-	NoFile: 4096, NProc: 512, AS: 1 << 30, Path: "/usr/bin/runner", Args: []string{"--serve", "-v"}}
+	NoFile: 4096, NProc: 512, Path: "/usr/bin/runner", Args: []string{"--serve", "-v"}}
 
 func TestLaunch_ArgumentsRoundTrip(t *testing.T) {
 	t.Parallel()
@@ -86,7 +86,7 @@ func TestLaunch_JoinsCgroupLimitsDropsThenExecs(t *testing.T) {
 	}
 	want := []string{
 		"join /sys/fs/cgroup/agents/mira",
-		"limit core 0", "limit nofile 4096", "limit nproc 512", "limit as 1073741824",
+		"limit core 0", "limit nofile 4096", "limit nproc 512",
 		"ids 200001 200001",
 		"exec /usr/bin/runner /usr/bin/runner --serve -v",
 	}

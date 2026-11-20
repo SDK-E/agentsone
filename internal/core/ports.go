@@ -72,9 +72,10 @@ type Cells interface {
 type ProcessCell struct {
 	// Cgroup is the cgroup v2 directory to join, or "" for none.
 	Cgroup string
-	// NoFile, NProc and AS lower RLIMIT_NOFILE, RLIMIT_NPROC and
-	// RLIMIT_AS; zero leaves that limit alone.
-	NoFile, NProc, AS uint64
+	// NoFile and NProc lower RLIMIT_NOFILE and RLIMIT_NPROC; zero leaves
+	// that limit alone. There is no memory rlimit: see
+	// internal/agents/supervisor/adapters/process.
+	NoFile, NProc uint64
 }
 
 // Placed reports whether the cell places the process at all.

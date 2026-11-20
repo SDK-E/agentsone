@@ -87,7 +87,7 @@ func tokenID(s sdk.Secret) string {
 type probeRunner struct {
 	steps   chan struct{}
 	results chan probe
-	version atomic.Value // the negotiated protocol version
+	version atomic.Value // the negotiated protocol version, set in Start: read it after the first step
 	creds   atomic.Pointer[sdk.Credentials]
 	secrets sync.Map // every token value the runner saw, to look for in the logs
 	// firstGateway and firstMCP are the welcome's tokens. They are set in
@@ -289,17 +289,20 @@ func TestDaemon_ARunnerKeepsModelAndToolAccessAcrossTokenRenewals(t *testing.T) 
 	d := newDaemon(t)
 	fresh := d.run("founder", nil)           // the SDK default: 1.1, then 1.0
 	legacy := d.run("mira", []string{"1.0"}) // a runner that only speaks 1.0
+	// Each runner's version is read only after its own first step: a runner
+	// stores it in Start, which the SDK finishes before any turn, and the two
+	// runners connect on their own goroutines in no set order.
 	first := d.check("founder", fresh)
 	if v := fresh.version.Load(); v != "1.1" {
 		t.Fatalf("the founder negotiated %v, want 1.1", v)
-	}
-	if v := legacy.version.Load(); v != "1.0" {
-		t.Fatalf("mira negotiated %v, want 1.0", v)
 	}
 	if !first.gatewayOK || !first.mcpOK {
 		t.Fatalf("the welcome's tokens are refused: %+v", first)
 	}
 	legacyFirst := d.check("mira", legacy)
+	if v := legacy.version.Load(); v != "1.0" {
+		t.Fatalf("mira negotiated %v, want 1.0", v)
+	}
 	if !legacyFirst.gatewayOK || !legacyFirst.mcpOK {
 		t.Fatalf("mira's welcome tokens are refused: %+v", legacyFirst)
 	}

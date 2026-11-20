@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/SDK-E/agentsone/internal/agents"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/daemon"
 	"github.com/SDK-E/agentsone/internal/store"
@@ -52,13 +53,17 @@ func openStores(ctx context.Context, cfg core.Config) (core.Stores, func() error
 	return s, closeAll, nil
 }
 
-// serve runs the daemon until ctx ends.
-func serve(ctx context.Context, deps core.Deps) error {
-	return serveModules(ctx, deps, modules(deps))
+// serve runs the daemon until ctx ends. Custom agents' cgroups go under
+// cgroupRoot, the root the boot probe prepared; empty means soft limits.
+func serve(ctx context.Context, deps core.Deps, cgroupRoot string) error {
+	return serveModules(ctx, deps, modules(deps, cgroupRoot))
 }
 
-// modules are the daemon's modules, as internal/daemon wires them.
-func modules(deps core.Deps) []core.Module { return daemon.Modules(deps) }
+// modules are the daemon's modules, as internal/daemon wires them, with
+// the runner processes on cgroupRoot.
+func modules(deps core.Deps, cgroupRoot string) []core.Module {
+	return daemon.Modules(deps, daemon.WithSupervisor(agents.SupervisorOptions{CgroupRoot: cgroupRoot}))
+}
 
 // serveModules serves mods until ctx ends, and tells systemd once the
 // daemon is ready. Tests pass modules built on fakes.

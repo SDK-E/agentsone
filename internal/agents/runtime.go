@@ -42,6 +42,11 @@ type SupervisorOptions struct {
 	// Wall checks the machine's network wall at start and every 5 minutes.
 	// Nil means the daemon's own: /proc (adapters/netwall).
 	Wall supapp.NetworkWall
+	// CgroupRoot is where the daemon's own runner processes (Launcher and
+	// Processes nil) put each custom agent's cgroup: the Root of the
+	// process.ProbeCgroups the daemon ran at start. Empty means soft
+	// limits (process resource limits only).
+	CgroupRoot string
 	// Processes runs the runners behind the daemon's own runner sockets,
 	// when Launcher is nil. Nil means child processes
 	// (adapters/process), which reports runners that end by themselves to
@@ -128,7 +133,7 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 		if o.Processes != nil {
 			inner = o.Processes
 		} else {
-			procs = &process.Launcher{Log: m.log}
+			procs = &process.Launcher{Log: m.log, CgroupRoot: o.CgroupRoot}
 			inner = procs
 		}
 		parts.wrapped = &socket.Launcher{Inner: inner, Server: parts.sockets, UserID: o.UserID}

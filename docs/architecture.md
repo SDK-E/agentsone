@@ -97,6 +97,25 @@ limits. The daemon starts each runner inside that cgroup as the agent's own Linu
 - If the container does not have writable cgroups, the daemon runs runners with plain process
   limits only and reports the limits as soft.
 
+The daemon decides between hard and soft once, when it starts, before any agent runs:
+
+- **Hard.** The machine container runs with `cgroup: private` and `writable-cgroups=true`, as
+  both compose files set it. The daemon sees cgroup v2, runs as root, and can write its own
+  cgroup. It moves itself and the other processes of the container into `/daemon` and makes
+  `/agents`. Each custom agent then gets `/agents/<name>`, with its CPU, memory and process
+  limits set by the kernel. A runner that uses more memory than its limit is killed by the
+  kernel, and a fork past its process limit fails. No added capability is involved: never
+  `privileged`, never `CAP_SYS_ADMIN`, never the Docker socket.
+- **Soft.** Anything else: no cgroup v2, a read-only cgroup tree (Docker without
+  `writable-cgroups=true`), a missing CPU, memory or process controller, or a daemon that is not
+  root. Custom agents still run as their own users, with process limits for memory (address
+  space) and processes. CPU is not capped.
+
+The daemon writes one line on its log at start that says which and why, for example
+`limits: hard (cgroup v2, writable)` or `limits: soft (cgroup tree is read-only)`. The line is
+information, not an error: soft limits are a supported way to run. The daemon only ever works in
+its own cgroup, never above it, and never in the host's root cgroup.
+
 The daemon also checks at start that the host cgroup mount has `nsdelegate`. If it is missing,
 the daemon keeps root agents off and reports the host as unsafe.
 
@@ -188,6 +207,8 @@ recipe puts back what the agents added.
 
 - **Docker Engine 28 or newer.** Writable cgroups for per-agent limits need it. Older engines
   refuse to start `machine` with an `invalid --security-opt` error. Check with `docker version`.
+- **A host with cgroup v2.** Hard per-agent limits need it. Without it the daemon runs custom
+  agents with soft limits and says so at start (`limits: soft (no cgroup v2)`).
 - **A Docker setup where `machine` stays on the inner network only.** Plain Docker and colima
   (on a Mac) do this by default.
 - **Coolify must use Raw mode.** In its normal mode, Coolify attaches its own network to every

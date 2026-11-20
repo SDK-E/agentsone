@@ -185,6 +185,29 @@ good manners, not as protection.
 Two more are soft: each agent's own share of the budget, and freezing one agent or one team. Only
 the total budget and Freeze all are hard.
 
+### Agent limits: hard or soft
+
+Each custom agent has its own limits for CPU, memory and processes. How firmly they hold depends
+on the host, and the machine decides once, when it starts:
+
+- **Hard.** The Linux kernel holds each custom agent to its limits. An agent that uses too much
+  memory is stopped by the kernel, and it cannot start more processes than it is allowed. This is
+  what you get with the compose files as they are, on Docker Engine 28 or newer and a host with
+  cgroup v2.
+- **Soft.** The agent still runs, with simpler limits on memory and processes, and its CPU use
+  is not capped. You get this on an older or different setup, for example when the machine
+  container does not have writable cgroups.
+
+To see which one you have, look at the machine's log right after it starts:
+
+```sh
+docker compose logs machine | grep 'limits:'
+```
+
+It prints `limits: hard (cgroup v2, writable)`, or `limits: soft` with the reason, such as
+`(cgroup tree is read-only)`. Root agents are not held by these limits in either case: they are
+bound only by the ceiling of the whole machine.
+
 ### What the internet filter does not do
 
 It limits where agents can reach. It does not stop data leaving through a site that is on the

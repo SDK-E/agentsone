@@ -49,7 +49,7 @@ func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 // system, so tests never read or change the host's packages and files.
 func testModules(t *testing.T, deps core.Deps) []core.Module {
 	t.Helper()
-	mods := modules(deps)
+	mods := modules(deps, "")
 	for i, m := range mods {
 		if m.Name() == "machine" {
 			mods[i] = machinetest.New(deps)

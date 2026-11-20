@@ -40,10 +40,10 @@ func PrepareCgroups(fs string) (string, error) {
 		return "", fmt.Errorf("%w: %s: %w", ErrCgroupsReadOnly, step, err)
 	}
 	daemon := filepath.Join(fs, DaemonCgroup)
-	if err := os.Mkdir(daemon, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 -- cgroupfs directory
+	if err := os.Mkdir(daemon, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 G703 -- cgroupfs directory under the daemon's own cgroup
 		return fail("create daemon cgroup", err)
 	}
-	procs, err := os.ReadFile(filepath.Join(fs, "cgroup.procs")) // #nosec G304 -- cgroupfs control file
+	procs, err := os.ReadFile(filepath.Join(fs, "cgroup.procs")) // #nosec G304 G703 -- cgroupfs control file of the daemon's own cgroup
 	if err != nil {
 		return fail("read root processes", err)
 	}
@@ -59,7 +59,7 @@ func PrepareCgroups(fs string) (string, error) {
 		return fail("enable controllers at the root", err)
 	}
 	agents := filepath.Join(fs, AgentsCgroup)
-	if err := os.Mkdir(agents, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 -- cgroupfs directory
+	if err := os.Mkdir(agents, 0o755); err != nil && !os.IsExist(err) { // #nosec G301 G703 -- cgroupfs directory under the daemon's own cgroup
 		return fail("create agents cgroup", err)
 	}
 	if err := writeControl(filepath.Join(agents, "cgroup.subtree_control"), controllers); err != nil {
@@ -70,7 +70,7 @@ func PrepareCgroups(fs string) (string, error) {
 
 // writeControl writes one value to an existing cgroup control file.
 func writeControl(path, value string) error {
-	f, err := os.OpenFile(path, os.O_WRONLY, 0) // #nosec G304 -- cgroupfs control file
+	f, err := os.OpenFile(path, os.O_WRONLY, 0) // #nosec G304 G703 -- cgroupfs control file under the daemon's own cgroup
 	if err != nil {
 		return err
 	}

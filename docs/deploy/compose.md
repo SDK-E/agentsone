@@ -11,6 +11,9 @@ repository. It runs the same way on a laptop and on a server.
   network. Check with `docker version --format '{{.Server.Version}}'`.
 - **Docker Compose v2 or newer.** Tested with Compose 5.8.0.
 - **A Linux host with cgroup v2.** Docker Desktop, colima and current Linux servers have it.
+  With it, and the `cgroup: private` and `writable-cgroups=true` lines of `compose.yaml` left as
+  they are, each custom agent gets hard limits. The machine's log says so at start:
+  `limits: hard (cgroup v2, writable)`. Without it you see `limits: soft` and the reason.
 - On a Mac, colima works well: `brew install colima docker docker-compose`, then
   `colima start --cpu 4 --memory 8`.
 

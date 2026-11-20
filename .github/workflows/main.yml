@@ -104,6 +104,15 @@ jobs:
               -e AGENTSONE_SYSTEST_IN_CONTAINER=1 -v "$PWD/systest:/systest:ro" \
               ubuntu:24.04 sh -c 'grep CapEff /proc/self/status; exec "/systest/$(basename "$0")" -test.v -test.count=1' "$bin"
           done
+      - name: agent limits on a read-only cgroup tree
+        # The step above runs on the machine recipe, where the daemon's start
+        # probe must give hard limits. Without writable-cgroups Docker mounts
+        # the cgroup tree read-only: the probe must fall back to soft limits,
+        # say why, and still run custom agents.
+        run: |
+          docker run --rm --cgroupns=private --security-opt no-new-privileges=true \
+            -e AGENTSONE_SYSTEST_IN_CONTAINER=1 -e AGENTSONE_SYSTEST_CGROUPS=read-only -v "$PWD/systest:/systest:ro" \
+            ubuntu:24.04 sh -c 'grep CapEff /proc/self/status; exec /systest/internal_agents_supervisor_system_boot.test -test.v -test.count=1'
 
   ts:
     runs-on: ubuntu-latest

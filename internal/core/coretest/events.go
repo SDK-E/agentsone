@@ -5,6 +5,7 @@ package coretest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -61,6 +62,9 @@ func (b *Events) Publish(ctx context.Context, e core.Event) (core.Event, error) 
 	e.Actor = actor
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if e.ID != "" && slices.ContainsFunc(b.published, func(p core.Event) bool { return p.ID == e.ID }) {
+		return e, nil // already published, as the events module takes a resend
+	}
 	e = b.stamp(e)
 	b.published = append(b.published, e)
 	for _, s := range b.subs {

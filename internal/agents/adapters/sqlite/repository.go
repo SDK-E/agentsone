@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -155,19 +156,84 @@ func (r *Repository) GetAgent(ctx context.Context, name string) (domain.Agent, e
 
 // CreateAgent stores a new agent.
 func (r *Repository) CreateAgent(ctx context.Context, a domain.Agent) error {
+	if err := r.db.Tx(ctx, func(tx *sql.Tx) error { return insertAgent(ctx, tx, a) }); err != nil {
+		return fmt.Errorf("create agent %s: %w", a.Name, err)
+	}
+	return nil
+}
+
+func insertAgent(ctx context.Context, tx *sql.Tx, a domain.Agent) error {
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM agents WHERE name = ?`, a.Name).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: %s", domain.ErrNameTaken, a.Name)
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO agents (`+agentColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, agentArgs(a)...)
+	return err
+}
+
+// Outbox.
+
+// HireAgent stores a and its event in one transaction.
+func (r *Repository) HireAgent(ctx context.Context, a domain.Agent, ev domain.Outbound) error {
 	err := r.db.Tx(ctx, func(tx *sql.Tx) error {
-		var n int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM agents WHERE name = ?`, a.Name).Scan(&n); err != nil {
+		if err := insertAgent(ctx, tx, a); err != nil {
 			return err
 		}
-		if n > 0 {
-			return fmt.Errorf("%w: %s", domain.ErrNameTaken, a.Name)
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO agents (`+agentColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, agentArgs(a)...)
+		_, err := tx.ExecContext(ctx, `INSERT INTO outbox (id, created_at, source, actor, chart_scope, type, data)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			ev.ID, formatTime(ev.CreatedAt), ev.Source, ev.Actor, ev.ChartScope, ev.Type, string(ev.Data))
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("create agent %s: %w", a.Name, err)
+		return fmt.Errorf("hire agent %s: %w", a.Name, err)
+	}
+	return nil
+}
+
+// PendingEvents returns up to limit unsent events, oldest first.
+func (r *Repository) PendingEvents(ctx context.Context, limit int) ([]domain.Outbound, error) {
+	rows, err := r.db.SQL().QueryContext(ctx, `SELECT id, created_at, source, actor, chart_scope, type, data
+		FROM outbox WHERE sent_at IS NULL ORDER BY created_at, rowid LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list pending events: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := []domain.Outbound{}
+	for rows.Next() {
+		var (
+			ev         domain.Outbound
+			made, data string
+		)
+		if err := rows.Scan(&ev.ID, &made, &ev.Source, &ev.Actor, &ev.ChartScope, &ev.Type, &data); err != nil {
+			return nil, fmt.Errorf("list pending events: %w", err)
+		}
+		if ev.CreatedAt, err = parseTime(made); err != nil {
+			return nil, fmt.Errorf("outbox event %s: %w", ev.ID, err)
+		}
+		ev.Data = json.RawMessage(data)
+		out = append(out, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list pending events: %w", err)
+	}
+	return out, nil
+}
+
+// MarkSent marks the event published. A second mark keeps the first time.
+func (r *Repository) MarkSent(ctx context.Context, id string, at time.Time) error {
+	res, err := r.db.SQL().ExecContext(ctx, `UPDATE outbox SET sent_at = COALESCE(sent_at, ?) WHERE id = ?`, formatTime(at), id)
+	if err != nil {
+		return fmt.Errorf("mark event %s sent: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("mark event %s sent: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: %s", domain.ErrEventNotFound, id)
 	}
 	return nil
 }

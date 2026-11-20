@@ -103,4 +103,5 @@ type Repository interface {
 	ChatRepository
 	FreezeRepository
 	SeedRecord
+	OutboxRepository
 }

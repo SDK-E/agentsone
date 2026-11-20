@@ -117,6 +117,9 @@ func NewTokens(clock core.Clock, ids core.IDs) *Tokens {
 // scopes outside the contract's <group>:<read|write|admin> form and
 // lifetimes outside (0, 30 days].
 func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, ttl time.Duration) (core.Token, error) {
+	if err := authdomain.ValidateSubject(subject); err != nil {
+		return core.Token{}, fmt.Errorf("issue token: %w", err)
+	}
 	if err := authdomain.ValidateGrant(scopes, ttl); err != nil {
 		return core.Token{}, fmt.Errorf("issue token: %w", err)
 	}

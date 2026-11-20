@@ -24,6 +24,7 @@ func RunRepositoryContract(t *testing.T, newRepo func(t *testing.T) domain.Repos
 	t.Run("chat", func(t *testing.T) { t.Parallel(); runChatContract(t, newRepo) })
 	t.Run("freezes", func(t *testing.T) { t.Parallel(); runFreezeContract(t, newRepo) })
 	t.Run("seed record", func(t *testing.T) { t.Parallel(); runSeedRecordContract(t, newRepo) })
+	t.Run("outbox", func(t *testing.T) { t.Parallel(); runOutboxContract(t, newRepo) })
 }
 
 func runSeedRecordContract(t *testing.T, newRepo func(t *testing.T) domain.Repository) {

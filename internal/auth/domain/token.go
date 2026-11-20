@@ -56,6 +56,9 @@ func ValidateGrant(scopes []string, ttl time.Duration) error {
 // NewToken makes a token for subject and returns it with the one-time value
 // "aot_<id>_<secret>" to hand to the holder. rand is crypto/rand in production.
 func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Time, ttl time.Duration) (Token, string, error) {
+	if err := ValidateSubject(subject); err != nil {
+		return Token{}, "", err
+	}
 	if err := ValidateGrant(scopes, ttl); err != nil {
 		return Token{}, "", err
 	}
@@ -114,9 +117,29 @@ func (t *Token) Revoke(now time.Time) {
 	}
 }
 
+// tokenSubject reports whether a token may name kind. The daemon's own
+// (system) and the edge's (host) identities come only from the transport,
+// so a bearer token, which anyone holding it presents, never carries them.
+func tokenSubject(kind core.CallerKind) bool {
+	return kind == core.CallerAgent || kind == core.CallerHuman || kind == core.CallerPlugin
+}
+
+// ValidateSubject refuses a token for a subject no token may name, with
+// core.ErrForbidden. Test fakes of core.TokenIssuer call it too.
+func ValidateSubject(subject core.Caller) error {
+	if !tokenSubject(subject.Kind) {
+		return fmt.Errorf("token for a %q caller: %w", subject.Kind, core.ErrForbidden)
+	}
+	return nil
+}
+
 // Caller is the identity a request with this token gets. A token never
-// carries root: its power is its scopes.
+// carries root, the system or the edge: its power is its scopes. A token
+// stored for another kind of subject grants nothing.
 func (t Token) Caller() core.Caller {
+	if !tokenSubject(t.Subject.Kind) {
+		return core.Anonymous
+	}
 	c := t.Subject
 	c.IsRoot = false
 	c.UID = -1

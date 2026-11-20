@@ -101,6 +101,41 @@ func TestToken_CheckRejectsARevokedToken(t *testing.T) {
 	}
 }
 
+// A token is a bearer credential: whoever holds it is its subject. The
+// daemon's own and the edge's identities come only from the transport
+// (peer credentials, the host door), so no token is ever made for them, and
+// a token stored for one by an older daemon grants nothing.
+func TestNewToken_IsRefusedForTheSystemAndTheEdge(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []core.CallerKind{core.CallerSystem, core.CallerHost, ""} {
+		_, _, err := domain.NewToken(randomBytes(1), core.Caller{Kind: kind, Name: "daemon", UID: 0, IsRoot: true}, nil, epoch, time.Hour)
+		if !errors.Is(err, core.ErrForbidden) {
+			t.Errorf("NewToken(%q) error = %v, want %v", kind, err, core.ErrForbidden)
+		}
+	}
+}
+
+func TestToken_CallerIsNeverTheSystemOrTheEdge(t *testing.T) {
+	t.Parallel()
+	kinds := []core.CallerKind{core.CallerAgent, core.CallerHuman, core.CallerPlugin, core.CallerSystem, core.CallerHost, ""}
+	for _, kind := range kinds {
+		t.Run(string(kind), func(t *testing.T) {
+			t.Parallel()
+			tok := domain.Token{Subject: core.Caller{Kind: kind, Name: "daemon", UID: 0, IsRoot: true}}
+
+			c := tok.Caller()
+
+			if c.Kind == core.CallerSystem || c.Kind == core.CallerHost || c.IsRoot {
+				t.Fatalf("Caller() = %+v for a %q subject, want no system, edge or root identity", c, kind)
+			}
+			anonymous := c.Kind == core.Anonymous.Kind && c.Name == "" && len(c.Scopes) == 0
+			if kind != core.CallerAgent && kind != core.CallerHuman && kind != core.CallerPlugin && !anonymous {
+				t.Fatalf("Caller() = %+v for a %q subject, want anonymous", c, kind)
+			}
+		})
+	}
+}
+
 func TestToken_CallerCarriesSubjectAndScopes(t *testing.T) {
 	t.Parallel()
 	tok, _, _ := domain.NewToken(randomBytes(2), core.Caller{Kind: core.CallerPlugin, Name: "notes", UID: -1}, []string{"memory:read"}, epoch, time.Hour)

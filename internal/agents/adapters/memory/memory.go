@@ -29,7 +29,55 @@ type Repository struct {
 	chat    []domain.ChatMessage
 	freezes map[string]struct{}
 	seeded  bool
-	fail    error
+	// outbox holds stored events in write order; sent marks the published.
+	outbox []domain.Outbound
+	sent   map[string]bool
+	fail   error
+}
+
+// HireAgent stores a and ev together, or neither.
+func (r *Repository) HireAgent(_ context.Context, a domain.Agent, ev domain.Outbound) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if err := r.takeFail(); err != nil {
+		return err
+	}
+	if _, ok := r.agents[a.Name]; ok {
+		return fmt.Errorf("%w: %s", domain.ErrNameTaken, a.Name)
+	}
+	if slices.ContainsFunc(r.outbox, func(o domain.Outbound) bool { return o.ID == ev.ID }) {
+		return fmt.Errorf("outbox event %s exists", ev.ID)
+	}
+	r.agents[a.Name] = copyAgent(a)
+	ev.Data = slices.Clone(ev.Data)
+	r.outbox = append(r.outbox, ev)
+	return nil
+}
+
+// PendingEvents returns up to limit unsent events, oldest first.
+func (r *Repository) PendingEvents(_ context.Context, limit int) ([]domain.Outbound, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []domain.Outbound{}
+	for _, ev := range r.outbox {
+		if !r.sent[ev.ID] {
+			ev.Data = slices.Clone(ev.Data)
+			out = append(out, ev)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b domain.Outbound) int { return a.CreatedAt.Compare(b.CreatedAt) })
+	return out[:min(limit, len(out))], nil
+}
+
+// MarkSent marks the event published.
+func (r *Repository) MarkSent(_ context.Context, id string, _ time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !slices.ContainsFunc(r.outbox, func(o domain.Outbound) bool { return o.ID == id }) {
+		return fmt.Errorf("%w: %s", domain.ErrEventNotFound, id)
+	}
+	r.sent[id] = true
+	return nil
 }
 
 // SeedApplied reports whether the seed was recorded.
@@ -71,7 +119,7 @@ func (r *Repository) RemoveFreeze(_ context.Context, scope string) error {
 	return nil
 }
 
-// FailNext makes the next agent write (CreateAgent or SaveAgents) return
+// FailNext makes the next agent write (CreateAgent, HireAgent or SaveAgents) return
 // err and store nothing, so tests can see how callers handle a failed store.
 func (r *Repository) FailNext(err error) {
 	r.mu.Lock()
@@ -93,6 +141,7 @@ func New() *Repository {
 	return &Repository{
 		agents: map[string]domain.Agent{}, goals: map[string]domain.Goal{},
 		alloc: map[string]int64{}, usage: map[string]int64{}, freezes: map[string]struct{}{},
+		sent: map[string]bool{},
 	}
 }
 

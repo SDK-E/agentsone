@@ -55,11 +55,14 @@ type Daemon struct {
 	Ports *core.Ports
 
 	t       testing.TB
+	ids     core.IDs
 	runners *inProcess
 	beat    chan time.Time
 	logs    *logBuffer
 	door    *webDoor
 	tcp     string // the API's loopback address
+	// stop stops the daemon and closes its stores, once.
+	stop func()
 }
 
 // webDoor stands in for the edge's web door, the only way the first human
@@ -96,24 +99,43 @@ func (w *webDoor) serveAs(req *http.Request, caller core.Caller) *httptest.Respo
 // The test fails when the daemon cannot start or does not stop cleanly.
 func Start(t testing.TB) *Daemon {
 	t.Helper()
-	cfg := loadConfig(t)
+	return start(t, loadConfig(t), coretest.NewClock(coretest.Epoch), coretest.NewIDs())
+}
+
+// Restart stops d, as a crash or a reboot would, and starts a new daemon on
+// the same folders and stores, with the same clock and id source, so ids
+// stay unique across the restart. Use the returned daemon from then on.
+func (d *Daemon) Restart() *Daemon {
+	d.t.Helper()
+	d.stop()
+	return start(d.t, d.Config, d.Clock, d.ids)
+}
+
+// Stop stops d and closes its stores, for a test that changes the stores
+// while no daemon runs (before Restart). Stopping twice is safe.
+func (d *Daemon) Stop() { d.stop() }
+
+func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs) *Daemon {
+	t.Helper()
 	logs := &logBuffer{}
 	d := &Daemon{
-		Clock:   coretest.NewClock(coretest.Epoch),
+		Clock:   clock,
 		Config:  cfg,
 		Ports:   core.NewPorts(),
 		t:       t,
+		ids:     ids,
 		runners: newInProcess(cfg.RuntimeDir),
 		beat:    make(chan time.Time),
 		logs:    logs,
 		door:    &webDoor{},
 	}
+	stores, closeStores := openStores(t, cfg)
 	deps := core.Deps{
 		Config: &d.Config,
 		Log:    slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Clock:  d.Clock,
-		IDs:    coretest.NewIDs(),
-		Stores: openStores(t, cfg),
+		IDs:    ids,
+		Stores: stores,
 		Ports:  d.Ports,
 	}
 	acc := &accounts{}
@@ -139,23 +161,27 @@ func Start(t testing.TB) *Daemon {
 	case err := <-done:
 		cancel()
 		d.runners.close()
+		closeStores()
 		t.Fatalf("the daemon stopped before it was ready: %v\n%s", err, logs)
 	case <-time.After(Timeout):
 		cancel()
 		err := <-done
 		d.runners.close()
+		closeStores()
 		t.Fatalf("the daemon was not ready within %s (%v)\n%s", Timeout, err, logs)
 	}
-	t.Cleanup(func() {
+	d.stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("the daemon stopped with an error: %v", err)
 		}
 		d.runners.close()
+		closeStores()
 		if t.Failed() {
 			t.Logf("daemon log:\n%s", logs)
 		}
 	})
+	t.Cleanup(d.stop)
 	return d
 }
 
@@ -239,24 +265,34 @@ func repoRoot(t testing.TB) string {
 	return filepath.Join(filepath.Dir(file), "..", "..")
 }
 
-func openStores(t testing.TB, cfg core.Config) core.Stores {
+// openStores opens the daemon's stores and returns them with the function
+// that closes them.
+func openStores(t testing.TB, cfg core.Config) (core.Stores, func()) {
 	t.Helper()
 	if err := os.MkdirAll(cfg.StateDir, 0o750); err != nil {
 		t.Fatalf("create the state folder: %v", err)
 	}
+	var closers []func()
+	closeAll := func() {
+		for _, c := range closers {
+			c()
+		}
+	}
 	open := func(name string) *store.DB {
 		db, err := store.Open(context.Background(), cfg.DBPath(name))
 		if err != nil {
+			closeAll()
 			t.Fatalf("open the %s store: %v", name, err)
 		}
-		t.Cleanup(func() {
+		closers = append(closers, func() {
 			if err := db.Close(); err != nil {
 				t.Errorf("close the %s store: %v", name, err)
 			}
 		})
 		return db
 	}
-	return core.Stores{Core: open("core"), Bus: open("bus"), Memory: open("memory"), Audit: open("audit")}
+	stores := core.Stores{Core: open("core"), Bus: open("bus"), Memory: open("memory"), Audit: open("audit")}
+	return stores, closeAll
 }
 
 // logBuffer keeps the daemon's log, shown only when a test fails.

@@ -164,6 +164,27 @@ func TestEventsPublishAssignsIdentity(t *testing.T) {
 	}
 }
 
+// The events module takes a given id it already stored as an event already
+// published, so an outbox resend after a crash publishes once. The fake
+// does the same.
+func TestEventsPublishTakesAStoredIDAsAlreadyPublished(t *testing.T) {
+	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
+	mine := event(gitPush, gitSource)
+	mine.ID = "mine"
+	if _, err := ev.Publish(context.Background(), mine); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := ev.Publish(context.Background(), mine)
+
+	if err != nil || again.ID != "mine" {
+		t.Fatalf("second Publish() = %+v, %v, want the same id and no error", again, err)
+	}
+	if got := ev.Published(); len(got) != 1 {
+		t.Fatalf("stored %d events, want 1", len(got))
+	}
+}
+
 func TestEventsPublishRequiresActorAndChartScope(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
 	noActor := event(gitPush, gitSource)

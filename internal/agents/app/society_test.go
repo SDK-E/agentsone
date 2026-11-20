@@ -20,6 +20,7 @@ import (
 
 type env struct {
 	fakes   *coretest.Fakes
+	ports   *core.Ports
 	repo    *memory.Repository
 	rt      *agentstest.Runtime
 	society *app.Society
@@ -35,7 +36,17 @@ func newEnv(t *testing.T) env {
 		}
 	}
 	rt := agentstest.NewRuntime()
-	return env{fakes: fakes, repo: repo, rt: rt, society: app.New(repo, rt, ports, fakes.Clock, fakes.IDs)}
+	return env{fakes: fakes, ports: ports, repo: repo, rt: rt, society: app.New(repo, rt, ports, fakes.Clock, fakes.IDs)}
+}
+
+// pending returns the outbox events not yet published.
+func (e env) pending(t *testing.T) []domain.Outbound {
+	t.Helper()
+	got, err := e.repo.PendingEvents(context.Background(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got
 }
 
 func asAgent(name string) context.Context {
@@ -170,6 +181,9 @@ func TestHire_RefusalsChangeNothing(t *testing.T) {
 			if got := e.rt.Provisioned(); len(got) != 0 {
 				t.Errorf("provisioned %v", got)
 			}
+			if got := e.pending(t); len(got) != 0 {
+				t.Errorf("outbox holds %v", got)
+			}
 			e.assertNothingHappened(t)
 		})
 	}
@@ -189,6 +203,9 @@ func TestHire_UndoesProvisioningWhenTheStoreFails(t *testing.T) {
 	}
 	if diff := cmp.Diff([]string{"mira"}, e.rt.Retired()); diff != "" {
 		t.Errorf("retired after failed store (-want +got):\n%s", diff)
+	}
+	if got := e.pending(t); len(got) != 0 {
+		t.Errorf("outbox holds %v after a failed store", got)
 	}
 	e.assertNothingHappened(t)
 }

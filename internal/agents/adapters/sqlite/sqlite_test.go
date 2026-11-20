@@ -6,6 +6,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/adapters/sqlite"
 	"github.com/SDK-E/agentsone/internal/agents/agentstest"
@@ -73,6 +74,11 @@ func TestRepository_ReportsAClosedDatabase(t *testing.T) {
 		"Freezes":       func() error { _, err := repo.Freezes(ctx); return err },
 		"AddFreeze":     func() error { return repo.AddFreeze(ctx, "all") },
 		"RemoveFreeze":  func() error { return repo.RemoveFreeze(ctx, "all") },
+		"HireAgent": func() error {
+			return repo.HireAgent(ctx, agentstest.New("dev"), agentstest.Outbound("evt_1", "dev", time.Now()))
+		},
+		"PendingEvents": func() error { _, err := repo.PendingEvents(ctx, 1); return err },
+		"MarkSent":      func() error { return repo.MarkSent(ctx, "evt_1", time.Now()) },
 	}
 	for name, call := range calls {
 		if err := call(); err == nil {

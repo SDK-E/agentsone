@@ -74,6 +74,7 @@ func New(deps core.Deps, opts ...Option) *Module {
 	}
 	m.repo = sqlite.New(m.db)
 	m.society = app.New(m.repo, m.rt, deps.Ports, deps.Clock, deps.IDs)
+	m.society.SetLog(m.log)
 	if rt != nil {
 		m.buildSupervisor(deps, rt)
 	}
@@ -143,6 +144,12 @@ func (m *Module) Start(ctx context.Context) error {
 		if err := m.rt.Freeze(ctx, s); err != nil {
 			return fmt.Errorf("replay freeze %s: %w", s, err)
 		}
+	}
+	// A change committed before the daemon stopped may not be announced
+	// yet. Its event waits in the outbox; a failure here leaves it there for
+	// the next society change, and the machine runs on.
+	if err := m.society.Flush(ctx); err != nil {
+		m.log.WarnContext(ctx, "agents: events wait in the outbox", "error", err)
 	}
 	m.runAlwaysOn(ctx)
 	m.startSeed(ctx)

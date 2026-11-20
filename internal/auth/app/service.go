@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -239,11 +240,25 @@ func (s *Service) publish(ctx context.Context, typ string, data map[string]strin
 	if err != nil {
 		return
 	}
-	// Events are a notification; a missing bus must not block sign-in.
-	_, _ = s.d.Events.Publish(ctx, core.Event{
+	// The daemon publishes, not the request's caller: the first human is
+	// created by an anonymous visitor, whom the events module refuses as an
+	// actor, and the society seeds itself on that event.
+	ctx = core.WithCaller(ctx, core.Caller{Kind: core.CallerSystem, Name: "auth", UID: -1})
+	// Events are a notification; a missing bus must not block sign-in, but
+	// a lost event is said out loud.
+	if _, err := s.d.Events.Publish(ctx, core.Event{
 		SpecVersion: "1.0", Source: "agentsone/auth", Type: typ, DataContentType: "application/json",
 		Data: b, Actor: "system:auth", ChartScope: "machine",
-	})
+	}); err != nil {
+		s.log().Error("auth: event not published", "type", typ, "err", err)
+	}
+}
+
+func (s *Service) log() *slog.Logger {
+	if s.d.Log != nil {
+		return s.d.Log
+	}
+	return slog.Default()
 }
 
 func (s *Service) audit(ctx context.Context, by core.Caller, action, target string) {

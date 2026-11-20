@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"io"
+	"log/slog"
 
 	"github.com/SDK-E/agentsone/internal/auth/domain"
 	"github.com/SDK-E/agentsone/internal/core"
@@ -32,4 +33,7 @@ type Deps struct {
 	// Seed says whether the default society exists. ErrUnavailable, while
 	// the agents module is not up, reads as not installed.
 	Seed core.SeedStatus
+	// Log reports events that could not be published; nil means
+	// slog.Default().
+	Log *slog.Logger
 }

@@ -4,8 +4,9 @@
 # Keep the pinned image tag and the release version in step.
 #
 #   scripts/check-version.sh            VERSION holds a plain X.Y.Z, and every image in
-#                                       compose.yaml and compose.coolify.yaml defaults to the
-#                                       tag v<VERSION>
+#                                       compose.yaml defaults to the tag v<VERSION>; so does
+#                                       compose.coolify.yaml, or it pins one tested build of
+#                                       main as sha-<40 hex> (until the first release)
 #   scripts/check-version.sh vX.Y.Z     the same, and the release tag vX.Y.Z is v<VERSION>
 #
 # AGENTSONE_ROOT points the script at another folder (the self-test uses that).
@@ -21,6 +22,7 @@ root="${AGENTSONE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$root"
 
 semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+sha_tag='^sha-[0-9a-f]{40}$'
 failed=0
 fail() {
   echo "check-version: $1" >&2
@@ -57,6 +59,11 @@ for file in compose.yaml compose.coolify.yaml; do
   fi
   while IFS= read -r found; do
     found="${found#AGENTSONE_IMAGE_TAG:-}"
+    # compose.coolify.yaml may pin one tested build of main (sha-<40 hex>) until the first
+    # release exists; compose.yaml always follows VERSION.
+    if [ "$file" = compose.coolify.yaml ] && [[ "$found" =~ $sha_tag ]]; then
+      continue
+    fi
     if [ "$found" != "$want" ]; then
       fail "${file}: default image tag is ${found}, VERSION says ${want}"
     fi

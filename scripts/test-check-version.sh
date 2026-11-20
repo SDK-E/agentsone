@@ -55,6 +55,15 @@ expect fail compose-behind
 tree coolify-behind 0.2.0 v0.2.0 v0.1.0
 expect fail coolify-behind
 
+tree coolify-sha 0.1.0 v0.1.0 sha-0123456789abcdef0123456789abcdef01234567
+expect ok coolify-sha
+
+tree coolify-short-sha 0.1.0 v0.1.0 sha-0123456
+expect fail coolify-short-sha
+
+tree compose-sha 0.1.0 sha-0123456789abcdef0123456789abcdef01234567 v0.1.0
+expect fail compose-sha
+
 tree floating-tag 0.1.0 edge edge
 expect fail floating-tag
 

@@ -122,7 +122,7 @@ type hiredData struct {
 	Agent    string `json:"agent"`
 	Manager  string `json:"manager"`
 	Kind     string `json:"kind"`
-	IsRoot   bool   `json:"isRoot"`
+	IsRoot   bool   `json:"is_root"`
 	Template string `json:"template"`
 }
 
@@ -237,6 +237,10 @@ func (s *Society) Update(ctx context.Context, target string, u domain.Update) (d
 	if err := chart.CanManage(name, target); err != nil {
 		return domain.Agent{}, err
 	}
+	fields := editedFields(u)
+	if len(fields) == 0 {
+		return domain.Agent{}, fmt.Errorf("%w: the edit changes no field", domain.ErrInvalidAgent)
+	}
 	current, _ := chart.Get(target)
 	next, err := u.Apply(current)
 	if err != nil {
@@ -250,14 +254,14 @@ func (s *Society) Update(ctx context.Context, target string, u domain.Update) (d
 	if err := s.repo.SaveAgents(ctx, next); err != nil {
 		return domain.Agent{}, fmt.Errorf("save %s: %w", target, err)
 	}
-	data := editedData{Agent: target, Fields: editedFields(u)}
+	data := editedData{Agent: target, Fields: fields}
 	return next, s.record(ctx, "agent:"+name, "agent.edit", "agent:"+target, data,
 		event{"agentsone.agents.edited", "/agents/" + name, "agent:" + target, data})
 }
 
 // editedFields names the changed fields in the event catalog's words. The
 // catalog has no word for display name, role or description, so a wording
-// edit is reported as the agent's profile line ("oneLine").
+// edit is reported as the agent's profile line ("one_line").
 func editedFields(u domain.Update) []string {
 	var fields []string
 	if u.Limits != nil {
@@ -267,7 +271,7 @@ func editedFields(u domain.Update) []string {
 		fields = append(fields, "runner")
 	}
 	if u.DisplayName != nil || u.Role != nil || u.Description != nil {
-		fields = append(fields, "oneLine")
+		fields = append(fields, "one_line")
 	}
 	return fields
 }

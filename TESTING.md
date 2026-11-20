@@ -340,6 +340,38 @@ tests need no root and no Linux features, so they run with every `go test` and c
   socket peer credentials and cgroup lookup are Linux-only and belong to the system tests (B6).
 - **B5c.** Put the socket in a short directory (`os.MkdirTemp("", "ao")`). The path limit for a Unix
   socket is about 100 characters and `t.TempDir()` can exceed it on macOS.
+- **B5d. Every feature that crosses a module line has one test through the real daemon.** A
+  feature is not done until one test drives it from the API, through every module it touches, to
+  what a human or a runner sees. Use `internal/daemontest`. Module tests on `coretest` fakes still
+  prove each rule; they cannot prove that two modules agree on a payload, an address or an event,
+  because each fake accepts whatever it is given.
+- **B5e. How to use the harness.** `daemontest.Start(t)` runs the daemon's own wiring
+  (`internal/daemon`) with every real module, real SQLite stores, the real API on its socket and
+  loopback, the real runner supervisor, runner sockets and protocol, and the real echo runner in
+  process. Only the clock (fake), the machine module (no host changes), Linux users and the
+  network wall are replaced. It starts in well under a second.
+
+  | Need | Call |
+  | --- | --- |
+  | A signed-in human (the first human also seeds the founder, router and waker) | `d.SignInHuman("alice")` |
+  | An agent acting on the API, as its process would on the socket | `d.AsAgent("founder")` |
+  | Any operation | `client.Do(method, path, body, out)`, with generated `api` types |
+  | Chat and wait for the reply | `human.Chat("echo", "hello")` |
+  | Wait for what a runner says outside a chat | `out := human.Output("echo")`, then `out.WaitText("...")` |
+  | A bus message, a task, a schedule, a trigger, an event | `SendBus`, `CreateTask`, `CreateSchedule`, `CreateTrigger`, `PublishEvent` |
+  | Fire due schedules | `d.FireSchedules(by)` moves the fake clock and beats the schedule clock |
+  | Read the audit trail or an agent's state | `client.Audit()`, `client.Agent("echo")` |
+  | A port in process | `d.Ports` |
+
+  Every wait listens to a stream or an event and fails after `daemontest.Timeout`; none polls or
+  sleeps. Write the test so it fails when the payload, the address or the event it crosses is
+  broken on purpose, and say in the pull request what you broke and what failed.
+
+| Use | When |
+| --- | --- |
+| `coretest` fakes, one module | Rules, refusals, edge cases, every branch of a use case |
+| `internal/daemontest` | One test per feature that crosses modules: the happy path end to end, and the refusal a human or a runner sees |
+| System tests (B6) | Linux users, cgroups, peer credentials, the container recipe |
 
 ### B6. System (Linux only)
 

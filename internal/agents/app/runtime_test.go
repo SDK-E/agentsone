@@ -4,6 +4,7 @@ package app_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/agents/app"
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 func asHost() context.Context {
@@ -64,6 +67,55 @@ func TestSendChat_StoresStreamsAndWakesTheAgent(t *testing.T) {
 	list, err := e.society.Chat(asHuman("ada"), "dev", "", 10)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("chat history %v %v", list, err)
+	}
+}
+
+// The chat wake carries the runner contract's ChatMessage, which the runner
+// checks strictly: a field it does not know fails the wake, and the agent
+// never hears the message. A routed message names its router.
+func TestChatWake_PayloadIsTheRunnerContractsChatMessage(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		post     func(e env) (string, error)
+		from     string
+		routedBy string
+	}{
+		{"human chat", func(e env) (string, error) {
+			m, err := e.society.SendChat(asHuman("ada"), "dev", "Hello")
+			return m.ID, err
+		}, "human:ada", ""},
+		{"routed by a router", func(e env) (string, error) {
+			return e.society.ChatPoster().PostChat(asAgent("ops"), "dev", "Please fix the login", "asg_01JD7ZK3M00000000000000001")
+		}, "agent:ops", "ops"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			id, err := tt.post(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			payloads := e.rt.Payloads()
+			if len(payloads) != 1 {
+				t.Fatalf("%d wakes, want 1", len(payloads))
+			}
+			if err := contracttest.ValidateWakePayload(string(core.WakeChat), payloads[0]); err != nil {
+				t.Fatal(err)
+			}
+			var got protocol.ChatMessage
+			if err := json.Unmarshal(payloads[0], &got); err != nil {
+				t.Fatal(err)
+			}
+			routedBy := ""
+			if got.RoutedBy != nil {
+				routedBy = string(*got.RoutedBy)
+			}
+			if string(got.ChatID) != id || string(got.From) != tt.from || routedBy != tt.routedBy || time.Time(got.SentAt).IsZero() {
+				t.Errorf("payload = %s, want chatId %s, from %s, routedBy %q and a sentAt", payloads[0], id, tt.from, tt.routedBy)
+			}
+		})
 	}
 }
 

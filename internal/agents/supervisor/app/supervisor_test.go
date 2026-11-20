@@ -543,7 +543,8 @@ func TestHello_WelcomeCarriesIdentityTokensGatewayAndSummary(t *testing.T) {
 		t.Errorf("config = %+v", res.Config)
 	}
 	caller, err := w.fakes.Tokens.Verify(t.Context(), string(mcp.Token))
-	if err != nil || caller.Name != "mira" || !slices.Equal(caller.Scopes, []string{app.MCPScope}) {
+	want, werr := app.RunnerScopes()
+	if werr != nil || err != nil || caller.Name != "mira" || !slices.Equal(caller.Scopes, want) || !slices.Contains(caller.Scopes, "mcp:write") {
 		t.Errorf("mcp token caller = %+v, %v", caller, err)
 	}
 }

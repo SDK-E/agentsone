@@ -7,6 +7,7 @@ package api
 
 import (
 	_ "embed"
+	"slices"
 	"strings"
 )
 
@@ -25,6 +26,41 @@ type Route struct {
 	Stream bool
 	// WebSocket is true for operations that upgrade (x-websocket), such as terminals.
 	WebSocket bool
+	// Scope is the one scope a bearer token needs, from bearerAuth in the
+	// operation's security. Empty means the operation takes no token.
+	Scope string
+	// Public is true when the operation's security admits anonymous callers.
+	Public bool
+}
+
+// ScopeLevels orders the scope levels: a level covers every level before it.
+var ScopeLevels = []string{"read", "write", "admin"}
+
+// Covers reports whether a held scope satisfies a needed one: same group,
+// same or higher level (admin covers write and read, write covers read).
+func Covers(held, need string) bool {
+	hg, hl, ok1 := strings.Cut(held, ":")
+	ng, nl, ok2 := strings.Cut(need, ":")
+	if !ok1 || !ok2 || hg != ng {
+		return false
+	}
+	hi, ni := slices.Index(ScopeLevels, hl), slices.Index(ScopeLevels, nl)
+	return hi >= 0 && ni >= 0 && hi >= ni
+}
+
+// AllScopes is the admin scope of every group the contract names, sorted.
+// It covers every operation that takes a token.
+func AllScopes() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range Routes {
+		if g, _, ok := strings.Cut(r.Scope, ":"); ok && !seen[g] {
+			seen[g] = true
+			out = append(out, g+":admin")
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Match finds the route for a method and a concrete path. Literal segments

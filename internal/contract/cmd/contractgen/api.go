@@ -38,6 +38,11 @@ type operation struct {
 	Tag         string
 	Stream      bool
 	WebSocket   bool
+	// Scope is the one scope bearerAuth names in the operation's security
+	// (its own, else the document's); empty when bearerAuth is not listed.
+	Scope string
+	// Public is true when the security admits an anonymous caller.
+	Public bool
 }
 
 // basePath is the path of the first server URL, for example "/v1".
@@ -85,7 +90,7 @@ func (s spec) operations() ([]operation, error) {
 			if !ok {
 				continue
 			}
-			op, err := newOperation(m, path, raw)
+			op, err := newOperation(m, path, raw, s.doc["security"])
 			if err != nil {
 				return nil, err
 			}
@@ -101,7 +106,7 @@ func (s spec) operations() ([]operation, error) {
 	return ops, nil
 }
 
-func newOperation(method, path string, raw map[string]any) (operation, error) {
+func newOperation(method, path string, raw map[string]any, docSecurity any) (operation, error) {
 	id := as[string](raw["operationId"])
 	if id == "" {
 		return operation{}, fmt.Errorf("%s %s has no operationId", method, path)
@@ -113,6 +118,14 @@ func newOperation(method, path string, raw map[string]any) (operation, error) {
 	if tag == "" {
 		return operation{}, fmt.Errorf("operation %s has no tag; the first tag picks its group", id)
 	}
+	security, own := raw["security"]
+	if !own {
+		security = docSecurity
+	}
+	scope, err := bearerScope(id, security)
+	if err != nil {
+		return operation{}, err
+	}
 	return operation{
 		Method:      strings.ToUpper(method),
 		Path:        path,
@@ -120,7 +133,34 @@ func newOperation(method, path string, raw map[string]any) (operation, error) {
 		Tag:         tag,
 		Stream:      streams(raw),
 		WebSocket:   raw["x-websocket"] != nil,
+		Scope:       scope,
+		Public:      !needsCaller(security),
 	}, nil
+}
+
+// bearerScope is the scope bearerAuth names in a security list, or "" when
+// bearerAuth is not listed. No scope, more than one, or bearerAuth listed
+// twice is an error: the daemon checks exactly one scope per operation, so
+// an operation that takes a token without naming its scope cannot ship.
+func bearerScope(id string, security any) (string, error) {
+	found := false
+	scope := ""
+	for _, req := range list(security) {
+		scopes, ok := object(req)["bearerAuth"]
+		if !ok {
+			continue
+		}
+		if found {
+			return "", fmt.Errorf("operation %s lists bearerAuth twice", id)
+		}
+		found = true
+		names := list(scopes)
+		if len(names) != 1 || as[string](names[0]) == "" {
+			return "", fmt.Errorf("operation %s names %d bearerAuth scopes, want one: give it its own security with bearerAuth: [<group>:<level>]", id, len(names))
+		}
+		scope = as[string](names[0])
+	}
+	return scope, nil
 }
 
 func streams(op map[string]any) bool {
@@ -344,7 +384,7 @@ const BasePath = "{{.Base}}"
 // Paths include BasePath.
 var Routes = []Route{
 {{- range .Ops}}
-	{Method: "{{.Method}}", Path: BasePath + "{{.Path}}", OperationID: "{{.OperationID}}", Tag: "{{.Tag}}", Stream: {{.Stream}}, WebSocket: {{.WebSocket}}},
+	{Method: "{{.Method}}", Path: BasePath + "{{.Path}}", OperationID: "{{.OperationID}}", Tag: "{{.Tag}}", Stream: {{.Stream}}, WebSocket: {{.WebSocket}}, Scope: "{{.Scope}}", Public: {{.Public}}},
 {{- end}}
 }
 `))

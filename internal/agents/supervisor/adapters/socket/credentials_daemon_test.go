@@ -258,7 +258,8 @@ func (d *daemon) check(agent string, p *probeRunner) probe {
 		r.gatewayErr = "the gateway refused the model token"
 	}
 	caller, err := d.auth.Service.Verify(d.t.Context(), c.MCPToken().Reveal())
-	r.mcpOK = err == nil && caller.Name == agent && slices.Contains(caller.Scopes, app.MCPScope)
+	want, werr := app.RunnerScopes()
+	r.mcpOK = err == nil && werr == nil && caller.Name == agent && slices.Equal(caller.Scopes, want)
 	if err != nil {
 		r.mcpErr = "the MCP server refused the tool token"
 	}

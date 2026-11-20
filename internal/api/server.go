@@ -45,10 +45,13 @@ type Server struct {
 // NewServer composes mods and builds the per-listener handlers. Tokens and
 // session cookies are checked through deps.Ports.Tokens, read per request.
 func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
-	composed, err := Compose(mods)
+	unchecked, err := Compose(mods)
 	if err != nil {
 		return nil, err
 	}
+	// Token scopes are checked around the composed modules, not per listener,
+	// so in-process dispatch (machine MCP tool calls) is checked too.
+	composed := httpadapter.RequireScopes(unchecked)
 	var edge EdgeSettings
 	if err := deps.Config.Section("edge", &edge); err != nil {
 		return nil, fmt.Errorf("edge settings: %w", err)
@@ -110,9 +113,10 @@ func (s *Server) refused(r *http.Request, ports *core.Ports, err error) {
 	}
 }
 
-// Handler is the composed modules with no identity rules. In-process
-// callers (the MCP module) dispatch into it with core.WithCaller already
-// set on the context; it never derives identity itself.
+// Handler is the composed modules with no identity rules, behind the token
+// scope check. In-process callers (the MCP module) dispatch into it with
+// core.WithCaller already set on the context; it never derives identity
+// itself, and a token's caller is held to its scopes here too.
 func (s *Server) Handler() http.Handler { return s.composed }
 
 // SocketHandler is the Unix socket chain, for tests.

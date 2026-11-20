@@ -14,13 +14,17 @@ import (
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
+	mcpapp "github.com/SDK-E/agentsone/internal/mcp/app"
 	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
-// MCPScope is the token scope a runner's MCP token carries, in the
-// contract's <group>:<read|write|admin> form: the runner posts MCP messages
-// to the machine MCP (group mcp), which needs write and no more.
-const MCPScope = "mcp:write"
+// RunnerScopes are the scopes a runner's MCP token carries. The runner
+// reaches the daemon through the machine MCP, where every tool call is held
+// to the token's scopes, so the token holds exactly the scopes of the MCP
+// tools (mcpapp.RunnerScopes): the power the runner had before scopes were
+// checked, and nothing a tool never needs. Caller kind and org chart rules
+// still bound what the agent may do.
+func RunnerScopes() ([]string, error) { return mcpapp.RunnerScopes() }
 
 // Handler serves one runner connection of one agent. Build it with Connect,
 // hand it to the protocol server, then Attach the server's connection.
@@ -128,8 +132,12 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 	if err != nil {
 		return h.helloFailed("load the agent's session summary", err)
 	}
-	caller := core.Caller{Kind: core.CallerAgent, Name: h.agent, UID: id.Agent.UID, IsRoot: id.Agent.IsRoot, Scopes: []string{MCPScope}}
-	mcp, err := s.d.Ports.Tokens.Issue(ctx, caller, []string{MCPScope}, s.d.Config.MCPTokenTTL)
+	caller := core.Caller{Kind: core.CallerAgent, Name: h.agent, UID: id.Agent.UID, IsRoot: id.Agent.IsRoot}
+	scopes, err := RunnerScopes()
+	if err != nil {
+		return h.helloFailed("work out the MCP token scopes", err)
+	}
+	mcp, err := s.d.Ports.Tokens.Issue(ctx, caller, scopes, s.d.Config.MCPTokenTTL)
 	if err != nil {
 		return h.helloFailed("issue the MCP token", err)
 	}

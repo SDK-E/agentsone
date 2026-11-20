@@ -47,7 +47,7 @@ func generateEventData(r repo) error {
 	if err != nil {
 		return fmt.Errorf("temp folder: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	defer func() { _ = os.RemoveAll(tmp) }() //nolint:errcheck // a scratch folder left behind changes nothing in the generated files
 	types := make([]eventDataType, 0, len(doc.Events))
 	files := make([]string, 0, len(doc.Events))
 	for _, e := range doc.Events {
@@ -76,6 +76,9 @@ func generateEventData(r repo) error {
 	if err != nil {
 		return err
 	}
+	if models, err = useCommonTimestamp(models, importPath(commonDir)); err != nil {
+		return err
+	}
 	if err := r.writeGo(eventDataDir+"/models.gen.go", models); err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func generateEventData(r repo) error {
 }
 
 func jsonString(s string) json.RawMessage {
-	b, _ := json.Marshal(s) // a string always encodes
+	b, _ := json.Marshal(s) //nolint:errcheck // a string always encodes
 	return b
 }
 

@@ -4,7 +4,7 @@
 
 package eventdata
 
-import "time"
+import "github.com/SDK-E/agentsone/internal/contract/common"
 
 type AgentsBudgetExhausted struct {
 	// Agent corresponds to the JSON schema field "agent".
@@ -175,7 +175,7 @@ type ClockScheduleFired struct {
 	Agent string `json:"agent"`
 
 	// Due corresponds to the JSON schema field "due".
-	Due time.Time `json:"due"`
+	Due common.Timestamp `json:"due"`
 
 	// Name corresponds to the JSON schema field "name".
 	Name string `json:"name"`

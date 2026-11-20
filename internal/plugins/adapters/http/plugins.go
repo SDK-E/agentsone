@@ -4,10 +4,14 @@ package httpadapter
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/contract/api/pluginsapi"
@@ -59,6 +63,8 @@ type PluginService interface {
 	Enable(ctx context.Context, id string) (domain.Plugin, error)
 	Disable(ctx context.Context, id string) (domain.Plugin, error)
 	IssuePanelToken(ctx context.Context, id string, ttl time.Duration) (PanelToken, error)
+	// ReadPanelFile reads a file inside a panel folder of an enabled plugin.
+	ReadPanelFile(ctx context.Context, id, path string) (domain.PanelFile, error)
 }
 
 // PluginsHandler serves the plugins group.
@@ -237,11 +243,59 @@ func (h *PluginsHandler) IssuePanelToken(ctx context.Context, req pluginsapi.Iss
 	}, nil
 }
 
-// GetPluginFile reads one panel file for the interface's panel host. The
-// contract operation lands first; the plugins module serves it in its own
-// change, so until then it answers 501.
-func (h *PluginsHandler) GetPluginFile(_ context.Context, _ pluginsapi.GetPluginFileRequestObject) (pluginsapi.GetPluginFileResponseObject, error) {
-	return nil, fmt.Errorf("read a panel file: %w", core.ErrNotImplemented)
+// Headers on every panel file: if the JSON were ever opened as a document it
+// could run nothing, be sniffed as nothing, be embedded nowhere else and be
+// kept nowhere.
+var (
+	panelFileCSP     = "sandbox; default-src 'none'"
+	panelFileNoSniff = "nosniff"
+	panelFileCORP    = "same-origin"
+	panelFileCache   = "no-store"
+)
+
+// GetPluginFile reads one panel file for the interface's panel host. Signed-in
+// humans only. The content is never logged.
+func (h *PluginsHandler) GetPluginFile(ctx context.Context, req pluginsapi.GetPluginFileRequestObject) (pluginsapi.GetPluginFileResponseObject, error) {
+	caller, ok := core.CallerFrom(ctx)
+	if !ok {
+		return nil, fmt.Errorf("read a panel file: %w", core.ErrUnauthorized)
+	}
+	if caller.Kind != core.CallerHuman {
+		return nil, fmt.Errorf("read a panel file: only a signed-in human may ask: %w", core.ErrForbidden)
+	}
+	f, err := h.svc.ReadPanelFile(ctx, req.PluginId, req.Params.Path)
+	if err != nil {
+		if errors.Is(err, domain.ErrTooLarge) {
+			return nil, core.NewProblem(http.StatusRequestEntityTooLarge, "payload-too-large", err.Error())
+		}
+		return nil, coreErr(err)
+	}
+	encoding, content := api.FileEncodingUtf8, string(f.Data)
+	if !utf8.Valid(f.Data) || !textual(f.MediaType) {
+		encoding, content = api.FileEncodingBase64, base64.StdEncoding.EncodeToString(f.Data)
+	}
+	return pluginsapi.GetPluginFile200JSONResponse{
+		Body: api.PluginFile{
+			PluginId: req.PluginId, Path: f.Path, MediaType: f.MediaType,
+			Encoding: encoding, Content: content, SizeBytes: int64(len(f.Data)),
+		},
+		Headers: pluginsapi.GetPluginFile200ResponseHeaders{
+			ContentSecurityPolicy: &panelFileCSP, XContentTypeOptions: &panelFileNoSniff,
+			CrossOriginResourcePolicy: &panelFileCORP, CacheControl: &panelFileCache,
+		},
+	}, nil
+}
+
+// textual reports whether a media type is text the interface reads as text.
+func textual(mediaType string) bool {
+	switch {
+	case strings.HasPrefix(mediaType, "text/"):
+		return true
+	case mediaType == "application/json", mediaType == "image/svg+xml",
+		mediaType == "application/javascript", mediaType == "text/javascript":
+		return true
+	}
+	return false
 }
 
 // coreErr gives a domain error the core sentinel the API layer maps to a

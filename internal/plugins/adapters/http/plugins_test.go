@@ -37,6 +37,14 @@ type fakePlugins struct {
 	lastQuery  domain.CatalogQuery
 	lastTTL    time.Duration
 	removed    string
+	panelFile  domain.PanelFile
+}
+
+func (f *fakePlugins) ReadPanelFile(_ context.Context, id, _ string) (domain.PanelFile, error) {
+	if _, err := f.find(id); err != nil {
+		return domain.PanelFile{}, err
+	}
+	return f.panelFile, f.err
 }
 
 var _ httpadapter.PluginService = (*fakePlugins)(nil)
@@ -316,16 +324,73 @@ func TestInstallPlugin_NilBodyIsInvalid(t *testing.T) {
 	}
 }
 
-// Reading panel files lands with its own change; until then it says so with
-// 501 instead of pretending.
-func TestGetPluginFile_IsNotImplementedYet(t *testing.T) {
+const panelFileURL = "/v1/plugins/" + pluginID + "/files?path=./panel/index.html"
+
+func TestGetPluginFile_TextComesBackAsJSONWithLockedDownHeaders(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.NewPluginsHandler(newFake(t))
+	fake := newFake(t)
+	fake.panelFile = domain.PanelFile{Path: "panel/index.html", MediaType: "text/html", Data: []byte("<h1>Disk</h1>")}
+	h := servePlugins(t, ada(), fake)
 
-	_, err := h.GetPluginFile(context.Background(), pluginsapi.GetPluginFileRequestObject{PluginId: pluginID})
+	rec := send(t, h, http.MethodGet, panelFileURL, nil)
+	got := decode[api.PluginFile](t, rec, http.StatusOK)
 
-	if !errors.Is(err, core.ErrNotImplemented) {
-		t.Fatalf("error = %v, want core.ErrNotImplemented", err)
+	if got.Encoding != api.FileEncodingUtf8 || got.Content != "<h1>Disk</h1>" || got.MediaType != "text/html" || got.SizeBytes != 13 || got.PluginId != pluginID {
+		t.Errorf("file = %+v", got)
+	}
+	for k, want := range map[string]string{
+		"Content-Type":                 "application/json",
+		"Content-Security-Policy":      "sandbox; default-src 'none'",
+		"X-Content-Type-Options":       "nosniff",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Cache-Control":                "no-store",
+	} {
+		if v := rec.Header().Get(k); v != want {
+			t.Errorf("%s = %q, want %q", k, v, want)
+		}
+	}
+}
+
+func TestGetPluginFile_BinaryIsBase64(t *testing.T) {
+	t.Parallel()
+	fake := newFake(t)
+	fake.panelFile = domain.PanelFile{Path: "panel/logo.png", MediaType: "image/png", Data: []byte{0x89, 'P', 'N', 'G'}}
+	h := servePlugins(t, ada(), fake)
+
+	got := decode[api.PluginFile](t, send(t, h, http.MethodGet, "/v1/plugins/"+pluginID+"/files?path=panel/logo.png", nil), http.StatusOK)
+
+	if got.Encoding != api.FileEncodingBase64 || got.Content != "iVBORw==" {
+		t.Errorf("file = %+v", got)
+	}
+}
+
+func TestGetPluginFile_Refusals(t *testing.T) {
+	t.Parallel()
+	agent := &core.Caller{Kind: core.CallerAgent, Name: "founder", UID: 1001}
+	cases := []struct {
+		name   string
+		caller *core.Caller
+		err    error
+		url    string
+		status int
+	}{
+		{"nobody signed in", nil, nil, panelFileURL, http.StatusUnauthorized},
+		{"an agent", agent, nil, panelFileURL, http.StatusForbidden},
+		{"unknown plugin", ada(), nil, "/v1/plugins/plg_01JD7ZK3M00000000000000099/files?path=panel/index.html", http.StatusNotFound},
+		{"path missing", ada(), nil, "/v1/plugins/" + pluginID + "/files", http.StatusBadRequest},
+		{"traversal", ada(), fmt.Errorf("x: %w", domain.ErrUnsafePath), "/v1/plugins/" + pluginID + "/files?path=panel/../../etc/passwd", http.StatusBadRequest},
+		{"outside the panel folder", ada(), fmt.Errorf("x: %w", domain.ErrNotFound), "/v1/plugins/" + pluginID + "/files?path=agents/secret.json", http.StatusNotFound},
+		{"plugin turned off", ada(), fmt.Errorf("x: %w", core.ErrConflict), panelFileURL, http.StatusConflict},
+		{"too large", ada(), fmt.Errorf("x: %w", domain.ErrTooLarge), panelFileURL, http.StatusRequestEntityTooLarge},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fake := newFake(t)
+			fake.err = c.err
+			h := servePlugins(t, c.caller, fake)
+			problemStatus(t, send(t, h, http.MethodGet, c.url, nil), c.status)
+		})
 	}
 }
 

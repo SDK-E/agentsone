@@ -121,12 +121,14 @@ they live behind the control page.
 | `AGENTSONE_INNER_SUBNET` | No | `10.77.42.0/27` | Subnet of the inner network. Change it if Docker reports an overlap, or if your proxy or firewall trusts that range. |
 | `AGENTSONE_INNER_DYNAMIC_RANGE` | No | `10.77.42.16/28` | Part of the inner subnet handed to the machine. |
 | `AGENTSONE_EDGE_IP` | No | `10.77.42.2` | Edge address on the inner network, outside the dynamic range. The machine uses it as its DNS server and its one trusted proxy. |
-| `AGENTSONE_OUTER_SUBNET` | No | `10.77.42.32/27` | Subnet of the outer network. Same rule as the inner subnet. |
-| `AGENTSONE_OUTER_DYNAMIC_RANGE` | No | `10.77.42.48/28` | Part of the outer subnet handed to control. |
-| `AGENTSONE_EDGE_OUTER_IP` | No | `10.77.42.34` | Edge address on the outer network, where the web door listens. |
 
 `AGENTSONE_PROXY_NETWORK` and the two middleware settings change only the proxy network and the
 Traefik labels. Plain `compose.yaml` has no proxy, so they exist only in the Coolify file.
+
+The Coolify file has no outer network, so `AGENTSONE_OUTER_SUBNET`,
+`AGENTSONE_OUTER_DYNAMIC_RANGE` and `AGENTSONE_EDGE_OUTER_IP` apply to plain `compose.yaml` only.
+Setting them in Coolify changes nothing; see
+[How the Coolify file works](#how-the-coolify-file-works).
 
 The edge and control containers read no other environment variables; their addresses come from
 the command line in the file. The machine reads `AGENTSONE_EDGE_IP` only. The same settings,
@@ -225,10 +227,14 @@ at every start.
 
 - Only `edge` and `control` join the proxy network where Traefik runs: Coolify's `coolify`
   network, or the one named in `AGENTSONE_PROXY_NETWORK`. The machine never joins it.
-- The web door listens on two addresses: the edge's outer address (for the published port) and
-  the alias `agentsone-door` on the proxy network (for Traefik). It never listens on the
-  inner address. Change the alias with `AGENTSONE_PROXY_ALIAS` if another app on the server
-  already uses it.
+- Edge and control reach the internet through the proxy network. Unlike `compose.yaml`, the
+  Coolify file has no separate outer network: `edge` is on the inner network and the proxy
+  network, `control` on the proxy network only, and `machine` on the inner network only. So
+  edge and control get no address range of their own, and a host firewall rule that limits what
+  the proxy network may reach on the server covers them too.
+- The web door listens on one address: the alias `agentsone-door` on the proxy network, for
+  Traefik and for the published port. It never listens on the inner address. Change the alias
+  with `AGENTSONE_PROXY_ALIAS` if another app on the server already uses it.
 - Traefik router names start with `agentsone-`. Run one Agents One stack per Coolify server.
 - After a change to `compose.yaml` or the overlay, remake `compose.coolify.yaml` with the command
   in its header. The pull request check fails until you do.

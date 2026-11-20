@@ -17,12 +17,6 @@ networks:
         - ip_range: ${AGENTSONE_INNER_DYNAMIC_RANGE:-10.77.42.16/28}
           subnet: ${AGENTSONE_INNER_SUBNET:-10.77.42.0/27}
     name: agentsone_inner
-  outer:
-    ipam:
-      config:
-        - ip_range: ${AGENTSONE_OUTER_DYNAMIC_RANGE:-10.77.42.48/28}
-          subnet: ${AGENTSONE_OUTER_SUBNET:-10.77.42.32/27}
-    name: agentsone_outer
   proxy:
     external: true
     name: ${AGENTSONE_PROXY_NETWORK:-coolify}
@@ -72,7 +66,6 @@ services:
       - traefik.http.services.agentsone-control.loadbalancer.server.port=8081
     memswap_limit: 256m
     networks:
-      outer: null
       proxy: {}
     ports:
       - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_CONTROL_PORT:-7781}:8081
@@ -92,7 +85,6 @@ services:
     command:
       - edge
       - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
-      - --door-addr=${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}:8080
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
     deploy:
       resources:
@@ -132,8 +124,6 @@ services:
     networks:
       inner:
         ipv4_address: ${AGENTSONE_EDGE_IP:-10.77.42.2}
-      outer:
-        ipv4_address: ${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}
       proxy:
         aliases:
           - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}

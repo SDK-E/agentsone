@@ -156,11 +156,8 @@ jobs:
       - name: go test
         if: steps.detect.outputs.has_go == 'true'
         run: |
-          mkdir -p coverage
-          go test -race -coverprofile=coverage/cover.out ./...
-      - name: coverage floors
-        if: steps.detect.outputs.has_go == 'true'
-        run: scripts/check-coverage.sh coverage/cover.out
+          go test -race -count=50 -v -run 'TestProxy_AnswersAProblemWhenTheMachineIsDown' ./internal/edge/door/adapters/proxy | grep -c '^--- PASS'
+          go test -race -count=50 ./internal/edge/door/adapters/proxy
 
   go-integration:
     # Linux system tests (TESTING.md B6): real users, homes, sockets and

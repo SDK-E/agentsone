@@ -37,11 +37,12 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// Split sends /v1/ and /ide/ to api (the composed modules) and every other
-// path to ui.
+// Split sends /v1/, /ide/ and /desktop/ (the desktop VNC bridge) to api
+// (the composed modules) and every other path to ui.
 func Split(api, ui http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, contract.BasePath+"/") || strings.HasPrefix(r.URL.Path, "/ide/") {
+		if strings.HasPrefix(r.URL.Path, contract.BasePath+"/") || strings.HasPrefix(r.URL.Path, "/ide/") ||
+			strings.HasPrefix(r.URL.Path, "/desktop/") {
 			api.ServeHTTP(w, r)
 			return
 		}

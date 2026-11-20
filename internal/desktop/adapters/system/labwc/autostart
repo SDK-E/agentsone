@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+#
+# Run by labwc (with sh) once its headless output exists. The output gets a
+# laptop-sized mode, which the browser panel scales to fit, and a terminal
+# opens so the first look shows a working desktop.
+wlr-randr --output HEADLESS-1 --custom-mode 1280x800
+foot &

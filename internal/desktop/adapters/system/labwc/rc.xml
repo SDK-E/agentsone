@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- labwc settings of a human's desktop. The defaults stay. The Desktop
+     panel's Terminal and Web browser buttons send Super+T and Super+B, so
+     they work on a phone too, where there is no right-click. -->
+<labwc_config>
+  <theme>
+    <font name="DejaVu Sans" size="10" />
+  </theme>
+  <keyboard>
+    <default />
+    <keybind key="W-Return">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <keybind key="W-t">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <keybind key="W-b">
+      <action name="Execute" command="chromium --ozone-platform=wayland --no-sandbox --no-first-run --disable-gpu --disable-dev-shm-usage" />
+    </keybind>
+  </keyboard>
+  <mouse>
+    <default />
+  </mouse>
+</labwc_config>

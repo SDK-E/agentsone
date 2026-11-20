@@ -9,6 +9,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/auth"
 	"github.com/SDK-E/agentsone/internal/bus"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/desktop"
 	"github.com/SDK-E/agentsone/internal/enginefetch"
 	"github.com/SDK-E/agentsone/internal/events"
 	"github.com/SDK-E/agentsone/internal/gatewaymint"
@@ -38,5 +39,6 @@ func modules(deps core.Deps) []core.Module {
 		machine.New(deps),
 		mcp.New(deps),
 		enginefetch.New(deps),
+		desktop.New(deps),
 	}
 }

@@ -57,11 +57,13 @@ func TestUI_SaysWhenTheInterfaceIsMissing(t *testing.T) {
 	}
 }
 
-func TestSplit_SendsAPIAndIDEPathsToTheModules(t *testing.T) {
+func TestSplit_SendsAPIIDEAndDesktopPathsToTheModules(t *testing.T) {
 	t.Parallel()
 	api := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
 	h := httpadapter.Split(api, httpadapter.UI(dist))
-	for p, want := range map[string]int{"/v1/agents": 418, "/ide/x": 418, "/v1x": 200, "/": 200} {
+	for p, want := range map[string]int{
+		"/v1/agents": 418, "/ide/x": 418, "/desktop/ada/vnc": 418, "/v1x": 200, "/desktopx": 200, "/": 200,
+	} {
 		if rec := get(h, "GET", p); rec.Code != want {
 			t.Errorf("%s: %d, want %d", p, rec.Code, want)
 		}

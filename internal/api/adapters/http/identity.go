@@ -63,20 +63,21 @@ func WithPeer(ctx context.Context, c core.Caller, err error) context.Context {
 // SocketIdentity sets the caller of every request on the Unix socket from
 // the peer stored by WithPeer: the kernel vouches for the peer. A bearer
 // token, when sent, names the caller instead; root agents outside an agent
-// cgroup prove who they are this way. A refused peer without a token gets
-// 403, and report hears of it (for the audit trail) on every request.
+// cgroup prove who they are this way. A token that does not verify gets
+// 401 whoever the peer is. A refused peer without a token gets 403, and
+// report hears of it (for the audit trail) on every request.
 func SocketIdentity(verify Verifier, report func(*http.Request, error), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isFirstHuman(r) {
 			refuseFirstHuman(w, r)
 			return
 		}
-		if v, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
-			c, err := verify(r.Context(), strings.TrimSpace(v))
-			if err != nil {
-				core.WriteError(w, r, fmt.Errorf("token: %w", core.ErrUnauthorized))
-				return
-			}
+		c, sent, err := verifyBearer(verify, r)
+		if err != nil {
+			core.WriteError(w, r, err)
+			return
+		}
+		if sent {
 			r = r.WithContext(WithPeerCaller(r.Context(), c))
 		}
 		r.Header.Del(ViaHeader)
@@ -155,8 +156,14 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 			refuseFirstHuman(w, r)
 			return
 		}
-		value, fromCookie := credential(r)
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !isBearer(r) {
+		// A token names the caller and is never skipped: one that does not
+		// verify gets 401 on every path, also beside a good session cookie.
+		caller, sentToken, err := verifyBearer(t.Verify, r)
+		if err != nil {
+			core.WriteError(w, r, err)
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !sentToken {
 			if !domain.SameOrigin(domain.OriginCheck{
 				Method: r.Method, Origin: r.Header.Get("Origin"), FetchSite: r.Header.Get("Sec-Fetch-Site"), Host: r.Host, Scheme: scheme,
 			}) && !isPublicNonBrowser(r) {
@@ -164,15 +171,17 @@ func (t TCPIdentity) Wrap(next http.Handler) http.Handler {
 				return
 			}
 		}
-		caller := core.Anonymous
-		if value != "" {
-			c, err := t.Verify(r.Context(), value)
+		// Without a token the session cookie names the caller. A bad cookie
+		// is ignored where no caller is needed, so a stale cookie does not
+		// lock a browser out of the sign-in page.
+		if cookie, cerr := r.Cookie(CookieName); !sentToken && cerr == nil {
+			c, verr := t.Verify(r.Context(), cookie.Value)
 			switch {
-			case err == nil:
+			case verr == nil:
 				caller = c
 			case !needsCaller(r):
 			default:
-				clearBadCookie(w, r, fromCookie)
+				clearBadCookie(w, r)
 				core.WriteError(w, r, fmt.Errorf("credentials: %w", core.ErrUnauthorized))
 				return
 			}
@@ -286,19 +295,32 @@ func hostOnly(h string) (string, bool) {
 	return h, true
 }
 
-// credential returns the bearer token, else the session cookie.
-func credential(r *http.Request) (string, bool) {
-	if v, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
-		return strings.TrimSpace(v), false
+// bearer returns the token of an Authorization header in the Bearer scheme.
+// sent is true whenever the header names that scheme, in any case (RFC 9110
+// section 11.1), even with no token after it: an empty token is a bad one.
+func bearer(r *http.Request) (token string, sent bool) {
+	scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+	if !strings.EqualFold(scheme, "Bearer") {
+		return "", false
 	}
-	if c, err := r.Cookie(CookieName); err == nil {
-		return c.Value, true
-	}
-	return "", false
+	return strings.TrimSpace(token), true
 }
 
-func isBearer(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")
+// verifyBearer returns the caller the request's bearer token names, and
+// whether the request sent a token at all. A token that is empty or that
+// verify refuses (bad, expired, revoked) is ErrUnauthorized, with no word of
+// the token or of why.
+func verifyBearer(verify Verifier, r *http.Request) (core.Caller, bool, error) {
+	token, sent := bearer(r)
+	if !sent {
+		return core.Anonymous, false, nil
+	}
+	if token != "" {
+		if c, err := verify(r.Context(), token); err == nil {
+			return c, true, nil
+		}
+	}
+	return core.Anonymous, true, fmt.Errorf("token: %w", core.ErrUnauthorized)
 }
 
 // isPublicNonBrowser lets signed webhooks in: they come from servers, not
@@ -318,12 +340,10 @@ func needsCaller(r *http.Request) bool {
 	return !publicOperations[route.OperationID]
 }
 
-func clearBadCookie(w http.ResponseWriter, r *http.Request, fromCookie bool) {
-	if fromCookie {
-		// #nosec G124 -- Secure whenever the browser is on TLS (through the edge); plain loopback cannot keep a Secure cookie
-		http.SetCookie(w, &http.Cookie{
-			Name: CookieName, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode,
-			Secure: r.Header.Get(ViaHeader) == "edge",
-		})
-	}
+func clearBadCookie(w http.ResponseWriter, r *http.Request) {
+	// #nosec G124 -- Secure whenever the browser is on TLS (through the edge); plain loopback cannot keep a Secure cookie
+	http.SetCookie(w, &http.Cookie{
+		Name: CookieName, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode,
+		Secure: r.Header.Get(ViaHeader) == "edge",
+	})
 }

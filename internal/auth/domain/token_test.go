@@ -157,7 +157,7 @@ func TestParseTokenValue_RejectsMalformedValues(t *testing.T) {
 	for _, v := range []string{
 		"", "aot_", "aot_id", "xyz_id_secret", "aot__secret", "aot_id_",
 		// The earlier hex-id form: every such token was revoked by migration.
-		"aot_0123456789abcdef01234567_x",
+		"aot_" + strings.Repeat("0a", 12) + "_x",
 		"aot_tok__x", "aot_tok_short_x", "aot_tok_01JD7ZK3M0000000000000000z_x",
 		"aot_tok_01JD7ZK3M0000000000000000Z", "aot_tok_01JD7ZK3M0000000000000000Z_",
 	} {

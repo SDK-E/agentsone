@@ -18,6 +18,10 @@ type AgentRepository interface {
 	// SaveAgents replaces existing agents in one transaction. It returns
 	// ErrAgentNotFound, and saves none, when one of them does not exist.
 	SaveAgents(ctx context.Context, agents ...Agent) error
+	// RecordTurn sets only the agent's last turn time, so a turn that ends
+	// while the agent is edited neither loses the edit nor is lost. It
+	// returns ErrAgentNotFound for an unknown name.
+	RecordTurn(ctx context.Context, name string, at time.Time) error
 }
 
 // CharterRepository stores the one charter.

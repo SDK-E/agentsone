@@ -152,6 +152,10 @@ func (m *Module) Start(ctx context.Context) error {
 	if err := m.society.Flush(ctx); err != nil {
 		m.log.WarnContext(ctx, "agents: events wait in the outbox", "error", err)
 	}
+	// Agents hired before new agents got a starting one-line have none.
+	if err := m.society.FillStartingLines(ctx); err != nil {
+		m.log.WarnContext(ctx, "agents: some agents have no one-line yet", "error", err)
+	}
 	m.runAlwaysOn(ctx)
 	m.startSeed(ctx)
 	return nil

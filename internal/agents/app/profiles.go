@@ -18,7 +18,7 @@ func (s *Society) Profiles() Profiles { return Profiles{s: s} }
 
 // Profiles returns every active agent's profile, sorted by name.
 func (p Profiles) Profiles(ctx context.Context) ([]core.AgentProfile, error) {
-	chart, err := p.s.chart(ctx)
+	chart, err := p.s.Chart(ctx)
 	if err != nil {
 		return nil, err
 	}

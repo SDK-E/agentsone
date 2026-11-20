@@ -235,7 +235,8 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 	}
 	welcomed := r.session.State() == domain.StateWelcomed
 	out, err := r.session.Status(st)
-	ready := err == nil && welcomed && r.session.State() == domain.StateIdle
+	now := r.session.State()
+	ready := err == nil && welcomed && now == domain.StateIdle
 	if ready {
 		r.backoff.Up(s.d.Clock.Now())
 	}
@@ -253,6 +254,12 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 	}
 	if out.MissingProfile {
 		s.audit(ctx, ActionTurnFault, "agent:"+h.agent, map[string]any{"turnId": out.EndedTurn, "fault": "no profile.update"})
+	}
+	if rs, ok := runStateOf(now); ok {
+		s.runnerState(ctx, h.agent, rs)
+	}
+	if out.EndedTurn != "" {
+		s.turnEnded(ctx, h.agent)
 	}
 	if ready {
 		s.forgetRefusal(h.agent)
@@ -406,9 +413,13 @@ func (h *Handler) Closed(err error) {
 		h.log.Warn("runner connection ended", "err", err)
 	}
 	h.s.mu.Lock()
-	defer h.s.mu.Unlock()
-	if r, ok := h.currentLocked(); ok {
+	r, ok := h.currentLocked()
+	if ok {
 		r.conn = nil
 		r.session.Stop()
+	}
+	h.s.mu.Unlock()
+	if ok {
+		h.s.runnerState(context.Background(), h.agent, RunStopped)
 	}
 }

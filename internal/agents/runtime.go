@@ -158,7 +158,7 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 	parts.sup = supapp.New(supapp.Deps{
 		Clock: deps.Clock, IDs: deps.IDs, Ports: deps.Ports, Launcher: launcher, Accounts: acc,
 		Identity: identity{s: m.society}, Output: output{s: m.society}, Summaries: summaries.New(m.db),
-		Usage: usage{s: m.society}, Config: cfg, States: m.society,
+		Usage: usage{s: m.society}, Config: cfg, States: m.society, Runs: runs{s: m.society},
 		Wall: wall, Log: m.log,
 	})
 	if parts.sockets != nil {

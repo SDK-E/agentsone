@@ -4,9 +4,12 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/core"
 )
 
 // maxStateReason is the contract's limit on state_reason.
@@ -26,9 +29,9 @@ func (s *Society) RunnerFailed(ctx context.Context, agent, reason string) error 
 		return err
 	}
 	reason = cleanReason(reason)
-	s.mu.Lock()
+	s.runMu.Lock()
 	s.failed[agent] = reason
-	s.mu.Unlock()
+	s.runMu.Unlock()
 	if a = s.withRunState(a); a.State == domain.StateFailed {
 		s.hub.Publish(agent, StreamOutput, Frame{State: &StateFrame{Agent: agent, State: a.State, Time: s.clock.Now(), Reason: reason}})
 	}
@@ -39,10 +42,10 @@ func (s *Society) RunnerFailed(ctx context.Context, agent, reason string) error 
 // finished its handshake. A failure shown on the agent is cleared and an
 // awake state frame without a reason goes out.
 func (s *Society) RunnerRunning(_ context.Context, agent string) error {
-	s.mu.Lock()
+	s.runMu.Lock()
 	_, was := s.failed[agent]
 	delete(s.failed, agent)
-	s.mu.Unlock()
+	s.runMu.Unlock()
 	if was {
 		s.hub.Publish(agent, StreamOutput, Frame{State: &StateFrame{Agent: agent, State: domain.StateAwake, Time: s.clock.Now()}})
 	}
@@ -58,24 +61,67 @@ func (s *Society) RunnerCleared(ctx context.Context, agent string) error {
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
+	s.runMu.Lock()
 	_, was := s.failed[agent]
 	delete(s.failed, agent)
-	s.mu.Unlock()
+	s.runMu.Unlock()
 	if was {
 		s.hub.Publish(agent, StreamOutput, Frame{State: &StateFrame{Agent: agent, State: s.withRunState(a).State, Time: s.clock.Now()}})
 	}
 	return nil
 }
 
-// withRunState shows a runner failure on a. Frozen and retired say more,
-// so they win.
+// SetRunState takes the runner supervisor's word on what agent's runner
+// does now: waking, awake (connected and idle), working, or sleeping (no
+// runner). The record shows it until the next word; it is kept in memory
+// only, since the runner is, and a restart starts it again. The state
+// frame goes out when what the agent shows changes. state is one of those
+// four; any other is core.ErrInvalid.
+func (s *Society) SetRunState(ctx context.Context, agent string, state domain.State) error {
+	switch state {
+	case domain.StateSleeping, domain.StateWaking, domain.StateAwake, domain.StateWorking:
+	default:
+		return fmt.Errorf("run state %q of %s: %w", state, agent, core.ErrInvalid)
+	}
+	a, err := s.repo.GetAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("run state of %s: %w", agent, err)
+	}
+	before := s.withRunState(a)
+	s.runMu.Lock()
+	if state == domain.StateSleeping {
+		delete(s.live, agent)
+	} else {
+		s.live[agent] = state
+	}
+	s.runMu.Unlock()
+	if after := s.withRunState(a); after.State != before.State {
+		s.hub.Publish(agent, StreamOutput, Frame{State: &StateFrame{Agent: agent, State: after.State, Time: s.clock.Now(), Reason: after.StateReason}})
+	}
+	return nil
+}
+
+// TurnEnded records that a turn of agent ended at at, as the agent's last
+// turn. It is stored with the agent, so it survives a restart.
+func (s *Society) TurnEnded(ctx context.Context, agent string, at time.Time) error {
+	if err := s.repo.RecordTurn(ctx, agent, at.UTC()); err != nil {
+		return fmt.Errorf("record the end of a turn of %s: %w", agent, err)
+	}
+	return nil
+}
+
+// withRunState shows a runner failure on a, or else what its runner does.
+// Frozen and retired say more, so they win; so does a stored state other
+// than sleeping.
 func (s *Society) withRunState(a domain.Agent) domain.Agent {
-	s.mu.Lock()
-	reason, ok := s.failed[a.Name]
-	s.mu.Unlock()
-	if ok && a.Active() && a.State != domain.StateFrozen {
+	s.runMu.Lock()
+	defer s.runMu.Unlock()
+	if reason, ok := s.failed[a.Name]; ok && a.Active() && a.State != domain.StateFrozen {
 		a.State, a.StateReason = domain.StateFailed, reason
+		return a
+	}
+	if st, ok := s.live[a.Name]; ok && a.State == domain.StateSleeping {
+		a.State = st
 	}
 	return a
 }

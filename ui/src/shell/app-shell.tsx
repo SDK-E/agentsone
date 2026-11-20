@@ -37,7 +37,7 @@ function StaleLine({
   const { t } = useTranslation();
   return (
     <div className="stale-slot">
-      <div role="status" aria-live="polite">
+      <div role="status" aria-live="polite" aria-label={t("status.connection")}>
         {stale && (
           <div className="stale">
             <p>{t("status.stale")}</p>

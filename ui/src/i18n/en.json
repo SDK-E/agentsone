@@ -15,6 +15,7 @@
     "loadFailed": "This could not load. The machine may still be starting.",
     "retry": "Try again",
     "stale": "Can't reach the machine. Retrying…",
+    "connection": "Connection to the machine",
     "detail": "The machine said: {{detail}}",
     "unreachableTitle": "Agents One is not answering"
   },

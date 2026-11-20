@@ -22,11 +22,11 @@ const ActionBudgetResume = "agent.budget.resume"
 // resumeWakeTimeout is how long a resume wake waits for the runner's answer.
 const resumeWakeTimeout = 30 * time.Second
 
-// A resume wake the runner did not take is tried again after resumeRetryMin,
-// then after twice as long each time, up to resumeRetryMax.
+// A resume wake the runner did not take is tried again after resumeRetryFirst,
+// then after twice as long each time, up to resumeRetryCap.
 const (
-	resumeRetryMin = time.Minute
-	resumeRetryMax = 10 * time.Minute
+	resumeRetryFirst = time.Minute
+	resumeRetryCap = 10 * time.Minute
 )
 
 // resumeBudget resumes every agent that paused a turn for budget and may
@@ -138,9 +138,9 @@ func (s *Supervisor) retryResumeLater(agent, turn string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.resumed, agent)
-	delay := resumeRetryMin
+	delay := resumeRetryFirst
 	if prev, ok := s.resumeRetry[agent]; ok && prev.turn == turn {
-		delay = min(prev.delay*2, resumeRetryMax)
+		delay = min(prev.delay*2, resumeRetryCap)
 	}
 	s.resumeRetry[agent] = resumeBackoff{turn: turn, delay: delay, notBefore: s.d.Clock.Now().Add(delay)}
 }

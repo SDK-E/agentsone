@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+#
+# gateway.toml for the e2e scenario: the edge's model gateway knows one provider, the e2e fake
+# provider on the outer network. The e2e writes this file into the edge data volume as the edge
+# user, as a human edits it on the host; it then switches the provider on and sets its key only
+# through the edge admin socket, as the control page does. Prices are US dollars per million
+# tokens, chosen so a fake answer (1000 input and 50 output tokens) costs exactly 1100
+# micro-dollars.
+
+[[provider]]
+id = "e2e-fake"
+enabled = false
+openai_base_url = "http://fakeprovider:8080/v1"
+key_required = true
+
+[[provider.model]]
+id = "fake-quick"
+tier = "quick"
+family = "e2e"
+input_usd_per_mtok = "1.00"
+output_usd_per_mtok = "2.00"
+
+[[provider.model]]
+id = "fake-normal"
+tier = "normal"
+family = "e2e"
+input_usd_per_mtok = "1.00"
+output_usd_per_mtok = "2.00"
+
+[[provider.model]]
+id = "fake-deep"
+tier = "deep"
+family = "e2e"
+input_usd_per_mtok = "1.00"
+output_usd_per_mtok = "2.00"

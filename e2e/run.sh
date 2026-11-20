@@ -7,26 +7,39 @@
 #   e2e/run.sh up          start the stack (only the services whose code is built)
 #   e2e/run.sh <stage>     run one stage
 #   e2e/run.sh all         run every stage in order
-#   e2e/run.sh list        list the stages
+#   e2e/run.sh list        list the stages and what they cover of the plan's Verification list
 #   e2e/run.sh down        stop the stack and delete its volumes
 #
-# Each check prints PASS, FAIL or SKIP with its reason. A stage whose feature is not on main
-# yet is SKIP, never PASS. The script exits 1 when any check fails.
+# Each check prints PASS, FAIL or SKIP with its reason. A stage that is not a real check yet is
+# SKIP with the reason, never PASS. The script exits 1 when any check fails.
 #
-# The stack comes from compose.yaml in the repository root (or COMPOSE_FILE). Images default to
-# the release tag pinned in compose.yaml; set AGENTSONE_IMAGE_TAG to test another build, for
-# example `main` (newest tested build of main) or `sha-<commit>` (CI does that).
+# The stack comes from compose.yaml in the repository root (or COMPOSE_FILE), with
+# e2e/compose.e2e.yaml on top: the fake model provider the scenario's model calls end at, built
+# from e2e/fakeprovider and never part of a deployment. Images default to the release tag pinned
+# in compose.yaml; set AGENTSONE_IMAGE_TAG to test another build, for example `main` (newest
+# tested build of main) or `sha-<commit>` (CI does that).
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 2
 
+# Every docker compose call below, and in the shells this script starts, sees the e2e overlay.
+case ":${COMPOSE_FILE:=compose.yaml}:" in
+  *:e2e/compose.e2e.yaml:*) ;;
+  *) COMPOSE_FILE="${COMPOSE_FILE}:e2e/compose.e2e.yaml" ;;
+esac
+export COMPOSE_FILE
+
+# Some settings are read only by the stage files this script sources, hence the SC2034 notes.
+# shellcheck disable=SC2034 # read by the stage files
 EDGE_IP="${AGENTSONE_EDGE_IP:-10.77.42.2}"
+# shellcheck disable=SC2034 # read by the stage files
 EDGE_OUTER_IP="${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}"
 # Services `up` left out on purpose, one per line: "<service> <reason>".
 SKIPPED="${AGENTSONE_E2E_STATE:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/agentsone-e2e-skipped}"
 # What one run's stages hand on (the first human's sign-in, the session cookie). `up` empties it.
 WORK="${AGENTSONE_E2E_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/agentsone-e2e}"
 # The first human the setup page creates.
+# shellcheck disable=SC2034 # read by the stage files
 HUMAN="ada"
 # The edge admin socket, as the control container mounts it.
 ADMIN_DIR=/run/agentsone-edge-admin
@@ -126,19 +139,22 @@ as_control() {
     -sS -m 10 --unix-socket "${ADMIN_DIR}/admin.sock" "$@" "http://edge${path}"
 }
 
-# signed_token: a gateway token signed inside the machine with its gateway key, as the daemon
-# signs them (format ao1.<claims>.<HMAC-SHA256>). Root in the machine can always do this: the
-# token identity is soft, and every hard wall in the edge holds whatever the token says.
+# signed_token [defence]: a gateway token signed inside the machine with its gateway key, as the
+# daemon signs them (format ao1.<claims>.<HMAC-SHA256>). With `defence` the token may spend the
+# defence slice, as the daemon's tokens for wakers may. Root in the machine can always do this:
+# the token identity is soft, and every hard wall in the edge holds whatever the token says.
 signed_token() {
+  local defence=false
+  [ "${1:-}" = defence ] && defence=true
   # shellcheck disable=SC2016 # the script runs in the machine; it expands there.
   in_machine sh -c '
     set -e
     b64() { base64 -w0 | tr "+/" "-_" | tr -d "="; }
     now=$(date +%s)
-    claims=$(printf "{\"agent\":\"system:e2e\",\"kind\":\"system\",\"chart\":\"\",\"defence\":false,\"aud\":\"gateway\",\"iat\":%s,\"exp\":%s}" "$now" "$((now + 300))" | b64)
+    claims=$(printf "{\"agent\":\"system:e2e\",\"kind\":\"system\",\"chart\":\"\",\"defence\":%s,\"aud\":\"gateway\",\"iat\":%s,\"exp\":%s}" "$1" "$now" "$((now + 300))" | b64)
     key=$(od -An -v -tx1 /run/agentsone/gateway-key/key | tr -d " \n")
     mac=$(printf "ao1.%s" "$claims" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$key" -binary | b64)
-    printf "ao1.%s.%s" "$claims" "$mac"'
+    printf "ao1.%s.%s" "$claims" "$mac"' sh "$defence"
 }
 
 # needs <stage> <service...>: true when every service runs; otherwise SKIP (left out on purpose)
@@ -157,11 +173,6 @@ needs() {
       return 1
     fi
   done
-}
-
-# not_on_main <stage> <work package> <what>: a scenario stage whose feature has not landed.
-not_on_main() {
-  skip "$1" "$3 is not on main yet (work package $2); the scenario is written when it lands"
 }
 
 image_of() { compose config --format json | jq -r --arg s "$1" '.services[$s].image'; }
@@ -201,340 +212,184 @@ cmd_up() {
   start edge 15 || return 1
   start machine 14 || return 1
   start control 17 || return 1
+  # The fake model provider is test code in this repository: it is always built, never left out.
+  echo "building fakeprovider"
+  compose build --quiet fakeprovider || return 1
+  start fakeprovider e2e || return 1
   sed 's/^/left out: /' "$SKIPPED"
 }
 
 cmd_down() { compose down -v --remove-orphans; }
 
-# --- network wall: real checks ------------------------------------------------------------
+# --- stages ------------------------------------------------------------------------------------
+#
+# Each stage is one file, e2e/stages/<NNN>-<name>.sh, and the stages run in the order of their
+# numbers. This script sources every file in e2e/lib/ (helpers several stages share), then every
+# stage file. Sourcing a file only defines things; it runs nothing. A stage file holds:
+#
+#   stage <name> "<what it checks>"   once: <name> is the file's name after the number
+#   stage_<name>() { ... }            the checks, with the dashes in <name> as underscores
+#   pending <name> "<why>"            instead of the checks, while the stage is not a real check
+#
+# A helper only one stage uses lives in that stage's file, named after the stage. The e2e job in
+# .github/workflows/images.yml runs each stage as its own step. `e2e/run.sh list` checks all of
+# this, and fails when any of it breaks.
 
-stage_wall_route() {
-  needs wall-route machine || return 0
-  expect fail "machine has no IPv4 default route" \
-    in_machine sh -c "awk 'NR > 1 && \$2 == \"00000000\" { found = 1 } END { exit !found }' /proc/net/route"
-  expect fail "machine has no IPv6 default route" \
-    in_machine sh -c "[ -r /proc/net/ipv6_route ] && awk '\$1 == \"00000000000000000000000000000000\" && \$2 == \"00\" && \$10 != \"lo\" { found = 1 } END { exit !found }' /proc/net/ipv6_route"
-  expect_out "machine has one network interface besides loopback" '^1$' \
-    in_machine sh -c 'ls /sys/class/net | grep -vx lo | wc -l | tr -d " "'
-  expect ok "machine has no published ports" sh -c "[ -z \"\$(docker port \"\$(docker compose ps -q machine)\")\" ]"
+STAGES=()   # "<name>|<what it checks>", in run order
+PENDING=()  # "<name>|<why it is not a real check yet>"
+PROBLEMS=() # what is wrong with the stage files, for `list`
+STAGE_FILE=""
+
+# file_stage <file>: the stage name in a stage file's name.
+file_stage() {
+  local base="${1##*/}"
+  base="${base%.sh}"
+  printf '%s' "${base#*-}"
 }
 
-stage_wall_direct() {
-  needs wall-direct machine || return 0
-  expect fail "machine cannot reach http://1.1.1.1 by address" in_machine curl -sS -m 5 http://1.1.1.1
-  expect fail "machine cannot reach https://1.1.1.1 by address" in_machine curl -sS -m 5 https://1.1.1.1
-  expect fail "machine cannot reach a public DNS server (1.1.1.1:53)" in_machine curl -sS -m 5 telnet://1.1.1.1:53
-  expect fail "machine cannot reach the edge web door on the inner address" \
-    in_machine curl -sS -m 5 -o /dev/null "http://${EDGE_IP}:8080/"
-  expect fail "machine cannot reach the edge outer address" \
-    in_machine curl -sS -m 5 -o /dev/null "http://${EDGE_OUTER_IP}:8080/"
-  expect fail "machine cannot resolve the control service" in_machine getent hosts control
+# stage <name> <what it checks>: register the stage of the file being loaded.
+stage() {
+  [ "$1" = "$(file_stage "$STAGE_FILE")" ] ||
+    PROBLEMS+=("$STAGE_FILE registers stage $1, but its file name says $(file_stage "$STAGE_FILE")")
+  STAGES+=("$1|$2")
 }
 
-stage_wall_blocked() {
-  needs wall-blocked machine || return 0
-  expect fail "blocked name example.com does not resolve" in_machine getent hosts example.com
-  expect fail "blocked: curl https://example.com" in_machine curl -sS -m 10 -o /dev/null https://example.com
-  needs wall-blocked edge || return 0
-  expect fail "blocked: forged SNI example.com to the edge :443" \
-    in_machine curl -sS -m 10 -o /dev/null --resolve "example.com:443:${EDGE_IP}" https://example.com
-  expect_out "blocked: Host example.com to the edge :80 is refused (403)" '^403$' \
-    in_machine curl -sS -m 10 -o /dev/null -w '%{http_code}' -H 'Host: example.com' "http://${EDGE_IP}/"
+# pending <name> <why>: the stage is not a real check yet; running it is SKIP with this reason.
+pending() {
+  [ "$1" = "$(file_stage "$STAGE_FILE")" ] ||
+    PROBLEMS+=("$STAGE_FILE marks stage $1 pending, but its file name says $(file_stage "$STAGE_FILE")")
+  PENDING+=("$1|$2")
 }
 
-stage_wall_allowed() {
-  needs wall-allowed machine edge || return 0
-  expect_out "allowed name deb.debian.org resolves to the edge" "^${EDGE_IP//./\\.} " \
-    in_machine getent ahostsv4 deb.debian.org
-  expect_out "allowed: https://github.com through the edge (TLS by name)" '^[23][0-9][0-9]$' \
-    in_machine curl -sS -m 30 -o /dev/null -w '%{http_code}' https://github.com
-  expect_out "allowed: http://deb.debian.org through the edge (HTTP by Host)" '^[23][0-9][0-9]$' \
-    in_machine curl -sS -m 30 -o /dev/null -w '%{http_code}' http://deb.debian.org/debian/
-}
+for STAGE_FILE in e2e/lib/*.sh; do
+  # shellcheck source=/dev/null
+  . "$STAGE_FILE"
+done
+for STAGE_FILE in e2e/stages/*.sh; do
+  registered=${#STAGES[@]}
+  # shellcheck source=/dev/null
+  . "$STAGE_FILE"
+  [ "${#STAGES[@]}" -eq $((registered + 1)) ] || PROBLEMS+=("$STAGE_FILE must register exactly one stage")
+done
 
-stage_wall_outer() {
-  needs wall-outer edge || return 0
-  local machine_ip
-  machine_ip="$(docker inspect -f "{{(index .NetworkSettings.Networks \"$(compose config --format json | jq -r '.networks.inner.name')\").IPAddress}}" "$(compose ps -q machine)" 2>/dev/null)"
-  expect fail "outer network cannot reach the edge inner address" \
-    from_outer -sS -m 5 -o /dev/null "telnet://${EDGE_IP}:53"
-  expect fail "outer network cannot reach the edge DNS on its outer address" \
-    from_outer -sS -m 5 -o /dev/null "telnet://${EDGE_OUTER_IP}:53"
-  expect fail "outer network cannot reach the model gateway" \
-    from_outer -sS -m 5 -o /dev/null "http://${EDGE_OUTER_IP}:4000/"
-  if [ -n "$machine_ip" ]; then
-    expect fail "outer network cannot reach the machine (${machine_ip}:7700)" \
-      from_outer -sS -m 5 -o /dev/null "http://${machine_ip}:7700/"
-  else
-    fail "outer network cannot reach the machine: machine address not found"
-  fi
-}
-
-# --- model gateway: the machine reaches it on the inner address, with a token only ----------
-
-stage_gateway() {
-  needs gateway machine edge || return 0
-  local base="http://${EDGE_IP}:4000"
-  expect_out "machine reaches the model gateway; no token is refused (401)" '^401$' \
-    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' "${base}/v1/models"
-  expect_out "a forged token is refused (401)" '^401$' \
-    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Bearer forged' \
-    -H 'Content-Type: application/json' -d '{"model":"autoagents/one"}' "${base}/v1/chat/completions"
-  expect_out "the gateway serves no admin route to the machine (404)" '^404$' \
-    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' "${base}/v1/gateway/budget"
-  expect_out "the machine cannot change the budget through the gateway (404 or 405)" '^40[45]$' \
-    in_machine curl -sS -m 5 -o /dev/null -w '%{http_code}' -X PATCH -d '{}' "${base}/v1/budget"
-}
-
-# --- audit sink: only the daemon may send machine records -------------------------------------
-
-stage_audit_sink() {
-  needs audit-sink machine edge || return 0
-  local key=/run/agentsone/gateway-key/key sink="http://${EDGE_IP}:7710/v1/audit/records"
-  # An agent user's id (agents hold 200000 to 299999). Checks only whether the key is readable;
-  # nothing here prints it.
-  local as_agent=(setpriv --reuid=299999 --regid=299999 --clear-groups)
-  expect ok "the gateway key is mounted in the machine" in_machine test -f "$key"
-  expect ok "a command can run as an agent's user" in_machine "${as_agent[@]}" true
-  expect fail "an agent's user cannot read the gateway key" in_machine "${as_agent[@]}" test -r "$key"
-  expect_out "a record with no token is refused (401)" '^401$' \
-    in_machine "${as_agent[@]}" curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST \
-    -H 'Content-Type: application/json' -d '{"records":[{}]}' "$sink"
-  expect_out "a record with a forged token is refused (401)" '^401$' \
-    in_machine "${as_agent[@]}" curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST \
-    -H 'Authorization: Bearer forged' -H 'Content-Type: application/json' -d '{"records":[{}]}' "$sink"
-}
-
-# --- rescue: a restart keeps the container layer, a recreate resets it to the image ----------
-
-stage_rescue() {
-  needs rescue machine || return 0
-  local mark="agentsone-e2e-rescue-$$"
-  expect ok "write a marker in /home (a volume) and in /opt (the container layer)" \
-    in_machine sh -c "echo $mark > /home/.$mark && echo $mark > /opt/$mark"
-  expect ok "restart the machine, as after a crash" \
-    sh -c 'docker compose restart machine && docker compose up -d --no-deps --wait --wait-timeout 300 machine'
-  expect ok "after a restart both markers are still there" \
-    in_machine sh -c "[ -f /home/.$mark ] && [ -f /opt/$mark ]"
-  expect ok "rescue: recreate the machine" \
-    compose up -d --no-deps --force-recreate --wait --wait-timeout 300 machine
-  expect ok "after the rescue the /home marker is kept" in_machine test -f "/home/.$mark"
-  expect fail "after the rescue the /opt marker is gone" in_machine test -e "/opt/$mark"
-  in_machine rm -f "/home/.$mark"
-}
-
-# --- web door: humans reach the machine through the edge, and a header is never an identity --
-
-stage_web_door() {
-  needs web-door machine edge || return 0
-  door || return 0
-  expect_http "the web door on this host reaches the machine's daemon" '200' '"contract_version"' \
-    curl -sS -m 10 "${DOOR}/v1/setup"
-  expect_http "the web door serves the interface" '200' '^<!doctype html>' curl -sS -m 10 "${DOOR}/"
-  expect_http "identity headers sent to the web door sign nobody in" '401' 'problem:unauthenticated' \
-    curl -sS -m 10 -H 'Remote-User: ada' -H 'X-Forwarded-User: ada' -H 'X-Auth-Request-User: ada' \
-    "${DOOR}/v1/session/me"
-  expect_http "a page on another site cannot post through the web door" '403' 'cross-origin request refused' \
-    curl -sS -m 10 -X POST -H 'Origin: https://evil.example' -H 'Content-Type: application/json' \
-    -d '{"name":"ada","password":"not-the-password"}' "${DOOR}/v1/session"
-  expect_http "a forged X-Forwarded-Host does not make another site same-origin" '403' 'cross-origin request refused' \
-    curl -sS -m 10 -X POST -H 'Origin: https://evil.example' -H 'X-Forwarded-Host: evil.example' \
-    -H 'Content-Type: application/json' -d '{"name":"ada","password":"not-the-password"}' "${DOOR}/v1/session"
-}
-
-# --- setup page and login: the first human, only through the web door ----------------------
-
-stage_setup_page() {
-  needs setup-page machine edge || return 0
-  door || return 0
-  local password
-  password="$(openssl rand -hex 16)" || { fail "setup-page: make a password"; return 0; }
-  (
-    umask 077
-    jq -nc --arg n "$HUMAN" --arg p "$password" '{name: $n, display_name: "Ada (e2e)", password: $p}' >"$WORK/first-human.json"
-    jq -nc --arg n "$HUMAN" --arg p "$password" '{name: $n, password: $p}' >"$WORK/login.json"
-    jq -nc --arg n "$HUMAN" '{name: $n, display_name: "Ada (e2e)", password: "short"}' >"$WORK/weak.json"
-  )
-  local agent_try='{"name":"mallory","display_name":"Mallory","password":"agents-are-not-humans"}'
-  expect_http "before setup the machine asks for its first human" '200' '"phase":"needs-human"' \
-    curl -sS -m 10 "${DOOR}/v1/setup"
-  expect_http "the machine cannot create the first human on its loopback address" '403' 'Open the web door to finish setup' \
-    in_machine curl -sS -m 10 -X POST -H 'Content-Type: application/json' -d "$agent_try" \
-    http://127.0.0.1:7700/v1/setup/first-human
-  expect_http "the machine cannot create the first human on the daemon socket" '403' 'Open the web door to finish setup' \
-    in_machine curl -sS -m 10 --unix-socket /run/agentsone/api.sock -X POST -H 'Content-Type: application/json' \
-    -d "$agent_try" http://agentsoned/v1/setup/first-human
-  expect_http "the setup page refuses a password under 12 characters" '400' 'password must be 12 to 256 characters' \
-    from_browser POST /v1/setup/first-human -d @"$WORK/weak.json"
-  expect_http "the setup page creates the first human through the web door" '201' "\"name\":\"${HUMAN}\"" \
-    from_browser POST /v1/setup/first-human -d @"$WORK/first-human.json"
-  expect_http "setup now says the first human exists" '200' '"first_human_created":true' \
-    curl -sS -m 10 "${DOOR}/v1/setup"
-  expect_http "a second first human is refused" '409' 'problem:conflict' \
-    from_browser POST /v1/setup/first-human -d @"$WORK/first-human.json"
-}
-
-stage_login() {
-  needs login machine edge || return 0
-  door || return 0
-  if [ ! -s "$WORK/login.json" ]; then
-    fail "login: no first human; run the setup-page stage first"
-    return 0
-  fi
-  jq -c '.password = "wrong-password-for-e2e"' "$WORK/login.json" >"$WORK/wrong.json"
-  rm -f "$WORK/cookies"
-  expect_http "a wrong password is refused" '401' '' from_browser POST /v1/session -d @"$WORK/wrong.json"
-  expect_http "the first human signs in through the web door" '201' "\"name\":\"${HUMAN}\"" \
-    from_browser POST /v1/session -d @"$WORK/login.json" -D "$WORK/login.headers"
-  expect_out "the session cookie is HttpOnly and SameSite=Strict" 'HttpOnly' \
-    grep -i '^set-cookie: agentsone_session=.*samesite=strict' "$WORK/login.headers"
-  expect_http "the session names the human" '200' "\"name\":\"${HUMAN}\"" from_browser GET /v1/session/me
-  expect_http "without the cookie nobody is signed in" '401' 'problem:unauthenticated' \
-    curl -sS -m 10 "${DOOR}/v1/session/me"
-  local session
-  session="$(awk '$6 == "agentsone_session" { print $7 }' "$WORK/cookies" 2>/dev/null)"
-  expect_http "signing out ends the session" '204' '' from_browser DELETE /v1/session
-  expect_http "after signing out the old cookie no longer works" '401' '' \
-    curl -sS -m 10 -b "agentsone_session=${session:-none}" "${DOOR}/v1/session/me"
-}
-
-# --- scenario stages ----------------------------------------------------------------------
-
-stage_small_seed() { not_on_main small-seed 18 "the Small Seed plugin"; }
-stage_hire() { not_on_main hire 1 "hiring agents"; }
-stage_bus() { not_on_main bus 3 "the bus"; }
-stage_router() { not_on_main router 4 "the live list and router"; }
-stage_echo_chat() { not_on_main echo-chat 9 "chat with the echo runner"; }
-stage_event_to_task() { not_on_main event-to-task 3 "events and triggers"; }
-stage_memory() { not_on_main memory 5 "memory"; }
-stage_plugin_install() { not_on_main plugin-install 6 "plugin install"; }
-stage_agentctl_parity() { not_on_main agentctl-parity 8 "agentctl against the running machine"; }
-stage_budget_wall() { not_on_main budget-wall 16 "the budget wall and defence slice"; }
-# --- freeze all: a hard wall in the edge, switched only through the admin socket --------------
-
-# model_call <token> [curl args...]: one chat completion from the machine to the gateway, as a
-# runner sends it.
-model_call() {
-  local token="$1"
-  shift
-  in_machine curl -sS -m 10 -X POST -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
-    -d '{"model":"autoagents/one","messages":[{"role":"user","content":"e2e"}]}' "$@" \
-    "http://${EDGE_IP}:4000/v1/chat/completions"
-}
-
-stage_freeze_all() {
-  needs freeze-all machine edge || return 0
-  local token
-  if ! token="$(signed_token)" || [ -z "$token" ]; then
-    fail "freeze-all: sign a gateway token in the machine" "$token"
-    return 0
-  fi
-  expect_http "freeze all is off at the start" '200' '"frozen":false' as_control /v1/freeze
-  # No provider is set up here, so an unfrozen call ends at routing (503), past the freeze gate.
-  expect_http "before the freeze a signed model call passes the freeze gate" '(200|402|502|503)' '' model_call "$token"
-  expect_http "a human freezes all through the admin socket" '200' '"frozen":true' as_control /v1/freeze -X POST
-  expect_http "frozen: a model call is refused" '423' 'urn:agentsone:problem:frozen' model_call "$token"
-  expect fail "frozen: the machine cannot reach an allowed site (https://github.com)" \
-    in_machine curl -sS -m 10 -o /dev/null https://github.com
-  expect ok "restart the edge" \
-    sh -c 'docker compose restart edge && docker compose up -d --no-deps --wait --wait-timeout 300 edge'
-  expect_http "after an edge restart freeze all is still on" '200' '"frozen":true' as_control /v1/freeze
-  expect_http "after an edge restart a model call is still refused" '423' 'urn:agentsone:problem:frozen' model_call "$token"
-  expect fail "after an edge restart the machine still cannot reach https://github.com" \
-    in_machine curl -sS -m 10 -o /dev/null https://github.com
-  expect_http "a human releases the freeze" '200' '"frozen":false' as_control /v1/freeze -X DELETE
-  expect_http "released: a model call passes the freeze gate again" '(200|402|502|503)' '' model_call "$token"
-  expect_out "released: the machine reaches https://github.com again" '^[23][0-9][0-9]$' \
-    in_machine curl -sS -m 30 -o /dev/null -w '%{http_code}' https://github.com
-  expect_http "the edge proof log records the freeze and the release" '200' '"freeze\.on".*"freeze\.off"' \
-    as_control '/v1/audit/proof?limit=1000'
-}
-
-# --- control page: the human-only page on its own port, set up with the code from its log ----
-
-# control_page <method> <path> [curl args...]: a request to the control page as a browser on its
-# own origin sends it, with this run's control cookie jar.
-control_page() {
-  local method="$1" path="$2"
-  shift 2
-  curl -sS -m 10 -X "$method" -H "Origin: ${CONTROL}" -b "$WORK/control-cookies" -c "$WORK/control-cookies" \
-    "$@" "${CONTROL}${path}"
-}
-
-# control_csrf <path>: the form token on a control page.
-control_csrf() {
-  control_page GET "$1" | grep -o 'name="csrf" value="[^"]*"' | head -n 1 | cut -d '"' -f 4
-}
-
-stage_control() {
-  needs control control edge || return 0
-  local hostport code csrf passphrase
-  hostport="$(compose port control 8081 2>/dev/null | head -n 1)"
-  if [ -z "$hostport" ]; then
-    fail "control: the control page has no published port"
-    return 0
-  fi
-  CONTROL="http://${hostport}"
-  rm -f "$WORK/control-cookies"
-  passphrase="$(openssl rand -hex 16)" || { fail "control: make a passphrase"; return 0; }
-  expect_http "the control page answers on its own port and asks for setup" '200' 'name="code"' \
-    control_page GET /setup
-  csrf="$(control_csrf /setup)"
-  # Read after the first visit: if the edge was still starting, that visit prints the code.
-  code="$(compose logs --no-color control 2>/dev/null | grep -Eo 'setup_code[=":]+[A-Za-z0-9-]+' | tail -n 1 |
-    sed -E 's/^setup_code[=":]+//')"
-  expect_http "a wrong setup code is refused" '400' 'This is not the setup code' \
-    control_page POST /setup --data-urlencode "csrf=${csrf}" --data-urlencode 'code=not-the-code' \
-    --data-urlencode "passphrase=${passphrase}" --data-urlencode "confirm=${passphrase}"
-  if [ -z "$code" ]; then
-    fail "control: the setup code is in the control log" "$(compose logs --no-color control 2>&1 | tail -n 5)"
-    return 0
-  fi
-  expect_http "the setup code from the control log sets the passphrase and signs in" '303' '' \
-    control_page POST /setup --data-urlencode "csrf=${csrf}" --data-urlencode "code=${code}" \
-    --data-urlencode "passphrase=${passphrase}" --data-urlencode "confirm=${passphrase}"
-  expect_http "signed in, the control page shows freeze all" '200' 'action="/freeze"' control_page GET /
-  csrf="$(control_csrf /)"
-  expect_http "a form from another site is refused" '403' 'This form has expired' \
-    curl -sS -m 10 -X POST -H 'Origin: https://evil.example' -b "$WORK/control-cookies" \
-    --data-urlencode "csrf=${csrf}" "${CONTROL}/freeze"
-  expect_http "a form without this session's token is refused" '403' 'This form has expired' \
-    control_page POST /freeze --data-urlencode 'csrf=not-the-token'
-  expect_http "freeze all from the control page" '303' '' control_page POST /freeze --data-urlencode "csrf=${csrf}"
-  expect_http "the edge is frozen" '200' '"frozen":true' as_control /v1/freeze
-  expect_http "release from the control page" '303' '' control_page POST /release --data-urlencode "csrf=${csrf}"
-  expect_http "the edge is released" '200' '"frozen":false' as_control /v1/freeze
-  expect_http "sign out of the control page" '303' '' control_page POST /sign-out --data-urlencode "csrf=${csrf}"
-  csrf="$(control_csrf /sign-in)"
-  expect_http "a wrong passphrase is refused" '401' '' \
-    control_page POST /sign-in --data-urlencode "csrf=${csrf}" --data-urlencode 'passphrase=wrong-passphrase-e2e'
-  expect_http "the passphrase signs in again" '303' '' \
-    control_page POST /sign-in --data-urlencode "csrf=${csrf}" --data-urlencode "passphrase=${passphrase}"
-  expect_http "signed in again, the control page shows freeze all" '200' 'action="/freeze"' control_page GET /
-}
-
-STAGES=(
-  wall-route wall-direct wall-blocked wall-allowed wall-outer gateway audit-sink rescue web-door
-  setup-page login small-seed hire bus router echo-chat event-to-task memory
-  plugin-install agentctl-parity budget-wall freeze-all control
+# The plan's Verification list, item by item, "<item>|<what covers it>": the stages that check
+# it, "ci" for CI jobs that are not stages, or "manual" for what CI cannot check (see
+# docs/e2e-coverage.md). An item is covered when each of its stages is a real check.
+VERIFICATION=(
+  "images for amd64 and arm64 on ghcr, the stack started on an Ubuntu runner|ci"
+  "setup page|setup-page"
+  "login|login"
+  "Small Seed|small-seed"
+  "founder hires|hire"
+  "bus message|bus"
+  "live list and router pick|router"
+  "echo chat|echo-chat"
+  "event to task|event-to-task"
+  "memory|memory"
+  "plugin install|plugin-install"
+  "agentctl parity|agentctl-parity"
+  "allow list blocks and passes|wall-blocked wall-allowed"
+  "budget wall and defence slice|budget-wall defence-slice"
+  "freeze all and release|freeze-all"
+  "the Mac walk-through|manual"
+  "the Coolify deploy|manual"
+  "the real-model run|manual"
 )
 
+# pending_reason <stage>: print why the stage is not a real check yet; false for a real one.
+pending_reason() {
+  local p
+  for p in ${PENDING[@]+"${PENDING[@]}"}; do
+    if [ "${p%%|*}" = "$1" ]; then
+      printf '%s' "${p#*|}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# is_stage <stage>: the stage is registered.
+is_stage() {
+  local s
+  for s in ${STAGES[@]+"${STAGES[@]}"}; do [ "${s%%|*}" = "$1" ] && return 0; done
+  return 1
+}
+
 run_stage() {
-  local fn="stage_${1//-/_}"
-  if ! declare -F "$fn" >/dev/null; then
+  local fn="stage_${1//-/_}" why
+  if ! is_stage "$1"; then
     echo "unknown stage: $1 (see: e2e/run.sh list)" >&2
     exit 2
   fi
   echo "== $1"
-  "$fn"
+  if why="$(pending_reason "$1")"; then
+    skip "$1" "not yet covered: $why"
+  else
+    "$fn"
+  fi
+}
+
+# cmd_list: each stage with what it checks and whether it is a real check, then each item of the
+# plan's Verification list with what covers it. It fails on a broken stage file, a stage that is
+# neither a function nor pending or is both, a stage the e2e job does not run, a function defined
+# twice, or an item that names no stage.
+cmd_list() {
+  local s name what why item covers stage pending total n dup
+  for s in ${PROBLEMS[@]+"${PROBLEMS[@]}"}; do fail "list: $s"; done
+  for dup in $(grep -hoE '^[A-Za-z_][A-Za-z0-9_]*\(\)' e2e/run.sh e2e/lib/*.sh e2e/stages/*.sh | sort | uniq -d); do
+    fail "list: the function ${dup%()} is defined more than once in e2e/"
+  done
+  for dup in $(for s in ${STAGES[@]+"${STAGES[@]}"}; do printf '%s\n' "${s%%|*}"; done | sort | uniq -d); do
+    fail "list: the stage $dup is registered more than once"
+  done
+  echo "Stages, in run order:"
+  for s in ${STAGES[@]+"${STAGES[@]}"}; do
+    name="${s%%|*}" what="${s#*|}"
+    if why="$(pending_reason "$name")"; then
+      printf '  %-16s not yet  %s\n  %-16s          why: %s\n' "$name" "$what" "" "$why"
+      declare -F "stage_${name//-/_}" >/dev/null && fail "list: $name is pending and has a stage_${name//-/_} function"
+    elif declare -F "stage_${name//-/_}" >/dev/null; then
+      printf '  %-16s real     %s\n' "$name" "$what"
+    else
+      fail "list: $name has no stage_${name//-/_} function and is not pending"
+    fi
+    grep -Eq "^ +run: e2e/run\\.sh ${name}\$" .github/workflows/images.yml ||
+      fail "list: the e2e job in .github/workflows/images.yml does not run $name"
+  done
+  echo
+  echo "The plan's Verification list:"
+  for item in "${VERIFICATION[@]}"; do
+    covers="${item#*|}" item="${item%%|*}"
+    case "$covers" in
+      ci) printf '  covered      %s (CI jobs in .github/workflows/images.yml)\n' "$item" ;;
+      manual) printf '  manual       %s (not covered by CI: manual; docs/e2e-coverage.md)\n' "$item" ;;
+      *)
+        pending="" total=0 n=0
+        for stage in $covers; do
+          total=$((total + 1))
+          is_stage "$stage" || fail "list: \"$item\" names $stage, which is not a stage"
+          if pending_reason "$stage" >/dev/null; then
+            n=$((n + 1)) pending="${pending:+$pending }$stage"
+          fi
+        done
+        if [ "$n" -eq 0 ]; then
+          printf '  covered      %s (%s)\n' "$item" "$covers"
+        elif [ "$n" -eq "$total" ]; then
+          printf '  not yet      %s (%s)\n' "$item" "$covers"
+        else
+          printf '  not yet      %s (%s; not yet: %s)\n' "$item" "$covers" "$pending"
+        fi
+        ;;
+    esac
+  done
 }
 
 case "${1:-}" in
   up) cmd_up || exit 1 ;;
   down) cmd_down ;;
-  list) printf '%s\n' "${STAGES[@]}" ;;
-  all) for s in "${STAGES[@]}"; do run_stage "$s"; done ;;
-  '' | -h | --help) sed -n '4,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  list) cmd_list ;;
+  all) for s in ${STAGES[@]+"${STAGES[@]}"}; do run_stage "${s%%|*}"; done ;;
+  '' | -h | --help) sed -n '4,20p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) for s in "$@"; do run_stage "$s"; done ;;
 esac
 

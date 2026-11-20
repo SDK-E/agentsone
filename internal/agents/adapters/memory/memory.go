@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
 )
@@ -27,7 +28,24 @@ type Repository struct {
 	usage   map[string]int64
 	chat    []domain.ChatMessage
 	freezes map[string]struct{}
+	seeded  bool
 	fail    error
+}
+
+// SeedApplied reports whether the seed was recorded.
+func (r *Repository) SeedApplied(context.Context) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.seeded, nil
+}
+
+// MarkSeedApplied records the seed; it keeps the first record.
+func (r *Repository) MarkSeedApplied(context.Context, time.Time) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	first := !r.seeded
+	r.seeded = true
+	return first, nil
 }
 
 // Freezes returns the active freeze scopes, sorted.

@@ -23,6 +23,40 @@ func RunRepositoryContract(t *testing.T, newRepo func(t *testing.T) domain.Repos
 	t.Run("budget", func(t *testing.T) { t.Parallel(); runBudgetContract(t, newRepo) })
 	t.Run("chat", func(t *testing.T) { t.Parallel(); runChatContract(t, newRepo) })
 	t.Run("freezes", func(t *testing.T) { t.Parallel(); runFreezeContract(t, newRepo) })
+	t.Run("seed record", func(t *testing.T) { t.Parallel(); runSeedRecordContract(t, newRepo) })
+}
+
+func runSeedRecordContract(t *testing.T, newRepo func(t *testing.T) domain.Repository) {
+	applied := func(t *testing.T, repo domain.Repository) bool {
+		t.Helper()
+		got, err := repo.SeedApplied(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	t.Run("has no seed applied at first", func(t *testing.T) {
+		t.Parallel()
+		if applied(t, newRepo(t)) {
+			t.Fatal("SeedApplied() = true on a new repository")
+		}
+	})
+	t.Run("records the seed once", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		at := time.Date(2026, 11, 20, 3, 0, 0, 0, time.UTC)
+		first, err := repo.MarkSeedApplied(t.Context(), at)
+		if err != nil || !first {
+			t.Fatalf("first MarkSeedApplied() = %v, %v, want true", first, err)
+		}
+		again, err := repo.MarkSeedApplied(t.Context(), at.Add(time.Hour))
+		if err != nil || again {
+			t.Fatalf("second MarkSeedApplied() = %v, %v, want false", again, err)
+		}
+		if !applied(t, repo) {
+			t.Fatal("SeedApplied() = false after MarkSeedApplied")
+		}
+	})
 }
 
 func runFreezeContract(t *testing.T, newRepo func(t *testing.T) domain.Repository) {

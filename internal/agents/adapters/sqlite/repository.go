@@ -512,6 +512,30 @@ func (r *Repository) AddFreeze(ctx context.Context, scope string) error {
 	return nil
 }
 
+// Seed record.
+
+// SeedApplied reports whether the seed was recorded.
+func (r *Repository) SeedApplied(ctx context.Context) (bool, error) {
+	var n int
+	if err := r.db.SQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM seed`).Scan(&n); err != nil {
+		return false, fmt.Errorf("read seed record: %w", err)
+	}
+	return n > 0, nil
+}
+
+// MarkSeedApplied records the seed; it keeps the first record.
+func (r *Repository) MarkSeedApplied(ctx context.Context, at time.Time) (bool, error) {
+	res, err := r.db.SQL().ExecContext(ctx, `INSERT INTO seed (id, applied_at) VALUES (1, ?) ON CONFLICT (id) DO NOTHING`, formatTime(at))
+	if err != nil {
+		return false, fmt.Errorf("record seed: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("record seed: %w", err)
+	}
+	return n == 1, nil
+}
+
 // RemoveFreeze removes scope; it is a no-op for an inactive scope.
 func (r *Repository) RemoveFreeze(ctx context.Context, scope string) error {
 	if _, err := r.db.SQL().ExecContext(ctx, `DELETE FROM freezes WHERE scope = ?`, scope); err != nil {

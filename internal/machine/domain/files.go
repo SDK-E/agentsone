@@ -49,6 +49,9 @@ type FileEntry struct {
 	Owner    string
 	Group    string
 	Modified time.Time
+	// LinkTarget is where a symlink points, as stored in the link; empty
+	// for other types.
+	LinkTarget string
 }
 
 // Area is where a file operation may act: an allowed base folder and the

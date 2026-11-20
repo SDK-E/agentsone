@@ -129,6 +129,16 @@ test("home, a refresh that fails keeps the page and says so without moving it", 
   // One row on every width, with the button beside the text.
   const row = await page.locator(".stale").boundingBox();
   expect(row?.height).toBeLessThan(40);
+  // At the top of the page the line covers nothing: it ends above the first card.
+  const firstTop = await page.evaluate(() => {
+    const tops = [...document.querySelectorAll("main > *")]
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.height > 1 && r.width > 1)
+      .map((r) => r.top);
+    return Math.min(...tops);
+  });
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect((row?.y ?? 0) + (row?.height ?? 0)).toBeLessThanOrEqual(firstTop);
   // The line came and the page did not move.
   expect((await heading.boundingBox())?.y).toBe(before?.y);
 

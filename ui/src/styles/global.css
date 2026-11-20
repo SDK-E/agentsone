@@ -309,11 +309,12 @@ ul.notice {
   background: var(--color-surface);
 }
 
-/* The line that says the machine cannot be reached. It lies over the top of the page, out of its
-   flow, so the page does not move when it comes or goes. */
+/* The line that says the machine cannot be reached. It has its own place: the strip that was the
+   top padding of the page. The line fills the strip and the page lost the padding, so the page
+   does not move when the line comes or goes, and the line never covers content. */
 .stale-slot {
   position: relative;
-  block-size: 0;
+  block-size: var(--space-lg);
   z-index: 10;
 }
 
@@ -321,11 +322,14 @@ ul.notice {
   position: absolute;
   inset-inline: 0;
   inset-block-start: 0;
+  box-sizing: border-box;
+  block-size: calc(var(--space-lg) - 4px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-xs) var(--space-lg);
+  padding: 0 var(--space-lg);
+  line-height: 1.2;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-sunken);
   color: var(--color-text);
@@ -344,7 +348,8 @@ ul.notice {
   flex: none;
   min-height: 0;
   min-width: 0;
-  padding: 1px var(--space-sm);
+  padding: 0 var(--space-sm);
+  line-height: 1.2;
   font-size: inherit;
   white-space: nowrap;
 }
@@ -426,7 +431,8 @@ ul.notice {
   gap: var(--space-lg);
   max-width: 90rem;
   margin: 0 auto;
-  padding: var(--space-lg);
+  /* The strip above is the stale line's place (see .stale-slot). */
+  padding: 0 var(--space-lg) var(--space-lg);
 }
 
 .page:focus {
@@ -1623,7 +1629,7 @@ body:has(.sheet[open]) {
   }
 
   .page {
-    padding: var(--space-md);
+    padding: 0 var(--space-md) var(--space-md);
     gap: var(--space-md);
   }
 

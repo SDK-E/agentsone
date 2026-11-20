@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,7 +50,7 @@ func fakeProvider(t *testing.T, status int, contentType, answer string) (*httpte
 }
 
 func client(cfgs ...providers.Config) *providers.Client {
-	return providers.New(http.DefaultClient, cfgs)
+	return providers.New(http.DefaultClient, cfgs, nil)
 }
 
 func readAll(t *testing.T, resp *gatewayapp.UpstreamResponse) string {
@@ -306,6 +307,101 @@ func TestCallRefusals(t *testing.T) {
 				t.Fatalf("error = %v, want %v", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestFieldsTheModelRefusesAreDroppedForThatModelOnly(t *testing.T) {
+	srv, got := fakeProvider(t, 200, "application/json", `{"choices":[]}`)
+	var logs strings.Builder
+	c := providers.New(http.DefaultClient, []providers.Config{{
+		ID: "anthropic", OpenAIBaseURL: srv.URL + "/v1", AnthropicBaseURL: srv.URL + "/v1",
+		DropParams: map[string][]string{"claude-quick": {"temperature", "top_p", "top_k"}},
+	}}, slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	ctx := context.Background()
+	body := []byte(`{"model":"autoagents/one","messages":[],"temperature":0,"top_p":0.5,"seed":7}`)
+
+	for _, api := range []routing.API{routing.APIOpenAI, routing.APIAnthropic} {
+		resp, err := c.Call(ctx, gatewayapp.UpstreamCall{Provider: "anthropic", API: api, Model: "claude-quick", Body: body, MaxOutputTokens: 600})
+		if err != nil {
+			t.Fatalf("%s Call: %v", api, err)
+		}
+		readAll(t, resp)
+		for _, field := range []string{"temperature", "top_p"} {
+			if _, has := got.body[field]; has {
+				t.Errorf("%s: %s forwarded to a model that refuses it: %v", api, field, got.body)
+			}
+		}
+		if got.body["seed"] != float64(7) || got.body["max_tokens"] != float64(600) {
+			t.Errorf("%s: other fields changed: %v", api, got.body)
+		}
+	}
+	// A model without the list gets the fields.
+	resp, err := c.Call(ctx, gatewayapp.UpstreamCall{Provider: "anthropic", API: routing.APIOpenAI, Model: "other", Body: body})
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	readAll(t, resp)
+	if got.body["temperature"] != float64(0) || got.body["top_p"] != 0.5 {
+		t.Errorf("fields dropped for a model that takes them: %v", got.body)
+	}
+	if n := strings.Count(logs.String(), `msg="dropped a request field the model refuses"`); n != 4 {
+		t.Errorf("drop lines = %d, want 4 (two fields, two calls):\n%s", n, logs.String())
+	}
+	if strings.Contains(logs.String(), "0.5") {
+		t.Errorf("a dropped field's value is logged:\n%s", logs.String())
+	}
+}
+
+func TestARefusalKeepsItsBodyAndGivesTheProvidersMessage(t *testing.T) {
+	tests := []struct{ name, answer, want string }{
+		{"openai shape", `{"error":{"message":"Unsupported value: 'temperature'","type":"invalid_request_error"}}`, "Unsupported value: 'temperature'"},
+		{"anthropic shape", `{"type":"error","error":{"type":"invalid_request_error","message":"temperature: bad"}}`, "temperature: bad"},
+		{"problem", `{"type":"urn:x","detail":"no such model"}`, "no such model"},
+		{"plain text", "upstream\n  exploded   badly", "upstream exploded badly"},
+		{"key echoed", `{"error":{"message":"Incorrect API key provided: test-key"}}`, "Incorrect API key provided: [provider key]"},
+		{"long", `{"error":{"message":"` + strings.Repeat("x", 400) + `"}}`, strings.Repeat("x", 300) + "…"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, _ := fakeProvider(t, http.StatusBadRequest, "application/json", tc.answer)
+			var logs strings.Builder
+			c := providers.New(http.DefaultClient, []providers.Config{{ID: "p", OpenAIBaseURL: srv.URL}},
+				slog.New(slog.NewTextHandler(&logs, nil)))
+			resp, err := c.Call(context.Background(), gatewayapp.UpstreamCall{
+				Provider: "p", API: routing.APIOpenAI, Model: "m", Key: "test-key", Body: []byte(`{}`),
+			})
+			if err != nil {
+				t.Fatalf("Call: %v", err)
+			}
+			if body := readAll(t, resp); body != tc.answer {
+				t.Errorf("body = %q, want the provider's answer unchanged", body)
+			}
+			if resp.Refusal != tc.want {
+				t.Errorf("Refusal = %q, want %q", resp.Refusal, tc.want)
+			}
+			line := logs.String()
+			if strings.Count(line, "\n") != 1 || !strings.Contains(line, `level=WARN msg="provider refused the call" status=400 provider=p model=m`) {
+				t.Errorf("log = %q, want one warn line", line)
+			}
+			if strings.Contains(line, "test-key") {
+				t.Errorf("the provider key is logged: %q", line)
+			}
+		})
+	}
+}
+
+func TestAnAnswerIsNotARefusal(t *testing.T) {
+	srv, _ := fakeProvider(t, http.StatusOK, "application/json", `{"error":{"message":"not an error"}}`)
+	var logs strings.Builder
+	c := providers.New(http.DefaultClient, []providers.Config{{ID: "p", OpenAIBaseURL: srv.URL}},
+		slog.New(slog.NewTextHandler(&logs, nil)))
+	resp, err := c.Call(context.Background(), gatewayapp.UpstreamCall{Provider: "p", API: routing.APIOpenAI, Model: "m", Body: []byte(`{}`)})
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	readAll(t, resp)
+	if resp.Refusal != "" || logs.Len() != 0 {
+		t.Errorf("a 200 answer was treated as a refusal: %q %q", resp.Refusal, logs.String())
 	}
 }
 

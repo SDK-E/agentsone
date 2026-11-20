@@ -4,9 +4,10 @@
 // real model under the budget, and report the caller's budget.
 //
 // A call goes through these steps for each ranked model until one answers:
-// check the provider's breaker, reserve the estimated cost (a refusal moves on
-// to the next, maybe cheaper, model), fetch the provider key, and call the
-// provider. Errors, timeouts, 401, 403, 429 and 5xx answers count as provider
+// fetch the provider key (a provider that needs a key and has none is skipped,
+// costing no reservation and no attempt), reserve the estimated cost (a
+// refusal moves on to the next, maybe cheaper, model), check the provider's
+// breaker, and call the provider. Errors, timeouts, 401, 403, 429 and 5xx answers count as provider
 // failures: the reservation is released, the breaker is told, and the next
 // model is tried. Any other answer goes back to the caller. Its cost is settled
 // when the caller closes the body: the real usage when the provider reported
@@ -42,11 +43,17 @@ type UpstreamError struct {
 	// Status is the last HTTP status seen, or 0 when the last try did not get
 	// an answer.
 	Status int
-	Err    error
+	// Message is the last provider's own error message, cut short and without
+	// its key; empty when it gave none.
+	Message string
+	Err     error
 }
 
 func (e *UpstreamError) Error() string {
-	if e.Status != 0 {
+	switch {
+	case e.Status != 0 && e.Message != "":
+		return fmt.Sprintf("gateway: every provider failed, last status %d: %s", e.Status, e.Message)
+	case e.Status != 0:
 		return fmt.Sprintf("gateway: every provider failed, last status %d", e.Status)
 	}
 	return fmt.Sprintf("gateway: every provider failed: %v", e.Err)
@@ -113,6 +120,10 @@ type UpstreamResponse struct {
 	// Usage reports the tokens used, once Body has been read to the end. The
 	// second result is false when the provider did not report usage.
 	Usage func() (routing.Usage, bool)
+	// Refusal is the provider's own error message when Status is 400 or more,
+	// cut short and without the provider key. Body still holds the whole
+	// answer.
+	Refusal string
 }
 
 // Upstream sends calls to providers.
@@ -208,7 +219,8 @@ type Spend struct {
 // Call routes one model call.
 func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error) {
 	now := r.d.Clock.Now()
-	ranked := routing.Rank(r.d.Catalog.Catalog(), routing.Request{Engine: req.Engine, Weight: req.Weight},
+	catalog := r.d.Catalog.Catalog()
+	ranked := routing.Rank(catalog, routing.Request{Engine: req.Engine, Weight: req.Weight},
 		func(p routing.ProviderID) bool { return r.d.Breaker.Healthy(p, now) })
 	if len(ranked) == 0 {
 		return nil, ErrNoRoute
@@ -220,23 +232,27 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 	maxOut = min(maxOut, r.d.Limits.MaxOutputTokensCap)
 
 	var budgetErr, lastErr error
-	lastStatus, attempts := 0, 0
+	lastStatus, lastMessage, attempts := 0, "", 0
 	for _, m := range ranked {
 		if attempts >= r.d.Limits.MaxAttempts {
 			break
+		}
+		// The key comes first: a provider that needs a key and has none is
+		// skipped before it costs a reservation, an attempt or a half-open
+		// provider's only probe.
+		key, err := r.d.Keys.Get(ctx, m.Provider)
+		if errors.Is(err, ErrKeyNotFound) {
+			if p, _ := catalog.Provider(m.Provider); p.KeyRequired {
+				continue
+			}
+		} else if err != nil {
+			lastErr = err
+			continue
 		}
 		estimate := routing.Estimate(m, int64(len(req.Body)), maxOut)
 		id, err := r.d.Budget.Reserve(req.Caller, estimate)
 		if err != nil {
 			budgetErr = err
-			continue
-		}
-		// The key comes before the breaker, so a key store error cannot use up
-		// a half-open provider's only probe.
-		key, err := r.d.Keys.Get(ctx, m.Provider)
-		if err != nil && !errors.Is(err, ErrKeyNotFound) {
-			r.release(id)
-			lastErr = err
 			continue
 		}
 		if !r.d.Breaker.Allow(m.Provider, r.d.Clock.Now()) {
@@ -265,7 +281,7 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 		if err != nil {
 			r.release(id)
 			r.d.Breaker.Failure(m.Provider, r.d.Clock.Now())
-			lastErr, lastStatus = err, 0
+			lastErr, lastStatus, lastMessage = err, 0, ""
 			continue
 		}
 		if providerFailed(resp.Status) {
@@ -273,6 +289,7 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 			r.release(id)
 			r.d.Breaker.Failure(m.Provider, r.d.Clock.Now())
 			lastErr, lastStatus = fmt.Errorf("provider %s answered %d", m.Provider, resp.Status), resp.Status
+			lastMessage = resp.Refusal
 			continue
 		}
 		r.d.Breaker.Success(m.Provider)
@@ -291,7 +308,7 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 	if attempts == 0 && lastErr == nil {
 		return nil, ErrNoRoute
 	}
-	return nil, &UpstreamError{Status: lastStatus, Err: lastErr}
+	return nil, &UpstreamError{Status: lastStatus, Message: lastMessage, Err: lastErr}
 }
 
 // providerFailed reports answers that mean the provider, not the caller, has a
@@ -357,7 +374,7 @@ func (r *Router) CountTokens(ctx context.Context, req CountRequest) (*CallResult
 		return nil, ErrNoRoute
 	}
 	var lastErr error
-	lastStatus := 0
+	lastStatus, lastMessage := 0, ""
 	for i, m := range ranked {
 		if i >= r.d.Limits.MaxAttempts {
 			break
@@ -375,17 +392,18 @@ func (r *Router) CountTokens(ctx context.Context, req CountRequest) (*CallResult
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			lastErr, lastStatus = err, 0
+			lastErr, lastStatus, lastMessage = err, 0, ""
 			continue
 		}
 		if providerFailed(resp.Status) {
 			_ = resp.Body.Close() //nolint:errcheck // the failed answer is dropped unread; the next provider is tried
 			lastErr, lastStatus = fmt.Errorf("provider %s answered %d", m.Provider, resp.Status), resp.Status
+			lastMessage = resp.Refusal
 			continue
 		}
 		return &CallResult{Model: m, Status: resp.Status, Header: resp.Header, Body: resp.Body}, nil
 	}
-	return nil, &UpstreamError{Status: lastStatus, Err: lastErr}
+	return nil, &UpstreamError{Status: lastStatus, Message: lastMessage, Err: lastErr}
 }
 
 // BudgetView is what a caller may know about its budget.

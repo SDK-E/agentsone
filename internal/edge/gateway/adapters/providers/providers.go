@@ -4,9 +4,11 @@
 // two wire protocols: the OpenAI chat completions API (OpenAI, OpenRouter,
 // Gemini's OpenAI-compatible endpoint, Mistral, Groq, Anthropic's
 // OpenAI-compatible endpoint, local servers such as Ollama) and the Anthropic
-// Messages API. It rewrites the caller's body for the chosen model, sends it
-// with the provider key, and passes the answer back byte for byte while it
-// reads the token usage out of it, streamed or not.
+// Messages API. It rewrites the caller's body for the chosen model (dropping
+// the fields the model refuses, as gateway.toml lists them), sends it with the
+// provider key, and passes the answer back byte for byte while it reads the
+// token usage out of it, streamed or not. A refused call is logged with the
+// provider's own message.
 package providers
 
 import (
@@ -15,6 +17,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -49,6 +53,9 @@ type Config struct {
 	// MaxTokensField is the output limit field for the OpenAI API:
 	// "max_tokens" (the default) or "max_completion_tokens".
 	MaxTokensField string
+	// DropParams are, by model id, the request fields the model refuses. They
+	// are removed from the caller's body before it is sent.
+	DropParams map[string][]string
 	// KeyRequired refuses calls when no key is stored.
 	KeyRequired bool
 }
@@ -56,6 +63,7 @@ type Config struct {
 // Client implements gatewayapp.Upstream.
 type Client struct {
 	http *http.Client
+	log  *slog.Logger
 
 	mu   sync.RWMutex
 	cfgs map[routing.ProviderID]Config
@@ -63,9 +71,13 @@ type Client struct {
 
 var _ gatewayapp.Upstream = (*Client)(nil)
 
-// New builds a client for these providers.
-func New(hc *http.Client, cfgs []Config) *Client {
-	c := &Client{http: hc}
+// New builds a client for these providers. It logs every refused call at warn
+// and every dropped request field at debug; nil log discards both.
+func New(hc *http.Client, cfgs []Config, log *slog.Logger) *Client {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
+	c := &Client{http: hc, log: log}
 	c.SetConfigs(cfgs)
 	return c
 }
@@ -120,9 +132,13 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 	if url == "" {
 		return nil, fmt.Errorf("%w: %s has no %s API", ErrAPINotOffered, call.Provider, call.API)
 	}
-	body, err := rewrite(call, cfg)
+	body, dropped, err := rewrite(call, cfg)
 	if err != nil {
 		return nil, err
+	}
+	for _, field := range dropped {
+		c.log.Debug("dropped a request field the model refuses",
+			"provider", call.Provider, "model", call.Model, "field", field)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildURL(url, call.API, call.Op), bytes.NewReader(body))
@@ -149,19 +165,89 @@ func (c *Client) Call(ctx context.Context, call gatewayapp.UpstreamCall) (*gatew
 	}
 
 	// The body is handed to the caller inside the tap, which closes it.
-	resp, err := c.http.Do(req) //nolint:bodyclose // closed by the caller through the returned Body
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("providers: call %s: %w", call.Provider, err)
+	}
+	var refusal string
+	if resp.StatusCode >= http.StatusBadRequest {
+		resp.Body, refusal = c.refused(resp, call)
 	}
 	// Count answers carry no usage; errors neither.
 	tapOn := resp.StatusCode < 300 && call.Op == gatewayapp.OpGenerate
 	t := newTap(resp.Body, isEventStream(resp.Header.Get("Content-Type")), tapOn)
 	return &gatewayapp.UpstreamResponse{
-		Status: resp.StatusCode,
-		Header: resp.Header,
-		Body:   t,
-		Usage:  t.Usage,
+		Status:  resp.StatusCode,
+		Header:  resp.Header,
+		Body:    t,
+		Usage:   t.Usage,
+		Refusal: refusal,
 	}, nil
+}
+
+// refusalPeek is how much of a refused answer is read for its message.
+const refusalPeek = 16 << 10
+
+// maxRefusal is the most of a provider's error message the gateway logs or
+// passes on, in runes.
+const maxRefusal = 300
+
+// refused reads the provider's message out of a refused answer and logs one
+// warn line. It returns a body that still holds the whole answer, for the
+// caller.
+func (c *Client) refused(resp *http.Response, call gatewayapp.UpstreamCall) (io.ReadCloser, string) {
+	head, err := io.ReadAll(io.LimitReader(resp.Body, refusalPeek))
+	msg := refusalMessage(head, call.Key)
+	if err != nil && msg == "" {
+		msg = "the answer could not be read"
+	}
+	c.log.Warn("provider refused the call",
+		"status", resp.StatusCode, "provider", call.Provider, "model", call.Model, "message", msg)
+	return readCloser{Reader: io.MultiReader(bytes.NewReader(head), resp.Body), Closer: resp.Body}, msg
+}
+
+type readCloser struct {
+	io.Reader
+	io.Closer
+}
+
+// refusalMessage is the message of an error answer: error.message (OpenAI and
+// Anthropic), message, or detail (problem+json), else the raw text. It is put
+// on one line, cut to maxRefusal runes, and the provider key is taken out in
+// case the provider echoed it.
+func refusalMessage(raw []byte, key string) string {
+	var shaped struct {
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+		Detail  string          `json:"detail"`
+	}
+	msg := ""
+	if json.Unmarshal(raw, &shaped) == nil {
+		var inner struct {
+			Message string `json:"message"`
+		}
+		var plain string
+		switch {
+		case json.Unmarshal(shaped.Error, &inner) == nil && inner.Message != "":
+			msg = inner.Message
+		case json.Unmarshal(shaped.Error, &plain) == nil && plain != "":
+			msg = plain
+		case shaped.Message != "":
+			msg = shaped.Message
+		default:
+			msg = shaped.Detail
+		}
+	} else {
+		msg = string(raw)
+	}
+	if key != "" {
+		msg = strings.ReplaceAll(msg, key, "[provider key]")
+	}
+	msg = strings.Join(strings.Fields(msg), " ")
+	if r := []rune(msg); len(r) > maxRefusal {
+		msg = string(r[:maxRefusal]) + "…"
+	}
+	return msg
 }
 
 func buildURL(base string, api routing.API, op gatewayapp.Op) string {
@@ -180,13 +266,27 @@ func isEventStream(contentType string) bool {
 	return err == nil && mt == "text/event-stream"
 }
 
-// rewrite sets the real model, the output limit and, for streamed OpenAI
-// calls, the request for a final usage chunk. Other fields pass unchanged.
-func rewrite(call gatewayapp.UpstreamCall, cfg Config) ([]byte, error) {
+// rewrite drops the fields the model refuses and sets the real model, the
+// output limit and, for streamed OpenAI calls, the request for a final usage
+// chunk. Other fields pass unchanged. It returns the new body and the names of
+// the fields it dropped.
+func rewrite(call gatewayapp.UpstreamCall, cfg Config) ([]byte, []string, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(call.Body, &m); err != nil || m == nil {
-		return nil, ErrBadBody
+		return nil, nil, ErrBadBody
 	}
+	var dropped []string
+	for _, field := range cfg.DropParams[call.Model] {
+		if _, ok := m[field]; ok {
+			delete(m, field)
+			dropped = append(dropped, field)
+		}
+	}
+	body, err := setFields(m, call, cfg)
+	return body, dropped, err
+}
+
+func setFields(m map[string]json.RawMessage, call gatewayapp.UpstreamCall, cfg Config) ([]byte, error) {
 	m["model"] = mustJSON(call.Model)
 	if call.Op == gatewayapp.OpCountTokens {
 		// count_tokens takes the request without generation settings.

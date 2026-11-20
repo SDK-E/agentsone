@@ -9,7 +9,8 @@
 //   - Agents call one name, autoagents/one, with a weight hint: quick, normal
 //     or deep (default normal). The name suffix (autoagents/one:deep) wins over
 //     the X-Agentsone-Weight header.
-//   - Only enabled, healthy providers are used.
+//   - Only enabled, healthy providers are used, and a provider that needs a
+//     key only once its key is stored.
 //   - Engine constraint: the Anthropic Messages endpoint is routed only to
 //     Claude models on providers that speak the Messages API. The
 //     OpenAI-compatible endpoint may be routed to any provider that speaks the
@@ -100,6 +101,8 @@ type Provider struct {
 	ID      ProviderID
 	APIs    []API
 	Enabled bool
+	// KeyRequired means the provider is used only once its key is stored.
+	KeyRequired bool
 }
 
 // Supports reports whether the provider speaks api.

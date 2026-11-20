@@ -24,8 +24,11 @@ const (
 	model        = "autoagents/one"
 	weightHeader = "X-Agentsone-Weight"
 	quick        = "quick"
-	maxTokens    = 600
-	maxBody      = 1 << 20
+	// maxTokens leaves room for thinking: Claude 5 and GPT-5 models think by
+	// default, and the limit covers the thinking and the answer together. The
+	// rating itself is a few hundred tokens.
+	maxTokens = 4096
+	maxBody   = 1 << 20
 )
 
 // Client calls the gateway.
@@ -107,11 +110,42 @@ func (c *Client) once(ctx context.Context, token string, body []byte) (string, e
 	case res.StatusCode == http.StatusPaymentRequired:
 		return "", fmt.Errorf("gateway refused, budget used up: %w", core.ErrBudget)
 	case res.StatusCode >= http.StatusInternalServerError:
-		return "", retryable{fmt.Errorf("gateway answered %d", res.StatusCode)}
+		return "", retryable{answered(res.StatusCode, raw, token)}
 	case res.StatusCode != http.StatusOK:
-		return "", fmt.Errorf("gateway answered %d", res.StatusCode)
+		return "", answered(res.StatusCode, raw, token)
 	}
 	return firstChoice(raw)
+}
+
+// maxMessage is the most of a refusal's message the error carries, in runes.
+const maxMessage = 300
+
+// answered is the error for a refused call: the status and the message of the
+// answer, from the provider (error.message) or the gateway (detail), on one
+// line, cut short and without the router's token.
+func answered(status int, raw []byte, token string) error {
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+		Detail string `json:"detail"`
+	}
+	_ = json.Unmarshal(raw, &body) //nolint:errcheck // an answer that is not JSON has no message; the status still says what happened
+	msg := body.Error.Message
+	if msg == "" {
+		msg = body.Detail
+	}
+	if token != "" {
+		msg = strings.ReplaceAll(msg, token, "[token]")
+	}
+	msg = strings.Join(strings.Fields(msg), " ")
+	if r := []rune(msg); len(r) > maxMessage {
+		msg = string(r[:maxMessage]) + "…"
+	}
+	if msg == "" {
+		return fmt.Errorf("gateway answered %d", status)
+	}
+	return fmt.Errorf("gateway answered %d: %s", status, msg)
 }
 
 func firstChoice(raw []byte) (string, error) {

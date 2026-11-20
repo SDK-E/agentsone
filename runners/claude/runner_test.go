@@ -143,8 +143,7 @@ func (r *rig) subject() conformance.Subject {
 			opts := Options()
 			opts.Socket = socket
 			runner := New(Config{EnginePath: r.engine, StateDir: dir, GraceMs: 1000, Log: r.log})
-			defer func() { _ = runner.Close() }()
-			return sdk.Run(ctx, opts, runner)
+			return errors.Join(sdk.Run(ctx, opts, runner), runner.Close())
 		}),
 		Prompts: conformance.Prompts{
 			Plain:  "Hello",

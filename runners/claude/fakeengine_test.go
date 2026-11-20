@@ -244,7 +244,7 @@ func client() *http.Client {
 	}}}
 }
 
-func (f *fakeEngine) callModel(ctx context.Context, msgs []map[string]string) (int, string, error) {
+func (f *fakeEngine) callModel(ctx context.Context, msgs []map[string]string) (status int, text string, err error) {
 	body, _ := json.Marshal(map[string]any{"model": f.model, "stream": true, "max_tokens": 1024, "system": f.system, "messages": msgs})
 	// The engine calls whatever base URL the runner set: the token proxy.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, os.Getenv("ANTHROPIC_BASE_URL")+"/v1/messages?beta=true", strings.NewReader(string(body))) //nolint:gosec // G704: see above
@@ -259,7 +259,7 @@ func (f *fakeEngine) callModel(ctx context.Context, msgs []map[string]string) (i
 	if err != nil {
 		return 0, "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if resp.StatusCode != http.StatusOK {
 		return resp.StatusCode, "", nil
 	}
@@ -293,7 +293,7 @@ func (f *fakeEngine) callModel(ctx context.Context, msgs []map[string]string) (i
 }
 
 // callTool calls add(2, 3) on the machine server of the --mcp-config file.
-func (f *fakeEngine) callTool(ctx context.Context) (string, error) {
+func (f *fakeEngine) callTool(ctx context.Context) (result string, err error) {
 	raw, err := os.ReadFile(f.mcpCfg)
 	if err != nil {
 		return "", err
@@ -318,7 +318,7 @@ func (f *fakeEngine) callTool(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = session.Close() }()
+	defer func() { err = errors.Join(err, session.Close()) }()
 	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "add", Arguments: map[string]int{"a": 2, "b": 3}})
 	if err != nil {
 		return "", err

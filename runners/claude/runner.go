@@ -219,7 +219,7 @@ func (r *Runner) finish(ctx context.Context, t *sdk.Turn, task *sdk.Task, text s
 		r.mu.Unlock()
 		return err
 	case ctx.Err() != nil:
-		return nil
+		return nil //nolint:nilerr // a cancelled turn is a requested stop, not a failure
 	case err != nil:
 		return err
 	}

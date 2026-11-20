@@ -27,11 +27,11 @@ type FetchSpec struct {
 
 // Tree is a fetched, read-only plugin tree.
 type Tree struct {
-	FS      fs.FS  // rooted at the plugin root (Subdir already applied)
-	Dir     string // the same tree on disk
-	Rev     string // resolved git commit or npm version, if any
-	SHA256  string // sha256 of the downloaded archive or tarball, if any
-	Cleanup func() // removes the temporary copy; never nil
+	FS      fs.FS        // rooted at the plugin root (Subdir already applied)
+	Dir     string       // the same tree on disk
+	Rev     string       // resolved git commit or npm version, if any
+	SHA256  string       // sha256 of the downloaded archive or tarball, if any
+	Cleanup func() error // removes the temporary copy; never nil
 }
 
 // Fetcher reads a plugin source into a temporary tree. Implementations must

@@ -91,7 +91,7 @@ func New(deps core.Deps) *Module {
 	m.plugins = app.NewPlugins(app.PluginsDeps{
 		Repo: sqlite.NewPlugins(m.db), Fetcher: fetch.New(), Installer: fsinstall.New(pluginsDir, domain.DefaultInstallLimits),
 		Audit: ports, Clock: deps.Clock, IDs: deps.IDs, Themes: m.themes, Tokens: ports,
-		Sources: sources, LibDir: libDir, ContainerEngine: podman == nil,
+		Sources: sources, LibDir: libDir, ContainerEngine: podman == nil, Log: deps.Log,
 	})
 	return m
 }

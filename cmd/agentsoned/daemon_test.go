@@ -130,7 +130,11 @@ func TestOpenStoresCreatesTheFourDatabases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeAll()
+	t.Cleanup(func() {
+		if err := closeAll(); err != nil {
+			t.Errorf("close stores: %v", err)
+		}
+	})
 	for _, name := range []string{"core", "bus", "memory", "audit"} {
 		if _, err := os.Stat(filepath.Join(cfg.StateDir, name+".db")); err != nil {
 			t.Errorf("%s: %v", name, err)

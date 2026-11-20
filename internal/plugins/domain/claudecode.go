@@ -80,7 +80,9 @@ func NormalizeClaudePlugin(fsys fs.FS, entry ClaudeEntry, ref, sha256 string) (N
 		return Normalized{}, errorSentinelFn("claude plugin manifest: %v", err)
 	}
 	var all map[string]json.RawMessage
-	_ = json.Unmarshal(raw, &all)
+	if err := json.Unmarshal(raw, &all); err != nil {
+		return Normalized{}, errorSentinelFn("claude plugin manifest: %v", err)
+	}
 	fillFromEntry(&cm, entry)
 	if cm.Name == "" {
 		return Normalized{}, errorSentinelFn("plugin has no name")
@@ -210,21 +212,22 @@ func claudeSkills(fsys fs.FS, raw json.RawMessage, rep *Report) ([]Skill, error)
 	}
 	var skills []Skill
 	seen := map[string]bool{}
-	add := func(dir string) error {
+	// add keeps the skill in dir; a skill that cannot be read is reported
+	// as skipped, never dropped silently.
+	add := func(dir string) {
 		doc, err := readSkill(fsys, dir)
 		if err != nil {
 			rep.skip("skill in %q: %v", dir, err)
-			return nil
+			return
 		}
 		if path.Base(dir) != doc.Name {
 			rep.skip("skill %q: name must equal its directory name %q", doc.Name, path.Base(dir))
-			return nil
+			return
 		}
 		if !seen[doc.Name] {
 			seen[doc.Name] = true
 			skills = append(skills, Skill{Name: doc.Name, Path: "./" + dir, Description: doc.Description})
 		}
-		return nil
 	}
 	for _, p := range paths {
 		norm, err := NormalizePath(p)
@@ -233,7 +236,7 @@ func claudeSkills(fsys fs.FS, raw json.RawMessage, rep *Report) ([]Skill, error)
 		}
 		dir := strings.TrimPrefix(norm, "./")
 		if exists(fsys, path.Join(dir, "SKILL.md")) {
-			_ = add(dir)
+			add(dir)
 			continue
 		}
 		entries, err := fs.ReadDir(fsys, dir)
@@ -242,7 +245,7 @@ func claudeSkills(fsys fs.FS, raw json.RawMessage, rep *Report) ([]Skill, error)
 		}
 		for _, e := range entries {
 			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") && exists(fsys, path.Join(dir, e.Name(), "SKILL.md")) {
-				_ = add(path.Join(dir, e.Name()))
+				add(path.Join(dir, e.Name()))
 			}
 		}
 	}

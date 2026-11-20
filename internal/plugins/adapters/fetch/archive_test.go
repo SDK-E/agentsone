@@ -13,6 +13,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/plugins/adapters/fetch"
 	"github.com/SDK-E/agentsone/internal/plugins/domain"
 )
@@ -66,7 +67,7 @@ func TestFetch_URLZipIsExtractedAndASingleTopLevelFolderIsStripped(t *testing.T)
 	if err != nil || info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("exec bit lost: %v %v", info, err)
 	}
-	tree.Cleanup()
+	coretest.Check(t, tree.Cleanup)
 	assertNothingLeft(t, tmp)
 }
 
@@ -82,7 +83,7 @@ func TestFetch_URLTgzWithDotSlashNamesAndSeveralTopLevelEntriesKeepsTheLayout(t 
 	if err != nil {
 		t.Fatalf("Fetch() error = %v", err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "a.txt") != "a" || readTree(t, tree, "sub/b.txt") != "b" {
 		t.Error("layout not kept")
@@ -97,7 +98,7 @@ func TestFetch_URLSubdirIsThePluginRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "x.txt") != "1" {
 		t.Error("subdir not applied")
@@ -113,7 +114,7 @@ func TestFetch_URLChecksTheExpectedSHA256(t *testing.T) {
 	if err != nil {
 		t.Fatalf("matching digest: %v", err)
 	}
-	good.Cleanup()
+	coretest.Check(t, good.Cleanup)
 
 	_, tmp, err := fetchURL(t, body, domain.FetchSpec{SHA256: "00" + hex.EncodeToString(sum[:])[2:]})
 	if !errors.Is(err, domain.ErrIntegrity) {
@@ -236,7 +237,7 @@ func TestFetch_URLOverHTTPSWorksWithTheServersCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 	if readTree(t, tree, "a.txt") != "secure" {
 		t.Error("content wrong")
 	}

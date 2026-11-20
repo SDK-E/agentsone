@@ -215,3 +215,17 @@ func TestLock_LocksAndExpiresExistingUserOnly(t *testing.T) {
 		t.Errorf("commands (-want +got):\n%s", diff)
 	}
 }
+
+func TestLock_ReportsALookupFailureInsteadOfSkippingTheLock(t *testing.T) {
+	t.Parallel()
+	sys := newSystem()
+	a := sys.accounts(t.TempDir())
+	broken := errors.New("passwd database unreadable")
+	a.LookupUser = func(string) (*user.User, error) { return nil, broken }
+	if err := a.Lock(t.Context(), mira); !errors.Is(err, broken) {
+		t.Fatalf("Lock with a broken lookup: err=%v, want %v", err, broken)
+	}
+	if len(sys.cmds) != 0 {
+		t.Errorf("commands ran after a failed lookup: %v", sys.cmds)
+	}
+}

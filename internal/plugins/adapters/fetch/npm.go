@@ -106,7 +106,7 @@ func (f *Fetcher) packument(ctx context.Context, name string) (packument, error)
 		}
 		return packument{}, fmt.Errorf("npm registry: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // read-only body; ReadAll below reports read failures
 	if resp.StatusCode == http.StatusNotFound {
 		return packument{}, fmt.Errorf("npm package %s: %w", name, domain.ErrNothingToInstall)
 	}

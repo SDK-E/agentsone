@@ -125,7 +125,7 @@ func (r *Channels) Touch(ctx context.Context, name string, at time.Time) error {
 }
 
 func scanChannels(rows *sql.Rows) ([]domain.Channel, error) {
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Channel
 	for rows.Next() {
 		var (
@@ -260,7 +260,7 @@ func (r *Messages) Last(ctx context.Context) (uint64, error) {
 }
 
 func scanMessages(rows *sql.Rows) ([]domain.Message, error) {
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Message
 	for rows.Next() {
 		var (

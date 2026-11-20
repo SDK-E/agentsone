@@ -33,7 +33,7 @@ func run(ctx context.Context, args []string, stdio cli.IO) int {
 	cat, err := app.NewCatalog(api.Spec)
 	if err != nil {
 		// A contract that cannot be mapped is a build defect, caught by the parity test.
-		_, _ = fmt.Fprintf(stdio.Err, "error: the embedded API description cannot be used: %v\n", err)
+		_, _ = fmt.Fprintf(stdio.Err, "error: the embedded API description cannot be used: %v\n", err) //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return cli.ExitFailure
 	}
 	return cli.Run(ctx, cat, version, args, stdio)

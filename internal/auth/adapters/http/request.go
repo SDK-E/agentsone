@@ -47,8 +47,11 @@ func captureRequest[F ~func(context.Context, http.ResponseWriter, *http.Request,
 }
 
 func infoFrom(ctx context.Context) requestInfo {
-	info, _ := ctx.Value(infoKey{}).(requestInfo)
-	return info
+	if info, ok := ctx.Value(infoKey{}).(requestInfo); ok {
+		return info
+	}
+	return requestInfo{} // not behind the request wrapper: no client details
+
 }
 
 // sessionCookie builds the Set-Cookie value. HttpOnly and SameSite=Strict

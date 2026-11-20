@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path"
 	"regexp"
@@ -63,6 +64,8 @@ type PluginsDeps struct {
 	LibDir string
 	// ContainerEngine is true when podman is installed.
 	ContainerEngine bool
+	// Log reports failures that do not fail the call. Nil uses slog.Default.
+	Log *slog.Logger
 }
 
 // Plugins are the use cases of the plugins tag, and the RunnerRegistry.
@@ -71,7 +74,12 @@ type Plugins struct{ d PluginsDeps }
 var _ core.RunnerRegistry = (*Plugins)(nil)
 
 // NewPlugins returns the plugin manager.
-func NewPlugins(d PluginsDeps) *Plugins { return &Plugins{d: d} }
+func NewPlugins(d PluginsDeps) *Plugins {
+	if d.Log == nil {
+		d.Log = slog.Default()
+	}
+	return &Plugins{d: d}
+}
 
 // InstallInput is one install request.
 type InstallInput struct {
@@ -166,7 +174,13 @@ func (p *Plugins) Install(ctx context.Context, in InstallInput) (domain.Plugin, 
 	if err != nil {
 		return domain.Plugin{}, pluginError("install plugin", err)
 	}
-	defer tree.Cleanup()
+	defer func() {
+		// The install's outcome stands; a leftover copy only costs space
+		// in the temporary folder, so it is reported, not returned.
+		if err := tree.Cleanup(); err != nil {
+			p.d.Log.WarnContext(ctx, "fetched plugin copy not removed", "source", in.Source, "error", err)
+		}
+	}()
 
 	m := norm.Manifest
 	if _, err := p.findVersion(ctx, m.Name, m.Version); err == nil {
@@ -193,7 +207,9 @@ func (p *Plugins) Install(ctx context.Context, in InstallInput) (domain.Plugin, 
 		rec.Kinds = append(rec.Kinds, string(k))
 	}
 	if err := p.d.Repo.Insert(ctx, rec); err != nil {
-		_ = p.d.Installer.Remove(m.Name, m.Version)
+		if rmErr := p.d.Installer.Remove(m.Name, m.Version); rmErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove unrecorded files of %s %s: %w", m.Name, m.Version, rmErr))
+		}
 		return domain.Plugin{}, pluginError("install plugin", err)
 	}
 	if err := p.record(ctx, caller, "plugin.install", rec); err != nil {
@@ -202,7 +218,9 @@ func (p *Plugins) Install(ctx context.Context, in InstallInput) (domain.Plugin, 
 	if in.Enable {
 		enabled, err := p.Enable(ctx, rec.ID)
 		if err != nil {
-			_ = p.Uninstall(ctx, rec.ID)
+			if unErr := p.Uninstall(ctx, rec.ID); unErr != nil {
+				err = errors.Join(err, fmt.Errorf("roll back install of %s: %w", rec.Name, unErr))
+			}
 			return domain.Plugin{}, err
 		}
 		return enabled, nil
@@ -222,8 +240,11 @@ func (p *Plugins) Enable(ctx context.Context, id string) (domain.Plugin, error) 
 		return domain.Plugin{}, pluginError("enable plugin", err)
 	}
 	if sum != pl.SHA256 {
-		_ = p.d.Repo.SetEnabled(ctx, id, false, domain.HealthFailed)
-		return domain.Plugin{}, pluginError("enable plugin", fmt.Errorf("%s changed on disk since install: %w", pl.Name, domain.ErrIntegrity))
+		err := fmt.Errorf("%s changed on disk since install: %w", pl.Name, domain.ErrIntegrity)
+		if markErr := p.d.Repo.SetEnabled(ctx, id, false, domain.HealthFailed); markErr != nil {
+			err = errors.Join(err, fmt.Errorf("mark %s failed: %w", pl.Name, markErr))
+		}
+		return domain.Plugin{}, pluginError("enable plugin", err)
 	}
 	if !pl.Enabled {
 		if err := p.checkTemplates(ctx, pl); err != nil {
@@ -442,7 +463,7 @@ func sourceOf(e domain.RunnerEntry) string {
 func (p *Plugins) fetchAndNormalize(ctx context.Context, caller core.Caller, in InstallInput) (domain.Normalized, domain.Tree, error) {
 	if in.Source == string(domain.SourceMCPRegistry) {
 		n, err := p.normalizeRegistry(ctx, in)
-		return n, domain.Tree{Cleanup: func() {}}, err
+		return n, domain.Tree{Cleanup: func() error { return nil }}, err
 	}
 	spec := specFor(in)
 	if spec.Kind == domain.FetchLocal && caller.Kind != core.CallerHuman && caller.Kind != core.CallerSystem && caller.Kind != core.CallerHost {
@@ -454,8 +475,7 @@ func (p *Plugins) fetchAndNormalize(ctx context.Context, caller core.Caller, in 
 	}
 	n, err := normalize(tree, in)
 	if err != nil {
-		tree.Cleanup()
-		return domain.Normalized{}, domain.Tree{}, err
+		return domain.Normalized{}, domain.Tree{}, errors.Join(err, tree.Cleanup())
 	}
 	return n, tree, nil
 }
@@ -571,7 +591,10 @@ func (p *Plugins) record(ctx context.Context, caller core.Caller, action string,
 	if caller.Kind != "" && caller.Name != "" {
 		actor = string(caller.Kind) + ":" + caller.Name
 	}
-	detail, _ := json.Marshal(map[string]string{"name": pl.Name, "version": pl.Version, "source": pl.Source})
+	detail, err := json.Marshal(map[string]string{"name": pl.Name, "version": pl.Version, "source": pl.Source})
+	if err != nil {
+		return fmt.Errorf("%s: encode audit detail: %w", action, err)
+	}
 	if err := p.d.Audit.Append(ctx, core.AuditEntry{Actor: actor, Action: action, Target: pl.ID, Detail: detail}); err != nil {
 		return fmt.Errorf("%s: record audit: %w", action, err)
 	}

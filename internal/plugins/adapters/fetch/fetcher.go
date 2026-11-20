@@ -133,7 +133,12 @@ func (f *Fetcher) Fetch(ctx context.Context, spec domain.FetchSpec) (domain.Tree
 	if err != nil {
 		return domain.Tree{}, fmt.Errorf("create temporary folder: %w", err)
 	}
-	cleanup := func() { _ = os.RemoveAll(tmp) }
+	cleanup := func() error {
+		if err := os.RemoveAll(tmp); err != nil {
+			return fmt.Errorf("remove temporary folder: %w", err)
+		}
+		return nil
+	}
 	dest := filepath.Join(tmp, treeDir)
 
 	var res result
@@ -150,13 +155,11 @@ func (f *Fetcher) Fetch(ctx context.Context, spec domain.FetchSpec) (domain.Tree
 		err = fmt.Errorf("fetch kind %q: %w", spec.Kind, domain.ErrUnsupportedSource)
 	}
 	if err != nil {
-		cleanup()
-		return domain.Tree{}, err
+		return domain.Tree{}, errors.Join(err, cleanup())
 	}
 	root, err := resolveSubdir(res.root, spec.Subdir)
 	if err != nil {
-		cleanup()
-		return domain.Tree{}, err
+		return domain.Tree{}, errors.Join(err, cleanup())
 	}
 	return domain.Tree{FS: os.DirFS(root), Dir: root, Rev: res.rev, SHA256: res.sha256, Cleanup: cleanup}, nil
 }
@@ -250,7 +253,10 @@ func validateTree(root string, limits domain.InstallLimits) error {
 		if p == root {
 			return nil
 		}
-		rel, _ := filepath.Rel(root, p)
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
 		if err := b.entry(rel); err != nil {
 			return err
 		}

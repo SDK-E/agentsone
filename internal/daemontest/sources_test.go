@@ -36,6 +36,17 @@ func TestDiskSource_AFullDiskWakesTheWatchingAgent(t *testing.T) {
 	out.WaitText("echo: event agentsone.disk.usage.high")
 }
 
+func TestLoadSource_FullMemoryWakesTheWatchingAgent(t *testing.T) {
+	t.Parallel()
+	d := daemontest.Start(t)
+	out := watch(t, d, "agentsone.load.memory.high")
+
+	d.FillMemory()
+	d.MoveSources(10 * time.Second)
+
+	out.WaitText("echo: event agentsone.load.memory.high")
+}
+
 // watch hires the echo agent, has the founder wake it on events of type,
 // and returns the agent's output as a human sees it.
 func watch(t *testing.T, d *daemontest.Daemon, typ string) *daemontest.Stream {

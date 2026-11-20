@@ -23,3 +23,11 @@ addr = "0.0.0.0:7700"
 # margin_percent = 2       # it is "normal" again below threshold minus margin
 # interval = "1m"          # time between samples
 # mounts_file = "/proc/self/mounts"
+#
+# [emitters.load]
+# cpu_threshold_percent = 90     # CPU use at or above this is "high"
+# memory_threshold_percent = 90  # memory use at or above this is "high"
+# margin_percent = 5             # "normal" again below threshold minus margin
+# interval = "10s"               # time between samples
+# window = "1m"                  # a reading must stay high this long to be reported
+# proc_dir = "/proc"             # where stat and meminfo are read

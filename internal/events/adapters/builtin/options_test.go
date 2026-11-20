@@ -79,6 +79,65 @@ func TestLoadOptions_RejectsValuesThatCannotWork(t *testing.T) {
 	}
 }
 
+func TestLoadOptions_LoadTableDefaultsAndOverrides(t *testing.T) {
+	t.Parallel()
+	cfg := core.DefaultConfig()
+	got, err := builtin.LoadOptions(&cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := got.Load
+	if l.CPUThresholdPercent != 90 || l.MemoryThresholdPercent != 90 || l.MarginPercent != 5 ||
+		l.Interval.Duration != 10*time.Second || l.Window.Duration != time.Minute || l.ProcDir != "/proc" {
+		t.Fatalf("load defaults = %+v", l)
+	}
+
+	set, err := core.ParseConfig([]byte(`
+[emitters.load]
+cpu_threshold_percent = 80
+memory_threshold_percent = 70
+margin_percent = 3
+interval = "5s"
+window = "20s"
+proc_dir = "/x"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err = builtin.LoadOptions(&set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l = got.Load
+	if l.CPUThresholdPercent != 80 || l.MemoryThresholdPercent != 70 || l.MarginPercent != 3 ||
+		l.Interval.Duration != 5*time.Second || l.Window.Duration != 20*time.Second || l.ProcDir != "/x" {
+		t.Fatalf("load options = %+v", l)
+	}
+}
+
+func TestLoadOptions_RejectsLoadValuesThatCannotWork(t *testing.T) {
+	t.Parallel()
+	for name, toml := range map[string]string{
+		"cpu threshold zero":       "[emitters.load]\ncpu_threshold_percent = 0\n",
+		"memory threshold over":    "[emitters.load]\nmemory_threshold_percent = 101\n",
+		"margin not below":         "[emitters.load]\nmargin_percent = 90\n",
+		"zero interval":            "[emitters.load]\ninterval = \"0s\"\n",
+		"window shorter than step": "[emitters.load]\ninterval = \"30s\"\nwindow = \"10s\"\n",
+		"empty proc dir":           "[emitters.load]\nproc_dir = \"\"\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := core.ParseConfig([]byte(toml))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := builtin.LoadOptions(&cfg); err == nil {
+				t.Fatal("LoadOptions error = nil, want one")
+			}
+		})
+	}
+}
+
 func TestLoadOptions_NilConfigGivesDefaults(t *testing.T) {
 	t.Parallel()
 	got, err := builtin.LoadOptions(nil)

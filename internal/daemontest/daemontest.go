@@ -285,6 +285,10 @@ func loadConfig(t testing.TB) (core.Config, string) {
 	if err := os.WriteFile(mounts, nil, 0o600); err != nil {
 		t.Fatalf("write the mount table: %v", err)
 	}
+	// The load source reads its own /proc: an idle machine with half its
+	// memory free, until a test fills it (FillMemory).
+	proc := filepath.Join(dir, procDir)
+	writeProc(t, proc, memoryHalfFree)
 	toml := fmt.Sprintf(`state_dir = %q
 runtime_dir = %q
 lib_dir = %q
@@ -306,7 +310,12 @@ bundled_dir = %q
 mounts_file = %q
 threshold_percent = 1
 margin_percent = 0
-`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled, mounts)
+
+[emitters.load]
+proc_dir = %q
+interval = "10s"
+window = "10s"
+`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled, mounts, proc)
 	path := filepath.Join(dir, "config.toml")
 	if err := os.WriteFile(path, []byte(toml), 0o600); err != nil {
 		t.Fatalf("write config.toml: %v", err)

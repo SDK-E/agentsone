@@ -8,17 +8,50 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
 // builtinSources is how many built-in event sources the events module runs
-// (clock and disk). MoveSources waits for each of them to be asleep.
-const builtinSources = 2
+// (clock, disk and load). MoveSources waits for each of them to be asleep.
+const builtinSources = 3
 
 // mountsFile is the disk source's mount table, next to config.toml.
 const mountsFile = "mounts"
+
+// procDir is the load source's /proc, next to config.toml.
+const procDir = "proc"
+
+// The load source's meminfo: half free, and almost full.
+const (
+	memoryHalfFree = "MemTotal: 1000000 kB\nMemAvailable: 500000 kB\n"
+	memoryFull     = "MemTotal: 1000000 kB\nMemAvailable: 10000 kB\n"
+)
+
+// writeProc writes the load source's stat, with an idle CPU that never
+// moves, and meminfo into dir.
+func writeProc(t testing.TB, dir, meminfo string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatalf("make the load source's proc folder: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stat"), []byte("cpu 0 0 0 1000 0 0 0 0 0 0\n"), 0o600); err != nil {
+		t.Fatalf("write stat: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "meminfo"), []byte(meminfo), 0o600); err != nil {
+		t.Fatalf("write meminfo: %v", err)
+	}
+}
+
+// FillMemory makes the load source's next sample see 99 percent of memory
+// in use.
+func (d *Daemon) FillMemory() {
+	d.t.Helper()
+	d.sourcesAsleep()
+	writeProc(d.t, filepath.Join(filepath.Dir(d.setup.cfgPath), procDir), memoryFull)
+}
 
 // sourceSleeper makes the built-in event sources wait on the daemon's fake
 // clock: a sleep ends once the clock has reached its end. Only the test
@@ -94,6 +127,14 @@ func (s *sourceSleeper) move(by time.Duration) {
 // sources whose sleep is over.
 func (d *Daemon) MoveSources(by time.Duration) {
 	d.t.Helper()
+	d.sourcesAsleep()
+	d.sources.move(by)
+}
+
+// sourcesAsleep waits until every built-in event source is asleep, so none
+// is reading the files a test is about to change.
+func (d *Daemon) sourcesAsleep() {
+	d.t.Helper()
 	deadline := time.Now().Add(Timeout)
 	for {
 		n := d.sources.asleep()
@@ -108,13 +149,13 @@ func (d *Daemon) MoveSources(by time.Duration) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	d.sources.move(by)
 }
 
 // MountDisk adds the file system at path to the disk source's mount table,
 // which it reads on its next sample.
 func (d *Daemon) MountDisk(path string) {
 	d.t.Helper()
+	d.sourcesAsleep()
 	name := filepath.Join(filepath.Dir(d.setup.cfgPath), mountsFile)
 	table, err := os.ReadFile(name) //nolint:gosec // G304: the mount table in the test's own temporary folder
 	if err != nil {

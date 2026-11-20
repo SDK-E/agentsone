@@ -4,10 +4,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -25,7 +27,7 @@ type eventDataType struct {
 // generateEventData writes one Go type per event data schema in the event
 // catalog, and the Data interface only those types implement, so daemon
 // modules build event data from the contract and never by hand.
-func generateEventData(r repo) error {
+func generateEventData(r repo) (err error) {
 	raw, err := os.ReadFile(r.path(catalogPath))
 	if os.IsNotExist(err) {
 		return nil
@@ -47,7 +49,11 @@ func generateEventData(r repo) error {
 	if err != nil {
 		return fmt.Errorf("temp folder: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(tmp) }() //nolint:errcheck // a scratch folder left behind changes nothing in the generated files
+	defer func() {
+		if rerr := os.RemoveAll(tmp); rerr != nil {
+			err = errors.Join(err, fmt.Errorf("remove scratch folder: %w", rerr))
+		}
+	}()
 	types := make([]eventDataType, 0, len(doc.Events))
 	files := make([]string, 0, len(doc.Events))
 	for _, e := range doc.Events {
@@ -90,8 +96,7 @@ func generateEventData(r repo) error {
 }
 
 func jsonString(s string) json.RawMessage {
-	b, _ := json.Marshal(s) //nolint:errcheck // a string always encodes
-	return b
+	return json.RawMessage(strconv.Quote(s)) // event types and Go names are plain ASCII
 }
 
 var eventDataTemplate = template.Must(template.New("eventdata").Parse(generatedNote + `// Package eventdata holds one type per event in the contract event catalog

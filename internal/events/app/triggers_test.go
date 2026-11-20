@@ -3,12 +3,16 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/events/app"
 	"github.com/SDK-E/agentsone/internal/events/domain"
 )
 
@@ -144,6 +148,61 @@ func TestTrigger_ActionFailureIsNotCountedAndDoesNotFailThePublish(t *testing.T)
 		t.Fatalf("a failed wake counted as a fire: %+v", got)
 	}
 }
+
+func TestTrigger_ActionFailureIsLoggedAsAnErrorAndAudited(t *testing.T) {
+	var logs bytes.Buffer
+	f := newFixtureWith(t, func(d *app.Deps) { d.Log = slog.New(slog.NewTextHandler(&logs, nil)) })
+	tr := createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
+	f.waker.err = errors.New("boom")
+
+	publishDisk(t, f)
+
+	if got := logs.String(); !strings.Contains(got, "level=ERROR") || !strings.Contains(got, "boom") || !strings.Contains(got, tr.ID) {
+		t.Fatalf("failed trigger not logged as an error: %q", got)
+	}
+	got, ok := failedFire(f)
+	if !ok || got.Target != "trigger:"+tr.ID || !strings.Contains(string(got.Detail), "boom") {
+		t.Fatalf("trigger.fire failure = %+v (%s), found %v", got, got.Detail, ok)
+	}
+}
+
+// failedFire returns the trigger.fire failure in the audit log, if any.
+func failedFire(f *fixture) (core.AuditEntry, bool) {
+	for _, e := range f.fakes.Audit.Entries() {
+		if e.Action == "trigger.fire" && e.Outcome == core.AuditFailure {
+			return e, true
+		}
+	}
+	return core.AuditEntry{}, false
+}
+
+func TestTrigger_UnreadableTriggersAreLoggedAsAnErrorAndAudited(t *testing.T) {
+	var logs bytes.Buffer
+	f := newFixtureWith(t, func(d *app.Deps) {
+		d.Triggers = brokenTriggers{TriggerRepository: d.Triggers, err: errors.New("database locked")}
+		d.Log = slog.New(slog.NewTextHandler(&logs, nil))
+	})
+
+	e, err := f.svc.PublishDraft(asSystem(), diskEvent())
+	if err != nil {
+		t.Fatalf("publish failed over unreadable triggers: %v", err)
+	}
+
+	if got := logs.String(); !strings.Contains(got, "level=ERROR") || !strings.Contains(got, "database locked") {
+		t.Fatalf("unreadable triggers not logged as an error: %q", got)
+	}
+	if got, ok := failedFire(f); !ok || got.Target != "event:"+e.ID {
+		t.Fatalf("trigger.fire failure = %+v, found %v, want one for the event", got, ok)
+	}
+}
+
+// brokenTriggers cannot list the enabled triggers.
+type brokenTriggers struct {
+	domain.TriggerRepository
+	err error
+}
+
+func (b brokenTriggers) Enabled(context.Context) ([]domain.Trigger, error) { return nil, b.err }
 
 func TestTrigger_CreatesATaskWithTheRenderedTitle(t *testing.T) {
 	f := newFixture(t)

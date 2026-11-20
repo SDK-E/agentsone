@@ -104,12 +104,24 @@ func (d Deps) frozen(ctx context.Context, agent string) (bool, error) {
 // audit records one fact. The change it describes has already happened, so a
 // failure is logged and does not undo it.
 func (d Deps) audit(ctx context.Context, actor domain.Actor, action, target string, detail map[string]any) {
+	d.appendAudit(ctx, core.AuditEntry{Actor: actor.String(), Action: action, Target: target}, detail)
+}
+
+// auditFailure records that action was tried in the background and failed
+// with cause; with no caller to tell, the audit log is where a human finds it.
+func (d Deps) auditFailure(ctx context.Context, actor domain.Actor, action, target string, detail map[string]any, cause error) {
+	detail["error"] = cause.Error()
+	d.appendAudit(ctx, core.AuditEntry{Actor: actor.String(), Action: action, Target: target, Outcome: core.AuditFailure}, detail)
+}
+
+func (d Deps) appendAudit(ctx context.Context, entry core.AuditEntry, detail map[string]any) {
+	action, target := entry.Action, entry.Target
 	raw, err := json.Marshal(detail)
 	if err != nil {
 		d.Log.ErrorContext(ctx, "encode audit detail", "action", action, "err", err)
 		raw = nil
 	}
-	entry := core.AuditEntry{Actor: actor.String(), Action: action, Target: target, Detail: raw}
+	entry.Detail = raw
 	if err := d.Ports.Audit.Append(ctx, entry); err != nil {
 		d.Log.ErrorContext(ctx, "write audit entry", "action", action, "target", target, "err", err)
 	}

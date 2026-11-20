@@ -102,7 +102,17 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return s.ResponseWriter.Write(b) //nolint:wrapcheck // pass-through writer
 }
 
-// Unwrap lets http.ResponseController reach Flush on the real writer (SSE).
+// Flush sends what was written so far. Event streams need it: the
+// generated stream handlers look for http.Flusher on the writer itself, and
+// without it they copy into the server's buffer, which holds each frame
+// until 4 KB have piled up or the stream ends.
+func (s *statusRecorder) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the real writer.
 func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 // RequestLog logs one line per request: listener, method, path, status and

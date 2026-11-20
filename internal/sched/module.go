@@ -4,6 +4,7 @@ package sched
 
 import (
 	"context"
+	"time"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/sched/adapters/http"
 	"github.com/SDK-E/agentsone/internal/sched/adapters/sqlite"
@@ -28,16 +29,34 @@ type Module struct {
 
 var _ core.Module = (*Module)(nil)
 
+// Option configures the module.
+type Option func(*options)
+
+type options struct{ beat <-chan time.Time }
+
+// WithBeat looks for due timers on every value from beat instead of every
+// ticker.DefaultInterval, so a test with a fake clock decides when the
+// schedule clock checks.
+func WithBeat(beat <-chan time.Time) Option { return func(o *options) { o.beat = beat } }
+
 // New builds the sched module on deps.Stores.Core.
-func New(deps core.Deps) *Module {
+func New(deps core.Deps, opts ...Option) *Module {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
 	db := deps.Stores.Core
 	d := app.Deps{Clock: deps.Clock, IDs: deps.IDs, Ports: deps.Ports, Log: deps.Log}
 	schedules := app.NewSchedules(d, sqlite.NewSchedules(db))
+	tick := ticker.New(schedules, deps.Log, ticker.DefaultInterval)
+	if o.beat != nil {
+		tick = ticker.NewWithBeat(schedules, deps.Log, o.beat)
+	}
 	return &Module{
 		db: db, clock: deps.Clock,
 		tasks:     app.NewTasks(d, sqlite.NewTasks(db)),
 		schedules: schedules,
-		ticker:    ticker.New(schedules, deps.Log, ticker.DefaultInterval),
+		ticker:    tick,
 	}
 }
 

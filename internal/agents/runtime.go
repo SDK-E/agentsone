@@ -42,6 +42,18 @@ type SupervisorOptions struct {
 	// Wall checks the machine's network wall at start and every 5 minutes.
 	// Nil means the daemon's own: /proc (adapters/netwall).
 	Wall supapp.NetworkWall
+	// Processes runs the runners behind the daemon's own runner sockets,
+	// when Launcher is nil. Nil means child processes
+	// (adapters/process), which reports runners that end by themselves to
+	// the supervisor. A test harness runs runners in process here and still
+	// goes through the real sockets and protocol; it reports no exits.
+	Processes supapp.Launcher
+	// UserID finds the uid that owns a runner's socket, when Launcher is
+	// nil. Nil means the system's user database.
+	UserID func(user string) (int, error)
+	// Config is the supervisor's settings, such as the addresses runners
+	// get in their welcome. Nil means supapp.DefaultConfig().
+	Config *supapp.Config
 }
 
 // WithSupervisor runs the society's agents through the runner supervisor
@@ -112,9 +124,19 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 			dir = filepath.Join(deps.Config.RuntimeDir, "runners")
 		}
 		parts.sockets = &socket.Server{Dir: dir}
-		procs = &process.Launcher{Log: m.log}
-		parts.wrapped = &socket.Launcher{Inner: procs, Server: parts.sockets}
+		var inner supapp.Launcher
+		if o.Processes != nil {
+			inner = o.Processes
+		} else {
+			procs = &process.Launcher{Log: m.log}
+			inner = procs
+		}
+		parts.wrapped = &socket.Launcher{Inner: inner, Server: parts.sockets, UserID: o.UserID}
 		launcher = parts.wrapped
+	}
+	cfg := supapp.DefaultConfig()
+	if o.Config != nil {
+		cfg = *o.Config
 	}
 	acc := o.Accounts
 	if acc == nil {
@@ -127,7 +149,7 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 	parts.sup = supapp.New(supapp.Deps{
 		Clock: deps.Clock, IDs: deps.IDs, Ports: deps.Ports, Launcher: launcher, Accounts: acc,
 		Identity: identity{s: m.society}, Output: output{s: m.society}, Summaries: summaries.New(m.db),
-		Usage: usage{s: m.society}, Config: supapp.DefaultConfig(), States: m.society,
+		Usage: usage{s: m.society}, Config: cfg, States: m.society,
 		Wall: wall, Log: m.log,
 	})
 	if parts.sockets != nil {

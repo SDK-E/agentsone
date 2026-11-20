@@ -4303,8 +4303,10 @@ type Session struct {
 	Human Human `json:"human"`
 }
 
-// SetupPhase Where first boot stands. `needs-human` until the first human exists; `needs-licence` until
-// the Claude engine licence is accepted or skipped; `fetching-engine` while it downloads; `ready` after.
+// SetupPhase Where first boot stands. `needs-human` until the first human exists; `ready` after. The Claude
+// engine is off by default and turned on later in Settings, so first setup does not wait for its
+// licence or its download: `licence_accepted` and `engine` say where the engine stands.
+// `needs-licence` and `fetching-engine` are kept for older clients; the daemon does not enter them.
 type SetupPhase string
 
 // SetupStatus defines model for SetupStatus.
@@ -4317,8 +4319,10 @@ type SetupStatus struct {
 	FirstHumanCreated bool              `json:"first_human_created"`
 	LicenceAccepted   bool              `json:"licence_accepted"`
 
-	// Phase Where first boot stands. `needs-human` until the first human exists; `needs-licence` until
-	// the Claude engine licence is accepted or skipped; `fetching-engine` while it downloads; `ready` after.
+	// Phase Where first boot stands. `needs-human` until the first human exists; `ready` after. The Claude
+	// engine is off by default and turned on later in Settings, so first setup does not wait for its
+	// licence or its download: `licence_accepted` and `engine` say where the engine stands.
+	// `needs-licence` and `fetching-engine` are kept for older clients; the daemon does not enter them.
 	Phase SetupPhase `json:"phase"`
 
 	// SeedInstalled True once the default "Small Seed" plugin has created the founder, router and waker.

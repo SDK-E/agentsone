@@ -60,7 +60,7 @@ func BuiltinRunners(libDir string) []BuiltinRunner {
 			DisplayName: "OpenAI compatible", Model: "autoagents/one", Version: "1.1.0",
 		},
 		{
-			Runner:      Runner{Name: "claude", Description: "Runs the Claude Code engine through the host gateway. The engine downloads after a human accepts its licence.", Command: bin("claude"), ProtocolVersions: []string{"1.1", "1.0"}},
+			Runner:      Runner{Name: "claude", Description: "Runs the Claude Code engine through the host gateway. The engine is off until a human turns it on in Settings and accepts its licence.", Command: bin("claude"), ProtocolVersions: []string{"1.1", "1.0"}},
 			DisplayName: "Claude Code", Model: "autoagents/one", Version: "1.1.0",
 		},
 	}

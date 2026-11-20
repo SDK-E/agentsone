@@ -166,7 +166,7 @@ your keys, budget and the agents' files.
 | `machine-plugins` | `machine` | `/var/lib/agentsone/plugins` | Installed plugins. |
 | `machine-audit` | `machine` | `/var/lib/agentsone/audit` | Audit records. |
 | `machine-home` | `machine` | `/home` | The agents' home folders and their work. Back this one up. |
-| `machine-engines` | `machine` | `/var/lib/agentsone-engines` | The Claude engine, downloaded once after a human accepts its licence. |
+| `machine-engines` | `machine` | `/var/lib/agentsone-engines` | The Claude engine. Empty until a human turns the engine on in Settings and accepts its licence; then downloaded once. |
 
 ## Health checks
 

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
-import type { EngineFetchStatus } from "../api/api";
 import { useApi } from "../app/api-context";
 import { meKey, setupKey, useSetupStatus } from "../session/session";
 import { Brand } from "../shell/brand";
@@ -13,7 +12,10 @@ import { problemText } from "../shell/problem-text";
 
 const MIN_PASSWORD = 12;
 
-/** First boot: welcome, create the first human, read and accept the engine licence, download. */
+/**
+ * First boot: welcome and create the first human. That is all of setup: the Claude engine is
+ * off by default and turned on later in Settings, so setup never shows its licence.
+ */
 export function SetupScreen() {
   const { t } = useTranslation();
   const setup = useSetupStatus();
@@ -22,30 +24,9 @@ export function SetupScreen() {
   if (setup.isPending) body = <Loading />;
   else if (setup.isError) {
     body = <LoadError error={setup.error} onRetry={() => void setup.refetch()} />;
-  } else {
-    switch (setup.data.phase) {
-      case "needs-human":
-        body = <CreateHuman />;
-        break;
-      case "needs-licence":
-        body = <Licence />;
-        break;
-      case "fetching-engine":
-        body = <EngineFetch initial={setup.data.engine} />;
-        break;
-      case "ready":
-        body = (
-          <section aria-labelledby="setup-done" className="stack">
-            <h2 id="setup-done">{t("setup.done.title")}</h2>
-            <p>{t("setup.done.body")}</p>
-            <Link className="button button--primary" to="/">
-              {t("setup.goHome")}
-            </Link>
-          </section>
-        );
-        break;
-    }
-  }
+  } else if (setup.data.phase === "needs-human") body = <CreateHuman />;
+  // An older daemon may still answer needs-licence or fetching-engine; setup is done anyway.
+  else body = <Done engineOn={setup.data.licence_accepted} />;
 
   return (
     <main id="main" className="entry">
@@ -55,6 +36,20 @@ export function SetupScreen() {
         {body}
       </div>
     </main>
+  );
+}
+
+function Done({ engineOn }: { engineOn: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="setup-done" className="stack">
+      <h2 id="setup-done">{t("setup.done.title")}</h2>
+      <p>{t("setup.done.body")}</p>
+      {!engineOn && <p className="hint">{t("setup.done.engineOff")}</p>}
+      <Link className="button button--primary" to="/">
+        {t("setup.goHome")}
+      </Link>
+    </section>
   );
 }
 
@@ -172,95 +167,6 @@ function CreateHuman() {
           {create.isPending ? t("setup.human.pending") : t("setup.human.submit")}
         </button>
       </form>
-    </section>
-  );
-}
-
-function Licence() {
-  const { t } = useTranslation();
-  const api = useApi();
-  const client = useQueryClient();
-  const licence = useQuery({
-    queryKey: ["engine-licence"],
-    queryFn: () => api.getEngineLicence(),
-    retry: false,
-  });
-  const accept = useMutation({
-    mutationFn: (version: string) => api.acceptEngineLicence(version),
-    onSuccess: () => client.invalidateQueries({ queryKey: setupKey }),
-  });
-
-  if (licence.isPending) return <Loading />;
-  if (licence.isError) {
-    return <LoadError error={licence.error} onRetry={() => void licence.refetch()} />;
-  }
-  return (
-    <section aria-labelledby="setup-licence" className="stack">
-      <h2 id="setup-licence">{t("setup.licence.title")}</h2>
-      <p>{t("setup.licence.body")}</p>
-      <article className="licence" aria-label={t("setup.licence.textLabel")}>
-        {licence.data.text}
-      </article>
-      <p className="hint">{t("setup.licence.version", { version: licence.data.version })}</p>
-      {accept.isError && (
-        <p role="alert" className="notice notice--danger">
-          {problemText(accept.error, t("setup.licence.failed"))}
-        </p>
-      )}
-      <div className="row">
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={accept.isPending}
-          onClick={() => {
-            accept.mutate(licence.data.version);
-          }}
-        >
-          {t("setup.licence.accept")}
-        </button>
-        <Link className="button" to="/">
-          {t("setup.licence.later")}
-        </Link>
-      </div>
-      <p className="hint">{t("setup.licence.laterHint")}</p>
-    </section>
-  );
-}
-
-function EngineFetch({ initial }: { initial: EngineFetchStatus }) {
-  const { t } = useTranslation();
-  const api = useApi();
-  const status = useQuery({
-    queryKey: ["engine-fetch"],
-    queryFn: () => api.getEngineFetchStatus(),
-    initialData: initial,
-    refetchInterval: (q) =>
-      q.state.data?.state === "ready" || q.state.data?.state === "failed" ? false : 2000,
-  });
-  const engine = status.data;
-  const mb = (bytes: number | null) => (bytes === null ? "?" : String(Math.round(bytes / 1e6)));
-  return (
-    <section aria-labelledby="setup-engine" className="stack">
-      <h2 id="setup-engine">{t("setup.engine.title")}</h2>
-      <p>{t(`setup.engine.state.${engine.state}`)}</p>
-      <progress
-        className="progress"
-        max={1}
-        value={engine.progress}
-        aria-label={t("setup.engine.progressLabel")}
-      />
-      <p className="hint">
-        {t("setup.engine.bytes", { done: mb(engine.bytes_done), total: mb(engine.bytes_total) })}
-      </p>
-      {engine.error !== null && (
-        <p role="alert" className="notice notice--danger">
-          {engine.error}
-        </p>
-      )}
-      <p>{t("setup.engine.meanwhile")}</p>
-      <Link className="button button--primary" to="/">
-        {t("setup.goHome")}
-      </Link>
     </section>
   );
 }

@@ -400,7 +400,7 @@ func TestEngineMissing(t *testing.T) {
 		_, msgs := h.RunTurn("Hello")
 		e := errorMsg(t, msgs)
 		if e.Field("code") != strconv.Itoa(sdk.CodeModelUnavailable) || e.Field("fatal") != "false" ||
-			e.Field("message") != "The Claude engine is not installed yet. A human must accept its licence on the setup page; the download starts then." {
+			e.Field("message") != "The Claude engine is off. A human can turn it on in Settings and accept its licence; the download starts then." {
 			t.Fatalf("error wrong: %s", e)
 		}
 	}

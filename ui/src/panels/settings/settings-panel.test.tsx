@@ -478,17 +478,55 @@ describe("Settings, Claude engine", () => {
     expect(engine.getByRole("heading", { name: "Claude Code licence" })).toBeVisible();
   });
 
-  it("offers to accept the licence when nobody has", async () => {
+  it("is off by default and offers nothing to accept until you turn it on", async () => {
+    const { api } = renderWith(<SettingsPanel />);
+    const engine = within(await region("Claude engine"));
+
+    expect(await engine.findByText(/The Claude engine is off/)).toBeVisible();
+    expect(engine.getByRole("button", { name: "Turn on the Claude engine" })).toBeVisible();
+    expect(engine.queryByRole("button", { name: "Accept and download" })).toBeNull();
+    expect(engine.queryByRole("region", { name: "Claude engine licence text" })).toBeNull();
+    expect(engine.queryByRole("progressbar")).toBeNull();
+    expect(api.calls.some((c) => c.startsWith("acceptEngineLicence"))).toBe(false);
+  });
+
+  it("turning it on shows the licence and the plain facts, then accepting starts the download", async () => {
     const user = userEvent.setup();
     const { api } = renderWith(<SettingsPanel />);
     const engine = within(await region("Claude engine"));
 
-    expect(await engine.findByText(/needs its licence accepted/)).toBeVisible();
+    await user.click(await engine.findByRole("button", { name: "Turn on the Claude engine" }));
+
+    expect(engine.getByText(/Read the licence below/)).toHaveFocus();
+    expect(engine.getByText("You use your own Anthropic account, key or plan.")).toBeVisible();
+    expect(
+      engine.getByText("Agents One does not provide, pay for or resell Claude usage."),
+    ).toBeVisible();
+    expect(
+      engine.getByRole("link", { name: /Anthropic's legal and compliance terms/ }),
+    ).toHaveAttribute("href", "https://code.claude.com/docs/en/legal-and-compliance");
+    const text = engine.getByRole("region", { name: "Claude engine licence text" });
+    expect(within(text).getByRole("heading", { name: "Claude Code licence" })).toBeVisible();
+    expect(api.calls.some((c) => c.startsWith("acceptEngineLicence"))).toBe(false);
+
     await user.click(engine.getByRole("button", { name: "Accept and download" }));
 
     expect(api.calls).toContain("acceptEngineLicence 2026-10-01");
     expect(await engine.findByText(/Accepted by ada/)).toBeVisible();
     expect(engine.queryByRole("button", { name: "Accept and download" })).toBeNull();
+  });
+
+  it("cancel closes the licence without accepting it", async () => {
+    const user = userEvent.setup();
+    const { api } = renderWith(<SettingsPanel />);
+    const engine = within(await region("Claude engine"));
+
+    await user.click(await engine.findByRole("button", { name: "Turn on the Claude engine" }));
+    await user.click(engine.getByRole("button", { name: "Cancel" }));
+
+    expect(engine.queryByRole("button", { name: "Accept and download" })).toBeNull();
+    expect(engine.getByRole("button", { name: "Turn on the Claude engine" })).toHaveFocus();
+    expect(api.calls.some((c) => c.startsWith("acceptEngineLicence"))).toBe(false);
   });
 
   it("shows why the licence could not be accepted", async () => {
@@ -499,9 +537,32 @@ describe("Settings, Claude engine", () => {
     renderWith(<SettingsPanel />, api);
     const engine = within(await region("Claude engine"));
 
-    await user.click(await engine.findByRole("button", { name: "Accept and download" }));
+    await user.click(await engine.findByRole("button", { name: "Turn on the Claude engine" }));
+    await user.click(engine.getByRole("button", { name: "Accept and download" }));
 
     expect(await engine.findByText("The licence server did not answer.")).toBeVisible();
+  });
+
+  it("keeps the plain facts in view once the engine is on", async () => {
+    renderWith(<SettingsPanel />, acceptedApi());
+    const engine = within(await region("Claude engine"));
+
+    expect(
+      await engine.findByText("You use your own Anthropic account, key or plan."),
+    ).toBeVisible();
+    expect(
+      engine.getByRole("link", { name: /Anthropic's legal and compliance terms/ }),
+    ).toBeVisible();
+  });
+
+  it("has no accessibility violations with the licence open", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWith(<SettingsPanel />);
+    const engine = within(await region("Claude engine"));
+
+    await user.click(await engine.findByRole("button", { name: "Turn on the Claude engine" }));
+
+    await expectNoAxeViolations(container);
   });
 
   it("explains a failure to load the licence", async () => {

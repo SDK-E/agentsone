@@ -133,7 +133,7 @@ What survives: the six volumes the machine mounts.
 | `machine-plugins` | `/var/lib/agentsone/plugins` | Installed plugins |
 | `machine-audit` | `/var/lib/agentsone/audit` | Audit records |
 | `machine-home` | `/home` | The agents' home folders |
-| `machine-engines` | `/var/lib/agentsone-engines` | The Claude engine, downloaded once after a human accepts its licence; every agent can run it, none can change it |
+| `machine-engines` | `/var/lib/agentsone-engines` | The Claude engine. Empty until a human turns the engine on in Settings and accepts its licence; then downloaded once. Every agent can run it, none can change it |
 | `gateway-key` | `/run/agentsone/gateway-key` | The token signing key, read-only, owned by the edge |
 
 What resets: everything else in the machine goes back to the image, such as packages added with

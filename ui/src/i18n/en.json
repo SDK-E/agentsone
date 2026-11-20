@@ -63,33 +63,10 @@
       "pending": "Creating your account…",
       "failed": "The account could not be created. Try again."
     },
-    "licence": {
-      "title": "The Claude engine",
-      "body": "Claude agents need the Claude engine. It is not part of this machine. When you accept its licence, the machine downloads it from Anthropic. Nothing downloads before you accept.",
-      "textLabel": "Claude engine licence text",
-      "version": "Licence version {{version}}.",
-      "accept": "Accept and download",
-      "later": "Not now",
-      "laterHint": "Without the engine, agents that run on other models still work. You can accept later.",
-      "failed": "The licence could not be accepted. Try again."
-    },
-    "engine": {
-      "title": "Downloading the Claude engine",
-      "progressLabel": "Engine download",
-      "bytes": "{{done}} of {{total}} MB",
-      "meanwhile": "The download continues in the background. You can meet the society now.",
-      "state": {
-        "waiting-licence": "Waiting for the licence to be accepted.",
-        "queued": "The download is queued and starts in a moment.",
-        "downloading": "Downloading now.",
-        "verifying": "Checking the download.",
-        "ready": "The engine is ready.",
-        "failed": "The download failed."
-      }
-    },
     "done": {
       "title": "Setup is done",
-      "body": "Your account exists and the society is running."
+      "body": "Your account exists and the society is running.",
+      "engineOff": "The Claude engine is off. You can turn it on later in Settings."
     }
   },
   "talk": {
@@ -795,12 +772,36 @@
       "engine": {
         "title": "Claude engine",
         "loading": "Checking the Claude engine…",
-        "accepted": "Accepted by {{name}}",
-        "acceptedUnknown": "Accepted",
+        "off": "The Claude engine is off. Agents run without it, on the OpenAI-compatible runner.",
+        "turnOn": "Turn on the Claude engine",
+        "readFirst": "Read the licence below. The engine downloads only when you accept it.",
+        "facts": {
+          "account": "You use your own Anthropic account, key or plan.",
+          "usage": "Agents One does not provide, pay for or resell Claude usage.",
+          "link": "Anthropic's legal and compliance terms",
+          "newTab": "(opens in a new tab)"
+        },
+        "textLabel": "Claude engine licence text",
+        "accept": "Accept and download",
+        "accepting": "Accepting…",
+        "cancel": "Cancel",
+        "accepted": "On. Accepted by {{name}}",
+        "acceptedUnknown": "On. Accepted",
         "version": "Licence version {{version}}.",
-        "notAccepted": "The Claude engine needs its licence accepted before it downloads. Nothing downloads before you accept.",
         "readLicence": "Read the licence",
-        "acceptFailed": "The licence could not be accepted. Try again."
+        "acceptFailed": "The licence could not be accepted. Try again.",
+        "fetch": {
+          "progressLabel": "Engine download",
+          "bytes": "{{done}} of {{total}} MB",
+          "state": {
+            "waiting-licence": "Waiting for the licence to be accepted.",
+            "queued": "The download is queued and starts in a moment.",
+            "downloading": "Downloading now.",
+            "verifying": "Checking the download.",
+            "ready": "The engine is ready.",
+            "failed": "The download failed."
+          }
+        }
       },
       "control": "The internet allow list, model keys, the total budget and Freeze all live on the control page, not here."
     }

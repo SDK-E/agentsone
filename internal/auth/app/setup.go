@@ -12,12 +12,13 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
-// Setup phases, with the contract's values.
+// Setup phases, with the contract's values. The Claude engine is off by
+// default and turned on later in Settings, so first setup goes from
+// needs-human straight to ready. The contract keeps needs-licence and
+// fetching-engine for older clients; the daemon no longer enters them.
 const (
-	PhaseNeedsHuman     = "needs-human"
-	PhaseNeedsLicence   = "needs-licence"
-	PhaseFetchingEngine = "fetching-engine"
-	PhaseReady          = "ready"
+	PhaseNeedsHuman = "needs-human"
+	PhaseReady      = "ready"
 )
 
 // Engine fetch states, with the contract's values.
@@ -70,16 +71,12 @@ func (s *Service) SetupStatus(ctx context.Context) (SetupStatus, error) {
 	if err != nil && !errors.Is(err, core.ErrUnavailable) {
 		return SetupStatus{}, fmt.Errorf("setup status: seed: %w", err)
 	}
-	st := SetupStatus{FirstHumanCreated: len(hs) > 0, LicenceAccepted: accepted, Engine: fetch, SeedInstalled: seeded && err == nil}
-	switch {
-	case !st.FirstHumanCreated:
+	st := SetupStatus{
+		Phase: PhaseReady, FirstHumanCreated: len(hs) > 0, LicenceAccepted: accepted,
+		Engine: fetch, SeedInstalled: seeded && err == nil,
+	}
+	if !st.FirstHumanCreated {
 		st.Phase = PhaseNeedsHuman
-	case !accepted:
-		st.Phase = PhaseNeedsLicence
-	case fetch.State != FetchReady:
-		st.Phase = PhaseFetchingEngine
-	default:
-		st.Phase = PhaseReady
 	}
 	return st, nil
 }

@@ -107,6 +107,15 @@ operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 
 ## Changelog
 
+### 1.6.0
+
+Descriptions and a new fixture. No schema change.
+
+- `SetupPhase`: the Claude engine is off by default, so first setup goes from `needs-human`
+  straight to `ready`. `needs-licence` and `fetching-engine` stay in the enum for older clients;
+  the daemon does not enter them. `licence_accepted` and `engine` say where the engine stands.
+- New fixture `getSetupStatus.engine-off`: a machine right after setup, with the engine off.
+
 ### 1.5.0
 
 Additive for readers that already treat `unit` as absent; it is a relaxation of a required field

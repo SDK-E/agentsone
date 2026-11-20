@@ -10,8 +10,9 @@
 // with it in the system prompt.
 //
 // The engine starts on the first wake, not at Start, so a machine whose
-// engine is not downloaded yet still runs the runner; each turn then fails
-// with a plain licence message.
+// engine is not downloaded still runs the runner; each turn then fails with
+// a plain message. The engine is off by default: it downloads only after a
+// human turns it on in Settings and accepts its licence.
 //
 // The engine never holds the gateway token or the MCP token. It calls a
 // loopback proxy with a per-process secret, and the proxy forwards each call

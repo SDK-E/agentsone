@@ -28,8 +28,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     );
   }
-  if (setup.isError || me.isError) {
-    const failed = setup.isError ? setup : me;
+  // A refresh in the background that fails leaves the last good answer in place; the page stays.
+  // Only a first load with nothing to show is an error for the whole screen.
+  if ((setup.isError && !setup.data) || (me.isError && !me.data)) {
+    const failed = setup.isError && !setup.data ? setup : me;
     return (
       <main id="main" className="entry">
         <div className="entry__card">

@@ -361,7 +361,7 @@ func TestRevokeToken_EndsAToken(t *testing.T) {
 	d := start(t)
 	founder := core.Caller{Kind: core.CallerAgent, Name: "founder"}
 	tok, _ := d.deps.Ports.Tokens.Issue(context.Background(), founder, nil, time.Hour)
-	id := strings.SplitN(strings.TrimPrefix(tok.Value, "aot_"), "_", 2)[0]
+	id := tok.ID
 	want(t, d.call(core.Caller{Kind: core.CallerAgent, Name: "cto"}, http.MethodDelete, "/v1/tokens/"+id, "", ""), http.StatusForbidden)
 	want(t, d.call(founder, http.MethodDelete, "/v1/tokens/"+id, "", ""), http.StatusNoContent)
 	want(t, d.call(founder, http.MethodDelete, "/v1/tokens/nope", "", ""), http.StatusNotFound)

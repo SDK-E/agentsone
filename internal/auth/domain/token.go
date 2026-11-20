@@ -6,12 +6,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 
 	"github.com/SDK-E/agentsone/internal/core"
 )
@@ -20,6 +21,13 @@ import (
 const MaxTokenTTL = 30 * 24 * time.Hour
 
 const tokenPrefix = "aot_"
+
+// idPrefix starts every token id: the contract's TokenId is "tok_" plus a
+// ULID, and the id the store keeps is that id.
+const idPrefix = "tok_"
+
+// idPattern is the contract's TokenId form. Fixed lookup table.
+var idPattern = regexp.MustCompile(`^tok_[0-9A-HJKMNP-TV-Z]{26}$`)
 
 // scopePattern is the contract's scope form <group>:<read|write|admin>.
 // Fixed lookup table.
@@ -54,7 +62,9 @@ func ValidateGrant(scopes []string, ttl time.Duration) error {
 }
 
 // NewToken makes a token for subject and returns it with the one-time value
-// "aot_<id>_<secret>" to hand to the holder. rand is crypto/rand in production.
+// "aot_<id>_<secret>" to hand to the holder. The id is the contract's
+// TokenId, "tok_" plus a ULID: the id the issue answers, the store keeps
+// and a revoke names. rand is crypto/rand in production.
 func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Time, ttl time.Duration) (Token, string, error) {
 	if err := ValidateSubject(subject); err != nil {
 		return Token{}, "", err
@@ -62,12 +72,11 @@ func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Tim
 	if err := ValidateGrant(scopes, ttl); err != nil {
 		return Token{}, "", err
 	}
-	// The id is hex so it never holds the "_" separator; the secret may.
-	idBytes := make([]byte, 12)
-	if _, err := io.ReadFull(rand, idBytes); err != nil {
+	u, err := ulid.New(ulid.Timestamp(now), rand)
+	if err != nil {
 		return Token{}, "", fmt.Errorf("token id: %w", err)
 	}
-	id := hex.EncodeToString(idBytes)
+	id := idPrefix + u.String()
 	secret, err := randomText(rand, 32)
 	if err != nil {
 		return Token{}, "", fmt.Errorf("token secret: %w", err)
@@ -84,14 +93,18 @@ func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Tim
 	return t, tokenPrefix + id + "_" + secret, nil
 }
 
-// ParseTokenValue splits a presented value into id and secret.
+// ParseTokenValue splits a presented value into id and secret. Only the
+// "aot_tok_<ULID>_<secret>" form parses: values of the earlier hex-id form
+// were all revoked by the auth migration 0002 and are refused here too.
 func ParseTokenValue(value string) (id, secret string, err error) {
-	rest, ok := strings.CutPrefix(value, tokenPrefix)
+	rest, ok := strings.CutPrefix(value, tokenPrefix+idPrefix)
 	if !ok {
 		return "", "", fmt.Errorf("token format: %w", core.ErrUnauthorized)
 	}
-	id, secret, ok = strings.Cut(rest, "_")
-	if !ok || id == "" || secret == "" {
+	// The ULID never holds the "_" separator; the secret may.
+	u, secret, ok := strings.Cut(rest, "_")
+	id = idPrefix + u
+	if !ok || !idPattern.MatchString(id) || secret == "" {
 		return "", "", fmt.Errorf("token format: %w", core.ErrUnauthorized)
 	}
 	return id, secret, nil

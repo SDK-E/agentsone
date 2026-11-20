@@ -140,6 +140,22 @@ func humanPassword(name string) string { return name + " uses the test harness" 
 // status fails the test with the problem the daemon answered.
 func (h *Client) Do(method, path string, body, out any) {
 	h.d.t.Helper()
+	code, raw := h.Try(method, path, body)
+	if code < 200 || code > 299 {
+		h.d.t.Fatalf("%s %s: status %d: %s", method, path, code, raw)
+	}
+	if out != nil {
+		if err := json.Unmarshal(raw, out); err != nil {
+			h.d.t.Fatalf("%s %s: decode answer: %v: %s", method, path, err, raw)
+		}
+	}
+}
+
+// Try calls one API operation as the caller, like Do, and returns the
+// status and the raw answer whatever the status, for a test that expects a
+// refusal.
+func (h *Client) Try(method, path string, body any) (int, []byte) {
+	h.d.t.Helper()
 	var r io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -171,14 +187,7 @@ func (h *Client) Do(method, path string, body, out any) {
 	if err != nil {
 		h.d.t.Fatalf("%s %s: read answer: %v", method, path, err)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		h.d.t.Fatalf("%s %s: status %d: %s", method, path, resp.StatusCode, raw)
-	}
-	if out != nil {
-		if err := json.Unmarshal(raw, out); err != nil {
-			h.d.t.Fatalf("%s %s: decode answer: %v: %s", method, path, err, raw)
-		}
-	}
+	return resp.StatusCode, raw
 }
 
 // authorize makes req look like the interface's: a same-origin browser

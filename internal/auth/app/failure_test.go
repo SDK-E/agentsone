@@ -72,7 +72,7 @@ func TestService_ReportsStorageFailures(t *testing.T) {
 	_, checks["EngineLicence"] = svc.EngineLicence(ctx)
 	_, checks["EngineFetch"] = svc.EngineFetch(ctx)
 	_, checks["Issue"] = svc.Issue(ctx, authtest.Agent("a"), nil, time.Hour)
-	_, checks["Verify"] = svc.Verify(ctx, "aot_ab_cd")
+	_, checks["Verify"] = svc.Verify(ctx, "aot_tok_01JD7ZK3M0000000000000000Z_cd")
 	_, checks["SessionCaller"] = svc.SessionCaller(ctx, "aos_x")
 	for name, err := range checks {
 		if !errors.Is(err, errDisk) {

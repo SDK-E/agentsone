@@ -184,7 +184,7 @@ func (s *Service) Issue(ctx context.Context, subject core.Caller, scopes []strin
 	if err := s.d.Tokens.SaveToken(ctx, t); err != nil {
 		return core.Token{}, fmt.Errorf("save token: %w", err)
 	}
-	return core.Token{Value: value, Expires: t.ExpiresAt}, nil
+	return core.Token{ID: t.ID, Value: value, Expires: t.ExpiresAt}, nil
 }
 
 // Verify returns the caller of a token value or a session cookie value

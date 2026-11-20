@@ -5,7 +5,9 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/auth/adapters/http"
@@ -28,8 +30,10 @@ type Settings struct {
 type Module struct {
 	core.Base
 	db    *store.DB
+	repo  *sqlite.Repository
 	svc   *app.Service
 	ports *core.Ports
+	log   *slog.Logger
 }
 
 var _ core.Module = (*Module)(nil)
@@ -55,7 +59,11 @@ func New(deps core.Deps) *Module {
 	if err != nil {
 		panic(fmt.Sprintf("auth: %v", err))
 	}
-	return &Module{db: db, svc: svc, ports: deps.Ports}
+	log := deps.Log
+	if log == nil {
+		log = slog.Default()
+	}
+	return &Module{db: db, repo: repo, svc: svc, ports: deps.Ports, log: log}
 }
 
 // Name is the module and migration namespace.
@@ -72,6 +80,33 @@ func (m *Module) Provide(p *core.Ports) {
 
 // Migrate creates the identity tables in core.db.
 func (m *Module) Migrate(ctx context.Context) error { return sqlite.Migrate(ctx, m.db) }
+
+// legacyRevokeDetail is the audit detail of a token migration 0002 revoked.
+var legacyRevokeDetail = json.RawMessage(`{"reason":"earlier token id form, revoked at upgrade"}`)
+
+// Start writes one audit record for each token that migration 0002
+// revoked, naming it by id only, then forgets it. The audit log is not open
+// while migrations run. A record that cannot be written is tried again at
+// the next start; the token stays revoked either way.
+func (m *Module) Start(ctx context.Context) error {
+	ids, err := m.repo.LegacyRevokes(ctx)
+	if err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+	ctx = core.WithCaller(ctx, core.Caller{Kind: core.CallerSystem, Name: "auth", UID: -1})
+	for _, id := range ids {
+		if err := m.ports.Audit.Append(ctx, core.AuditEntry{
+			Actor: "system:auth", Action: "token.revoke", Target: "token:" + id, Detail: legacyRevokeDetail,
+		}); err != nil {
+			m.log.Error("auth: revoke of an earlier-form token not audited, trying again at the next start", "token", id, "err", err)
+			return nil
+		}
+		if err := m.repo.LegacyRevokeAudited(ctx, id); err != nil {
+			return fmt.Errorf("auth: %w", err)
+		}
+	}
+	return nil
+}
 
 // API serves the session, humans and setup tags.
 func (m *Module) API() core.API {

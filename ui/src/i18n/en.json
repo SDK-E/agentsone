@@ -18,6 +18,8 @@
     "forbidden": "You may not see this.",
     "invalid": "This request was not valid.",
     "retry": "Try again",
+    "stale": "Can't reach the machine. Retrying…",
+    "connection": "Connection to the machine",
     "detail": "The machine said: {{detail}}",
     "unreachableTitle": "Agents One is not answering"
   },
@@ -104,6 +106,7 @@
     "summary_one": "{{count}} resident, {{awake}} awake",
     "summary_other": "{{count}} residents, {{awake}} awake",
     "live": "Live",
+    "paused": "Paused",
     "polling": "Updates every 10 seconds",
     "viewLabel": "Show the society as",
     "view": { "list": "Residents", "chart": "Org chart" },
@@ -142,6 +145,7 @@
     "messages": "Messages",
     "you": "You",
     "writing": "{{name}} is writing…",
+    "writingPaused": "{{name}} was writing…",
     "polling": "Live replies are not available. New messages appear every 5 seconds.",
     "empty": {
       "title": "No messages yet",

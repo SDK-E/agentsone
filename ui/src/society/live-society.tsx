@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import type { LiveEntry } from "../api/api";
+import { useStale } from "../shell/stale";
 import { LoadError, Loading } from "../shell/status";
 import { isAlive, Presence } from "./agent-presence";
 import { OrgChart } from "./org-chart";
@@ -18,6 +19,7 @@ type View = "list" | "chart";
 export function LiveSociety() {
   const { t } = useTranslation();
   const live = useLiveList();
+  const stale = useStale();
   const [view, setView] = useState<View>("list");
   const now = useNow();
   const entries = live.data ?? [];
@@ -38,7 +40,11 @@ export function LiveSociety() {
         <div className="society__tools">
           <p className={`live-badge live-badge--${live.mode}`}>
             <span className="live-badge__dot" aria-hidden="true" />
-            {live.mode === "stream" ? t("society.live") : t("society.polling")}
+            {stale
+              ? t("society.paused")
+              : live.mode === "stream"
+                ? t("society.live")
+                : t("society.polling")}
           </p>
           <div className="toggle" role="group" aria-label={t("society.viewLabel")}>
             {(["list", "chart"] as const).map((v) => (

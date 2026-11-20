@@ -309,6 +309,67 @@ ul.notice {
   background: var(--color-surface);
 }
 
+/* The line that says the machine cannot be reached. It has its own place: the strip that was the
+   top padding of the page. The line fills the strip and the page lost the padding, so the page
+   does not move when the line comes or goes, and the line never covers content. */
+.stale-slot {
+  position: relative;
+  block-size: var(--space-lg);
+  z-index: 10;
+}
+
+.stale {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  box-sizing: border-box;
+  block-size: calc(var(--space-lg) - 4px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg);
+  line-height: 1.2;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+/* One row at every width: the button sits at the right, as tall as the line. Its touch area is
+   wider than it looks. */
+.stale p {
+  margin: 0;
+  min-width: 0;
+}
+
+.stale .button {
+  position: relative;
+  flex: none;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  line-height: 1.2;
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+.stale .button::after {
+  content: "";
+  position: absolute;
+  inset: -10px -6px;
+}
+
+/* What the page shows as live is not, while the machine cannot be reached: dim it and hold it still. */
+.page[data-stale] .live-badge,
+.page[data-stale] .message--draft {
+  opacity: 0.5;
+}
+
+.page[data-stale] .live-badge__dot {
+  animation-play-state: paused;
+}
+
 .topbar__home {
   text-decoration: none;
   border-radius: var(--radius-md);
@@ -370,7 +431,8 @@ ul.notice {
   gap: var(--space-lg);
   max-width: 90rem;
   margin: 0 auto;
-  padding: var(--space-lg);
+  /* The strip above is the stale line's place (see .stale-slot). */
+  padding: 0 var(--space-lg) var(--space-lg);
 }
 
 .page:focus {
@@ -1589,7 +1651,7 @@ body:has(.sheet[open]) {
   }
 
   .page {
-    padding: var(--space-md);
+    padding: 0 var(--space-md) var(--space-md);
     gap: var(--space-md);
   }
 

@@ -82,7 +82,8 @@ test("plugins, install from the catalog", async ({ page }, testInfo) => {
     .first()
     .click();
 
-  await expect(page.getByRole("status").first()).toBeVisible();
+  // The notice of the panel itself, not the shell's line about the connection.
+  await expect(page.getByRole("tabpanel", { name: "Plugins" }).getByRole("status")).toBeVisible();
   await checkPage(page, testInfo, "plugins-installed");
   clean();
 });

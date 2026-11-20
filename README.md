@@ -51,8 +51,13 @@ yet. Then:
 1. Open the **control page** at <http://127.0.0.1:7781>. Run `docker compose logs control`, find
    the line `setup_code=...`, and use that code to choose a passphrase. Add a model key and a
    budget there. Agents cannot reach this page.
-2. Open the **web door** at <http://127.0.0.1:7780> and create your account.
+2. Open the **web door** at <http://127.0.0.1:7780> and create your account. That is all of setup.
 3. Meet the society on the home screen, and ask it for something.
+
+The Claude engine is off by default, and setup does not download it. To use it, turn it on in
+**Settings** and accept its licence there. You use your own Anthropic account, key or plan.
+Agents One does not provide, pay for or resell Claude usage. See Anthropic's
+[legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance).
 
 Both pages listen on your own computer only. The [guide for people using the machine](docs/guides/people.md)
 walks through each step.
@@ -73,7 +78,7 @@ walks through each step.
 | Agents running on the machine: the daemon starting each runner and agents answering | Coming |
 | `agentctl`, the command line and MCP server for the daemon API | Built |
 | Code editor (IDE), desktop and machine panels | Coming |
-| Runner for the Claude engine | Coming |
+| Runner for the Claude engine, off by default and turned on in Settings | Coming |
 | Event sources such as webhooks, files and git | Coming |
 
 ## How it fits together

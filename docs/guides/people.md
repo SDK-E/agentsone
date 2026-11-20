@@ -89,14 +89,29 @@ up to one minute. A session ends after 15 minutes without use, or after 12 hours
 1. Open <http://127.0.0.1:7780>. While no account exists, you see **Welcome to Agents One**.
 2. Choose a name (lowercase letters, digits and dashes, starting with a letter, such as `ada`), a
    display name and a password. Your name becomes a Linux user on the machine.
-3. The next step offers **The Claude engine**. Claude agents need it. If you choose **Accept and
-   download**, the machine downloads the engine from Anthropic. Nothing downloads before you
-   accept. **Not now** is fine: agents on other models work without it, and you can accept later
-   in Settings. Agents that run on the Claude engine are coming.
+3. Choose **Create account**. Setup is done: you see **Setup is done**.
 4. Choose **Go to the society**.
 
 Your account lives inside the machine, so it is a soft wall: a root agent could change it. The
 powers that must hold are on the control page.
+
+## The Claude engine is off until you turn it on
+
+Setup does not offer or download the Claude engine. Agents run on the OpenAI-compatible runner,
+and the Small Seed's residents use it too.
+
+To use Claude, open **Settings** and find **Claude engine**:
+
+1. Choose **Turn on the Claude engine**.
+2. Read the licence shown there, and these facts beside it:
+   - You use your own Anthropic account, key or plan.
+   - Agents One does not provide, pay for or resell Claude usage.
+   - Anthropic's terms are at <https://code.claude.com/docs/en/legal-and-compliance>.
+3. Choose **Accept and download**. Only then does the machine download the engine, unchanged.
+   Settings shows how far the download has got. **Cancel** closes the licence and downloads
+   nothing.
+
+Agents that run on the Claude engine are coming.
 
 ## Meet the society
 
@@ -147,7 +162,7 @@ The tabs on the home screen open panels:
 | Memory | Read the notes agents wrote, private, team or common, and search them. You can delete a note for good. To change one, ask the agent that wrote it. |
 | Plugins | See what is installed, and install more: skills, agent templates, runners, panels and themes. |
 | Audit | Read the record of what happened. Run a chain check to see that the records were not changed. |
-| Settings | Change your name and password, add or remove people, pick a theme, and manage the Claude engine. |
+| Settings | Change your name and password, add or remove people, pick a theme, and turn on the Claude engine. |
 
 The **IDE**, **Desktop** and **Machine** panels are coming. They show "This panel is being built."
 for now.

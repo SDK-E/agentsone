@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -53,8 +54,7 @@ func commands(_ *edgeenv.Env, connect func(socket string) adminClient) []*cobra.
 				if err != nil {
 					return err
 				}
-				show(cmd.OutOrStdout(), b)
-				return nil
+				return show(cmd.OutOrStdout(), b)
 			},
 		},
 		&cobra.Command{
@@ -128,7 +128,8 @@ func defenceCommand(client func() adminClient) *cobra.Command {
 	}
 }
 
-func show(w io.Writer, b adminapi.Budget) {
+// show writes the budget to w in one write, so a failed write is one error the command returns.
+func show(w io.Writer, b adminapi.Budget) error {
 	usd := func(m int64) ledger.Micros { return ledger.Micros(m) }
 	defence := "off"
 	if b.Defence.Enabled {
@@ -136,14 +137,17 @@ func show(w io.Writer, b adminapi.Budget) {
 	} else if b.Defence.SharePct > 0 {
 		defence = fmt.Sprintf("off (share set to %d%%)", b.Defence.SharePct)
 	}
-	_, _ = fmt.Fprintf(w, "Total budget:     %v (hard wall)\n", usd(b.TotalMicros))
-	_, _ = fmt.Fprintf(w, "Period:           one %s, %s to %s (UTC)\n", b.Period,
+	var out strings.Builder
+	fmt.Fprintf(&out, "Total budget:     %v (hard wall)\n", usd(b.TotalMicros))
+	fmt.Fprintf(&out, "Period:           one %s, %s to %s (UTC)\n", b.Period,
 		b.PeriodStart.UTC().Format("2 Jan 2006"), b.PeriodEnd.UTC().Format("2 Jan 2006"))
-	_, _ = fmt.Fprintf(w, "Spent:            %v\n", usd(b.SpentMicros))
-	_, _ = fmt.Fprintf(w, "Left for agents:  %v\n", usd(b.RemainingMicros))
-	_, _ = fmt.Fprintf(w, "Left for defence: %v\n", usd(b.Defence.RemainingMicros))
-	_, _ = fmt.Fprintf(w, "Defence slice:    %s\n", defence)
+	fmt.Fprintf(&out, "Spent:            %v\n", usd(b.SpentMicros))
+	fmt.Fprintf(&out, "Left for agents:  %v\n", usd(b.RemainingMicros))
+	fmt.Fprintf(&out, "Left for defence: %v\n", usd(b.Defence.RemainingMicros))
+	fmt.Fprintf(&out, "Defence slice:    %s\n", defence)
 	if b.Exhausted {
-		_, _ = fmt.Fprintln(w, "Model calls from agents are refused until the budget is raised or the next period starts.")
+		out.WriteString("Model calls from agents are refused until the budget is raised or the next period starts.\n")
 	}
+	_, err := io.WriteString(w, out.String())
+	return err
 }

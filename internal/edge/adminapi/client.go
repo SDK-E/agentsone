@@ -138,7 +138,7 @@ func (c *Client) do(ctx context.Context, method, path string, in any, want int, 
 	if err != nil {
 		return fmt.Errorf("adminapi: %s %s: is the edge running? %w", method, path, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // read-only body; the reads below report read failures
 	if resp.StatusCode != want {
 		return problemOf(resp)
 	}
@@ -152,7 +152,11 @@ func (c *Client) do(ctx context.Context, method, path string, in any, want int, 
 }
 
 func problemOf(resp *http.Response) error {
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	if err != nil {
+		return &Problem{Type: "about:blank", Title: http.StatusText(resp.StatusCode), Status: resp.StatusCode,
+			Detail: "the problem details could not be read: " + err.Error()}
+	}
 	var p Problem
 	if err := json.Unmarshal(data, &p); err != nil || p.Type == "" {
 		return &Problem{Type: "about:blank", Title: http.StatusText(resp.StatusCode), Status: resp.StatusCode,

@@ -54,10 +54,11 @@ func Listen(ctx context.Context, addr string, inner netip.Addr, r Resolver) ([]n
 	for _, ip := range ips {
 		ln, err := lc.Listen(ctx, "tcp", netip.AddrPortFrom(ip, uint16(port)).String())
 		if err != nil {
+			err = fmt.Errorf("door address %q: %w", addr, err)
 			for _, open := range lns {
-				_ = open.Close()
+				err = errors.Join(err, open.Close())
 			}
-			return nil, fmt.Errorf("door address %q: %w", addr, err)
+			return nil, err
 		}
 		lns = append(lns, Guard(ln, inner))
 	}
@@ -110,7 +111,7 @@ func (g *Guarded) Accept() (net.Conn, error) {
 			g.mu.Unlock()
 			return tc, nil
 		}
-		_ = c.Close()
+		_ = c.Close() //nolint:errcheck // refusing a connection on the inner address; nothing was read or written on it
 	}
 }
 
@@ -131,7 +132,7 @@ func (g *Guarded) CloseConns() {
 	}
 	g.mu.Unlock()
 	for _, c := range open {
-		_ = c.Close()
+		_ = c.Close() //nolint:errcheck // cutting connections at stop; a failed close leaves nothing to undo
 	}
 }
 

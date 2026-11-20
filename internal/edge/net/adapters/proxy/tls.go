@@ -17,7 +17,7 @@ var errHelloRead = errors.New("client hello read")
 
 // handleTLS is the transparent TLS proxy: route by the server name in the ClientHello.
 func (s *Server) handleTLS(conn net.Conn) {
-	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout))
+	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout)) //nolint:errcheck // only a closed connection fails this, and then the read below fails too
 	rec := &recorder{r: conn}
 	name, err := serverName(s.ctx, rec)
 	if err != nil {

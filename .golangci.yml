@@ -65,10 +65,6 @@ linters:
         linters:
           - errcheck
         source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
-      - path: ^(internal/edge|image/edge)/
-        linters:
-          - errcheck
-        source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
       - path: ^(runners/|internal/auth/app/service\.go$)
         linters:
           - errcheck

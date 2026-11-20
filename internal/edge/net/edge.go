@@ -250,7 +250,7 @@ func listen(ctx context.Context, addr netip.Addr, p Ports) (_ *listeners, err er
 	defer func() {
 		if err != nil {
 			for _, c := range opened {
-				_ = c.Close()
+				err = errors.Join(err, c.Close())
 			}
 		}
 	}()
@@ -282,9 +282,9 @@ func listen(ctx context.Context, addr netip.Addr, p Ports) (_ *listeners, err er
 }
 
 func (ls *listeners) addrs() Addrs {
-	tcp := func(ln net.Listener) netip.AddrPort { return ln.Addr().(*net.TCPAddr).AddrPort() }
+	tcp := func(ln net.Listener) netip.AddrPort { return ln.Addr().(*net.TCPAddr).AddrPort() } //nolint:errcheck // a tcp4 listener's address is always a *net.TCPAddr
 	return Addrs{
-		DNSUDP: ls.dnsUDP.LocalAddr().(*net.UDPAddr).AddrPort(),
+		DNSUDP: ls.dnsUDP.LocalAddr().(*net.UDPAddr).AddrPort(), //nolint:errcheck // a udp4 socket's address is always a *net.UDPAddr
 		DNSTCP: tcp(ls.dnsTCP),
 		HTTP:   tcp(ls.http),
 		TLS:    tcp(ls.tls),

@@ -32,7 +32,7 @@ func (w *Watcher) Watch(ctx context.Context, onChange func()) error {
 	if err != nil {
 		return fmt.Errorf("watch allow list: %w", err)
 	}
-	defer func() { _ = fw.Close() }()
+	defer func() { _ = fw.Close() }() //nolint:errcheck // the watch is over; a failed close loses no change and no state
 	if err := fw.Add(dir); err != nil {
 		return fmt.Errorf("watch allow list: %w", err)
 	}

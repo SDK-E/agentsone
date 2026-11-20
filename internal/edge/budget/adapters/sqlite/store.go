@@ -155,7 +155,7 @@ func (s *Store) LoadSpend(ctx context.Context) (budgetapp.Spend, error) {
 	if err != nil {
 		return budgetapp.Spend{}, fmt.Errorf("budgetstore: load agent spending: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	for rows.Next() {
 		var agent string
 		var m int64

@@ -88,14 +88,12 @@ func (s *Store) Create(hash string) error {
 	if err != nil {
 		return fmt.Errorf("control credential: %w", err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
+	defer func() { _ = os.Remove(tmp.Name()) }() //nolint:errcheck // temp file cleanup; a leftover dot file in the folder is never read
 	if _, err := tmp.WriteString(hash); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write control credential: %w", err)
+		return errors.Join(fmt.Errorf("write control credential: %w", err), tmp.Close())
 	}
 	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write control credential: %w", err)
+		return errors.Join(fmt.Errorf("write control credential: %w", err), tmp.Close())
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("write control credential: %w", err)
@@ -197,7 +195,7 @@ func writeProblem(w http.ResponseWriter, status int, slug, detail string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(problem{
+	_ = json.NewEncoder(w).Encode(problem{ //nolint:errcheck // the status is sent; a failed body write means the client left
 		Type: "urn:agentsone:problem:" + slug, Title: http.StatusText(status), Status: status, Detail: detail,
 	})
 }
@@ -206,5 +204,5 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is sent; a failed body write means the client left
 }

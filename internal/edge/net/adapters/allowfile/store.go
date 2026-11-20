@@ -169,14 +169,12 @@ func (s *Store) write(l domain.AllowList) error {
 	if err != nil {
 		return fmt.Errorf("write allow list: %w", err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
+	defer func() { _ = os.Remove(tmp.Name()) }() //nolint:errcheck // temp file cleanup; after the rename it is gone, and a leftover dot file is never read
 	if _, err := tmp.Write(buf.Bytes()); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write allow list: %w", err)
+		return errors.Join(fmt.Errorf("write allow list: %w", err), tmp.Close())
 	}
 	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write allow list: %w", err)
+		return errors.Join(fmt.Errorf("write allow list: %w", err), tmp.Close())
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("write allow list: %w", err)
@@ -201,11 +199,10 @@ func lockFile(path string) (func(), error) {
 		}
 	}
 	if err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("lock allow list: %w", err)
+		return nil, errors.Join(fmt.Errorf("lock allow list: %w", err), f.Close())
 	}
 	return func() {
-		_ = syscall.Flock(fd, syscall.LOCK_UN)
-		_ = f.Close()
+		_ = syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // closing the file just below releases the lock as well
+		_ = f.Close()                          //nolint:errcheck // lock file only: nothing is ever written through it
 	}, nil
 }

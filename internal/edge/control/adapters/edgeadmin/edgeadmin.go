@@ -100,7 +100,7 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) err
 		// The error names the method and path only; the body (a key, a hash) is never in it.
 		return fmt.Errorf("%w: %s %s: %w", app.ErrEdgeUnavailable, method, path, unwrapURL(err))
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // read-only body; ReadAll below reports read failures
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAnswer))
 	if err != nil {
 		return fmt.Errorf("%w: read answer: %w", app.ErrEdgeUnavailable, err)
@@ -115,7 +115,7 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) err
 		return nil
 	}
 	var p problem
-	_ = json.Unmarshal(data, &p)
+	_ = json.Unmarshal(data, &p) //nolint:errcheck // a body that is not a problem leaves p empty; the status alone then says what failed
 	slug := strings.TrimPrefix(p.Type, "urn:agentsone:problem:")
 	se := &statusError{status: resp.StatusCode, slug: slug, detail: p.Detail}
 	switch {

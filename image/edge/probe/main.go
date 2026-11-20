@@ -27,18 +27,18 @@ func main() {
 
 func run(args []string, stderr io.Writer) int {
 	if len(args) != 2 || (args[0] != "tcp" && args[0] != "unix") {
-		_, _ = fmt.Fprintln(stderr, "usage: probe tcp HOST:PORT | probe unix PATH")
+		_, _ = fmt.Fprintln(stderr, "usage: probe tcp HOST:PORT | probe unix PATH") //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return 2
 	}
 	// The address comes from the image's own health check, not from a request.
 	conn, err := net.DialTimeout(args[0], args[1], timeout) //nolint:gosec // G704: dialing the given address is the program's job
 
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "probe: %s %s: %v\n", args[0], args[1], err)
+		_, _ = fmt.Fprintf(stderr, "probe: %s %s: %v\n", args[0], args[1], err) //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return 1
 	}
 	if err := conn.Close(); err != nil {
-		_, _ = fmt.Fprintf(stderr, "probe: close %s %s: %v\n", args[0], args[1], err)
+		_, _ = fmt.Fprintf(stderr, "probe: close %s %s: %v\n", args[0], args[1], err) //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return 1
 	}
 	return 0

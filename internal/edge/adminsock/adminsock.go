@@ -46,8 +46,7 @@ func Listen(path string) (net.Listener, error) {
 	}
 	// #nosec G302 -- the group (the control container) must reach the socket.
 	if err := os.Chmod(path, 0o660); err != nil {
-		_ = ln.Close()
-		return nil, fmt.Errorf("admin socket mode: %w", err)
+		return nil, errors.Join(fmt.Errorf("admin socket mode: %w", err), ln.Close())
 	}
 	return ln, nil
 }

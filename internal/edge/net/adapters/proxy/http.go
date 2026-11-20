@@ -19,7 +19,7 @@ import (
 
 // handleHTTP is the transparent HTTP proxy: route by the Host header of the first request.
 func (s *Server) handleHTTP(conn net.Conn) {
-	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout))
+	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout)) //nolint:errcheck // only a closed connection fails this, and then the read below fails too
 	rec := &recorder{r: conn}
 	req, err := http.ReadRequest(bufio.NewReader(rec))
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *Server) handleHTTP(conn net.Conn) {
 
 // handleProxy is the proxy for proxy-aware tools: CONNECT tunnels and absolute-form HTTP.
 func (s *Server) handleProxy(conn net.Conn) {
-	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout))
+	_ = conn.SetDeadline(time.Now().Add(s.handshakeTimeout)) //nolint:errcheck // only a closed connection fails this, and then the read below fails too
 	limit := &headLimit{r: conn}
 	br := bufio.NewReader(limit)
 	req, err := http.ReadRequest(br)
@@ -80,11 +80,11 @@ func (s *Server) connectTunnel(conn net.Conn, br *bufio.Reader, req *http.Reques
 		return
 	}
 	if _, err := io.WriteString(conn, "HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
-		_ = upstream.Close()
+		_ = upstream.Close() //nolint:errcheck // the client is gone, so the unused upstream connection is dropped
 		return
 	}
 	// The client may already have sent its TLS hello; it sits in br's buffer.
-	early, _ := br.Peek(br.Buffered())
+	early, _ := br.Peek(br.Buffered()) //nolint:errcheck // peeking at bytes already buffered cannot fail
 	s.splice(conn, conn, upstream, append([]byte(nil), early...))
 }
 
@@ -115,8 +115,8 @@ func (s *Server) forwardPlain(conn net.Conn, req *http.Request) {
 		return
 	}
 	defer release()
-	defer func() { _ = both.Close() }()
-	_ = conn.SetDeadline(time.Time{})
+	defer func() { _ = both.Close() }() //nolint:errcheck // the exchange is over; closing both ends leaves nothing to report
+	_ = conn.SetDeadline(time.Time{})   //nolint:errcheck // only a closed connection fails this, and then the copy below ends at once
 
 	// One request per connection: a later request on the same connection could name another
 	// host, and it must not reach this one's address.
@@ -126,7 +126,7 @@ func (s *Server) forwardPlain(conn net.Conn, req *http.Request) {
 	if err := req.Write(upstream); err != nil {
 		return
 	}
-	_, _ = io.Copy(conn, upstream)
+	_, _ = io.Copy(conn, upstream) //nolint:errcheck // the copy ends when either side closes; that is the exchange's normal end
 }
 
 // splitHost splits "name[:port]". A missing port takes def; a bracketed IPv6 literal is kept
@@ -160,6 +160,7 @@ func writeRefusal(conn net.Conn, err error) {
 
 func writeStatus(conn net.Conn, code int, msg string) {
 	body := msg + "\n"
-	_, _ = fmt.Fprintf(conn, "HTTP/1.1 %d %s\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
-		code, http.StatusText(code), len(body), body)
+	head := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",
+		code, http.StatusText(code), len(body))
+	_, _ = io.WriteString(conn, head+body) //nolint:errcheck // the last words before the connection closes; a failed write means the machine left
 }

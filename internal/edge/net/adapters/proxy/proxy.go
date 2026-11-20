@@ -115,7 +115,7 @@ func (s *Server) serve(ln net.Listener, handle func(net.Conn)) {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
-		_ = ln.Close()
+		_ = ln.Close() //nolint:errcheck // the server is closed, so the listener is turned away unused
 		return
 	}
 	s.listeners = append(s.listeners, ln)
@@ -147,7 +147,7 @@ func (s *Server) Close() error {
 	s.closed = true
 	listeners := s.listeners
 	for c := range s.conns {
-		_ = c.Close()
+		_ = c.Close() //nolint:errcheck // cutting connections at close; a failed close leaves nothing to undo
 	}
 	s.mu.Unlock()
 	s.cancel()
@@ -165,7 +165,7 @@ func (s *Server) track(c net.Conn) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		_ = c.Close()
+		_ = c.Close() //nolint:errcheck // the server is closed, so the connection is turned away unread
 		return false
 	}
 	s.conns[c] = struct{}{}
@@ -176,7 +176,7 @@ func (s *Server) untrack(c net.Conn) {
 	s.mu.Lock()
 	delete(s.conns, c)
 	s.mu.Unlock()
-	_ = c.Close()
+	_ = c.Close() //nolint:errcheck // the connection is over; its handler already reported what failed
 }
 
 // route asks the router about host:port for conn's client.
@@ -216,8 +216,8 @@ func (s *Server) splice(client net.Conn, clientReader io.Reader, upstream net.Co
 		return
 	}
 	defer release()
-	defer func() { _ = both.Close() }()
-	_ = client.SetDeadline(time.Time{})
+	defer func() { _ = both.Close() }() //nolint:errcheck // the tunnel is over; closing both ends leaves nothing to report
+	_ = client.SetDeadline(time.Time{}) //nolint:errcheck // only a closed connection fails this, and then the copies below end at once
 	if len(first) > 0 {
 		if _, err := upstream.Write(first); err != nil {
 			return
@@ -225,11 +225,11 @@ func (s *Server) splice(client net.Conn, clientReader io.Reader, upstream net.Co
 	}
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		_, _ = io.Copy(upstream, clientReader)
+		_, _ = io.Copy(upstream, clientReader) //nolint:errcheck // a copy ends when either side closes; that is the tunnel's normal end
 		closeWrite(upstream)
 	})
 	wg.Go(func() {
-		_, _ = io.Copy(client, upstream)
+		_, _ = io.Copy(client, upstream) //nolint:errcheck // a copy ends when either side closes; that is the tunnel's normal end
 		closeWrite(client)
 	})
 	wg.Wait()
@@ -241,10 +241,10 @@ func (p closePair) Close() error { return errors.Join(p[0].Close(), p[1].Close()
 
 func closeWrite(c net.Conn) {
 	if cw, ok := c.(interface{ CloseWrite() error }); ok {
-		_ = cw.CloseWrite()
+		_ = cw.CloseWrite() //nolint:errcheck // half-close after the copy; the deferred Close of both ends follows
 		return
 	}
-	_ = c.Close()
+	_ = c.Close() //nolint:errcheck // no half-close here, so the end closes; the deferred Close of both ends follows
 }
 
 func sourceOf(c net.Conn) netip.AddrPort {

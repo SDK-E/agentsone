@@ -48,7 +48,7 @@ func New(upstream *url.URL, log *slog.Logger) http.Handler {
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.Header().Set("Cache-Control", "no-store")
 			w.WriteHeader(http.StatusBadGateway)
-			_ = json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck // the status is sent; a failed body write means the client left
 				"type": ProblemUnavailable, "title": "Machine unavailable", "status": http.StatusBadGateway,
 				"detail": "The machine did not answer. It may be starting; try again shortly.",
 			})

@@ -59,7 +59,7 @@ func (s *Store) Save(_ context.Context, st domain.State) (err error) {
 	}
 	defer func() {
 		if err != nil {
-			_ = os.Remove(tmp.Name())
+			_ = os.Remove(tmp.Name()) //nolint:errcheck // temp file cleanup; err already reports the failed save, and a leftover dot file is never read
 		}
 	}()
 	if _, err = tmp.Write(raw); err == nil {

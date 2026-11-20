@@ -22,6 +22,13 @@ const LaunchArgv0 = "agentsone-agent-launch"
 // runner. Its reason goes to the report pipe (file descriptor 3).
 const LaunchFailed = 126
 
+// launchReady is what the helper writes to the report pipe right before it
+// execs the runner. The pipe closes on exec, so once the runner runs the
+// daemon reads exactly launchReady. Nothing at all means the helper died
+// before it got there, for example a crash of its own runtime; launchReady
+// followed by a reason means exec failed.
+const launchReady = "\x00"
+
 // rlimitKind names a resource limit without depending on the platform.
 type rlimitKind int
 
@@ -120,9 +127,10 @@ type launchSys interface {
 	Exec(path string, argv []string) error
 }
 
-// runLaunch carries out p. It returns only on failure: on success Exec
-// replaces the process with the runner.
-func runLaunch(p launchPlan, sys launchSys) error {
+// runLaunch carries out p and writes launchReady to report right before
+// the exec. It returns only on failure: on success Exec replaces the
+// process with the runner.
+func runLaunch(p launchPlan, sys launchSys, report io.Writer) error {
 	if p.Cgroup != "" {
 		if err := sys.JoinCgroup(p.Cgroup); err != nil {
 			return fmt.Errorf("join cgroup %s: %w", p.Cgroup, err)
@@ -145,6 +153,9 @@ func runLaunch(p launchPlan, sys launchSys) error {
 			return fmt.Errorf("become uid %d gid %d: %w", p.UID, p.GID, err)
 		}
 	}
+	if _, err := io.WriteString(report, launchReady); err != nil {
+		return fmt.Errorf("report ready: %w", err)
+	}
 	if err := sys.Exec(p.Path, append([]string{p.Path}, p.Args...)); err != nil {
 		return fmt.Errorf("exec %s: %w", p.Path, err)
 	}
@@ -156,7 +167,7 @@ func runLaunch(p launchPlan, sys launchSys) error {
 func launchMain(args []string, sys launchSys, report io.Writer) int {
 	p, err := parseLaunch(args)
 	if err == nil {
-		err = runLaunch(p, sys)
+		err = runLaunch(p, sys, report)
 	}
 	if err == nil {
 		err = errors.New("exec returned without an error")

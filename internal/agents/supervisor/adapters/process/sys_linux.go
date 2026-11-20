@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
@@ -230,8 +231,9 @@ func writeLimits(dir string, l domain.Limits) error {
 var errLaunch = errors.New("launch helper failed")
 
 // afterStart waits until the launch helper has exec'd the runner (the
-// report pipe closes with no data) or failed (the pipe carries why). It
-// returns how the runner's limits hold.
+// report pipe carries launchReady, then closes on exec) or failed (the
+// pipe carries why, or nothing when the helper died first). It returns
+// how the runner's limits hold.
 func (st *sysState) afterStart() (domain.LimitMode, error) {
 	if st.report == nil {
 		return st.mode, nil
@@ -244,10 +246,19 @@ func (st *sysState) afterStart() (domain.LimitMode, error) {
 	if err != nil {
 		return "", fmt.Errorf("read launch report: %w", err)
 	}
-	if len(msg) > 0 {
-		return "", fmt.Errorf("%w: %s", errLaunch, msg)
+	return st.mode, readReport(string(msg))
+}
+
+// readReport reads what the launch helper wrote to its report pipe.
+func readReport(msg string) error {
+	switch msg {
+	case launchReady:
+		return nil
+	case "":
+		return fmt.Errorf("%w: it ended before it started the program", errLaunch)
+	default:
+		return fmt.Errorf("%w: %s", errLaunch, strings.TrimPrefix(msg, launchReady))
 	}
-	return st.mode, nil
 }
 
 // cleanup closes what start did not use and removes the agent's cgroup

@@ -324,9 +324,13 @@ func TestLauncher_ReportsSoftLimitsWithoutCgroup(t *testing.T) {
 // the launch helper reports why before the runner would have run.
 func TestLauncher_FailsStartOfCustomRunnerThatCannotRun(t *testing.T) {
 	t.Parallel()
+	// No limits: a custom account starts through the helper anyway. A
+	// tasks limit would make the helper lower RLIMIT_NPROC for this test's
+	// own user, which under `go test -race ./...` already runs more threads
+	// than that, so the helper's runtime could not start a thread and died
+	// before it reached the missing runner.
 	s := spec(t, "serve", "/nonexistent")
 	s.Account = domain.AccountFor("founder", false)
-	s.Limits = domain.Limits{TasksMax: 64}
 	s.Exec.Path = filepath.Join(t.TempDir(), "missing-runner")
 	l := &process.Launcher{Log: quiet}
 	_ = l.Install(t.Context(), s)

@@ -15,12 +15,29 @@ on:
 permissions:
   contents: read
 
+# Body-only edits. Editing a pull request fires `edited`, and the payload's `changes` names what
+# changed: `title`, `base` or `body`. A body-only edit (no `title`, no `base`) changes nothing
+# the checks look at, so its run checks nothing: every job below but the gate is skipped on it.
+# It runs in its own concurrency group and cancels nothing, so it never cancels the running
+# checks of the same commit, and body-only edits made one after another queue up.
+#
+# Such a run must never report the required `gate` check, because a skipped or passed check
+# there would be the newest check of that name on the commit and would turn a failed gate green
+# with no check run again. So on a body-only edit the gate job has another name and only says
+# so (see the gate job). Every other run, title and base edits included, runs the checks in
+# full and reports `gate` as before. A title or base edit still cancels the running checks: it
+# changes what the gate checks, so the gate runs again on the new title or base.
+#
+# The test, repeated on each job that has no other job to wait for and in the gate:
+#   github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
 concurrency:
-  group: pr-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: pr-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base && '-body-edit' || '' }}
+  cancel-in-progress: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
 
 jobs:
   changes:
+    # Skipped on a body-only edit (see concurrency above); the jobs that need it skip with it.
+    if: github.event.action != 'edited' || github.event.changes.title || github.event.changes.base
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -462,6 +479,7 @@ jobs:
   # Spelling runs on every pull request: code strings and comments slip in
   # through Go and TypeScript changes, not only through docs.
   spelling:
+    if: github.event.action != 'edited' || github.event.changes.title || github.event.changes.base
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -473,6 +491,7 @@ jobs:
       - uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
 
   spdx:
+    if: github.event.action != 'edited' || github.event.changes.title || github.event.changes.base
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -484,6 +503,7 @@ jobs:
       - run: scripts/check-spdx.sh
 
   secrets:
+    if: github.event.action != 'edited' || github.event.changes.title || github.event.changes.base
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -508,7 +528,9 @@ jobs:
         run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="${BASE_SHA}..${HEAD_SHA}" .'
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event.action != 'edited' || github.event.changes.title || github.event.changes.base)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -522,7 +544,9 @@ jobs:
           comment-summary-in-pr: never
 
   pr-title:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event.action != 'edited' || github.event.changes.title || github.event.changes.base)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -533,6 +557,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   gate:
+    # The one required check. On a body-only edit (see concurrency above) this job is named
+    # otherwise and only says so, so that run never reports a `gate` check: a `gate` that passed
+    # or was skipped there would replace a failed one on the same commit. It is not skipped on
+    # that run, because GitHub names a skipped job by the raw text of its `name` expression.
+    # Every other run names it `gate`, and it fails unless the jobs that run on every pull
+    # request or merge group passed, so a run where everything was skipped cannot pass it. The
+    # name and the steps use the same test, so whenever this job is named `gate` the checks
+    # below run, and they fail if the other jobs were skipped.
+    name: >-
+      ${{ github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
+      && 'body-only edit: no checks run' || 'gate' }}
     if: always()
     needs:
       - changes
@@ -556,7 +591,11 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     steps:
+      - name: Body-only edit, nothing to check
+        if: github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
+        run: echo "Only the body changed. The gate of the last full run on this commit stands."
       - name: Fail when a needed job failed or was cancelled
+        if: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
@@ -568,4 +607,26 @@ jobs:
                 exit 1
                 ;;
             esac
+          done
+      - name: Fail when a job that always runs did not pass
+        if: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGES: ${{ needs.changes.result }}
+          SPELLING: ${{ needs.spelling.result }}
+          SPDX: ${{ needs.spdx.result }}
+          SECRETS: ${{ needs.secrets.result }}
+          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
+          PR_TITLE: ${{ needs.pr-title.result }}
+        run: |
+          always="changes=$CHANGES spelling=$SPELLING spdx=$SPDX secrets=$SECRETS"
+          if [ "$EVENT" = pull_request ]; then
+            always="$always dependency-review=$DEPENDENCY_REVIEW pr-title=$PR_TITLE"
+          fi
+          echo "Jobs that always run: $always"
+          for job in $always; do
+            if [ "${job#*=}" != success ]; then
+              echo "${job%%=*} did ${job#*=}, not success." >&2
+              exit 1
+            fi
           done

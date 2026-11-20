@@ -76,6 +76,11 @@ restart keeps the machine, a recreate resets it), `web-door` (a header is never 
 `control` (the control page and its passphrase). `services-events` (the built-in services event
 source) is not covered yet: it waits for the daemon's service registry.
 
+The last stage, `logs-clean`, reads the machine, edge and control logs after the whole scenario.
+It fails on any warning, error or crash, except the few lines the scenario causes on purpose with
+its negative checks. Each of those is listed in `e2e/stages/900-logs-clean.sh` with the check
+that causes it. A new warning is a fault to fix, not a line to add to that list.
+
 ## Not covered by CI: manual
 
 These items need a person, a real server or a real model key. CI never has any of them.

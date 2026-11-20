@@ -54,6 +54,11 @@ func (b *Events) Publish(ctx context.Context, e core.Event) (core.Event, error) 
 	if err := validate(ctx, e); err != nil {
 		return core.Event{}, fmt.Errorf("publish %s: %w", e.Type, err)
 	}
+	actor, err := portActor(ctx, e.Actor)
+	if err != nil {
+		return core.Event{}, fmt.Errorf("publish %s: %w", e.Type, err)
+	}
+	e.Actor = actor
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	e = b.stamp(e)
@@ -65,14 +70,21 @@ func (b *Events) Publish(ctx context.Context, e core.Event) (core.Event, error) 
 }
 
 // validate checks e as the events module does: the caller must be one it can
-// name as the actor, the envelope must pass the draft rules, and the data must
-// match the type's schema in the catalog. Daemon modules publish catalog types
-// only, so a type outside the catalog, or a chart scope of another kind than
-// the catalog gives the type, is refused too.
+// name as the actor and may publish the type as the source, the envelope must
+// pass the draft rules, and the data must match the type's schema in the
+// catalog. Daemon modules publish catalog types only, so a type outside the
+// catalog, or a chart scope of another kind than the catalog gives the type,
+// is refused too. An emitter source is not checked: its rules need the
+// emitter records, which live in the events module.
 func validate(ctx context.Context, e core.Event) error {
 	if c, ok := core.CallerFrom(ctx); ok {
 		if _, err := eventsdomain.EventActor(c); err != nil {
 			return fmt.Errorf("caller %s:%q: %w", c.Kind, c.Name, err)
+		}
+		if _, emitter := eventsdomain.EmitterOfSource(e.Source); !emitter {
+			if err := eventsdomain.AuthoriseSource(c, e.Source, e.Type); err != nil {
+				return fmt.Errorf("caller %s:%q as %s: %w", c.Kind, c.Name, e.Source, err)
+			}
 		}
 	}
 	d := eventsdomain.Draft{
@@ -97,6 +109,20 @@ func validate(ctx context.Context, e core.Event) error {
 		return fmt.Errorf("data: %w", err)
 	}
 	return nil
+}
+
+// portActor writes the actor as the events module does: a daemon module names
+// it, anyone else is the actor. Work with no caller is the daemon's own.
+func portActor(ctx context.Context, named string) (string, error) {
+	c, ok := core.CallerFrom(ctx)
+	if !ok {
+		c = core.Caller{Kind: core.CallerSystem, Name: "daemon", IsRoot: true}
+	}
+	actor, err := eventsdomain.PortActor(c, named)
+	if err != nil {
+		return "", fmt.Errorf("actor %q: %w", named, err)
+	}
+	return actor, nil
 }
 
 func (b *Events) stamp(e core.Event) core.Event {

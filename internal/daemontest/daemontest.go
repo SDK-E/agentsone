@@ -63,6 +63,9 @@ type Daemon struct {
 	tcp     string // the API's loopback address
 	// stop stops the daemon and closes its stores, once.
 	stop func()
+	// setup is what Start's options set up. A restarted daemon keeps it, so
+	// it reaches the same gateway and tool server forwarder.
+	setup *startup
 }
 
 // webDoor stands in for the edge's web door, the only way the first human
@@ -97,25 +100,33 @@ func (w *webDoor) serveAs(req *http.Request, caller core.Caller) *httptest.Respo
 
 // Start runs the daemon until the test ends and returns once it is ready.
 // The test fails when the daemon cannot start or does not stop cleanly.
-func Start(t testing.TB) *Daemon {
+// Options add machine parts, such as the model gateway (WithModelProvider).
+func Start(t testing.TB, opts ...Option) *Daemon {
 	t.Helper()
-	return start(t, loadConfig(t), coretest.NewClock(coretest.Epoch), coretest.NewIDs())
+	cfg := loadConfig(t)
+	clock := coretest.NewClock(coretest.Epoch)
+	setup := &startup{t: t, cfg: &cfg, clock: clock}
+	for _, o := range opts {
+		o(setup)
+	}
+	return start(t, cfg, clock, coretest.NewIDs(), setup)
 }
 
 // Restart stops d, as a crash or a reboot would, and starts a new daemon on
 // the same folders and stores, with the same clock and id source, so ids
-// stay unique across the restart. Use the returned daemon from then on.
+// stay unique across the restart, and with the same machine parts from
+// Start's options. Use the returned daemon from then on.
 func (d *Daemon) Restart() *Daemon {
 	d.t.Helper()
 	d.stop()
-	return start(d.t, d.Config, d.Clock, d.ids)
+	return start(d.t, d.Config, d.Clock, d.ids, d.setup)
 }
 
 // Stop stops d and closes its stores, for a test that changes the stores
 // while no daemon runs (before Restart). Stopping twice is safe.
 func (d *Daemon) Stop() { d.stop() }
 
-func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs) *Daemon {
+func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, setup *startup) *Daemon {
 	t.Helper()
 	logs := &logBuffer{}
 	d := &Daemon{
@@ -128,6 +139,7 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs) *
 		beat:    make(chan time.Time),
 		logs:    logs,
 		door:    &webDoor{},
+		setup:   setup,
 	}
 	stores, closeStores := openStores(t, cfg)
 	deps := core.Deps{
@@ -143,6 +155,7 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs) *
 		daemon.WithMachine(func(deps core.Deps) core.Module { return machinetest.New(deps) }),
 		daemon.WithSupervisor(agents.SupervisorOptions{
 			Processes: d.runners, Accounts: acc, UserID: acc.userID, Wall: wallHolds{},
+			Config: d.setup.supervisor,
 		}),
 		daemon.WithSched(sched.WithBeat(d.beat)),
 	), d.door)
@@ -169,6 +182,9 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs) *
 		d.runners.close()
 		closeStores()
 		t.Fatalf("the daemon was not ready within %s (%v)\n%s", Timeout, err, logs)
+	}
+	for _, ready := range d.setup.ready {
+		ready(d)
 	}
 	d.stop = sync.OnceFunc(func() {
 		cancel()

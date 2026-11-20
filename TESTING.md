@@ -362,10 +362,30 @@ tests need no root and no Linux features, so they run with every `go test` and c
   | Fire due schedules | `d.FireSchedules(by)` moves the fake clock and beats the schedule clock |
   | Read the audit trail or an agent's state | `client.Audit()`, `client.Agent("echo")` |
   | A port in process | `d.Ports` |
+  | A crash or a reboot on the same state, then the human again | `d = d.Restart()`, then `d.LogIn("alice")` |
 
   Every wait listens to a stream or an event and fails after `daemontest.Timeout`; none polls or
   sleeps. Write the test so it fails when the payload, the address or the event it crosses is
   broken on purpose, and say in the pull request what you broke and what failed.
+- **B5f. Model turns go through the real gateway.** When a feature needs a model turn, start the
+  daemon with `daemontest.Start(t, daemontest.WithModelProvider(model.URL(), model.Key()))` and
+  a fake model from `model := daemontest.NewFakeModel(t)`. The real model gateway
+  (`internal/edge/gateway`) runs on loopback with its own config, key store, budget and token
+  check, and the real openai runner runs in process. The runner reaches the gateway and the tool
+  server at the addresses of its welcome, with the tokens the daemon signs, so a wrong gateway
+  address, path or key fails the test. Hire the agent with `founder.HireRunner("scribe",
+  "openai")`.
+
+  | Need | Call |
+  | --- | --- |
+  | The model's next answers, in order: a text or tool calls | `model.Script(daemontest.ModelReply{...}, ...)` |
+  | What the provider saw: path, model, headers without secrets, key, tools, tool results | `model.Calls()` |
+  | The model the gateway picks for a weight | `daemontest.ModelQuick`, `ModelNormal`, `ModelDeep` |
+
+  The fake model lives only in a `_test.go` file of `internal/daemontest`, so Go never builds it
+  into a binary the project ships, and a lint rule (depguard) keeps the harness itself out of
+  every non-test file. Use the harness's tests for model turns; the e2e fake provider
+  (`e2e/fakeprovider`) is for the e2e stack only. Do not add a fake provider anywhere else.
 
 | Use | When |
 | --- | --- |

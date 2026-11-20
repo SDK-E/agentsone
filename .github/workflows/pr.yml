@@ -446,6 +446,10 @@ jobs:
           for t in entrypoint fetch-pinned healthcheck; do
             docker run --rm -v "$PWD/image/machine:/src:ro" --entrypoint "/src/test/$t.test.sh" "$MACHINE_IMAGE"
           done
+      # Runs the editor as a human's user on its socket and installs an extension from Open VSX,
+      # so it needs the internet: the default bridge network, not the stack's walled network.
+      - name: editor test in the image (VSCodium server, Open VSX install)
+        run: docker run --rm -v "$PWD/image/machine:/src:ro" --entrypoint /src/test/editor.test.sh "$MACHINE_IMAGE"
       - name: smoke test (healthy, clean log, clean stop, key kept)
         run: image/ci/smoke.sh "$MACHINE_IMAGE"
 

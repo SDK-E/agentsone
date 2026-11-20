@@ -15,6 +15,9 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 	humanaccounts "github.com/SDK-E/agentsone/internal/humanuser/adapters/accounts"
 	humanapp "github.com/SDK-E/agentsone/internal/humanuser/app"
+	idehttp "github.com/SDK-E/agentsone/internal/ide/adapters/http"
+	ideprocess "github.com/SDK-E/agentsone/internal/ide/adapters/process"
+	ideapp "github.com/SDK-E/agentsone/internal/ide/app"
 	httpadapter "github.com/SDK-E/agentsone/internal/machine/adapters/http"
 	"github.com/SDK-E/agentsone/internal/machine/adapters/system"
 	"github.com/SDK-E/agentsone/internal/machine/app"
@@ -50,6 +53,8 @@ type Module struct {
 	terminals *app.Terminals
 	startup   *app.StartupGate
 	humans    *humanapp.Users
+	ide       *ideapp.Servers
+	ideBuild  idehttp.Build
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -72,6 +77,10 @@ type System struct {
 	Timer     app.Timer
 	// HumanAccounts makes humans' Linux users (useradd).
 	HumanAccounts humanapp.Accounts
+	// Editor starts the humans' editor servers; EditorVersion is the
+	// baked-in build's version.
+	Editor        ideapp.Launcher
+	EditorVersion string
 }
 
 // RealSystem is the container the daemon runs in.
@@ -92,6 +101,8 @@ func RealSystem(cfg *core.Config, clock core.Clock) System {
 		Power:         system.Power{},
 		Timer:         system.Power{},
 		HumanAccounts: &humanaccounts.Accounts{},
+		Editor:        ideprocess.Launcher{},
+		EditorVersion: ideprocess.Version(ideprocess.DefaultDir),
 	}
 }
 
@@ -109,11 +120,20 @@ func NewWith(deps core.Deps, sys System) *Module {
 		Start: sys.Pty, Users: sys.Users, Cells: lateCells{deps.Ports}, Audit: auditPort{deps.Ports},
 		Log: deps.Log, Clock: deps.Clock, IDs: deps.IDs,
 	})
+	humans := humanapp.New(lateHumans{deps.Ports}, sys.HumanAccounts)
+	editors := ideapp.New(lateHumans{deps.Ports}, humans, sys.Editor, deps.Clock, ideapp.Options{
+		RunRoot: filepath.Join(deps.Config.RuntimeDir, "ide"), ReadyTimeout: editorReadyTimeout,
+	})
 	return &Module{
 		deps: deps, settings: defaultSettings(), machine: m, terminals: terms,
-		startup: app.NewStartupGate(), humans: humanapp.New(lateHumans{deps.Ports}, sys.HumanAccounts),
+		startup: app.NewStartupGate(), humans: humans,
+		ide: editors, ideBuild: idehttp.Build{Name: "vscodium", Version: sys.EditorVersion},
 	}
 }
+
+// editorReadyTimeout bounds a new editor server's first answer; the first
+// start of a human unpacks its own data folder and takes longest.
+const editorReadyTimeout = 2 * time.Minute
 
 // HumanUsers makes humans' Linux users on demand, for programs that run as
 // a human (the editor, the desktop).
@@ -126,15 +146,19 @@ func (*Module) Name() string { return "machine" }
 // on it until the recipe reapply ended.
 func (m *Module) Provide(p *core.Ports) { p.Startup = m.startup }
 
-// API serves the machine tag, terminals included. The net tag (per-agent
-// network rules) and the ide tag answer 501 until their work packages land.
+// API serves the machine tag, terminals included, the ide tag and the
+// editor proxy under /ide/<human>/. The net tag (per-agent network rules)
+// answers 501 until its work package lands.
 func (m *Module) API() core.API {
 	h := httpadapter.New(m.machine, m.deps.Config.AgentHome).WithTerminals(m.terminals)
-	return core.API{Groups: []core.APIGroup{
-		machineapi.Group(h, h.Terminal),
-		netapi.Group(netapi.Unimplemented{}),
-		ideapi.Group(ideapi.Unimplemented{}),
-	}}
+	return core.API{
+		Groups: []core.APIGroup{
+			machineapi.Group(h, h.Terminal),
+			netapi.Group(netapi.Unimplemented{}),
+			ideapi.Group(idehttp.New(m.ide, m.ideBuild)),
+		},
+		Routes: []core.Route{idehttp.NewProxy(m.ide, m.deps.Log).Route()},
+	}
 }
 
 // Start returns at once: the recipe reapply runs in the background, so the
@@ -218,6 +242,7 @@ func (m *Module) Stop(ctx context.Context) error {
 	}
 	m.wg.Wait()
 	m.terminals.CloseAll(ctx)
+	m.ide.Close()
 	return nil
 }
 

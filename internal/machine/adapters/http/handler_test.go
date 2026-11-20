@@ -148,13 +148,19 @@ var (
 
 func serve(t *testing.T) (http.Handler, *app.Machine) {
 	t.Helper()
+	return serveWith(t, domain.AgentLimits{})
+}
+
+// serveWith serves the machine group with limits as the start probe's answer.
+func serveWith(t *testing.T, limits domain.AgentLimits) (http.Handler, *app.Machine) {
+	t.Helper()
 	m := app.New(app.Deps{
 		Packages: &apt{installed: []string{"bash", "jq"}}, Files: &files{data: map[string]string{"/srv/a.txt": "hello", "/srv/bin": "\xff\xfe"}},
 		Processes: procs{}, Users: users{}, Metrics: metrics{}, Recipes: &recipes{}, Baseline: baseline{},
 		Power: power{}, Timer: power{}, Audit: coretest.NewAudit(), Clock: coretest.NewClock(coretest.Epoch), IDs: coretest.NewIDs(),
 	})
 	mux := http.NewServeMux()
-	h := httpadapter.New(m, func(name string) string { return "/home/agents/" + name })
+	h := httpadapter.New(m, func(name string) string { return "/home/agents/" + name }).WithAgentLimits(limits)
 	machineapi.Group(h).Register(mux, core.APIOptions{
 		RequestError: func(w http.ResponseWriter, r *http.Request, err error) {
 			core.WriteProblem(w, r, core.NewProblem(http.StatusBadRequest, "validation", err.Error()))
@@ -212,6 +218,50 @@ func TestMetrics(t *testing.T) {
 	if m["hostname"] != "machine" || m["uptime_seconds"] != 90.0 {
 		t.Fatalf("metrics %v", m)
 	}
+	// A daemon that was not told how limits hold leaves the field out.
+	if _, ok := m["agent_limits"]; ok {
+		t.Fatalf("agent_limits %v, want it left out", m["agent_limits"])
+	}
+}
+
+func TestMetricsSayHowAgentLimitsHold(t *testing.T) {
+	type hold struct {
+		Mode   string  `json:"mode"`
+		Reason *string `json:"reason"`
+	}
+	metricsOf := func(t *testing.T, l domain.AgentLimits) hold {
+		t.Helper()
+		h, _ := serveWith(t, l)
+		rec := call(t, h, &asHuman, http.MethodGet, "/v1/machine/metrics", "")
+		want(t, rec, http.StatusOK)
+		return decode[struct {
+			AgentLimits hold `json:"agent_limits"`
+		}](t, rec).AgentLimits
+	}
+	t.Run("hard has no reason", func(t *testing.T) {
+		// Even a reason given by mistake stays out.
+		got := metricsOf(t, domain.AgentLimits{Mode: domain.LimitsHard, Reason: "cgroup v2, writable"})
+		if got.Mode != "hard" || got.Reason != nil {
+			t.Fatalf("agent_limits %+v, want hard without a reason", got)
+		}
+	})
+	t.Run("soft says why", func(t *testing.T) {
+		got := metricsOf(t, domain.SoftLimits("The cgroup tree is read-only."))
+		if got.Mode != "soft" || got.Reason == nil || *got.Reason != "The cgroup tree is read-only." {
+			t.Fatalf("agent_limits %+v, want soft with the reason", got)
+		}
+	})
+	t.Run("soft reason is 1 to 500 characters", func(t *testing.T) {
+		for _, reason := range []string{"", strings.Repeat("word ", 300)} {
+			got := metricsOf(t, domain.AgentLimits{Mode: domain.LimitsSoft, Reason: reason})
+			if got.Reason == nil {
+				t.Fatal("soft limits without a reason")
+			}
+			if n := len([]rune(*got.Reason)); n < 1 || n > 500 {
+				t.Fatalf("reason of %d characters, want 1 to 500", n)
+			}
+		}
+	})
 }
 
 func TestProcessesAndSignal(t *testing.T) {

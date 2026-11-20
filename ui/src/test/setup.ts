@@ -28,6 +28,12 @@ HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
   this.dispatchEvent(new Event("close"));
 };
 
+// jsdom has no canvas. It returns null anyway, but logs "Not implemented" first whenever axe
+// measures text with one, which would leave noise in a clean test run.
+HTMLCanvasElement.prototype.getContext = function getContext() {
+  return null;
+} as typeof HTMLCanvasElement.prototype.getContext;
+
 // jsdom has no layout: no scrolling into view and no resize observer.
 Element.prototype.scrollIntoView = function scrollIntoView() {
   // Nothing to scroll without layout. Tests spy on it to see what was brought into view.

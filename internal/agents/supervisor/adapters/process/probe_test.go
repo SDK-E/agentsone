@@ -164,6 +164,44 @@ func TestBoot_LogsOneInfoLine(t *testing.T) {
 	}
 }
 
+// Every soft reason has plain words for people, short enough for the API
+// (1 to 500 characters), that say how to make the limits hard. Hard has none.
+func TestReasonAdvice(t *testing.T) {
+	t.Parallel()
+	soft := []process.Reason{
+		process.ReasonNoCgroupV2, process.ReasonNoCgroupMount, process.ReasonNotRoot,
+		process.ReasonHostRootCgroup, process.ReasonNoCPU, process.ReasonNoMemory,
+		process.ReasonNoPids, process.ReasonReadOnly, process.ReasonNotWritable,
+	}
+	seen := map[string]process.Reason{}
+	for _, r := range soft {
+		a := r.Advice()
+		if n := len([]rune(a)); n < 1 || n > 500 {
+			t.Errorf("%q: advice of %d characters, want 1 to 500", r, n)
+		}
+		if !strings.HasSuffix(a, "restart the machine.") {
+			t.Errorf("%q: advice %q does not say how to make limits hard", r, a)
+		}
+		if other, dup := seen[a]; dup && !sameCase(r, other) {
+			t.Errorf("%q and %q share advice", r, other)
+		}
+		seen[a] = r
+	}
+	if a := process.ReasonWritable.Advice(); a != "" {
+		t.Errorf("hard limits have advice %q", a)
+	}
+	if a := process.Reason("something new").Advice(); a != "" {
+		t.Errorf("an unknown reason has advice %q", a)
+	}
+}
+
+// sameCase is true for reasons that are one case for people: no cgroup v2
+// at all, or none at the mount.
+func sameCase(a, b process.Reason) bool {
+	pair := map[process.Reason]bool{process.ReasonNoCgroupV2: true, process.ReasonNoCgroupMount: true}
+	return pair[a] && pair[b]
+}
+
 func remove(name string) func(*testing.T, string) {
 	return func(t *testing.T, fs string) {
 		t.Helper()

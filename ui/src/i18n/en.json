@@ -101,6 +101,16 @@
     "pending": "Finding the right agent…",
     "failed": "The request could not be routed. Open an agent's chat directly, or try again."
   },
+  "safety": {
+    "limitsHard": "Agent limits: held by the kernel.",
+    "limitsSoft": {
+      "label": "Agent limits",
+      "title": "Agent limits: soft.",
+      "body": "The kernel does not hold custom agents' CPU, memory and process limits on this machine.",
+      "chip": "Limits: soft",
+      "chipMore": ". The kernel does not hold custom agents' limits on this machine. The Machine panel says why."
+    }
+  },
   "society": {
     "title": "The society",
     "summary_one": "{{count}} resident, {{awake}} awake",

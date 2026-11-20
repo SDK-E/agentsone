@@ -29,6 +29,52 @@ describe("Machine panel", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says quietly that the kernel holds agent limits", async () => {
+    renderWith(<MachinePanel />);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    expect(await within(machine).findByText("Agent limits: held by the kernel.")).toBeVisible();
+    expect(within(machine).queryByRole("note")).toBeNull();
+  });
+
+  it("says plainly when agent limits are soft, and why", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoft;
+    const { container } = renderWith(<MachinePanel />, api);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    const note = await within(machine).findByRole("note", { name: "Agent limits" });
+    expect(note).toHaveTextContent(
+      "Agent limits: soft. The kernel does not hold custom agents' CPU, memory and process limits on this machine.",
+    );
+    expect(within(note).getByText(fixtures.metricsSoft.agent_limits?.reason ?? "")).toBeVisible();
+    expect(within(machine).queryByText("Agent limits: held by the kernel.")).toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows a long reason in full", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoftLong;
+    renderWith(<MachinePanel />, api);
+
+    const note = await screen.findByRole("note", { name: "Agent limits" });
+    expect(
+      within(note).getByText(fixtures.metricsSoftLong.agent_limits?.reason ?? ""),
+    ).toBeVisible();
+  });
+
+  it("says nothing about agent limits when an older daemon does not report them", async () => {
+    const api = new FakeApi();
+    const older = { ...fixtures.metrics };
+    delete older.agent_limits;
+    api.metrics = older;
+    renderWith(<MachinePanel />, api);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    expect(await within(machine).findByText("11.5% of 4 cores")).toBeVisible();
+    expect(within(machine).queryByText(/Agent limits/)).toBeNull();
+  });
+
   it("names the program and folds a long command to two lines", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();

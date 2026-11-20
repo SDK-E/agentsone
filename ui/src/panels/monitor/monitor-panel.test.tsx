@@ -151,6 +151,17 @@ describe("MonitorPanel", () => {
     expect(await agentList()).toBeVisible();
   });
 
+  it("leaves agent limits to the Machine panel", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoft;
+    renderWith(<MonitorPanel />, api);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    expect(await within(machine).findByText("11.5% of 4 cores")).toBeVisible();
+    expect(screen.queryByRole("note", { name: "Agent limits" })).toBeNull();
+    expect(screen.queryByText(/Agent limits/)).toBeNull();
+  });
+
   it("shows a budget error without hiding the agents", async () => {
     const api = new FakeApi();
     api.budget = problem(503, "Budget unavailable", "The control page has not reported yet.");

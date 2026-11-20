@@ -34,7 +34,9 @@ type HumanAccounts struct{}
 func (HumanAccounts) Ensure(context.Context, humandomain.User) error { return nil }
 
 // New builds a machine module on NoopSystem.
-func New(deps core.Deps) *machine.Module { return machine.NewWith(deps, NoopSystem()) }
+func New(deps core.Deps, opts ...machine.Option) *machine.Module {
+	return machine.NewWith(deps, NoopSystem(), opts...)
+}
 
 // Packages has nothing installed; installs and removals succeed and change
 // nothing.

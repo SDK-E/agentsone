@@ -239,6 +239,17 @@ ul.notice {
   overflow-wrap: anywhere;
 }
 
+/* Machine safety notice. Quiet: something holds less than it should, said calmly. The dashed
+   outline matches the soft wall label. */
+.safety--quiet {
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+}
+
+.safety__reason {
+  overflow-wrap: anywhere;
+}
+
 /* Entry screens: setup and sign in */
 .entry {
   display: grid;
@@ -493,6 +504,19 @@ ul.notice {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-md);
+}
+
+/* The title with the safety chip beside it. The chip is no taller than the title's line, so it
+   moves nothing when it arrives. */
+.society__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.society__title .safety-chip {
+  margin-inline-start: 0;
 }
 
 .live-badge {

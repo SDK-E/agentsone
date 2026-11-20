@@ -20,6 +20,58 @@ import (
 // selfCgroup is where a process reads its own cgroup.
 const selfCgroup = "/proc/self/cgroup"
 
+// Reason is why custom agents' limits are hard or soft. Each value is one
+// known case, so callers map it to their own words with a switch, never by
+// reading the text. The text is what the start log line says.
+type Reason string
+
+// The reasons ProbeCgroups gives. ReasonWritable is the only hard one.
+const (
+	ReasonWritable       Reason = "cgroup v2, writable"
+	ReasonNoCgroupV2     Reason = "no cgroup v2"
+	ReasonNoCgroupMount  Reason = "no cgroup v2 at the cgroup mount"
+	ReasonNotRoot        Reason = "the daemon does not run as root"
+	ReasonHostRootCgroup Reason = "the daemon is in the host's root cgroup"
+	ReasonNoCPU          Reason = "cgroup v2 has no cpu controller"
+	ReasonNoMemory       Reason = "cgroup v2 has no memory controller"
+	ReasonNoPids         Reason = "cgroup v2 has no pids controller"
+	ReasonReadOnly       Reason = "cgroup tree is read-only"
+	ReasonNotWritable    Reason = "cgroup tree is not writable"
+)
+
+// missingController is the reason for each controller in controllers.
+var missingController = map[string]Reason{"cpu": ReasonNoCPU, "memory": ReasonNoMemory, "pids": ReasonNoPids}
+
+// Advice says, in plain words for the people who run the machine, why
+// custom agents' limits are soft and how to make them hard. It is empty for
+// ReasonWritable (hard) and for a reason it does not know.
+func (r Reason) Advice() string {
+	const restart = " then restart the machine."
+	noController := func(name string) string {
+		return "The machine's cgroup has no " + name + " controller, so the kernel cannot hold that limit. Use Docker Engine 28 or newer on a host with cgroup v2," + restart
+	}
+	switch r {
+	case ReasonNoCgroupV2, ReasonNoCgroupMount:
+		return "The host has no cgroup v2, so the daemon cannot give each custom agent a cgroup of its own. Run the stack on a Linux host with cgroup v2 (Docker Desktop, colima and current Linux servers have it)," + restart
+	case ReasonNotRoot:
+		return "The daemon does not run as root in the machine container, so it cannot give each custom agent a cgroup of its own. Run the machine service as root, as compose.yaml does," + restart
+	case ReasonHostRootCgroup:
+		return "The machine container shares the host's root cgroup, and the daemon never makes cgroups there. Keep the cgroup: private line of the machine service in compose.yaml," + restart
+	case ReasonNoCPU:
+		return noController("cpu")
+	case ReasonNoMemory:
+		return noController("memory")
+	case ReasonNoPids:
+		return noController("pids")
+	case ReasonReadOnly:
+		return "The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, use Docker Engine 28 or newer," + restart
+	case ReasonNotWritable:
+		return "The daemon could not write the machine container's cgroup tree. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, use Docker Engine 28 or newer," + restart
+	default:
+		return ""
+	}
+}
+
 // Boot is how custom agents' limits hold on this machine, decided once when
 // the daemon starts.
 type Boot struct {
@@ -28,14 +80,14 @@ type Boot struct {
 	Mode domain.LimitMode
 	// Root is the directory to use as Launcher.CgroupRoot, or "" when soft.
 	Root string
-	// Reason says why, in plain words, for the start log line.
-	Reason string
+	// Reason says why; its text is the start log line's.
+	Reason Reason
 	// Cause is the error behind a soft mode, when there is one.
 	Cause error
 }
 
 // Line is the start log line, such as "limits: hard (cgroup v2, writable)".
-func (b Boot) Line() string { return "limits: " + string(b.Mode) + " (" + b.Reason + ")" }
+func (b Boot) Line() string { return "limits: " + string(b.Mode) + " (" + string(b.Reason) + ")" }
 
 // Log writes the start log line at info level: soft limits are a supported
 // way to run, so they are not an error.
@@ -55,7 +107,7 @@ func (b Boot) Log(log *slog.Logger) {
 func ProbeSystem() Boot {
 	self, err := os.ReadFile(selfCgroup)
 	if err != nil {
-		return Boot{Mode: domain.LimitsSoft, Reason: "no cgroup v2", Cause: err}
+		return Boot{Mode: domain.LimitsSoft, Reason: ReasonNoCgroupV2, Cause: err}
 	}
 	return ProbeCgroups(CgroupFS, self, os.Geteuid() == 0)
 }
@@ -69,12 +121,12 @@ func ProbeSystem() Boot {
 // host's), the cpu, memory and pids controllers and a writable tree. Any
 // other case is soft: agents run with process resource limits only.
 func ProbeCgroups(fs string, self []byte, root bool) Boot {
-	soft := func(reason string, cause error) Boot {
+	soft := func(reason Reason, cause error) Boot {
 		return Boot{Mode: domain.LimitsSoft, Reason: reason, Cause: cause}
 	}
 	own, ok := unifiedPath(self)
 	if !ok {
-		return soft("no cgroup v2", nil)
+		return soft(ReasonNoCgroupV2, nil)
 	}
 	// A daemon started again in the tree it made sits in /daemon; the
 	// tree it prepares is the one above.
@@ -86,26 +138,26 @@ func ProbeCgroups(fs string, self []byte, root bool) Boot {
 	dir := filepath.Join(fs, filepath.FromSlash(own))
 	available, err := os.ReadFile(filepath.Join(dir, "cgroup.controllers")) // #nosec G304 G703 -- cgroupfs control file of the daemon's own cgroup
 	if err != nil {
-		return soft("no cgroup v2 at the cgroup mount", err)
+		return soft(ReasonNoCgroupMount, err)
 	}
 	if !root {
-		return soft("the daemon does not run as root", nil)
+		return soft(ReasonNotRoot, nil)
 	}
 	// cgroup.type exists in every cgroup but the host's root.
 	if _, err := os.Stat(filepath.Join(dir, "cgroup.type")); err != nil { // #nosec G703 -- cgroupfs control file of the daemon's own cgroup
-		return soft("the daemon is in the host's root cgroup", err)
+		return soft(ReasonHostRootCgroup, err)
 	}
 	have := strings.Fields(string(available))
 	for _, c := range strings.Fields(strings.ReplaceAll(controllers, "+", "")) {
 		if !slices.Contains(have, c) {
-			return soft("cgroup v2 has no "+c+" controller", nil)
+			return soft(missingController[c], nil)
 		}
 	}
 	agents, err := PrepareCgroups(dir)
 	if err != nil {
 		return soft(prepareReason(err), err)
 	}
-	return Boot{Mode: domain.LimitsHard, Root: agents, Reason: "cgroup v2, writable"}
+	return Boot{Mode: domain.LimitsHard, Root: agents, Reason: ReasonWritable}
 }
 
 // unifiedPath is the cgroup v2 path in a /proc/<pid>/cgroup file: its
@@ -122,9 +174,9 @@ func unifiedPath(self []byte) (string, bool) {
 
 // prepareReason names why PrepareCgroups failed: a read-only mount, as
 // Docker gives without writable-cgroups, or any other refusal.
-func prepareReason(err error) string {
+func prepareReason(err error) Reason {
 	if errors.Is(err, syscall.EROFS) {
-		return "cgroup tree is read-only"
+		return ReasonReadOnly
 	}
-	return "cgroup tree is not writable"
+	return ReasonNotWritable
 }

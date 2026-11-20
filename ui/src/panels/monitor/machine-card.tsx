@@ -1,29 +1,24 @@
 // SPDX-License-Identifier: MIT
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
-import { useApi } from "../../app/api-context";
+import type { MachineMetrics } from "../../api/api";
+import { SafetyNotice, safetyOf, useMachineMetrics } from "../../shell/machine-safety";
 import { LoadError, Loading } from "../../shell/status";
 import { duration, formatBytes } from "./format";
 import { Meter, type MeterTone } from "./meter";
-
-export const metricsKey = ["monitor", "metrics"] as const;
 
 const toneOf = (used: number, total: number): MeterTone => {
   const share = total > 0 ? used / total : 0;
   return share >= 0.95 ? "full" : share >= 0.8 ? "low" : "ok";
 };
 
-/** How hard the machine is working: processor, memory, each disk, and how long it has been up. */
-export function MachineCard() {
+/**
+ * How hard the machine is working: processor, memory, each disk, and how long it has been up.
+ * With `limits` (the Machine panel), also whether the kernel holds custom agents' limits.
+ */
+export function MachineCard({ limits = false }: { limits?: boolean }) {
   const { t } = useTranslation();
-  const api = useApi();
-  const metrics = useQuery({
-    queryKey: metricsKey,
-    queryFn: () => api.getMachineMetrics(),
-    retry: false,
-    refetchInterval: 10_000,
-  });
+  const metrics = useMachineMetrics();
   const data = metrics.data;
   const up = data ? duration(data.uptime_seconds) : undefined;
 
@@ -85,10 +80,21 @@ export function MachineCard() {
               values: data.load.map((n) => n.toFixed(2)).join(" · "),
             })}
           </p>
+          {limits && <AgentLimits metrics={data} />}
         </>
       )}
     </section>
   );
+}
+
+/** Soft limits get the safety notice; hard ones one quiet line; an older daemon nothing. */
+function AgentLimits({ metrics }: { metrics: MachineMetrics }) {
+  const { t } = useTranslation();
+  const safety = safetyOf(metrics);
+  if (safety) return <SafetyNotice safety={safety} />;
+  if (metrics.agent_limits?.mode === "hard")
+    return <p className="hint">{t("safety.limitsHard")}</p>;
+  return null;
 }
 
 function Gauge({

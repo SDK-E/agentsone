@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import type { LiveEntry } from "../api/api";
+import { SafetyChip, safetyOf, useMachineMetrics } from "../shell/machine-safety";
 import { useStale } from "../shell/stale";
 import { LoadError, Loading } from "../shell/status";
 import { isAlive, Presence } from "./agent-presence";
@@ -25,12 +26,17 @@ export function LiveSociety() {
   const entries = live.data ?? [];
   const working = entries.filter((e) => isAlive(e.state)).length;
   const reasons = useStateReasons(entries, live.mode);
+  // Only a small chip here; the Machine panel holds the notice and why.
+  const safety = safetyOf(useMachineMetrics().data);
 
   return (
     <section aria-labelledby="society-title" className="panel society">
       <header className="panel__header">
         <div>
-          <h2 id="society-title">{t("society.title")}</h2>
+          <div className="society__title">
+            <h2 id="society-title">{t("society.title")}</h2>
+            {safety && <SafetyChip safety={safety} />}
+          </div>
           {live.isSuccess && entries.length > 0 && (
             <p className="hint">
               {t("society.summary", { count: entries.length, awake: working })}

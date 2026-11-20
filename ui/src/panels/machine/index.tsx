@@ -22,8 +22,13 @@ export const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
+/** Usage here also says whether the kernel holds custom agents' limits. */
+function Usage() {
+  return <MachineCard limits />;
+}
+
 const VIEWS: Record<Section, ComponentType> = {
-  usage: MachineCard,
+  usage: Usage,
   processes: ProcessesSection,
   services: ServicesSection,
   packages: PackagesSection,

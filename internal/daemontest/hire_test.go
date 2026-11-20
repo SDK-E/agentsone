@@ -47,6 +47,9 @@ func TestHire_TheFounderHiresThroughItsTokenOverTheToolServer(t *testing.T) {
 	if !audited(alice, "agent.hire", "agent:founder", "agent:scribe") {
 		t.Fatal("the hire is not in the audit log as the founder's")
 	}
+	if !provisioned(alice, "agent:scribe") {
+		t.Fatal("scribe was not provisioned")
+	}
 }
 
 // An agent without the right to a hire is refused through its token as it
@@ -82,6 +85,11 @@ func TestHire_AnAgentWithoutTheRightIsRefusedThroughItsToken(t *testing.T) {
 			}
 			if audited(alice, "agent.hire", "agent:echo", "agent:guard") {
 				t.Fatal("the refused hire is in the audit log")
+			}
+			// The supervisor audits every provisioning: a Linux user, its home
+			// and its unit. None was made for the refused agent.
+			if provisioned(alice, "agent:guard") {
+				t.Fatal("the refused agent was provisioned")
 			}
 		})
 	}
@@ -129,7 +137,12 @@ func toolSession(t *testing.T, d *daemontest.Daemon, agent string) *mcp.ClientSe
 	if err != nil {
 		t.Fatalf("connect to the tool server as %s: %v", agent, err)
 	}
-	t.Cleanup(func() { _ = session.Close() }) // the daemon stops with the test
+	// Runs before the daemon stops: cleanups run last in, first out.
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Errorf("close the tool session of %s: %v", agent, err)
+		}
+	})
 	return session
 }
 
@@ -187,6 +200,16 @@ func hiredEvents(h *daemontest.Client, agent string) []storedEvent {
 		}
 	}
 	return out
+}
+
+// provisioned reports whether the supervisor provisioned target, by anyone.
+func provisioned(h *daemontest.Client, target string) bool {
+	for _, r := range h.Audit() {
+		if r.Action == "agent.runner.provision" && string(r.Target.Kind)+":"+r.Target.Id == target {
+			return true
+		}
+	}
+	return false
 }
 
 // audited reports whether the audit trail holds action by actor on target,

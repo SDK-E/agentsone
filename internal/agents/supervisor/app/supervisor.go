@@ -48,6 +48,9 @@ type Supervisor struct {
 	wallMarked  map[string]bool
 	// refused is the last wake each agent's runner refused, while it shows.
 	refused map[string]refusal
+	// resumed is the paused turn each agent was last resumed for, until its
+	// budget runs out again.
+	resumed map[string]string
 }
 
 var (
@@ -68,7 +71,7 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}}
+	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}, resumed: map[string]string{}}
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {
@@ -362,6 +365,7 @@ func (s *Supervisor) Tick(ctx context.Context) error {
 	}
 	s.mu.Unlock()
 	s.renewCredentials(ctx, now)
+	s.resumeBudget(ctx)
 	var errs []error
 	for _, name := range expired {
 		s.audit(ctx, ActionHeartbeatTimeout, "agent:"+name, map[string]any{"code": -32003})

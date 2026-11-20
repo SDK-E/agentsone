@@ -2,6 +2,7 @@
 schedules:
   get:
     operationId: listSchedules
+    security: [{ cookieAuth: [] }, { bearerAuth: [schedules:read] }, { peerCredentials: [] }]
     tags: [schedules]
     summary: List schedules
     description: Lists agent timers visible to the caller. Filter by agent to see one agent's timers.
@@ -27,6 +28,7 @@ schedules:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createSchedule
+    security: [{ cookieAuth: [] }, { bearerAuth: [schedules:write] }, { peerCredentials: [] }]
     tags: [schedules]
     summary: Create a schedule
     description: Creates a timer for the caller or for an agent below the caller. When it fires the agent wakes with the message.
@@ -56,6 +58,7 @@ schedule:
     - $ref: "../components/parameters.yaml#/ScheduleId"
   get:
     operationId: getSchedule
+    security: [{ cookieAuth: [] }, { bearerAuth: [schedules:read] }, { peerCredentials: [] }]
     tags: [schedules]
     summary: Get a schedule
     description: Returns one schedule.
@@ -72,6 +75,7 @@ schedule:
         $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateSchedule
+    security: [{ cookieAuth: [] }, { bearerAuth: [schedules:write] }, { peerCredentials: [] }]
     tags: [schedules]
     summary: Update a schedule
     description: Changes a schedule owned by the caller or by an agent below the caller.
@@ -98,6 +102,7 @@ schedule:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: deleteSchedule
+    security: [{ cookieAuth: [] }, { bearerAuth: [schedules:write] }, { peerCredentials: [] }]
     tags: [schedules]
     summary: Delete a schedule
     description: Removes a schedule owned by the caller or by an agent below the caller.

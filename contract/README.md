@@ -88,8 +88,37 @@ content" warnings.
 - Every operation may answer 501 `urn:agentsone:problem:not-implemented`. The sources do not repeat
   it: the bundle step of `scripts/gen.sh` adds the shared `NotImplemented` response to every
   operation of `contract/dist/openapi.json`, so generated code and response validation cover it.
+- Every operation that needs a caller may answer 403 `urn:agentsone:problem:forbidden`, for a
+  token without the operation's scope. The same bundle step adds the shared `Forbidden` response
+  to each such operation that does not list a 403 itself.
+
+## Scopes
+
+Each operation that takes a bearer token names one scope in its own `security`, as
+`bearerAuth: [<group>:<read|write|admin>]`. The group is the operation's tag. Reads are `read`,
+changes are `write`, and operations that change the machine or who acts in it are `admin`
+(hire and retire agents, issue agent tokens, install and uninstall plugins, install and remove
+packages, start, stop and restart services, signal processes, reboot, and every terminal
+operation). A higher level covers a lower one of the same group. An operation with no
+`bearerAuth` in its `security` refuses every token; `security: []` marks the only public
+operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 
 ## Changelog
+
+### 1.3.0
+
+Additive (minor: security requirements on operations).
+
+- Every operation that takes a bearer token now names the scope it needs: its own `security`
+  lists `cookieAuth`, `bearerAuth: [<group>:<level>]` and `peerCredentials`. 125 operations
+  gained one. The 23 that already had their own `security` keep it and take no token: 3 public,
+  9 host door, 1 signed webhook and 10 for signed-in humans only.
+- The `bearerAuth` scheme says how scopes are checked: `admin` covers `write` and `read`, `write`
+  covers `read`; a token without the scope gets 403 `forbidden` before the operation runs, and
+  an operation without `bearerAuth` refuses every token. Session cookies and socket peer
+  credentials carry no scopes and are decided by caller kind and org chart, as before.
+- `contract/dist/openapi.json` lists a 403 `Forbidden` response on every operation that needs a
+  caller (added by the bundle step, like the 501).
 
 ### 1.2.0
 

@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: Agents One machine API
-  version: 1.2.0
+  version: 1.3.0
   summary: The daemon API every part of Agents One builds against.
   description: |
     REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event
@@ -319,7 +319,16 @@ components:
       bearerFormat: agentsone-token
       description: |
         Scoped token: an agent token from `issueAgentToken`, or a panel plugin token from
-        `issuePanelToken`. Scopes are `<group>:<read|write|admin>`.
+        `issuePanelToken`. Scopes are `<group>:<read|write|admin>`, where the group is the
+        operation's tag.
+
+        Every operation that takes a token names the one scope it needs in its own `security`
+        (`bearerAuth: [<group>:<level>]`). A token passes when it holds that scope or a higher
+        level of the same group: `admin` covers `write` and `read`, `write` covers `read`.
+        Otherwise the daemon answers 403 `urn:agentsone:problem:forbidden` before the operation
+        runs. An operation whose `security` does not list `bearerAuth` refuses every token with
+        the same 403. Session cookies and socket peer credentials carry no scopes; the caller
+        kind and org chart rules decide for them, as before.
     peerCredentials:
       type: mutualTLS
       description: |

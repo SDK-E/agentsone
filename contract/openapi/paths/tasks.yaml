@@ -4,6 +4,7 @@
 tasks:
   get:
     operationId: listTasks
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:read] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: List tasks
     description: Tasks, newest first, filtered by status, assignee or source.
@@ -38,6 +39,7 @@ tasks:
         $ref: "../components/responses.yaml#/Unauthorized"
   post:
     operationId: createTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:write] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Create a task
     description: Creates a task. Assigning it wakes a sleeping assignee.
@@ -68,6 +70,7 @@ tasks:
 stream:
   get:
     operationId: streamTasks
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:read] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Stream task updates
     description: Task creations and changes as Server-Sent Events.
@@ -92,6 +95,7 @@ task:
     - $ref: "../components/parameters.yaml#/TaskId"
   get:
     operationId: getTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:read] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Get a task
     description: One task.
@@ -108,6 +112,7 @@ task:
         $ref: "../components/responses.yaml#/NotFound"
   patch:
     operationId: updateTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:write] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Edit a task
     description: |
@@ -143,6 +148,7 @@ assign:
     - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: assignTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:write] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Assign a task
     description: |
@@ -179,6 +185,7 @@ complete:
     - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: completeTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:write] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Complete a task
     description: |
@@ -213,6 +220,7 @@ cancel:
     - $ref: "../components/parameters.yaml#/TaskId"
   post:
     operationId: cancelTask
+    security: [{ cookieAuth: [] }, { bearerAuth: [tasks:write] }, { peerCredentials: [] }]
     tags: [tasks]
     summary: Cancel a task
     description: Sets the task to `cancelled` and tells the assignee's runner to stop work on it.

@@ -2,6 +2,7 @@
 budget:
   get:
     operationId: getBudget
+    security: [{ cookieAuth: [] }, { bearerAuth: [budget:read] }, { peerCredentials: [] }]
     tags: [budget]
     summary: Get the total budget
     description: |
@@ -21,6 +22,7 @@ budget:
 split:
   get:
     operationId: getBudgetSplit
+    security: [{ cookieAuth: [] }, { bearerAuth: [budget:read] }, { peerCredentials: [] }]
     tags: [budget]
     summary: Get the budget split
     description: Returns every agent's share down the chart. The split is a soft wall enforced inside the machine container.
@@ -38,6 +40,7 @@ allocation:
     - $ref: "../components/parameters.yaml#/AgentName"
   put:
     operationId: setBudgetAllocation
+    security: [{ cookieAuth: [] }, { bearerAuth: [budget:write] }, { peerCredentials: [] }]
     tags: [budget]
     summary: Set an agent's allocation
     description: Sets the soft allocation of an agent below the caller, out of the caller's own share.

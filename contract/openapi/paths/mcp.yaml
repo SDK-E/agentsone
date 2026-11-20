@@ -2,6 +2,7 @@
 mcp:
   post:
     operationId: mcpPost
+    security: [{ cookieAuth: [] }, { bearerAuth: [mcp:write] }, { peerCredentials: [] }]
     tags: [mcp]
     summary: Send an MCP message
     description: |
@@ -37,6 +38,7 @@ mcp:
         $ref: "../components/responses.yaml#/NotFound"
   get:
     operationId: mcpListen
+    security: [{ cookieAuth: [] }, { bearerAuth: [mcp:read] }, { peerCredentials: [] }]
     tags: [mcp]
     summary: Listen for MCP server messages
     description: Opens an SSE stream for server-initiated MCP requests and notifications in the session.
@@ -63,6 +65,7 @@ mcp:
         $ref: "../components/responses.yaml#/NotFound"
   delete:
     operationId: mcpEndSession
+    security: [{ cookieAuth: [] }, { bearerAuth: [mcp:write] }, { peerCredentials: [] }]
     tags: [mcp]
     summary: End an MCP session
     description: Ends the MCP session named by `Mcp-Session-Id`.

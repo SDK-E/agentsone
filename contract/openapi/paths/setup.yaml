@@ -50,6 +50,7 @@ first-human:
 engine-licence:
   get:
     operationId: getEngineLicence
+    security: [{ cookieAuth: [] }, { bearerAuth: [setup:read] }, { peerCredentials: [] }]
     tags: [setup]
     summary: Get the Claude engine licence
     description: Licence text shown on screen before the Claude engine is downloaded.
@@ -94,6 +95,7 @@ engine-licence:
 engine-fetch:
   get:
     operationId: getEngineFetchStatus
+    security: [{ cookieAuth: [] }, { bearerAuth: [setup:read] }, { peerCredentials: [] }]
     tags: [setup]
     summary: Get the engine download status
     description: Progress of the Claude engine download that follows licence acceptance.

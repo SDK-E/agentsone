@@ -2,6 +2,7 @@
 runners:
   get:
     operationId: listRunners
+    security: [{ cookieAuth: [] }, { bearerAuth: [runners:read] }, { peerCredentials: [] }]
     tags: [runners]
     summary: List runners
     description: Lists registered runner adapters. Echo and OpenAI-compatible ship in the image; Claude arrives after first boot; others come as plugins.
@@ -24,6 +25,7 @@ runner:
     - $ref: "../components/parameters.yaml#/RunnerName"
   get:
     operationId: getRunner
+    security: [{ cookieAuth: [] }, { bearerAuth: [runners:read] }, { peerCredentials: [] }]
     tags: [runners]
     summary: Get a runner
     description: Returns one runner adapter.

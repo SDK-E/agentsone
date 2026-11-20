@@ -2,6 +2,7 @@
 allow-list:
   get:
     operationId: getAllowList
+    security: [{ cookieAuth: [] }, { bearerAuth: [net:read] }, { peerCredentials: [] }]
     tags: [net]
     summary: Get the internet allow list
     description: Returns the allow list synced from the edge. Read-only here and a hard wall; humans change it through the edge.
@@ -17,6 +18,7 @@ allow-list:
 agents:
   get:
     operationId: listAgentNetRules
+    security: [{ cookieAuth: [] }, { bearerAuth: [net:read] }, { peerCredentials: [] }]
     tags: [net]
     summary: List per-agent network rules
     description: Lists every agent's network rules. These narrow the allow list and are a soft wall.
@@ -39,6 +41,7 @@ agent:
     - $ref: "../components/parameters.yaml#/AgentName"
   get:
     operationId: getAgentNetRules
+    security: [{ cookieAuth: [] }, { bearerAuth: [net:read] }, { peerCredentials: [] }]
     tags: [net]
     summary: Get an agent's network rules
     description: Returns one agent's network rules.
@@ -55,6 +58,7 @@ agent:
         $ref: "../components/responses.yaml#/NotFound"
   put:
     operationId: setAgentNetRules
+    security: [{ cookieAuth: [] }, { bearerAuth: [net:write] }, { peerCredentials: [] }]
     tags: [net]
     summary: Set an agent's network rules
     description: Replaces the network rules of an agent below the caller. Rules can only narrow the allow list.

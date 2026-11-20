@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/agent-template.schema.json",
+  "name": "e2e-greeter",
+  "kind": "chat",
+  "isRoot": false,
+  "runner": { "name": "openai", "config": {} },
+  "oneLine": "Goal: greet people. Now: waiting for someone to greet.",
+  "charter": "",
+  "goals": [],
+  "skills": [],
+  "mcpServers": [],
+  "limits": { "cpuPercent": 50, "memoryMiB": 256, "tasks": 64 },
+  "wake": { "subscriptions": [] },
+  "schedules": []
+}

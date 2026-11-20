@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SDK-E/agentsone/main/contract/schemas/plugin-manifest.schema.json",
+  "name": "e2e-sample",
+  "version": "1.0.0",
+  "description": "A sample plugin for the end-to-end stage: one agent template.",
+  "author": { "name": "Agents One", "url": "https://github.com/SDK-E/agentsone" },
+  "license": "MIT",
+  "homepage": "https://github.com/SDK-E/agentsone/tree/main/e2e/fixtures/sample-plugin",
+  "source": { "kind": "agentsone", "ref": "/tmp/e2e-sample-plugin" },
+  "compat": { "agentsone": ">=0.1.0 <1.0.0", "runnerProtocol": ["1.0"] },
+  "contents": {
+    "mcpServers": [],
+    "skills": [],
+    "agentTemplates": [{ "path": "./agents/e2e-greeter.json" }],
+    "runners": [],
+    "panels": [],
+    "themes": [],
+    "emitters": []
+  }
+}

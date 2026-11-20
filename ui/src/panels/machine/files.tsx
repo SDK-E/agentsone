@@ -89,7 +89,27 @@ export function FilesSection() {
       </form>
 
       {folder.isPending && <Loading label={t("loading")} />}
-      {folder.isError && <LoadError error={folder.error} onRetry={() => void folder.refetch()} />}
+      {folder.isError && (
+        <LoadError
+          error={folder.error}
+          onRetry={() => void folder.refetch()}
+          forbidden={t("forbidden")}
+          invalid={t("invalid")}
+          action={
+            here === "/" ? undefined : (
+              <button
+                type="button"
+                className="button"
+                onClick={() => {
+                  go(parentOf(here));
+                }}
+              >
+                {t("up")}
+              </button>
+            )
+          }
+        />
+      )}
       {folder.isSuccess && (
         <>
           <p className="machine__here code">{t("here", { path: here })}</p>

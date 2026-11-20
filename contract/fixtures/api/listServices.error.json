@@ -4,7 +4,7 @@
     "type": "urn:agentsone:problem:unauthorized",
     "title": "Sign in first",
     "status": 401,
-    "detail": "Your session ended. Sign in again to see the services.",
+    "detail": "The session cookie expired at 01:12 after 12 hours.",
     "instance": "/v1/machine/services"
   }
 }

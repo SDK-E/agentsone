@@ -165,6 +165,42 @@ describe("Machine panel, files", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says a folder is not allowed and offers the way back up, not a retry", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    api.files = problem(403, "Not allowed", "keeper keeps it private (mode 0700).");
+    renderWith(<MachinePanel />, api);
+    await show("Files");
+
+    const field = await screen.findByRole("textbox", { name: "Folder" });
+    await user.clear(field);
+    await user.type(field, "/home/agents/keeper");
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("You may not open this folder.");
+    expect(alert).toHaveTextContent("keeper keeps it private (mode 0700).");
+    expect(within(alert).queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(field).toHaveValue("/home/agents/keeper");
+    await user.click(within(alert).getByRole("button", { name: "Up one folder" }));
+    expect(api.calls).toContain("listFiles /home/agents");
+  });
+
+  it("says a path is not valid and asks to sign in again when the session ended", async () => {
+    const api = new FakeApi();
+    api.files = problem(400, "Not valid");
+    const { unmount } = renderWith(<MachinePanel />, api);
+    await show("Files");
+    expect(await screen.findByRole("alert")).toHaveTextContent("This path is not valid.");
+    unmount();
+
+    api.files = problem(401, "Sign in first");
+    renderWith(<MachinePanel />, api);
+    await show("Files");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Your session ended.");
+    expect(within(alert).getByRole("link", { name: "Sign in again" })).toHaveAttribute("href", "/");
+  });
+
   it("opens a typed path", async () => {
     const user = userEvent.setup();
     const { api } = renderWith(<MachinePanel />);

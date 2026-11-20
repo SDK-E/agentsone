@@ -79,6 +79,15 @@ for (const [section, names] of Object.entries(LISTS) as [
       const clean = await useScenario(page, scenarios[state]);
       await openPanel(page, "Machine");
       await show(page, names.radio);
+      if (section === "files" && state === "error") {
+        // Ask for the folder the error fixture names, so the field and the message agree.
+        await page.getByRole("textbox", { name: "Folder" }).fill("/home/agents/keeper");
+        await page.getByRole("button", { name: "Open", exact: true }).click();
+        await expect(page.getByRole("alert")).toContainText("You may not open this folder.");
+        await expect(page.getByRole("textbox", { name: "Folder" })).toHaveValue(
+          "/home/agents/keeper",
+        );
+      }
 
       if (state === "empty") {
         await expect(page.getByRole("heading", { name: names.empty })).toBeVisible();

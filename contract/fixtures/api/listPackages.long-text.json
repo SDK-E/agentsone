@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "libreoffice-script-provider-python-with-a-very-long-package-name-for-testing",
+        "version": "4:25.2.3-2+deb13u1~bpo13+1.really.24.8.7-1+debian-security-backport",
+        "architecture": "arm64",
+        "summary": "Python script provider for LibreOffice, so macros and automation written in Python run inside every office application on the machine, including the ones agents start headless"
+      }
+    ],
+    "next_cursor": null
+  }
+}

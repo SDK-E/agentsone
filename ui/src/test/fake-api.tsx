@@ -34,6 +34,15 @@ import themes from "../../../contract/fixtures/api/listThemes.json";
 import memoryHits from "../../../contract/fixtures/api/searchMemory.json";
 import catalog from "../../../contract/fixtures/api/searchPluginCatalog.json";
 import route from "../../../contract/fixtures/api/routeRequest.json";
+// Machine
+import filesList from "../../../contract/fixtures/api/listFiles.json";
+import fileRead from "../../../contract/fixtures/api/readFile.json";
+import machineUsers from "../../../contract/fixtures/api/listMachineUsers.json";
+import packagesList from "../../../contract/fixtures/api/listPackages.json";
+import processesList from "../../../contract/fixtures/api/listProcesses.json";
+import ptyCreated from "../../../contract/fixtures/api/createPtySession.json";
+import ptyList from "../../../contract/fixtures/api/listPtySessions.json";
+import servicesList from "../../../contract/fixtures/api/listServices.json";
 import routeError from "../../../contract/fixtures/api/routeRequest.error.json";
 import {
   ApiError,
@@ -52,18 +61,25 @@ import {
   type ChatStreamFrame,
   type EngineFetchStatus,
   type EngineLicence,
+  type FileContent,
+  type FileList,
   type Freeze,
   type Human,
   type InstalledTheme,
   type LiveEntry,
   type LiveStreamFrame,
   type MachineMetrics,
+  type MachinePackage,
+  type MachineProcess,
+  type MachineService,
+  type MachineUser,
   type MemoryHit,
   type MemoryRecord,
   type Page,
   type Plugin,
   type PluginSource,
   type Principal,
+  type PtySession,
   type Schedule,
   type SetupStatus,
   type StreamHandlers,
@@ -106,6 +122,15 @@ export const fixtures = {
   catalog: catalog.body.items as CatalogEntry[],
   humans: humans.body.items as Human[],
   themes: themes.body.items as InstalledTheme[],
+  // machine
+  processes: processesList.body.items as MachineProcess[],
+  services: servicesList.body.items as MachineService[],
+  packages: packagesList.body.items as MachinePackage[],
+  machineUsers: machineUsers.body.items as MachineUser[],
+  files: filesList.body as FileList,
+  file: fileRead.body as FileContent,
+  ptys: ptyList.body.items as PtySession[],
+  newPty: ptyCreated.body as PtySession,
 };
 
 /** Cut a list into pages the way the daemon does: the cursor is where the next page starts. */
@@ -472,6 +497,50 @@ export class FakeApi implements Api {
         this.humans = this.humans.filter((h) => h.name !== name);
     });
   listThemes = () => Promise.resolve(this.themes);
+
+  // machine
+  processes: MachineProcess[] | ApiError = [...fixtures.processes];
+  services: MachineService[] | ApiError = [...fixtures.services];
+  packages: MachinePackage[] | ApiError = [...fixtures.packages];
+  machineUsers: MachineUser[] | ApiError = [...fixtures.machineUsers];
+  files: FileList | ApiError = fixtures.files;
+  file: FileContent | ApiError = fixtures.file;
+  ptys: PtySession[] | ApiError = [...fixtures.ptys];
+  listProcesses = (cursor?: string) =>
+    this.settle(this.processes).then((all) => paged(all, cursor, this.pageSize));
+  listServices = (cursor?: string) =>
+    this.settle(this.services).then((all) => paged(all, cursor, this.pageSize));
+  listPackages = ({ q, cursor }: { q?: string; cursor?: string }) => {
+    this.calls.push(`listPackages ${q ?? ""}`.trimEnd());
+    return this.settle(this.packages).then((all) =>
+      paged(
+        all.filter((p) => q === undefined || p.name.includes(q)),
+        cursor,
+        this.pageSize,
+      ),
+    );
+  };
+  listMachineUsers = (cursor?: string) =>
+    this.settle(this.machineUsers).then((all) => paged(all, cursor, this.pageSize));
+  listFiles = (path: string) => {
+    this.calls.push(`listFiles ${path}`);
+    return this.settle(this.files);
+  };
+  readFile = (path: string) => {
+    this.calls.push(`readFile ${path}`);
+    return this.settle(this.file);
+  };
+  listPtySessions = (cursor?: string) =>
+    this.settle(this.ptys).then((all) => paged(all, cursor, this.pageSize));
+  createPtySession = () =>
+    this.change("createPtySession", () => {
+      if (!(this.ptys instanceof ApiError)) this.ptys = [fixtures.newPty, ...this.ptys];
+      return fixtures.newPty;
+    });
+  closePtySession = (id: string) =>
+    this.change(`closePtySession ${id}`, () => {
+      if (!(this.ptys instanceof ApiError)) this.ptys = this.ptys.filter((p) => p.id !== id);
+    });
 }
 
 function meHuman() {

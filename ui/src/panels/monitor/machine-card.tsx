@@ -102,12 +102,23 @@ function Gauge({
   value: number;
   max: number;
 }) {
+  const { t } = useTranslation();
+  const tone = toneOf(value, max);
+  // A warning is said in words too, never by the bar's colour or stripes alone.
+  const warning = tone === "ok" ? undefined : t(`panels.monitor.machine.tone.${tone}`);
   return (
     <div className="gauge">
       <dt>{name}</dt>
       <dd>
         <span className="gauge__text">{text}</span>
-        <Meter label={name} value={value} max={max} valueText={text} tone={toneOf(value, max)} />
+        {warning !== undefined && <span className="gauge__warn">{warning}</span>}
+        <Meter
+          label={name}
+          value={value}
+          max={max}
+          valueText={warning === undefined ? text : `${text}, ${warning}`}
+          tone={tone}
+        />
       </dd>
     </div>
   );

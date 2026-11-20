@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "unit": "machine-recipe.service",
+        "description": "Machine recipe: 3 packages, 2 files applied; failed package libreoffice-writer-nogui-with-all-language-packs-and-fonts-for-the-society: apt could not reach the package mirror after three tries and 2 more",
+        "load_state": "loaded",
+        "active_state": "failed",
+        "sub_state": "failed",
+        "enabled": true,
+        "agent": null
+      }
+    ],
+    "next_cursor": null
+  }
+}

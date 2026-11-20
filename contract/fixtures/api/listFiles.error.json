@@ -1,0 +1,10 @@
+{
+  "status": 403,
+  "body": {
+    "type": "urn:agentsone:problem:forbidden",
+    "title": "Not allowed",
+    "status": 403,
+    "detail": "Your Linux user ada may not open /home/agents/keeper. Its owner keeper keeps it private (mode 0700).",
+    "instance": "/v1/machine/files?path=/home/agents/keeper"
+  }
+}

@@ -13,6 +13,10 @@
     "loading": "Loading…",
     "waking": "Waking the machine…",
     "loadFailed": "This could not load. The machine may still be starting.",
+    "signedOut": "Your session ended.",
+    "signInAgain": "Sign in again",
+    "forbidden": "You may not see this.",
+    "invalid": "This request was not valid.",
     "retry": "Try again",
     "detail": "The machine said: {{detail}}",
     "unreachableTitle": "Agents One is not answering"
@@ -197,7 +201,8 @@
         "hours_other": "{{count}} h",
         "minutes_one": "{{count}} min",
         "minutes_other": "{{count}} min",
-        "load": "Load {{values}}"
+        "load": "Load {{values}}",
+        "tone": { "low": "Nearly full", "full": "Full" }
       },
       "agents": {
         "title": "Agents",
@@ -495,7 +500,137 @@
     },
     "machine": {
       "label": "Machine",
-      "about": "Processes, services, packages, users and files. Some powers are held by the control page."
+      "about": "Processes, services, packages, users and files. Some powers are held by the control page.",
+      "sectionsLabel": "Show",
+      "section": {
+        "usage": "Usage",
+        "processes": "Processes",
+        "services": "Services",
+        "packages": "Packages",
+        "users": "Users",
+        "files": "Files",
+        "terminals": "Terminals"
+      },
+      "showMore": "Show more",
+      "loadingMore": "Loading more…",
+      "processes": {
+        "lead": "Every program running on the machine, with who runs it and what it uses.",
+        "listLabel": "Processes",
+        "loading": "Reading the processes…",
+        "empty": {
+          "title": "No processes to show",
+          "body": "The machine reported no running programs. It may still be starting."
+        },
+        "pid": "Process {{pid}}",
+        "by": "Runs as {{user}}",
+        "agent": "Agent {{agent}}",
+        "unit": "Service {{unit}}",
+        "cpu": "{{value}}% processor",
+        "memory": "{{value}} memory",
+        "started": "Started",
+        "fullCommand": "Show full command",
+        "lessCommand": "Show less"
+      },
+      "services": {
+        "lead": "The services the daemon reports: the daemon itself and the machine recipe that restores packages and settings files.",
+        "listLabel": "Services",
+        "loading": "Reading the services…",
+        "empty": {
+          "title": "No services to show",
+          "body": "The machine reported no services. It may still be starting."
+        },
+        "state": {
+          "active": "Running",
+          "done": "Done",
+          "reloading": "Reloading",
+          "inactive": "Stopped",
+          "failed": "Failed",
+          "activating": "Starting",
+          "deactivating": "Stopping"
+        },
+        "agent": "Agent {{agent}}",
+        "enabled": "Starts with the machine",
+        "manual": "Starts only when asked"
+      },
+      "packages": {
+        "lead": "The Debian packages installed on the machine.",
+        "listLabel": "Installed packages",
+        "loading": "Reading the packages…",
+        "searchLabel": "Find a package",
+        "searchSubmit": "Find",
+        "searchClear": "Clear",
+        "resultsFor": "Packages with “{{q}}” in the name",
+        "empty": {
+          "title": "No packages found",
+          "body": "Nothing installed matches. Try a shorter name."
+        },
+        "version": "Version {{version}} for {{architecture}}"
+      },
+      "users": {
+        "lead": "The Linux accounts on the machine: people, agents and the system's own.",
+        "listLabel": "Linux users",
+        "loading": "Reading the users…",
+        "empty": {
+          "title": "No users to show",
+          "body": "The machine reported no accounts. It may still be starting."
+        },
+        "kind": { "human": "Person", "agent": "Agent", "system": "System" },
+        "uid": "User id {{uid}}",
+        "home": "Home {{home}}",
+        "shell": "Shell {{shell}}"
+      },
+      "files": {
+        "lead": "Look through the machine's folders and read text files. You see what your Linux user may see.",
+        "pathLabel": "Folder",
+        "open": "Open",
+        "up": "Up one folder",
+        "forbidden": "You may not open this folder.",
+        "invalid": "This path is not valid.",
+        "here": "In {{path}}",
+        "listLabel": "Entries in this folder, folders first",
+        "loading": "Reading the folder…",
+        "empty": {
+          "title": "This folder is empty",
+          "body": "There is nothing inside it yet."
+        },
+        "type": {
+          "file": "File",
+          "directory": "Folder",
+          "symlink": "Link",
+          "other": "Other"
+        },
+        "linkTo": ", link to {{target}}",
+        "meta": "{{size}} · {{owner}} · mode {{mode}}",
+        "reading": "Reading the file…",
+        "binary": "This file is not text, so it is not shown here. It is {{size}}.",
+        "truncated": "Only the first 8 MiB is shown. Use a terminal to read the rest.",
+        "closeFile": "Close the file",
+        "readFailed": "This file could not be read."
+      },
+      "terminals": {
+        "lead": "Terminal sessions on the machine. Each runs as its own Linux user.",
+        "listLabel": "Terminal sessions",
+        "loading": "Reading the terminals…",
+        "open": "Open a terminal",
+        "opening": "Opening…",
+        "opened": "A terminal is open for {{user}}.",
+        "openFailed": "The terminal could not open.",
+        "close": "Close terminal {{command}}",
+        "closeShort": "Close",
+        "closing": "Closing…",
+        "closed": "The terminal is closed.",
+        "closeFailed": "The terminal could not close.",
+        "empty": {
+          "title": "No terminals open",
+          "body": "Open one to get a shell as your own Linux user."
+        },
+        "user": "Runs as {{user}}",
+        "size": "{{cols}} × {{rows}}",
+        "running": "Open",
+        "exited": "Ended with code {{code}}",
+        "exitedUnknown": "Ended",
+        "typingNote": "Typing into a terminal from this panel comes in the next update. Until then, use the terminal inside the IDE."
+      }
     },
     "audit": {
       "label": "Audit",

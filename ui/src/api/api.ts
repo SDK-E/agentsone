@@ -69,6 +69,15 @@ export type PluginSourceId = S["PluginSourceId"];
 export type CatalogEntry = S["CatalogEntry"];
 export type HumanCreate = S["HumanCreate"];
 export type HumanUpdate = S["HumanUpdate"];
+// Machine
+export type MachineProcess = S["Process"];
+export type MachineService = S["Service"];
+export type MachinePackage = S["Package"];
+export type MachineUser = S["MachineUser"];
+export type FileEntry = S["FileEntry"];
+export type FileList = S["FileList"];
+export type FileContent = S["FileContent"];
+export type PtySession = S["PtySession"];
 
 /** One page of a list, with the cursor for the next page (null on the last page). */
 export interface Page<T> {
@@ -160,6 +169,17 @@ export interface Api {
   updateHuman(name: string, body: HumanUpdate): Promise<Human>;
   deleteHuman(name: string): Promise<void>;
   listThemes(): Promise<InstalledTheme[]>;
+
+  // machine
+  listProcesses(cursor?: string): Promise<Page<MachineProcess>>;
+  listServices(cursor?: string): Promise<Page<MachineService>>;
+  listPackages(query: { q?: string; cursor?: string }): Promise<Page<MachinePackage>>;
+  listMachineUsers(cursor?: string): Promise<Page<MachineUser>>;
+  listFiles(path: string, cursor?: string): Promise<FileList>;
+  readFile(path: string): Promise<FileContent>;
+  listPtySessions(cursor?: string): Promise<Page<PtySession>>;
+  createPtySession(): Promise<PtySession>;
+  closePtySession(id: string): Promise<void>;
 }
 
 interface Result<T> {
@@ -353,5 +373,50 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
       );
     },
     listThemes: async () => unwrap(await client.GET("/themes", {})).items,
+
+    // machine
+    listProcesses: async (cursor) =>
+      unwrap(
+        await client.GET("/machine/processes", {
+          params: { query: { ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    listServices: async (cursor) =>
+      unwrap(
+        await client.GET("/machine/services", {
+          params: { query: { ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    listPackages: async ({ q, cursor }) =>
+      unwrap(
+        await client.GET("/machine/packages", {
+          params: { query: { ...(q && { q }), ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    listMachineUsers: async (cursor) =>
+      unwrap(
+        await client.GET("/machine/users", {
+          params: { query: { ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    listFiles: async (path, cursor) =>
+      unwrap(
+        await client.GET("/machine/files", {
+          params: { query: { path, ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    readFile: async (path) =>
+      unwrap(await client.GET("/machine/files/content", { params: { query: { path } } })),
+    listPtySessions: async (cursor) =>
+      unwrap(
+        await client.GET("/machine/pty", {
+          params: { query: { ...(cursor !== undefined && { cursor }) } },
+        }),
+      ),
+    createPtySession: async () =>
+      unwrap(await client.POST("/machine/pty", { body: { cols: 120, rows: 32 } })),
+    closePtySession: async (id) => {
+      unwrap(await client.DELETE("/machine/pty/{pty_id}", { params: { path: { pty_id: id } } }));
+    },
   };
 }

@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "The request is not valid",
+    "status": 400,
+    "detail": "A package name search can be at most 100 characters.",
+    "instance": "/v1/machine/packages"
+  }
+}

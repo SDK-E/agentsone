@@ -65,8 +65,23 @@ func (s *Supervisor) CheckWall(ctx context.Context) (domain.NetWall, bool) {
 	case checked && !prev.Holds:
 		s.audit(ctx, ActionWallRestored, wallTarget, map[string]any{"interfaces": w.Interfaces})
 		s.clearWallMarks(ctx)
+		s.runWantedAgain(ctx)
 	}
 	return w, true
+}
+
+// runWantedAgain starts the runners whose idle start the broken wall
+// refused. A runner that still cannot start shows why on its agent.
+func (s *Supervisor) runWantedAgain(ctx context.Context) {
+	s.mu.Lock()
+	wanted := slices.Sorted(maps.Keys(s.runWanted))
+	clear(s.runWanted)
+	s.mu.Unlock()
+	for _, name := range wanted {
+		if err := s.Run(ctx, name); err != nil {
+			s.log().Warn("supervisor: a runner did not start once the network wall held", "agent", name, "err", err)
+		}
+	}
 }
 
 // wallRefusal is the wall when it does not hold; ok is true when it holds.

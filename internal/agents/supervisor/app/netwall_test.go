@@ -133,6 +133,36 @@ func TestCheckWall_BrokenRefusesEveryWake(t *testing.T) {
 	}
 }
 
+// An always-on agent's idle start is a start: a broken wall refuses it like a
+// wake, and the runner starts once the wall holds again.
+func TestRun_RefusedThroughABrokenWallAndStartsOnceItHolds(t *testing.T) {
+	t.Parallel()
+	w := newUncheckedWorld(t)
+	w.wall.set(brokenWall)
+	ctx := t.Context()
+	w.sup.CheckWall(ctx)
+
+	err := w.sup.Run(ctx, "founder")
+	if !errors.Is(err, app.ErrNetworkWall) || !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("Run() through a broken wall = %v, want ErrNetworkWall and core.ErrUnavailable", err)
+	}
+	if w.launcher.isRunning("founder") {
+		t.Fatal("founder started through a broken wall")
+	}
+
+	w.wall.set(holdingWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !w.launcher.isRunning("founder") {
+		t.Error("founder did not start once the wall held again")
+	}
+	if w.launcher.isRunning("mira") {
+		t.Error("mira started although nobody asked Run to start it")
+	}
+}
+
 // The wall is checked again every five minutes. A line and an audit record
 // come only when the answer changes; once the wall holds again, the
 // agents' failure clears and waking works.

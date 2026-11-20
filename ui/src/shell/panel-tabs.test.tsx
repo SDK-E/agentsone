@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { PANEL_IDS } from "../panels/registry";
 import { expectNoAxeViolations } from "../test/axe";
@@ -10,6 +10,14 @@ import { media } from "../test/setup";
 import { PanelsArea } from "./panel-tabs";
 
 describe("Panels", () => {
+  // Panels load lazily. The first load of a panel's module is its first transform, which
+  // takes about 300 ms on an idle machine and over a second on a busy one, longer than
+  // findBy waits. Load the Tasks panel up front, so the tests below wait on the panel's
+  // own state (its list), never on a cold module.
+  beforeAll(async () => {
+    await import("../panels/tasks");
+  });
+
   it("lists every panel from the registry as a tab, Monitor first", () => {
     renderWith(<PanelsArea />);
 

@@ -208,6 +208,31 @@ func TestPublish_PortKeepsAGivenIDAndAssignsOtherwise(t *testing.T) {
 	}
 }
 
+// A module that fixed an event's id before publishing (an outbox) resends
+// it after a crash. The id names one event, so the resend is taken as
+// already published: no second event is stored or streamed, and no error.
+func TestPublish_PortTakesAStoredIDAsAlreadyPublished(t *testing.T) {
+	f := newFixture(t)
+	given := core.Event{ID: "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F60", Type: "agentsone.agents.woke", Source: "/emitters/agents",
+		Data: json.RawMessage(`{"agent":"builder"}`), ChartScope: "agent:builder"}
+	if _, err := f.svc.Publish(asSystem(), given); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := f.svc.Publish(asSystem(), given)
+
+	if err != nil || again.ID != given.ID {
+		t.Fatalf("second Publish() = %+v, %v, want the same id and no error", again, err)
+	}
+	stored, err := f.events.After(t.Context(), 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("stored %d events, want 1", len(stored))
+	}
+}
+
 // The port takes the actor from the caller, so an agent that names the
 // system as the actor still publishes as itself.
 func TestPublish_PortNeverLetsAnAgentPublishAsTheSystem(t *testing.T) {

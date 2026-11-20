@@ -14,6 +14,11 @@ import (
 // contract type, so the payload is the catalog's and the type cannot differ
 // from it: the type comes from Data.EventType().
 type Publication struct {
+	// ID is the event id when the module fixed it before publishing, as an
+	// outbox does so that a resend names the same event. Empty lets the bus
+	// assign one. The events module takes an id it already stored as an
+	// event already published: it stores nothing and returns no error.
+	ID string
 	// Source is the event source, for example "/daemon".
 	Source  string
 	Subject string
@@ -35,7 +40,7 @@ func PublishData(ctx context.Context, bus EventPublisher, p Publication) (Event,
 		return Event{}, fmt.Errorf("encode %s: %w", p.Data.EventType(), err)
 	}
 	e, err := bus.Publish(ctx, Event{
-		SpecVersion: "1.0", Source: p.Source, Type: p.Data.EventType(), Subject: p.Subject,
+		ID: p.ID, SpecVersion: "1.0", Source: p.Source, Type: p.Data.EventType(), Subject: p.Subject,
 		DataContentType: "application/json", Data: raw, Actor: p.Actor, ChartScope: p.ChartScope,
 	})
 	if err != nil {

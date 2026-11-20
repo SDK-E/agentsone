@@ -97,3 +97,11 @@ stay until a major version, and their descriptions say what they mean today:
    wording, minor for an added operation or optional field, major for anything that breaks a
    caller), regenerates with `make gen`, and updates the fixtures and the affected packages.
 3. The orchestrator tells every builder whose seam moved.
+
+## Change log
+
+Changes to the daemon seams that touch no contract file, so `contract/VERSION` stays.
+
+| Date | Seam | Change | Reason |
+| --- | --- | --- | --- |
+| 2026-11-20 | `internal/core` (`Publication`) | Optional `ID` field, additive: empty lets the events module assign the id, as before. The events module takes a given id it already stored as an event already published: nothing is stored or streamed again and no error is returned. | A hire stores the agent and its hired event in one transaction (an outbox in core.db) and publishes the event after the commit. The id is fixed when the event is stored, so a resend after a crash publishes it once (SDK-2102). Agreed by the orchestrator. |

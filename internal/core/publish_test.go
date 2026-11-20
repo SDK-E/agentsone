@@ -50,6 +50,30 @@ func TestPublishData_TypeAndDataComeFromTheGeneratedType(t *testing.T) {
 	}
 }
 
+// A module that fixed the event id before publishing (an outbox) passes it,
+// so a resend after a crash names the same event; without one the bus
+// assigns it.
+func TestPublishData_PassesAGivenIDAndLeavesItEmptyOtherwise(t *testing.T) {
+	t.Parallel()
+	bus := &recordingBus{}
+	p := core.Publication{
+		Source: "/daemon", Actor: "system:auth", ChartScope: "machine",
+		Data: eventdata.AuthLogout{User: "ada"},
+	}
+
+	given := p
+	given.ID = "evt_fixed"
+	for _, pub := range []core.Publication{given, p} {
+		if _, err := core.PublishData(t.Context(), bus, pub); err != nil {
+			t.Fatalf("PublishData() error = %v", err)
+		}
+	}
+
+	if got := []string{bus.got[0].ID, bus.got[1].ID}; got[0] != "evt_fixed" || got[1] != "" {
+		t.Fatalf("event ids = %q, want [evt_fixed, empty]", got)
+	}
+}
+
 func TestPublishData_RefusesMissingData(t *testing.T) {
 	t.Parallel()
 

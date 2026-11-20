@@ -8,6 +8,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"sync"
@@ -207,7 +208,15 @@ func (s *Service) publish(ctx context.Context, c core.Caller, d domain.Draft, p 
 	if id == "" {
 		id = s.d.IDs.New("evt")
 	}
-	stored, err := s.store(ctx, d.Event(id, s.d.Clock.Now(), actor, scope))
+	e := d.Event(id, s.d.Clock.Now(), actor, scope)
+	stored, err := s.store(ctx, e)
+	if p.id != "" && errors.Is(err, core.ErrConflict) {
+		// A daemon module resends an event whose id it fixed before the
+		// first send (an outbox, after a crash). The id names one event, so
+		// it is already published: nothing is stored, streamed or fired
+		// again. The event comes back as resent, without its sequence.
+		return e, nil
+	}
 	if err != nil {
 		return core.Event{}, err
 	}

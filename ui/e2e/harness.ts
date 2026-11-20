@@ -46,6 +46,11 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["GET", /^\/v1\/schedules$/, "listSchedules"],
   ["GET", /^\/v1\/audit$/, "listAuditRecords"],
   ["POST", /^\/v1\/audit\/verify$/, "verifyAuditChain"],
+  // ide
+  ["GET", /^\/v1\/ide$/, "getIdeStatus"],
+  ["GET", /^\/v1\/ide\/servers\/[^/]+$/, "getIdeServer"],
+  ["PUT", /^\/v1\/ide\/servers\/[^/]+$/, "startIdeServer"],
+  ["DELETE", /^\/v1\/ide\/servers\/[^/]+$/, "stopIdeServer"],
   // memory, plugins, settings
   ["GET", /^\/v1\/memory$/, "listMemory"],
   ["GET", /^\/v1\/memory\/search$/, "searchMemory"],

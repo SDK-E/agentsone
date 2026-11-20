@@ -745,6 +745,20 @@ ul.notice {
   max-width: 48rem;
 }
 
+/* IDE panel: the editor fills the panel; on a phone it keeps most of the screen. */
+.ide__frame {
+  display: block;
+  inline-size: 100%;
+  block-size: max(28rem, 75vh);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.ide__bar {
+  justify-content: flex-end;
+}
+
 .segmented {
   border: 0;
   padding: 0;

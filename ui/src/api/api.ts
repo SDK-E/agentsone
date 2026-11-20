@@ -41,6 +41,9 @@ export type TaskStreamFrame = S["TaskStreamFrame"];
 export type Schedule = S["Schedule"];
 export type AuditRecord = S["AuditRecord"];
 export type AuditVerification = S["AuditVerification"];
+// IDE
+export type IdeStatus = S["IdeStatus"];
+export type IdeServer = S["IdeServer"];
 
 /** One page of a list, with the cursor for the next page when there is one. */
 export interface Page<T> {
@@ -143,6 +146,13 @@ export interface Api {
   /** Records come oldest first: ask for those after a sequence number to reach the newest. */
   listAuditRecords(query?: AuditQuery): Promise<Page<AuditRecord>>;
   verifyAuditChain(): Promise<AuditVerification>;
+
+  // ide
+  getIdeStatus(): Promise<IdeStatus>;
+  getIdeServer(human: string): Promise<IdeServer>;
+  /** Starts the server; it answers "starting" and the caller polls getIdeServer. */
+  startIdeServer(human: string): Promise<IdeServer>;
+  stopIdeServer(human: string): Promise<void>;
 
   // memory, plugins and settings
   listMemory(query: { scope?: MemoryScope; cursor?: string }): Promise<Page<MemoryRecord>>;
@@ -308,6 +318,28 @@ export function createHttpApi(options: HttpApiOptions = {}): Api {
         }),
       ),
     verifyAuditChain: async () => unwrap(await client.POST("/audit/verify", { body: {} })),
+
+    // ide
+    getIdeStatus: async () => unwrap(await client.GET("/ide")),
+    getIdeServer: async (human) =>
+      unwrap(
+        await client.GET("/ide/servers/{human_name}", {
+          params: { path: { human_name: human } },
+        }),
+      ),
+    startIdeServer: async (human) =>
+      unwrap(
+        await client.PUT("/ide/servers/{human_name}", {
+          params: { path: { human_name: human } },
+        }),
+      ),
+    stopIdeServer: async (human) => {
+      unwrap(
+        await client.DELETE("/ide/servers/{human_name}", {
+          params: { path: { human_name: human } },
+        }),
+      );
+    },
 
     // memory, plugins and settings
     listMemory: async ({ scope, cursor }) =>

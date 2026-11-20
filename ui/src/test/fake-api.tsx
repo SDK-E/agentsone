@@ -20,6 +20,10 @@ import machineMetrics from "../../../contract/fixtures/api/getMachineMetrics.jso
 import schedulesList from "../../../contract/fixtures/api/listSchedules.json";
 import tasksList from "../../../contract/fixtures/api/listTasks.json";
 import verification from "../../../contract/fixtures/api/verifyAuditChain.json";
+// IDE
+import ideServer from "../../../contract/fixtures/api/getIdeServer.json";
+import ideStatus from "../../../contract/fixtures/api/getIdeStatus.json";
+import ideStarting from "../../../contract/fixtures/api/startIdeServer.json";
 import theme from "../../../contract/fixtures/api/getTheme.json";
 import failedAgent from "../../../contract/fixtures/api/getAgent.failed.json";
 import failedAgentLong from "../../../contract/fixtures/api/getAgent.failed-long-text.json";
@@ -65,6 +69,8 @@ import {
   type FileList,
   type Freeze,
   type Human,
+  type IdeServer,
+  type IdeStatus,
   type InstalledTheme,
   type LiveEntry,
   type LiveStreamFrame,
@@ -113,6 +119,10 @@ export const fixtures = {
   // The generated type of `details` is `Record<string, never>`; the fixtures carry real values.
   audit: auditList.body.items as unknown as AuditRecord[],
   verification: verification.body as AuditVerification,
+  // ide
+  ideStatus: ideStatus.body as IdeStatus,
+  ideServer: ideServer.body as IdeServer,
+  ideStarting: ideStarting.body as IdeServer,
   // memory, plugins and settings
   memory: memory.body.items as MemoryRecord[],
   memoryLong: memoryLong.body.items as MemoryRecord[],
@@ -337,6 +347,29 @@ export class FakeApi implements Api {
     this.calls.push("verifyAuditChain");
     return this.settle(this.verification);
   };
+
+  // ide
+  ideStatus: IdeStatus | ApiError = fixtures.ideStatus;
+  /** The signed-in human's editor server. Starting it moves it to "starting". */
+  ideServer: IdeServer | ApiError = fixtures.ideServer;
+  /** What the server becomes on the next read after it started. */
+  ideAfterStart: IdeServer = fixtures.ideServer;
+  getIdeStatus = () => this.settle(this.ideStatus);
+  getIdeServer = (human: string) => {
+    this.calls.push(`getIdeServer ${human}`);
+    const now = this.ideServer;
+    if (!(now instanceof ApiError) && now.state === "starting") this.ideServer = this.ideAfterStart;
+    return this.settle(now);
+  };
+  startIdeServer = (human: string) =>
+    this.change(`startIdeServer ${human}`, () => {
+      this.ideServer = fixtures.ideStarting;
+      return fixtures.ideStarting;
+    });
+  stopIdeServer = (human: string) =>
+    this.change(`stopIdeServer ${human}`, () => {
+      this.ideServer = { ...fixtures.ideStarting, state: "stopped" };
+    });
 
   // memory, plugins and settings
   pageSize = 1000;

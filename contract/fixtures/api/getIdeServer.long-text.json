@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "body": {
+    "human": "ada",
+    "state": "failed",
+    "url": null,
+    "started_at": null,
+    "error": "agentsone-ide@ada.service exited with status 1: the extension host could not read /home/ada/.config/agentsone-ide/User/settings.json because the file is not valid JSON (unexpected token at line 42, column 7). Fix or remove the file, then start the editor again."
+  }
+}

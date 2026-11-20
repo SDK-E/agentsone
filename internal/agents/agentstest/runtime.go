@@ -26,6 +26,7 @@ type Runtime struct {
 	slept        []string
 	frozen       map[string]bool
 	wakes        []core.WakeReason
+	payloads     []json.RawMessage
 }
 
 // NewRuntime returns a runtime with nothing provisioned.
@@ -67,14 +68,22 @@ func (r *Runtime) Retire(_ context.Context, name string) error {
 }
 
 // Wake refuses a frozen agent with core.ErrFrozen.
-func (r *Runtime) Wake(_ context.Context, name string, reason core.WakeReason, _ json.RawMessage) error {
+func (r *Runtime) Wake(_ context.Context, name string, reason core.WakeReason, payload json.RawMessage) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.frozen["agent:"+name] || r.frozen["all"] {
 		return fmt.Errorf("wake %s: %w", name, core.ErrFrozen)
 	}
 	r.wakes = append(r.wakes, reason)
+	r.payloads = append(r.payloads, append(json.RawMessage(nil), payload...))
 	return nil
+}
+
+// Payloads returns the payloads of delivered wakes, in the order of Wakes.
+func (r *Runtime) Payloads() []json.RawMessage {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]json.RawMessage(nil), r.payloads...)
 }
 
 // Sleep records name.

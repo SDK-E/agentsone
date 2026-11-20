@@ -55,6 +55,7 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 | Verification item                | Stages                         | What the stages check                                                                 |
 | -------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
 | Setup page                       | `setup-page`                   | The first human is made on the setup page, only through the web door.                 |
+| Claude engine opt-in             | `engine-opt-in`                | Setup ends with the first human; nothing downloads the Claude engine without opt-in.  |
 | Login                            | `login`                        | The first human signs in and out through the web door.                                |
 | Small Seed                       | `small-seed`                   | On first boot the Small Seed installs and the founder, router and waker start.        |
 | Founder hires                    | `hire`                         | The founder hires an agent below itself.                                              |

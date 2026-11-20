@@ -193,6 +193,8 @@ jobs:
         run: e2e/run.sh web-door
       - name: Setup page
         run: e2e/run.sh setup-page
+      - name: Claude engine opt-in
+        run: e2e/run.sh engine-opt-in
       - name: Login
         run: e2e/run.sh login
       - name: Small Seed

@@ -15,7 +15,9 @@
 // PUT /script sets the next answers to chat calls (not routing prompts), in order: each is a text
 // or the tool calls the model asks for, as an agent's turn needs them. A PUT replaces the script;
 // once it is used up, chat calls get the fixed reply again. GET /script says how many are left.
-// Only the outer network reaches the fake, so the machine cannot script it.
+// Only the outer network reaches the fake, so the machine cannot script it. A note also holds
+// the names of the tools a call offered and the tool results it sent back, so the e2e can show
+// an agent's tool call went to the machine and its answer came back to the model.
 //
 // Usage:
 //
@@ -65,6 +67,8 @@ const (
 
 const (
 	maxBody = 1 << 20
+	// maxToolResult bounds the text of a tool result kept in a note.
+	maxToolResult = 4096
 	// routerPrompt is how the router's system prompt starts (internal/router/app/prompt.go).
 	routerPrompt = "You are a router."
 	// tokenMark starts every Agents One gateway token (ao1.<claims>.<mac>).
@@ -85,6 +89,18 @@ type Call struct {
 	GatewayToken bool `json:"gateway_token"`
 	// Scripted is true when the answer was the next reply of the script (PUT /script).
 	Scripted bool `json:"scripted"`
+	// ToolResults are the tool results the call sent back to the model, in order: what the
+	// agent's tools answered to the tool calls of an earlier reply.
+	ToolResults []ToolResult `json:"tool_results"`
+	// Tools are the names of the functions the call offered the model, sorted.
+	Tools []string `json:"tools"`
+}
+
+// ToolResult is one tool message of a call: the id of the tool call it answers and its text,
+// cut to maxToolResult bytes. Tool results are what the machine's tools answered, never a key.
+type ToolResult struct {
+	ToolCallID string `json:"tool_call_id"`
+	Content    string `json:"content"`
 }
 
 // Seen is the answer of GET /seen.
@@ -150,14 +166,50 @@ func (p *Provider) Handler() http.Handler {
 }
 
 type message struct {
-	Role    string          `json:"role"`
-	Content json.RawMessage `json:"content"`
+	Role       string          `json:"role"`
+	Content    json.RawMessage `json:"content"`
+	ToolCallID string          `json:"tool_call_id"`
+}
+
+// toolResults collects the tool messages of a request. Content that is not a JSON string is
+// kept as its JSON text.
+func toolResults(msgs []message) []ToolResult {
+	out := []ToolResult{}
+	for _, m := range msgs {
+		if m.Role != "tool" {
+			continue
+		}
+		var text string
+		if json.Unmarshal(m.Content, &text) != nil {
+			text = string(m.Content)
+		}
+		if len(text) > maxToolResult {
+			text = text[:maxToolResult]
+		}
+		out = append(out, ToolResult{ToolCallID: m.ToolCallID, Content: text})
+	}
+	return out
 }
 
 type request struct {
 	Model    string    `json:"model"`
 	Stream   bool      `json:"stream"`
 	Messages []message `json:"messages"`
+	Tools    []struct {
+		Function struct {
+			Name string `json:"name"`
+		} `json:"function"`
+	} `json:"tools"`
+}
+
+// toolNames are the names of the functions req offers, sorted.
+func (req request) toolNames() []string {
+	names := make([]string, 0, len(req.Tools))
+	for _, t := range req.Tools {
+		names = append(names, t.Function.Name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 func (p *Provider) complete(w http.ResponseWriter, r *http.Request) {
@@ -172,6 +224,7 @@ func (p *Provider) complete(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(body, &req)
 	}
 	call.Model, call.Stream = req.Model, req.Stream
+	call.ToolResults, call.Tools = toolResults(req.Messages), req.toolNames()
 	switch {
 	case err != nil:
 		call.Kind = KindRefused

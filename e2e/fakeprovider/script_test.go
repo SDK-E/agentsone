@@ -9,9 +9,18 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 )
+
+// closeBody closes the answer's body and fails the test when that fails.
+func closeBody(t *testing.T, res *http.Response) {
+	t.Helper()
+	if err := res.Body.Close(); err != nil {
+		t.Errorf("close the answer body: %v", err)
+	}
+}
 
 const hireCall = `{"id":"call_hire","type":"function","function":{"name":"hire_agent","arguments":"{\"body\":{\"name\":\"scribe\"}}"}}`
 
@@ -29,7 +38,7 @@ func putScript(t *testing.T, url, body string) (int, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer closeBody(t, res)
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +53,7 @@ func scriptLeft(t *testing.T, url string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer closeBody(t, res)
 	var s struct {
 		Left int `json:"left"`
 	}
@@ -213,6 +222,37 @@ func TestABadScriptIsRefusedAndKeepsTheOldOne(t *testing.T) {
 	}
 	if got := scriptLeft(t, srv.URL); got != 1 {
 		t.Fatalf("left after bad scripts = %d, want 1", got)
+	}
+}
+
+func TestTheNoteHoldsTheToolResultsACallSendsBack(t *testing.T) {
+	t.Parallel()
+	srv, _ := newServer(t)
+	long := strings.Repeat("x", maxToolResult+10)
+	body := `{"model":"m","tools":[{"type":"function","function":{"name":"list_agents"}},` +
+		`{"type":"function","function":{"name":"create_task"}}],"messages":[{"role":"user","content":"list"},` +
+		`{"role":"assistant","content":null,"tool_calls":[` + hireCall + `]},` +
+		`{"role":"tool","tool_call_id":"call_hire","content":"{\"items\":[{\"name\":\"founder\"}]}"},` +
+		`{"role":"tool","tool_call_id":"call_long","content":"` + long + `"},` +
+		`{"role":"tool","tool_call_id":"call_parts","content":[{"type":"text","text":"t"}]}]}`
+
+	post(t, srv.URL, "Bearer k", body)
+	post(t, srv.URL, "Bearer k", chatBody)
+
+	calls := seen(t, srv.URL).Calls
+	want := []ToolResult{
+		{ToolCallID: "call_hire", Content: `{"items":[{"name":"founder"}]}`},
+		{ToolCallID: "call_long", Content: long[:maxToolResult]},
+		{ToolCallID: "call_parts", Content: `[{"type":"text","text":"t"}]`},
+	}
+	if len(calls) != 2 || !jsonEqual(t, calls[0].ToolResults, want) {
+		t.Fatalf("tool results = %+v, want %+v", calls, want)
+	}
+	if !slices.Equal(calls[0].Tools, []string{"create_task", "list_agents"}) {
+		t.Fatalf("tools = %v, want the offered names, sorted", calls[0].Tools)
+	}
+	if calls[1].ToolResults == nil || len(calls[1].ToolResults) != 0 || calls[1].Tools == nil || len(calls[1].Tools) != 0 {
+		t.Fatalf("a call with no tools notes %v and %v, want empty lists", calls[1].ToolResults, calls[1].Tools)
 	}
 }
 

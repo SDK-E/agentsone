@@ -63,6 +63,16 @@ const OPERATIONS: [method: string, path: RegExp, operation: string][] = [
   ["PATCH", /^\/v1\/humans\/[^/]+$/, "updateHuman"],
   ["DELETE", /^\/v1\/humans\/[^/]+$/, "deleteHuman"],
   ["GET", /^\/v1\/themes$/, "listThemes"],
+  // machine
+  ["GET", /^\/v1\/machine\/processes$/, "listProcesses"],
+  ["GET", /^\/v1\/machine\/services$/, "listServices"],
+  ["GET", /^\/v1\/machine\/packages$/, "listPackages"],
+  ["GET", /^\/v1\/machine\/users$/, "listMachineUsers"],
+  ["GET", /^\/v1\/machine\/files$/, "listFiles"],
+  ["GET", /^\/v1\/machine\/files\/content$/, "readFile"],
+  ["GET", /^\/v1\/machine\/pty$/, "listPtySessions"],
+  ["POST", /^\/v1\/machine\/pty$/, "createPtySession"],
+  ["DELETE", /^\/v1\/machine\/pty\/[^/]+$/, "closePtySession"],
 ];
 
 function operationOf(method: string, path: string): string | undefined {

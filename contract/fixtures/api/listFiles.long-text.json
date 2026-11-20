@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "body": {
+    "path": "/home/agents/research-librarian-1/workspaces/long-running-literature-review/archive/2026",
+    "items": [
+      {
+        "path": "/home/agents/research-librarian-1/workspaces/long-running-literature-review/archive/2026/notes-on-every-paper-about-sandboxed-iframes-and-content-security-policy-since-2010.md",
+        "name": "notes-on-every-paper-about-sandboxed-iframes-and-content-security-policy-since-2010.md",
+        "type": "file",
+        "size_bytes": 7340032,
+        "mode": "0640",
+        "owner": "research-librarian-1",
+        "group": "research-librarian-1",
+        "modified_at": "2026-11-19T12:31:10Z"
+      }
+    ],
+    "next_cursor": null
+  }
+}

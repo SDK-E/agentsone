@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "name": "research-librarian-1",
+        "uid": 2031,
+        "gid": 2031,
+        "home": "/home/agents/research-librarian-1/workspaces/long-running-literature-review/archive",
+        "shell": "/usr/local/bin/agentsone-restricted-shell-with-audit-hooks",
+        "kind": "agent"
+      }
+    ],
+    "next_cursor": null
+  }
+}

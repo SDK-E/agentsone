@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "unit": "emitter@emt_01JD7ZK3M00000000000000011-long-running-webhook-relay-for-the-landing-page-build-pipeline.service",
+        "description": "Agents One emitter that relays every webhook the landing page build pipeline sends, including retries, signatures and the full delivery history for the society to read later",
+        "load_state": "loaded",
+        "active_state": "deactivating",
+        "sub_state": "stop-sigterm",
+        "enabled": true,
+        "agent": "builder"
+      }
+    ],
+    "next_cursor": null
+  }
+}

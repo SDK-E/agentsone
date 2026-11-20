@@ -246,6 +246,63 @@ func TestCredentials_MintFailureSendsNothingAndRetriesEvery30Seconds(t *testing.
 	}
 }
 
+// credentialLines are the log lines about credential renewal.
+func credentialLines(w *world) []string {
+	var out []string
+	for _, l := range w.logs.all() {
+		if strings.Contains(l, "credentials") {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// A failing spell is one ERROR line and one audit record however many
+// retries it takes, and recovery is one INFO line (like the network wall).
+func TestCredentials_AFailingSpellIsReportedOnce(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	h, conn, _ := w.connect11(t, "mira")
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: %w", core.ErrUnavailable)
+
+	w.pass(t, h, twoThirds)
+	for range 3 { // three more retries, all failing
+		w.pass(t, h, 30*time.Second)
+	}
+	want := []string{"ERROR " + app.LogCredentialsFailed}
+	if diff := cmp.Diff(want, credentialLines(w)); diff != "" {
+		t.Errorf("log lines during the failing spell (-want +got):\n%s", diff)
+	}
+	failed := 0
+	for _, e := range w.fakes.Audit.Entries() {
+		if e.Action == app.ActionCredentialsFailed && e.Target == "agent:mira" {
+			failed++
+		}
+	}
+	if failed != 1 {
+		t.Errorf("audit records of the failing spell = %d, want 1", failed)
+	}
+
+	w.fakes.GatewayTokens.Err = nil
+	w.pass(t, h, 30*time.Second)
+	if got := updates(t, conn); len(got) != 1 {
+		t.Fatalf("updates after recovery = %d, want 1", len(got))
+	}
+	want = append(want, "INFO "+app.LogCredentialsRecovered)
+	if diff := cmp.Diff(want, credentialLines(w)); diff != "" {
+		t.Errorf("log lines after recovery (-want +got):\n%s", diff)
+	}
+
+	// A second spell is reported again.
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: %w", core.ErrUnavailable)
+	w.pass(t, h, twoThirds)
+	w.pass(t, h, 30*time.Second)
+	want = append(want, "ERROR "+app.LogCredentialsFailed)
+	if diff := cmp.Diff(want, credentialLines(w)); diff != "" {
+		t.Errorf("log lines in a second failing spell (-want +got):\n%s", diff)
+	}
+}
+
 // D6: a closed connection gets no more updates.
 func TestCredentials_StopWhenTheConnectionCloses(t *testing.T) {
 	t.Parallel()

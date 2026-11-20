@@ -21,6 +21,14 @@ const (
 	renewRetry = 30 * time.Second
 )
 
+// Credential renewal log lines and audit action. The error text never holds
+// token text.
+const (
+	LogCredentialsFailed    = "credentials renewal failed: the runner keeps its tokens, retrying every 30s"
+	LogCredentialsRecovered = "credentials renewal works again"
+	ActionCredentialsFailed = "agent.runner.credentials_failed"
+)
+
 // issued is one token the runner holds.
 type issued struct {
 	value     string
@@ -50,6 +58,9 @@ type credentials struct {
 	gateway, mcp issued
 	// retryAt holds the next try after a renewal that could not be sent.
 	retryAt time.Time
+	// failing is set once a renewal failed and cleared by the next one that
+	// is sent, so a failing spell is reported once.
+	failing bool
 }
 
 // next is when the next update goes out.
@@ -88,14 +99,28 @@ func (s *Supervisor) renewCredentials(ctx context.Context, now time.Time) {
 	for _, j := range jobs {
 		next, err := s.renew(ctx, j.h, j.creds, now)
 		if err != nil {
-			s.log().Warn("supervisor: credentials renewal failed, retrying in 30s", "agent", j.h.agent, "err", err)
+			// One line and one audit record per failing spell, not one per retry.
+			s.mu.Lock()
+			first := j.h.creds != nil && !j.h.creds.failing
+			if first {
+				j.h.creds.failing = true
+			}
+			s.mu.Unlock()
+			if first {
+				s.log().Error(LogCredentialsFailed, "agent", j.h.agent, "err", err)
+				s.audit(ctx, ActionCredentialsFailed, "agent:"+j.h.agent, map[string]any{"error": err.Error()})
+			}
 			continue
 		}
 		s.mu.Lock()
+		recovered := j.creds.failing
 		if j.h.creds != nil {
 			*j.h.creds = next
 		}
 		s.mu.Unlock()
+		if recovered {
+			s.log().Info(LogCredentialsRecovered, "agent", j.h.agent)
+		}
 	}
 }
 

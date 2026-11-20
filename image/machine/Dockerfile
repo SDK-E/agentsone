@@ -24,13 +24,13 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 ARG TARGETOS TARGETARCH BUILDOS BUILDARCH
+# The second command writes the engine licence text a human reads before
+# accepting the engine, from the engine pin and the one notice in
+# internal/enginefetch. It runs for the build machine, not the target, and
+# holds no acceptance.
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=$TARGETOS GOARCH=$TARGETARCH image/machine/build-go.sh /src /out
-# The engine licence text a human reads before accepting the engine. It is
-# written from the engine pin and the one notice in internal/enginefetch, so
-# the program runs for the build machine, not the target. It holds no acceptance.
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=$BUILDOS GOARCH=$BUILDARCH go run ./cmd/genlicence /out/engine/licence.json
+    GOOS=$TARGETOS GOARCH=$TARGETARCH image/machine/build-go.sh /src /out \
+    && GOOS=$BUILDOS GOARCH=$BUILDARCH go run ./cmd/genlicence /out/engine/licence.json
 
 # --- Web interface (static files, the same for every architecture) ----------
 FROM --platform=$BUILDPLATFORM node:24.22.3-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0 AS ui

@@ -48,6 +48,9 @@ type Supervisor struct {
 	wallMarked  map[string]bool
 	// refused is the last wake each agent's runner refused, while it shows.
 	refused map[string]refusal
+	// runWanted are the agents whose idle start Run refused because the
+	// wall did not hold; they start when it holds again.
+	runWanted map[string]bool
 }
 
 var (
@@ -68,7 +71,8 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}}
+	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
+		refused: map[string]refusal{}, runWanted: map[string]bool{}}
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {
@@ -264,10 +268,19 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 // Run starts agent name's runner without a turn, for always-on agents: the
 // runner finishes its handshake and idles, so it makes no model call until
 // a wake. A runner that is starting or running is left alone, and a frozen
-// agent is not started.
+// agent is not started. While the network wall does not hold, no runner
+// starts: Run refuses with ErrNetworkWall and core.ErrUnavailable, like
+// Wake, and starts the runner once the wall holds again.
 func (s *Supervisor) Run(ctx context.Context, name string) error {
 	if err := domain.ValidateName(name); err != nil {
 		return fmt.Errorf("run: %w: %w", core.ErrInvalid, err)
+	}
+	if w, ok := s.wallRefusal(); !ok {
+		s.mu.Lock()
+		s.runWanted[name] = true
+		s.mu.Unlock()
+		s.markWallBroken(ctx, name, w, false)
+		return fmt.Errorf("run %s: %w: %s: %w", name, ErrNetworkWall, w.Reason, core.ErrUnavailable)
 	}
 	frozen, err := s.Frozen(ctx, name)
 	if err != nil {

@@ -77,6 +77,7 @@ type Conn struct {
 	pending  map[int]chan response
 	welcomed bool
 	ready    bool
+	readyCh  chan struct{} // closed when ready becomes true
 	closed   bool
 	done     chan struct{}
 	closeErr error
@@ -92,7 +93,7 @@ func Serve(ctx context.Context, nc net.Conn, h Handler, opts Options) *Conn {
 	if opts.MaxLineBytes <= 0 {
 		opts.MaxLineBytes = DefaultMaxLineBytes
 	}
-	c := &Conn{nc: nc, h: h, opts: opts, pending: map[int]chan response{}, done: make(chan struct{})}
+	c := &Conn{nc: nc, h: h, opts: opts, pending: map[int]chan response{}, readyCh: make(chan struct{}), done: make(chan struct{})}
 	go c.readLoop(ctx)
 	if opts.HelloDeadline != nil {
 		go c.helloWatch(opts.HelloDeadline)
@@ -105,6 +106,20 @@ func (c *Conn) Done() <-chan struct{} { return c.done }
 
 // Close ends the connection.
 func (c *Conn) Close() error { return c.nc.Close() }
+
+// WaitReady returns nil once the runner's first status has been accepted,
+// so Call no longer refuses with ErrNotReady. It returns ErrClosed when the
+// connection ends first, or ctx's error.
+func (c *Conn) WaitReady(ctx context.Context) error {
+	select {
+	case <-c.readyCh:
+		return nil
+	case <-c.done:
+		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 func (c *Conn) helloWatch(deadline <-chan struct{}) {
 	select {
@@ -410,7 +425,10 @@ func (c *Conn) notification(ctx context.Context, method string, params json.RawM
 		var p protocol.StatusParams
 		if decode(params, &p, "state") == nil && c.h.Status(ctx, p) == nil {
 			c.mu.Lock()
-			c.ready = true
+			if !c.ready {
+				c.ready = true
+				close(c.readyCh)
+			}
 			c.mu.Unlock()
 		}
 	case protocol.MethodOutput:

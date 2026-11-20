@@ -103,7 +103,7 @@ func (r *Plugins) query(ctx context.Context, query string, args ...any) ([]domai
 	if err != nil {
 		return nil, fmt.Errorf("list plugins: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Plugin
 	for rows.Next() {
 		p, err := scanPlugin(rows)

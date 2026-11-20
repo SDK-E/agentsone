@@ -126,7 +126,7 @@ func addSmallSeed(t *testing.T, fakes *coretest.Fakes) {
 func firstHuman(t *testing.T, fakes *coretest.Fakes) {
 	t.Helper()
 	_, err := fakes.Events.Publish(context.Background(), core.Event{
-		Type: "agentsone.setup.first-human.created", Source: "agentsone/auth", Actor: "human:ada", ChartScope: "machine",
+		Type: "agentsone.setup.first-human.created", Source: "/daemon", Actor: "system:auth", ChartScope: "machine",
 		Data: json.RawMessage(`{"human":"ada"}`),
 	})
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/app"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
@@ -114,6 +115,15 @@ func (a *Accounts) Ensure(ctx context.Context, acc domain.Account) (int, error) 
 	return acc.UID, nil
 }
 
+// EnsureRootHome makes a root agent's home: mode 0700, owned by root. Root
+// agents run as root, so no user is made.
+func (a *Accounts) EnsureRootHome(_ context.Context, acc domain.Account) error {
+	if !acc.IsRoot || !strings.HasPrefix(acc.Home, domain.RootHomeRoot+"/") {
+		return fmt.Errorf("ensure root home %q: not a root agent's home", acc.Home)
+	}
+	return a.home(filepath.Join(a.Root, acc.Home), 0, 0)
+}
+
 // home makes the home directory private to the agent: mode 0700 and owned
 // by it, also when it survived from before (an archived or reset system).
 func (a *Accounts) home(path string, uid, gid int) error {
@@ -145,7 +155,11 @@ func (a *Accounts) Lock(ctx context.Context, acc domain.Account) error {
 		return fmt.Errorf("lock account %q: not a custom agent user", acc.User)
 	}
 	if _, err := a.lookupUser(acc.User); err != nil {
-		return nil // nothing to lock
+		var unknown user.UnknownUserError
+		if errors.As(err, &unknown) {
+			return nil // nothing to lock
+		}
+		return fmt.Errorf("lock account %q: look up user: %w", acc.User, err)
 	}
 	return a.run(ctx, "usermod", "--lock", "--expiredate", "1", acc.User)
 }

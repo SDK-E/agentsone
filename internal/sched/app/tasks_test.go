@@ -265,6 +265,10 @@ func TestAssign_KeepsTheAssignmentWhenTheWakeFails(t *testing.T) {
 	if diff := cmp.Diff([]string{"task.create", "task.assign", "task.wake.failed"}, e.auditActions()); diff != "" {
 		t.Errorf("audit (-want +got):\n%s", diff)
 	}
+	entries := e.fakes.Audit.Entries()
+	if last := entries[len(entries)-1]; last.Outcome != core.AuditFailure || !strings.Contains(string(last.Detail), "runner is down") {
+		t.Errorf("task.wake.failed entry = %+v (%s), want outcome failure with the cause", last, last.Detail)
+	}
 }
 
 func TestComplete_HolderReportsTheOutcome(t *testing.T) {

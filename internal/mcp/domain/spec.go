@@ -27,7 +27,7 @@ func ParseOperations(doc []byte) ([]Operation, error) {
 	r := &resolver{root: root}
 	base := basePath(root)
 
-	paths, _ := root["paths"].(map[string]any)
+	paths := object(root["paths"])
 	keys := make([]string, 0, len(paths))
 	for p := range paths {
 		keys = append(keys, p)
@@ -36,7 +36,7 @@ func ParseOperations(doc []byte) ([]Operation, error) {
 
 	var ops []Operation
 	for _, p := range keys {
-		item, _ := paths[p].(map[string]any)
+		item := object(paths[p])
 		for _, m := range httpMethods {
 			raw, ok := item[m].(map[string]any)
 			if !ok {
@@ -53,13 +53,11 @@ func ParseOperations(doc []byte) ([]Operation, error) {
 }
 
 func basePath(root map[string]any) string {
-	servers, _ := root["servers"].([]any)
+	servers := anySlice(root["servers"])
 	if len(servers) == 0 {
 		return ""
 	}
-	first, _ := servers[0].(map[string]any)
-	raw, _ := first["url"].(string)
-	u, err := url.Parse(raw)
+	u, err := url.Parse(str(object(servers[0])["url"]))
 	if err != nil {
 		return ""
 	}
@@ -69,15 +67,17 @@ func basePath(root map[string]any) string {
 type resolver struct{ root map[string]any }
 
 func (r *resolver) operation(method, path string, item, raw map[string]any) (Operation, error) {
-	id, _ := raw["operationId"].(string)
+	id := str(raw["operationId"])
 	if id == "" {
 		return Operation{}, fmt.Errorf("%w: %s %s has no operationId", ErrInvalidSpec, strings.ToUpper(method), path)
 	}
-	tags, _ := raw["tags"].([]any)
-	if len(tags) == 0 {
+	var tag string
+	if tags := anySlice(raw["tags"]); len(tags) > 0 {
+		tag = str(tags[0])
+	}
+	if tag == "" {
 		return Operation{}, fmt.Errorf("%w: operation %s has no tag", ErrInvalidSpec, id)
 	}
-	tag, _ := tags[0].(string)
 	op := Operation{
 		ID:          id,
 		Method:      strings.ToUpper(method),
@@ -119,7 +119,7 @@ func (r *resolver) params(id string, item, raw map[string]any) ([]Param, error) 
 			if err != nil {
 				return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 			}
-			m, _ := resolved.(map[string]any)
+			m := object(resolved)
 			in := str(m["in"])
 			if in != InPath && in != InQuery {
 				continue
@@ -171,9 +171,8 @@ func (r *resolver) body(id string, raw map[string]any) (*Body, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 	}
-	m, _ := resolved.(map[string]any)
-	content, _ := m["content"].(map[string]any)
-	media, ok := content["application/json"].(map[string]any)
+	m := object(resolved)
+	media, ok := object(m["content"])["application/json"].(map[string]any)
 	if !ok {
 		return nil, nil
 	}
@@ -186,7 +185,7 @@ func (r *resolver) body(id string, raw map[string]any) (*Body, error) {
 
 // success picks the lowest 2xx response.
 func (r *resolver) success(id string, raw map[string]any) (*Response, error) {
-	responses, _ := raw["responses"].(map[string]any)
+	responses := object(raw["responses"])
 	best := 0
 	for code := range responses {
 		n, err := strconv.Atoi(code)
@@ -201,10 +200,8 @@ func (r *resolver) success(id string, raw map[string]any) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
 	}
-	m, _ := resolved.(map[string]any)
 	resp := &Response{Status: best}
-	content, _ := m["content"].(map[string]any)
-	if media, ok := content["application/json"].(map[string]any); ok {
+	if media, ok := object(object(resolved)["content"])["application/json"].(map[string]any); ok {
 		schema, err := r.schema(media["schema"], nil)
 		if err != nil {
 			return nil, fmt.Errorf("%w: operation %s: %w", ErrInvalidSpec, id, err)
@@ -263,8 +260,7 @@ func (r *resolver) schema(v any, active []string) (Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	m, _ := out.(map[string]any)
-	return m, nil
+	return object(out), nil
 }
 
 func (r *resolver) expand(v any, active []string) (any, error) {
@@ -306,12 +302,21 @@ func (r *resolver) expand(v any, active []string) (any, error) {
 	}
 }
 
-func str(v any) string {
-	s, _ := v.(string)
-	return s
+// as reads a JSON value as T. An absent value or one of another type reads as
+// T's zero value: every optional OpenAPI field is read this way, and the
+// fields the tools need are checked for emptiness where they are used.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		var zero T
+		return zero
+	}
+	return t
 }
 
-func anySlice(v any) []any {
-	s, _ := v.([]any)
-	return s
-}
+func str(v any) string { return as[string](v) }
+
+func anySlice(v any) []any { return as[[]any](v) }
+
+// object reads a JSON value as an object; anything else is an empty object.
+func object(v any) map[string]any { return as[map[string]any](v) }

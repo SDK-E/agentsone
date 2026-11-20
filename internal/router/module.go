@@ -48,7 +48,7 @@ func New(deps core.Deps) *Module {
 		cfg.TimeoutSeconds = defaultConfig().TimeoutSeconds
 	}
 	repo := sqlite.New(deps.Stores.Core)
-	live := app.NewLiveList(repo, profileAdapter{ports: deps.Ports}, deps.Clock)
+	live := app.NewLiveList(repo, profileAdapter{ports: deps.Ports}, deps.Clock, deps.Log)
 	routing := app.NewRouter(app.RouterDeps{
 		Live: live, Chats: chatAdapter{ports: deps.Ports}, Credentials: credentialAdapter{ports: deps.Ports},
 		Gateway:     gateway.New(cfg.GatewayURL, time.Duration(cfg.TimeoutSeconds)*time.Second),

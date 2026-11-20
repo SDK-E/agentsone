@@ -229,3 +229,64 @@ panel-token:
         $ref: "../components/responses.yaml#/NotFound"
       "409":
         $ref: "../components/responses.yaml#/Conflict"
+file:
+  parameters:
+    - $ref: "../components/parameters.yaml#/PluginId"
+  get:
+    operationId: getPluginFile
+    tags: [plugins]
+    summary: Read a panel file
+    description: |
+      Returns one file of a panel plugin so the interface can load it into the panel's sandboxed
+      frame (as `srcdoc`, with `sandbox="allow-scripts"` only). Humans only (session cookie).
+
+      Rules the daemon enforces: the plugin is installed and enabled; the path is normalised
+      first, then must lie inside the folder of one of the plugin's declared panel entries
+      (`contents.panels[].entry`), so it can never reach other plugin files or leave the plugin
+      root; the file is at most 4 MiB. File content is never logged.
+
+      The file comes back as JSON, never as a document, so a visit to this address cannot run
+      it. A panel entry must be self-contained: its scripts and styles are inline. The response
+      carries `Content-Security-Policy: sandbox; default-src 'none'`,
+      `X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: same-origin` and
+      `Cache-Control: no-store`.
+    security:
+      - cookieAuth: []
+    parameters:
+      - $ref: "../components/parameters.yaml#/PluginFilePath"
+    responses:
+      "200":
+        description: The file.
+        headers:
+          Content-Security-Policy:
+            description: Always `sandbox; default-src 'none'`.
+            schema:
+              type: string
+          X-Content-Type-Options:
+            description: Always `nosniff`.
+            schema:
+              type: string
+          Cross-Origin-Resource-Policy:
+            description: Always `same-origin`.
+            schema:
+              type: string
+          Cache-Control:
+            description: Always `no-store`.
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/plugins.yaml#/PluginFile"
+      "400":
+        $ref: "../components/responses.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
+      "404":
+        $ref: "../components/responses.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses.yaml#/Conflict"
+      "413":
+        $ref: "../components/responses.yaml#/PayloadTooLarge"

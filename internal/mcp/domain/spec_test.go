@@ -173,6 +173,8 @@ func TestParseOperations_RejectsBrokenInput(t *testing.T) {
 		{"unresolvable reference", `{"paths":{"/a":{"get":{"operationId":"a","tags":["t"],"parameters":[{"$ref":"#/components/parameters/Nope"}],"responses":{}}}}}`},
 		{"missing operation id", `{"paths":{"/a":{"get":{"tags":["t"],"responses":{}}}}}`},
 		{"missing tag", `{"paths":{"/a":{"get":{"operationId":"a","responses":{}}}}}`},
+		{"tag is not text", `{"paths":{"/a":{"get":{"operationId":"a","tags":[7],"responses":{}}}}}`},
+		{"tag is empty", `{"paths":{"/a":{"get":{"operationId":"a","tags":[""],"responses":{}}}}}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

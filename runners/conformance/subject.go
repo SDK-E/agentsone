@@ -54,7 +54,9 @@ type Subject struct {
 type Prompts struct {
 	// Plain starts a short turn that ends by itself and produces output.
 	Plain string
-	// Hold starts a turn that stays open until it is cancelled.
+	// Hold starts a turn that stays open until it is cancelled, also when a
+	// message is delivered into it before its first step (rules F1 and T8
+	// deliver right after status working).
 	Hold string
 	// Budget starts a turn whose model call is refused for budget, once.
 	// Empty when the runner has no budget path (it then must declare

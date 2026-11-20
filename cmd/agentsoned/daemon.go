@@ -18,16 +18,21 @@ import (
 
 const shutdownGrace = 10 * time.Second
 
-// openStores opens the four databases under the state folder.
-func openStores(ctx context.Context, cfg core.Config) (core.Stores, func(), error) {
+// openStores opens the four databases under the state folder. The returned
+// close function closes every opened database and reports each failure.
+func openStores(ctx context.Context, cfg core.Config) (core.Stores, func() error, error) {
 	if err := os.MkdirAll(cfg.StateDir, 0o750); err != nil {
 		return core.Stores{}, nil, fmt.Errorf("create state folder: %w", err)
 	}
 	var opened []*store.DB
-	closeAll := func() {
+	closeAll := func() error {
+		var errs []error
 		for _, db := range opened {
-			_ = db.Close() // closing at shutdown; nothing left to report to
+			if err := db.Close(); err != nil {
+				errs = append(errs, err)
+			}
 		}
+		return errors.Join(errs...)
 	}
 	open := func(name string) (*store.DB, error) {
 		db, err := store.Open(ctx, cfg.DBPath(name))
@@ -44,8 +49,7 @@ func openStores(ctx context.Context, cfg core.Config) (core.Stores, func(), erro
 		db   **store.DB
 	}{{"core", &s.Core}, {"bus", &s.Bus}, {"memory", &s.Memory}, {"audit", &s.Audit}} {
 		if *target.db, err = open(target.name); err != nil {
-			closeAll()
-			return core.Stores{}, nil, err
+			return core.Stores{}, nil, errors.Join(err, closeAll())
 		}
 	}
 	return s, closeAll, nil

@@ -150,6 +150,18 @@
           "type": "integer"
         }
       },
+      "PluginFilePath": {
+        "description": "A file inside the plugin, relative to its root, with forward slashes and an optional leading\n`./`, for example `./panel/index.html`. No segment may start with a dot.\n",
+        "in": "query",
+        "name": "path",
+        "required": true,
+        "schema": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^(\\./)?([A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*/)*[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*$",
+          "type": "string"
+        }
+      },
       "PluginId": {
         "in": "path",
         "name": "plugin_id",
@@ -216,7 +228,7 @@
         }
       },
       "Unit": {
-        "description": "systemd unit name including its suffix.",
+        "description": "Service name including its suffix, as `listServices` shows it.",
         "in": "path",
         "name": "unit",
         "required": true,
@@ -3365,6 +3377,17 @@
           "group": {
             "type": "string"
           },
+          "link_target": {
+            "description": "Where a symlink points, as stored in the link (relative or absolute). Null or absent for\nother types.\n",
+            "examples": [
+              "releases/42"
+            ],
+            "maxLength": 4096,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "mode": {
             "examples": [
               "0644"
@@ -5483,6 +5506,49 @@
         ],
         "type": "object"
       },
+      "PluginFile": {
+        "description": "One file of a panel plugin, read for the interface's panel host. Text files use `utf-8`;\nothers use `base64`.\n",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/FileEncoding"
+          },
+          "media_type": {
+            "description": "Media type from the file name, for example `text/html` or `image/svg+xml`.",
+            "examples": [
+              "text/html"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "description": "The normalised path inside the plugin, without a leading `./`.",
+            "examples": [
+              "panel/index.html"
+            ],
+            "type": "string"
+          },
+          "plugin_id": {
+            "$ref": "#/components/schemas/PluginId"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "maximum": 4194304,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plugin_id",
+          "path",
+          "media_type",
+          "encoding",
+          "content",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
       "PluginHealth": {
         "enum": [
           "ok",
@@ -6166,7 +6232,7 @@
       "Process": {
         "properties": {
           "agent": {
-            "description": "Agent whose cgroup `/agents/<id>` holds the process.",
+            "description": "Agent whose Linux user runs the process, null for other users.",
             "pattern": "^[a-z][a-z0-9-]{0,30}$",
             "type": [
               "string",
@@ -6198,7 +6264,7 @@
             "$ref": "#/components/schemas/Timestamp"
           },
           "unit": {
-            "description": "systemd unit owning the process.",
+            "description": "Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself.",
             "type": [
               "string",
               "null"
@@ -6731,7 +6797,7 @@
             "$ref": "#/components/schemas/ServiceActiveState"
           },
           "agent": {
-            "description": "Agent that owns the unit, for agent units.",
+            "description": "Agent that owns the service. Null for the services the daemon reports today.",
             "pattern": "^[a-z][a-z0-9-]{0,30}$",
             "type": [
               "string",
@@ -8444,7 +8510,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.5"
+    "version": "1.1.1"
   },
   "openapi": "3.1.1",
   "paths": {
@@ -12063,7 +12129,7 @@
     },
     "/machine/services": {
       "get": {
-        "description": "Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).",
+        "description": "Lists the services the daemon reports. Today these are the daemon itself (`agentsoned.service`) and the machine recipe (`machine-recipe.service`). The machine runs no systemd; the daemon supervises agent runners itself, so runners are processes, not services.",
         "operationId": "listServices",
         "parameters": [
           {
@@ -12115,7 +12181,7 @@
         }
       ],
       "post": {
-        "description": "Restarts a systemd unit and returns its new state.",
+        "description": "Restarts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be restarted this way.",
         "operationId": "restartService",
         "responses": {
           "200": {
@@ -12157,7 +12223,7 @@
         }
       ],
       "post": {
-        "description": "Starts a systemd unit and returns its new state.",
+        "description": "Starts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be started this way.",
         "operationId": "startService",
         "responses": {
           "200": {
@@ -12199,7 +12265,7 @@
         }
       ],
       "post": {
-        "description": "Stops a systemd unit and returns its new state.",
+        "description": "Asks to stop a service the daemon reports. Both refuse today, because the daemon stops through a reboot and the recipe runs once.",
         "operationId": "stopService",
         "responses": {
           "200": {
@@ -13141,6 +13207,90 @@
           "plugins"
         ]
       }
+    },
+    "/plugins/{plugin_id}/files": {
+      "get": {
+        "description": "Returns one file of a panel plugin so the interface can load it into the panel's sandboxed\nframe (as `srcdoc`, with `sandbox=\"allow-scripts\"` only). Humans only (session cookie).\n\nRules the daemon enforces: the plugin is installed and enabled; the path is normalised\nfirst, then must lie inside the folder of one of the plugin's declared panel entries\n(`contents.panels[].entry`), so it can never reach other plugin files or leave the plugin\nroot; the file is at most 4 MiB. File content is never logged.\n\nThe file comes back as JSON, never as a document, so a visit to this address cannot run\nit. A panel entry must be self-contained: its scripts and styles are inline. The response\ncarries `Content-Security-Policy: sandbox; default-src 'none'`,\n`X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: same-origin` and\n`Cache-Control: no-store`.\n",
+        "operationId": "getPluginFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PluginFilePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginFile"
+                }
+              }
+            },
+            "description": "The file.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always `no-store`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Security-Policy": {
+                "description": "Always `sandbox; default-src 'none'`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cross-Origin-Resource-Policy": {
+                "description": "Always `same-origin`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Always `nosniff`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "summary": "Read a panel file",
+        "tags": [
+          "plugins"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PluginId"
+        }
+      ]
     },
     "/plugins/{plugin_id}/panel-token": {
       "parameters": [

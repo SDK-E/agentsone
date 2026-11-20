@@ -21,9 +21,10 @@ import (
 // The port is read on each call, because modules fill Ports after their
 // constructors ran.
 type Setup struct {
-	ports *core.Ports
-	log   *slog.Logger
-	once  sync.Once
+	ports      *core.Ports
+	log        *slog.Logger
+	warnOnce   sync.Once // the port cannot answer
+	notYetOnce sync.Once // no human accepted the licence yet
 }
 
 var (
@@ -35,27 +36,35 @@ var (
 func New(p *core.Ports, log *slog.Logger) *Setup { return &Setup{ports: p, log: log} }
 
 // Accepted reports whether a human accepted the current engine licence.
-// An unprovided port counts as not accepted, logged once.
+// A licence nobody accepted yet is the normal state of a new machine, noted
+// once at info. A port that is not provided or cannot read the licence
+// counts as not accepted too, but it is a fault, since no human can accept
+// the licence then: it is warned about once, with its cause.
 func (s *Setup) Accepted(ctx context.Context) (bool, error) {
 	p := s.ports.EngineSetup
 	if p == nil {
-		s.unavailable()
+		s.unavailable(core.ErrUnavailable)
 		return false, nil
 	}
 	ok, err := p.LicenceAccepted(ctx)
 	if errors.Is(err, core.ErrUnavailable) {
-		s.unavailable()
+		s.unavailable(err)
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("engine setup: %w", err)
 	}
+	if !ok {
+		s.notYetOnce.Do(func() {
+			s.log.Info("Claude engine not set up yet: a human must accept its licence")
+		})
+	}
 	return ok, nil
 }
 
-func (s *Setup) unavailable() {
-	s.once.Do(func() {
-		s.log.Warn("engine setup is not available, so the engine licence counts as not accepted")
+func (s *Setup) unavailable(err error) {
+	s.warnOnce.Do(func() {
+		s.log.Warn("engine setup is not available, so the engine licence counts as not accepted", "err", err)
 	})
 }
 

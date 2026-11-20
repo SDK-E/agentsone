@@ -89,13 +89,26 @@ func isPrivileged(c core.Caller) bool {
 // audit records an action. A failing audit log never fails the action, but
 // the failure is logged.
 func (s *Service) audit(ctx context.Context, actor, action, target string, detail map[string]any) {
+	s.appendAudit(ctx, core.AuditEntry{Actor: actor, Action: action, Target: target}, detail)
+}
+
+// auditFailure records that action was tried and failed with cause. A
+// background failure has no caller to tell, so the audit log is where a
+// human finds it.
+func (s *Service) auditFailure(ctx context.Context, actor, action, target string, detail map[string]any, cause error) {
+	detail["error"] = cause.Error()
+	s.appendAudit(ctx, core.AuditEntry{Actor: actor, Action: action, Target: target, Outcome: core.AuditFailure}, detail)
+}
+
+func (s *Service) appendAudit(ctx context.Context, e core.AuditEntry, detail map[string]any) {
 	raw, err := json.Marshal(detail)
 	if err != nil {
+		s.d.Log.ErrorContext(ctx, "audit detail not encoded; recording without it", "action", e.Action, "error", err)
 		raw = json.RawMessage(`{}`)
 	}
-	err = s.d.Ports.Audit.Append(ctx, core.AuditEntry{Actor: actor, Action: action, Target: target, Detail: raw})
-	if err != nil {
-		s.d.Log.WarnContext(ctx, "audit append failed", "action", action, "error", err)
+	e.Detail = raw
+	if err := s.d.Ports.Audit.Append(ctx, e); err != nil {
+		s.d.Log.ErrorContext(ctx, "audit append failed: the record is lost", "action", e.Action, "target", e.Target, "error", err)
 	}
 }
 
@@ -304,6 +317,7 @@ type Page struct {
 func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 	viewer := s.viewerOf(ctx, callerOf(ctx))
 	var page Page
+	var kept uint64 // sequence of the last event in page.Events
 	cursor := q.After
 	for {
 		batch, err := s.d.Events.After(ctx, cursor, replayPage)
@@ -320,20 +334,16 @@ func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 				continue
 			}
 			if len(page.Events) == q.Limit {
-				page.Next = core.FormatSequence(last(page.Events))
+				page.Next = core.FormatSequence(kept)
 				return page, nil
 			}
 			page.Events = append(page.Events, e)
+			kept = seq
 		}
 		if len(batch) < replayPage {
 			return page, nil
 		}
 	}
-}
-
-func last(events []core.Event) uint64 {
-	seq, _ := domain.ParseSequence(events[len(events)-1].Sequence)
-	return seq
 }
 
 // Stream returns events the caller may see as they happen. With after set,

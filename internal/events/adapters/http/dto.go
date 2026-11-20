@@ -46,7 +46,7 @@ func toEvent(e core.Event) api.Event {
 // objects, so a decode failure yields an empty object.
 func dataMap(raw json.RawMessage) map[string]any {
 	m := map[string]any{}
-	_ = json.Unmarshal(raw, &m)
+	_ = json.Unmarshal(raw, &m) //nolint:errcheck // the app layer validates data as a JSON object before storing it
 	if m == nil {
 		m = map[string]any{}
 	}

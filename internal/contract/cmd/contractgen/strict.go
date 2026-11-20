@@ -66,6 +66,6 @@ func findInterface(file *ast.File, name string) *ast.InterfaceType {
 
 func exprString(fset *token.FileSet, e ast.Expr) string {
 	var b bytes.Buffer
-	_ = printer.Fprint(&b, fset, e) // printing a parsed expression into a buffer cannot fail
+	_ = printer.Fprint(&b, fset, e) //nolint:errcheck // printing a parsed expression into a buffer cannot fail
 	return b.String()
 }

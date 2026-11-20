@@ -50,7 +50,7 @@ func New(deps core.Deps) *Module {
 		Argon2:   domain.Argon2Params{Time: settings.Argon2TimeCost, Memory: settings.Argon2MemoryKiB, Threads: settings.Argon2Threads},
 		Sessions: repo, Tokens: repo, Humans: repo, Setup: repo,
 		Licence: licencefile.New(filepath.Join(deps.Config.LibDir, "engine", "licence.json")),
-		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports}, Seed: lateSeed{deps.Ports},
+		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports}, Seed: lateSeed{deps.Ports}, Log: deps.Log,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("auth: %v", err))
@@ -61,12 +61,13 @@ func New(deps core.Deps) *Module {
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "auth" }
 
-// Provide makes the service the daemon's token issuer and its engine setup
-// port. The token issuer also verifies session cookies, so the API layer
-// needs only that port.
+// Provide makes the service the daemon's token issuer, its engine setup port
+// and its human directory. The token issuer also verifies session cookies,
+// so the API layer needs only that port.
 func (m *Module) Provide(p *core.Ports) {
 	p.Tokens = m.svc
 	p.EngineSetup = m.svc
+	p.Humans = m.svc
 }
 
 // Migrate creates the identity tables in core.db.

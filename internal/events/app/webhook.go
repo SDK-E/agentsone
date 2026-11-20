@@ -3,6 +3,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"mime"
 
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/events/domain"
 )
@@ -83,23 +85,16 @@ func (s *Service) reject(ctx context.Context, w Webhook, reason string) {
 		map[string]any{"remote": w.Remote, "reason": reason, "bytes": len(w.Body)})
 }
 
-type webhookPayload struct {
-	Hook        string          `json:"hook"`
-	Method      string          `json:"method"`
-	ContentType string          `json:"content_type"`
-	BodySHA256  string          `json:"body_sha256"`
-	BodyBytes   int             `json:"body_bytes"`
-	Body        json.RawMessage `json:"body,omitempty"`
-}
-
 func webhookData(e domain.Emitter, w Webhook) (json.RawMessage, error) {
 	sum := sha256.Sum256(w.Body)
-	p := webhookPayload{
-		Hook: e.Name, Method: w.Method, ContentType: truncate(w.ContentType, maxContentType),
-		BodySHA256: hex.EncodeToString(sum[:]), BodyBytes: len(w.Body),
+	p := eventdata.WebhooksReceived{
+		Hook: e.Name, Method: eventdata.WebhooksReceivedMethod(w.Method), ContentType: truncate(w.ContentType, maxContentType),
+		BodySha256: hex.EncodeToString(sum[:]), BodyBytes: len(w.Body),
 	}
-	if isJSON(w.ContentType) && len(w.Body) <= domain.MaxDataBytes/2 && isObject(w.Body) {
-		p.Body = w.Body
+	if isJSON(w.ContentType) && len(w.Body) <= domain.MaxDataBytes/2 {
+		if obj, ok := decodeObject(w.Body); ok {
+			p.Body = obj
+		}
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
@@ -120,7 +115,14 @@ func isJSON(contentType string) bool {
 	return err == nil && (media == "application/json" || (len(media) > 5 && media[len(media)-5:] == "+json"))
 }
 
-func isObject(body []byte) bool {
-	var obj map[string]json.RawMessage
-	return json.Unmarshal(body, &obj) == nil && obj != nil
+// decodeObject reads body as one JSON object. Numbers stay exact, so a large
+// integer in a hook body is not rounded on its way into the event.
+func decodeObject(body []byte) (eventdata.WebhooksReceivedBody, bool) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var obj map[string]any
+	if err := dec.Decode(&obj); err != nil || obj == nil || dec.More() {
+		return nil, false
+	}
+	return obj, true
 }

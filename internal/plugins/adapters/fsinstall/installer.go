@@ -87,9 +87,11 @@ func (in *Installer) Install(ctx context.Context, req domain.InstallRequest) (re
 	madeNameDir := false
 	defer func() {
 		if err != nil {
-			_ = os.RemoveAll(tmp)
+			if rmErr := os.RemoveAll(tmp); rmErr != nil {
+				err = errors.Join(err, fmt.Errorf("remove temporary folder: %w", rmErr))
+			}
 			if madeNameDir {
-				_ = os.Remove(nameDir) // only succeeds when empty
+				_ = os.Remove(nameDir) //nolint:errcheck // only succeeds when empty; an empty name folder left behind is harmless
 			}
 		}
 	}()
@@ -141,7 +143,7 @@ func (in *Installer) Remove(name, version string) error {
 	if err := os.RemoveAll(target); err != nil {
 		return fmt.Errorf("remove %s %s: %w", name, version, err)
 	}
-	_ = os.Remove(nameDir) // only succeeds when empty
+	_ = os.Remove(nameDir) //nolint:errcheck // only succeeds when empty; other versions keep it, and an empty one left behind is harmless
 	return nil
 }
 
@@ -236,7 +238,7 @@ func (w *writer) copyFile(src fs.FS, p, dest string, d fs.DirEntry) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = in.Close() }()
+	defer func() { _ = in.Close() }() //nolint:errcheck // read-only source file; create reports read failures
 	return w.create(dest, in, mode, p)
 }
 

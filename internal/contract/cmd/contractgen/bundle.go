@@ -68,8 +68,7 @@ const schemaRefPrefix = "#/components/schemas/"
 // alias component ({"$ref": ".../event.schema"}, named Event). The alias
 // takes the content and every reference follows.
 func renameFileSchemas(doc map[string]any) {
-	components, _ := doc["components"].(map[string]any)
-	schemas, _ := components["schemas"].(map[string]any)
+	schemas := object(object(doc["components"])["schemas"])
 	renames := map[string]string{}
 	for alias, v := range schemas {
 		if target, ok := pureRef(v); ok && strings.HasSuffix(target, ".schema") {
@@ -152,11 +151,11 @@ var componentSuffixes = map[string]string{
 // header component that shares its name with a schema, so the generated Go
 // types do not collide ("Cursor" becomes "CursorParameter").
 func separateComponentNames(doc map[string]any) {
-	components, _ := doc["components"].(map[string]any)
-	schemas, _ := components["schemas"].(map[string]any)
+	components := object(doc["components"])
+	schemas := object(components["schemas"])
 	renames := map[string]string{}
 	for section, suffix := range componentSuffixes {
-		entries, _ := components[section].(map[string]any)
+		entries := object(components[section])
 		for name, v := range entries {
 			if _, clash := schemas[name]; !clash {
 				continue

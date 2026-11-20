@@ -156,7 +156,7 @@ func writeFixture(w http.ResponseWriter, fx contracttest.APIFixture) {
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(fx.Status)
-	_, _ = w.Write(fx.Body) // the status is sent; a failed write means the client left
+	_, _ = w.Write(fx.Body) //nolint:errcheck // the status is sent; a failed write means the client left
 }
 
 // stream replays the fixture's events as server-sent events until the

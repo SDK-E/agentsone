@@ -27,22 +27,24 @@ const (
 var longRe = regexp.MustCompile(`LONG (\d+)`)
 
 // scripted is the default fake model: it echoes, holds, or runs out of budget
-// once per token, depending on the prompt.
+// once per token, depending on the prompt that woke the turn. Messages
+// delivered into the turn do not change that: a hold turn stays open until it
+// is cancelled (conformance.Prompts.Hold).
 func scripted(g **fakeGateway) func(gwRequest) reply {
 	return func(r gwRequest) reply {
-		last := r.last().Content
+		prompt := r.wake().Content
 		switch {
-		case strings.HasPrefix(last, "Summarise this session"):
+		case strings.HasPrefix(prompt, "Summarise this session"):
 			return reply{Text: []string{"Summary: we talked."}}
-		case strings.Contains(last, promptHold):
+		case strings.Contains(prompt, promptHold):
 			return reply{Hold: true}
-		case strings.Contains(last, promptBudget) && (*g).firstTime(r.Auth):
+		case strings.Contains(prompt, promptBudget) && (*g).firstTime(r.Auth):
 			return reply{Status: http.StatusPaymentRequired}
-		case longRe.MatchString(last):
-			n, _ := strconv.Atoi(longRe.FindStringSubmatch(last)[1])
+		case longRe.MatchString(prompt):
+			n, _ := strconv.Atoi(longRe.FindStringSubmatch(prompt)[1])
 			return reply{Text: []string{strings.Repeat("x", n)}}
 		}
-		return reply{Text: []string{"reply to: ", last}}
+		return reply{Text: []string{"reply to: ", prompt}}
 	}
 }
 
@@ -300,6 +302,53 @@ func TestCancelStopsTheCall(t *testing.T) {
 	msgs := h.Until(conformance.TurnEnded(turnID))
 	if len(methods(msgs, "error")) != 0 {
 		t.Fatalf("a cancelled turn must not report an error: %v", msgs)
+	}
+}
+
+// earlyDelivery holds the wake of a hold turn until a message was delivered
+// into it, so the delivery always lands before the runner's first model call.
+// The conformance suite meets this order only by chance, under load: rule F1
+// delivers into a hold turn as soon as it reads status working.
+type earlyDelivery struct{ *openai.Runner }
+
+func (e earlyDelivery) Wake(ctx context.Context, t *sdk.Turn, w sdk.Wake) error {
+	if w.Chat != nil && strings.Contains(w.Chat.Text, promptHold) {
+		select {
+		case <-t.Delivered():
+		case <-ctx.Done():
+			return nil
+		}
+	}
+	return e.Runner.Wake(ctx, t, w)
+}
+
+// TestEarlyDeliveryKeepsTheHold delivers a message into a hold turn before its
+// first model call. The message goes into that call, and the turn stays open
+// until it is cancelled (Prompts.Hold, rules F1 and T8).
+func TestEarlyDeliveryKeepsTheHold(t *testing.T) {
+	r := newRig(t, nil)
+	sub := r.subject()
+	sub.Start = conformance.InProcess(func(ctx context.Context, socket string) error {
+		opts := openai.Options()
+		opts.Socket = socket
+		runner := openai.New(openai.Config{})
+		defer func() { _ = runner.Close() }()
+		return sdk.Run(ctx, opts, earlyDelivery{runner})
+	})
+	h := conformance.Ready(t, sub, nil)
+	turnID, _ := h.WakeChat(promptHold)
+	deliverOnce(t, h, turnID, func() int { return h.Deliver(turnID, "more") })
+	msgs := h.Until(func(m conformance.Msg) bool { return m.Method == "output" || conformance.TurnEnded(turnID)(m) })
+	if m := msgs[len(msgs)-1]; m.Method != "output" || m.Field("text") != "working" {
+		t.Fatalf("the hold turn must stream its hold chunk and stay open, got %s", m)
+	}
+	h.AwaitResponse(h.Cancel(turnID))
+	msgs = h.Until(conformance.TurnEnded(turnID))
+	if end := msgs[len(msgs)-1]; end.Field("state") != "idle" || end.Field("detail") != "Cancelled" {
+		t.Fatalf("cancel must end the hold turn, got %s", end)
+	}
+	if got := r.gw.requests()[0].last().Content; got != "New message from human:alice while you work: more" {
+		t.Fatalf("the early delivery must reach the first model call, its last message is %q", got)
 	}
 }
 

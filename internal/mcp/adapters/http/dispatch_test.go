@@ -49,6 +49,43 @@ func TestHandlerDispatcher_RunsTheRequestThroughTheHandlerAsTheCaller(t *testing
 	}
 }
 
+// The system actor is set only inside the daemon. A tool call that names
+// the system in its inputs still reaches the API as the agent that made it,
+// the root agent included, and carries no header but the content headers.
+func TestHandlerDispatcher_AnAgentNeverCallsAsTheSystem(t *testing.T) {
+	t.Parallel()
+	for _, agent := range []core.Caller{
+		{Kind: core.CallerAgent, Name: "mira", UID: 1001},
+		{Kind: core.CallerAgent, Name: "founder", IsRoot: true},
+	} {
+		var seen core.Caller
+		var headers nethttp.Header
+		d := mcphttp.NewHandlerDispatcher(nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
+			seen, _ = core.CallerFrom(r.Context())
+			headers = r.Header.Clone()
+			w.WriteHeader(nethttp.StatusCreated)
+		}))
+
+		_, err := d.Dispatch(core.WithCaller(t.Context(), agent), domain.Request{
+			Method: "POST", Path: "/v1/events",
+			Query: map[string][]string{"actor": {"system:auth"}},
+			Body:  []byte(`{"type":"agentsone.custom.thing","data":{},"actor":"system:auth"}`),
+		})
+
+		if err != nil {
+			t.Fatalf("Dispatch() error = %v", err)
+		}
+		if seen.Kind != core.CallerAgent || seen.Name != agent.Name {
+			t.Errorf("handler saw caller %+v, want agent:%s", seen, agent.Name)
+		}
+		for name := range headers {
+			if name != "Accept" && name != "Content-Type" {
+				t.Errorf("request carries header %s", name)
+			}
+		}
+	}
+}
+
 func TestHandlerDispatcher_RefusesACallWithoutACaller(t *testing.T) {
 	t.Parallel()
 	called := false

@@ -77,7 +77,7 @@ func (s *Repository) List(ctx context.Context, afterSeq int64, limit int) ([]dom
 	if err != nil {
 		return nil, fmt.Errorf("list audit records: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Record
 	for rows.Next() {
 		r, err := scanRecord(rows)

@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "body": {
+    "type": "urn:agentsone:problem:conflict",
+    "title": "Plugin is turned off",
+    "status": 409,
+    "detail": "disk-watch is turned off, so its panel cannot load. Turn it on in Plugins.",
+    "instance": "/v1/plugins/plg_01JD7ZK3M00000000000000005/files?path=panel/index.html"
+  }
+}

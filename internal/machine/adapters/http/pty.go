@@ -126,7 +126,7 @@ func (h *Handler) Terminal(next machineapi.StrictHandlerFunc, operationID string
 		// The library's own origin check stays on as the final word.
 		ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{ptySubprotocol}})
 		if err != nil {
-			return nil, nil //nolint:nilerr // Accept already wrote the refusal
+			return nil, nil // Accept already wrote the refusal
 		}
 		pump(ctx, ws, conn)
 		return nil, nil

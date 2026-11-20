@@ -113,7 +113,7 @@ func (r *Schedules) query(ctx context.Context, query string, args ...any) ([]dom
 	if err != nil {
 		return nil, fmt.Errorf("query schedules: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	out := []domain.Schedule{}
 	for rows.Next() {
 		s, err := scanSchedule(rows)

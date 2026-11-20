@@ -103,7 +103,7 @@ func (r *Themes) query(ctx context.Context, query string, args ...any) ([]domain
 	if err != nil {
 		return nil, fmt.Errorf("list themes: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.InstalledTheme
 	for rows.Next() {
 		t, err := scanTheme(rows)

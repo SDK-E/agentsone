@@ -2,7 +2,7 @@
 openapi: 3.1.1
 info:
   title: Agents One machine API
-  version: 1.0.5
+  version: 1.1.1
   summary: The daemon API every part of Agents One builds against.
   description: |
     REST API of `agentsoned`, the Agents One daemon, under `/v1`, plus Server-Sent Event
@@ -218,6 +218,8 @@ paths:
     $ref: paths/plugins.yaml#/disable
   /plugins/{plugin_id}/panel-token:
     $ref: paths/plugins.yaml#/panel-token
+  /plugins/{plugin_id}/files:
+    $ref: paths/plugins.yaml#/file
   /runners:
     $ref: paths/runners.yaml#/runners
   /runners/{runner_name}:

@@ -5,6 +5,8 @@ package app_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"slices"
 	"sync"
 	"testing"
@@ -84,9 +86,20 @@ func (l *launcher) unit(a string) (domain.UnitSpec, bool) {
 }
 
 type accounts struct {
-	mu      sync.Mutex
-	created map[string]domain.Account
-	locked  map[string]bool
+	mu        sync.Mutex
+	created   map[string]domain.Account
+	locked    map[string]bool
+	rootHomes map[string]bool
+}
+
+func (a *accounts) EnsureRootHome(_ context.Context, acc domain.Account) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.rootHomes == nil {
+		a.rootHomes = map[string]bool{}
+	}
+	a.rootHomes[acc.Home] = true
+	return nil
 }
 
 func (a *accounts) Ensure(_ context.Context, acc domain.Account) (int, error) {
@@ -146,6 +159,12 @@ func (s *sink) RunnerRunning(_ context.Context, agent string) error {
 	s.states = append(s.states, "running "+agent)
 	return nil
 }
+func (s *sink) RunnerCleared(_ context.Context, agent string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.states = append(s.states, "cleared "+agent)
+	return nil
+}
 func (s *sink) heard() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -155,11 +174,22 @@ func (s *sink) heard() []string {
 type summaries struct {
 	mu sync.Mutex
 	m  map[string]app.Summary
+	// loadErr, when set, is returned by every Load. onLoad, when set, runs
+	// at the start of every Load, as something else happening meanwhile.
+	// Tests set them before the supervisor runs.
+	loadErr error
+	onLoad  func()
 }
 
 func (s *summaries) Load(_ context.Context, a string) (app.Summary, error) {
+	if s.onLoad != nil {
+		s.onLoad()
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.loadErr != nil {
+		return app.Summary{}, s.loadErr
+	}
 	return s.m[a], nil
 }
 func (s *summaries) Save(_ context.Context, a string, v app.Summary) error {
@@ -177,17 +207,30 @@ type call struct {
 
 // fakeConn is the runner end as the app sees it: it records requests and
 // answers sleep with a summary and everything else with an empty result.
+// Like the real connection it refuses calls until it is marked ready, which
+// the read loop does only after Status returns (rule H8).
 type fakeConn struct {
-	calls  chan call
-	closed chan struct{}
-	once   sync.Once
+	calls     chan call
+	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call
+	ready     chan struct{}
+	readyOnce sync.Once
+	closed    chan struct{}
+	once      sync.Once
 }
 
+var errFakeNotReady = errors.New("runner has not reported its first status")
+
 func newFakeConn() *fakeConn {
-	return &fakeConn{calls: make(chan call, 32), closed: make(chan struct{})}
+	return &fakeConn{calls: make(chan call, 32), arrivals: make(chan string, 32), ready: make(chan struct{}), closed: make(chan struct{})}
 }
 
 func (c *fakeConn) Call(_ context.Context, method string, params, result any) error {
+	select {
+	case <-c.ready:
+	default:
+		c.arrive("refused " + method)
+		return errFakeNotReady
+	}
 	raw, _ := json.Marshal(params)
 	c.calls <- call{method, raw}
 	if method == protocol.MethodSleep && result != nil {
@@ -195,6 +238,46 @@ func (c *fakeConn) Call(_ context.Context, method string, params, result any) er
 	}
 	return nil
 }
+
+// arrive records a, unless no test is reading arrivals and the buffer is full.
+func (c *fakeConn) arrive(a string) {
+	select {
+	case c.arrivals <- a:
+	default:
+	}
+}
+
+func (c *fakeConn) WaitReady(ctx context.Context) error {
+	c.arrive("wait")
+	select {
+	case <-c.ready:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (c *fakeConn) markReady() { c.readyOnce.Do(func() { close(c.ready) }) }
+
+// markReadyAfter plays the read loop between Status returning and the
+// connection marking itself ready: it waits until n calls have either
+// started waiting for readiness or been refused, fails on a refusal (that
+// request never reaches the runner), then marks the connection ready.
+func (c *fakeConn) markReadyAfter(t *testing.T, n int) {
+	t.Helper()
+	for range n {
+		select {
+		case a := <-c.arrivals:
+			if a != "wait" {
+				t.Fatalf("%s: sent before the connection was ready, so the runner never gets it", a)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("no request to the runner within 5s")
+		}
+	}
+	c.markReady()
+}
+
 func (c *fakeConn) Close() error { c.once.Do(func() { close(c.closed) }); return nil }
 
 func (c *fakeConn) next(t *testing.T) call {
@@ -223,10 +306,23 @@ type world struct {
 	accounts  *accounts
 	sink      *sink
 	summaries *summaries
+	wall      *fakeWall
+	logs      *logLines
+	ports     *core.Ports
 	sup       *app.Supervisor
 }
 
-func newWorld(t *testing.T) *world {
+// newWorld is a supervisor whose network wall was checked and holds. edits
+// change its deps before it is built.
+func newWorld(t *testing.T, edits ...func(*app.Deps)) *world {
+	t.Helper()
+	w := newUncheckedWorld(t, edits...)
+	w.sup.CheckWall(t.Context())
+	return w
+}
+
+// newUncheckedWorld is a supervisor before the daemon checked the wall.
+func newUncheckedWorld(t *testing.T, edits ...func(*app.Deps)) *world {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
 	fakes.Runners.Register(echoAdapter{})
@@ -237,13 +333,106 @@ func newWorld(t *testing.T) *world {
 		fakes: fakes, launcher: newLauncher(),
 		accounts: &accounts{created: map[string]domain.Account{}, locked: map[string]bool{}},
 		sink:     &sink{}, summaries: &summaries{m: map[string]app.Summary{}},
+		wall:  &fakeWall{w: domain.NetWall{Holds: true, Interfaces: []string{"eth0"}}},
+		logs:  &logLines{},
+		ports: ports,
 	}
-	w.sup = app.New(app.Deps{
+	d := app.Deps{
 		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
 		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
-		Config: app.DefaultConfig(), States: w.sink,
-	})
+		Config: app.DefaultConfig(), States: w.sink, Wall: w.wall, Log: slog.New(w.logs),
+	}
+	for _, edit := range edits {
+		edit(&d)
+	}
+	w.sup = app.New(d)
 	return w
+}
+
+// fakeWall answers what the test sets and counts the checks.
+type fakeWall struct {
+	mu     sync.Mutex
+	w      domain.NetWall
+	checks int
+}
+
+func (f *fakeWall) Check(context.Context) domain.NetWall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checks++
+	return f.w
+}
+func (f *fakeWall) set(w domain.NetWall) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.w = w
+}
+func (f *fakeWall) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.checks
+}
+
+// logLines keeps each log record as "<LEVEL> <message>", and its
+// attributes, those given With included.
+type logLines struct {
+	mu    sync.Mutex
+	lines []string
+	attrs []map[string]string
+}
+
+func (l *logLines) Enabled(context.Context, slog.Level) bool { return true }
+func (l *logLines) Handle(_ context.Context, r slog.Record) error {
+	l.record(nil, r)
+	return nil
+}
+func (l *logLines) WithAttrs(as []slog.Attr) slog.Handler { return logWith{l: l, attrs: as} }
+func (l *logLines) WithGroup(string) slog.Handler         { return l }
+
+func (l *logLines) record(with []slog.Attr, r slog.Record) {
+	attrs := map[string]string{}
+	for _, a := range with {
+		attrs[a.Key] = a.Value.String()
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		attrs[a.Key] = a.Value.String()
+		return true
+	})
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lines = append(l.lines, r.Level.String()+" "+r.Message)
+	l.attrs = append(l.attrs, attrs)
+}
+
+// attrsOf returns the attributes of the first record kept as line.
+func (l *logLines) attrsOf(line string) (map[string]string, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if i := slices.Index(l.lines, line); i >= 0 {
+		return l.attrs[i], true
+	}
+	return nil, false
+}
+
+// logWith is logLines with attributes given by With.
+type logWith struct {
+	l     *logLines
+	attrs []slog.Attr
+}
+
+func (w logWith) Enabled(context.Context, slog.Level) bool { return true }
+func (w logWith) Handle(_ context.Context, r slog.Record) error {
+	w.l.record(w.attrs, r)
+	return nil
+}
+func (w logWith) WithAttrs(as []slog.Attr) slog.Handler {
+	return logWith{l: w.l, attrs: append(slices.Clone(w.attrs), as...)}
+}
+func (w logWith) WithGroup(string) slog.Handler { return w }
+func (l *logLines) all() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.lines)
 }
 
 func (w *world) actions() []string {
@@ -273,6 +462,7 @@ func (w *world) connect(t *testing.T, agent string) (*app.Handler, *fakeConn, pr
 	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle"}); err != nil {
 		t.Fatalf("first Status(idle) error = %v", err)
 	}
+	conn.markReady() // the read loop, once Status has returned
 	return h, conn, res
 }
 

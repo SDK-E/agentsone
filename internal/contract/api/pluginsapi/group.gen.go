@@ -79,6 +79,11 @@ func (Unimplemented) EnablePlugin(context.Context, EnablePluginRequestObject) (E
 	return nil, core.ErrNotImplemented
 }
 
+// GetPluginFile is not implemented yet.
+func (Unimplemented) GetPluginFile(context.Context, GetPluginFileRequestObject) (GetPluginFileResponseObject, error) {
+	return nil, core.ErrNotImplemented
+}
+
 // IssuePanelToken is not implemented yet.
 func (Unimplemented) IssuePanelToken(context.Context, IssuePanelTokenRequestObject) (IssuePanelTokenResponseObject, error) {
 	return nil, core.ErrNotImplemented

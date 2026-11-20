@@ -68,7 +68,14 @@ func (Files) List(_ context.Context, a domain.Area) ([]domain.FileEntry, error) 
 		if err != nil {
 			continue // removed while listing
 		}
-		out = append(out, toEntry(path.Join(a.Path, name), fi))
+		e := toEntry(path.Join(a.Path, name), fi)
+		if e.Type == domain.FileSymlink {
+			// The stored text only; the link is never followed.
+			if target, err := r.Readlink(path.Join(a.Rel, name)); err == nil {
+				e.LinkTarget = target
+			}
+		}
+		out = append(out, e)
 	}
 	return out, nil
 }

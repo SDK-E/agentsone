@@ -9,7 +9,13 @@ import (
 	"sync"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/events/adapters/catalog"
+	eventsdomain "github.com/SDK-E/agentsone/internal/events/domain"
 )
+
+// builtinCatalog is the contract event catalog the events module validates
+// against, compiled once for every test in the binary.
+var builtinCatalog = sync.OnceValues(catalog.Builtin)
 
 // Events is an in-memory bus: core.EventPublisher and core.EventSubscriber.
 type Events struct {
@@ -37,10 +43,16 @@ func NewEvents(clock core.Clock, ids core.IDs) *Events {
 }
 
 // Publish stores e with the next sequence and delivers it to subscribers.
-// Actor and ChartScope are required, as in the event schema.
-func (b *Events) Publish(_ context.Context, e core.Event) (core.Event, error) {
+// Actor and ChartScope are required, as in the event schema. It refuses
+// what the events module refuses when a daemon module publishes, with the
+// events module's own rules and the contract event catalog, so a test that
+// publishes through it proves the event would be stored.
+func (b *Events) Publish(ctx context.Context, e core.Event) (core.Event, error) {
 	if e.Actor == "" || e.ChartScope == "" {
 		return core.Event{}, fmt.Errorf("event %q needs actor and chartscope: %w", e.Type, core.ErrInvalid)
+	}
+	if err := validate(ctx, e); err != nil {
+		return core.Event{}, fmt.Errorf("publish %s: %w", e.Type, err)
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -50,6 +62,41 @@ func (b *Events) Publish(_ context.Context, e core.Event) (core.Event, error) {
 		s.offer(e)
 	}
 	return e, nil
+}
+
+// validate checks e as the events module does: the caller must be one it can
+// name as the actor, the envelope must pass the draft rules, and the data must
+// match the type's schema in the catalog. Daemon modules publish catalog types
+// only, so a type outside the catalog, or a chart scope of another kind than
+// the catalog gives the type, is refused too.
+func validate(ctx context.Context, e core.Event) error {
+	if c, ok := core.CallerFrom(ctx); ok {
+		if _, err := eventsdomain.EventActor(c); err != nil {
+			return fmt.Errorf("caller %s:%q: %w", c.Kind, c.Name, err)
+		}
+	}
+	d := eventsdomain.Draft{
+		Type: e.Type, Source: e.Source, Subject: e.Subject, Data: e.Data,
+		CausationID: e.CausationID, CorrelationID: e.CorrelationID,
+	}
+	if err := d.Validate(); err != nil {
+		return fmt.Errorf("envelope: %w", err)
+	}
+	cat, err := builtinCatalog()
+	if err != nil {
+		return fmt.Errorf("load the event catalog: %w", err)
+	}
+	kind, ok := cat.ScopeKind(e.Type)
+	if !ok {
+		return fmt.Errorf("%w: type is not in the contract event catalog", core.ErrInvalid)
+	}
+	if got, _, _ := strings.Cut(e.ChartScope, ":"); got != kind {
+		return fmt.Errorf("%w: chart scope %q is not of kind %q, as the catalog gives the type", core.ErrInvalid, e.ChartScope, kind)
+	}
+	if err := cat.ValidateData(e.Type, e.Data); err != nil {
+		return fmt.Errorf("data: %w", err)
+	}
+	return nil
 }
 
 func (b *Events) stamp(e core.Event) core.Event {

@@ -77,7 +77,7 @@ services:
     operationId: listServices
     tags: [machine]
     summary: List services
-    description: Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).
+    description: Lists the services the daemon reports. Today these are the daemon itself (`agentsoned.service`) and the machine recipe (`machine-recipe.service`). The machine runs no systemd; the daemon supervises agent runners itself, so runners are processes, not services.
     parameters:
       - name: state
         in: query
@@ -104,7 +104,7 @@ service-start:
     operationId: startService
     tags: [machine]
     summary: Start a service
-    description: Starts a systemd unit and returns its new state.
+    description: Starts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be started this way.
     responses:
       "200":
         description: The service.
@@ -127,7 +127,7 @@ service-stop:
     operationId: stopService
     tags: [machine]
     summary: Stop a service
-    description: Stops a systemd unit and returns its new state.
+    description: Asks to stop a service the daemon reports. Both refuse today, because the daemon stops through a reboot and the recipe runs once.
     responses:
       "200":
         description: The service.
@@ -148,7 +148,7 @@ service-restart:
     operationId: restartService
     tags: [machine]
     summary: Restart a service
-    description: Restarts a systemd unit and returns its new state.
+    description: Restarts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be restarted this way.
     responses:
       "200":
         description: The service.

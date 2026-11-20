@@ -39,6 +39,6 @@ func toAuditRecord(r domain.Record) api.AuditRecord {
 // object (the app layer checks), so a decode failure yields an empty map.
 func detailsMap(raw json.RawMessage) map[string]any {
 	m := map[string]any{}
-	_ = json.Unmarshal(raw, &m)
+	_ = json.Unmarshal(raw, &m) //nolint:errcheck // the app layer checks details are a JSON object before storing them
 	return m
 }

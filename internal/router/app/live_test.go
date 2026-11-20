@@ -3,8 +3,10 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +22,23 @@ func newLive(t *testing.T) (*app.LiveList, *routertest.Profiles, *coretest.Clock
 	t.Helper()
 	clock := coretest.NewClock(coretest.Epoch)
 	profiles := routertest.NewProfiles(routertest.Agent("amy", "Writer"), routertest.Agent("bob", "Builder"), routertest.Agent("cat", "Keeper"))
-	return app.NewLiveList(memory.NewLines(), profiles, clock), profiles, clock
+	return app.NewLiveList(memory.NewLines(), profiles, clock, nil), profiles, clock
+}
+
+func TestUpdateLine_StoresTheLineAndLogsWhenAgentsCannotBeRead(t *testing.T) {
+	t.Parallel()
+	clock := coretest.NewClock(coretest.Epoch)
+	profiles := routertest.NewProfiles(routertest.Agent("amy", "Writer"))
+	var logs bytes.Buffer
+	live := app.NewLiveList(memory.NewLines(), profiles, clock, slog.New(slog.NewTextHandler(&logs, nil)))
+	profiles.Err = errors.New("db down")
+
+	if err := live.UpdateLine(context.Background(), "amy", "drafting"); err != nil {
+		t.Fatalf("UpdateLine failed although the line is stored: %v", err)
+	}
+	if got := logs.String(); !strings.Contains(got, "level=WARN") || !strings.Contains(got, "db down") || !strings.Contains(got, "agent=amy") {
+		t.Fatalf("skipped push not logged: %q", got)
+	}
 }
 
 func TestUpdateLine_CleansAndStoresTheLine(t *testing.T) {

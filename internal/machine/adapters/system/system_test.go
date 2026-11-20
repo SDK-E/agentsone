@@ -96,6 +96,28 @@ func TestFilesSymlinkCannotLeaveTheArea(t *testing.T) {
 	}
 }
 
+// A listed link names where it points, as stored, without following it.
+func TestFilesListNamesWhereALinkPoints(t *testing.T) {
+	home := t.TempDir()
+	if err := os.Mkdir(filepath.Join(home, "dist"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("dist", filepath.Join(home, "current")); err != nil {
+		t.Fatal(err)
+	}
+	list, err := system.NewFiles().List(ctx(), areaIn(home, "."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	targets := map[string]string{}
+	for _, e := range list {
+		targets[e.Name] = e.LinkTarget
+	}
+	if targets["current"] != "dist" || targets["dist"] != "" {
+		t.Fatalf("link targets %v", targets)
+	}
+}
+
 func TestFilesListMissingAndFile(t *testing.T) {
 	base := t.TempDir()
 	write(t, filepath.Join(base, "f"), "x")

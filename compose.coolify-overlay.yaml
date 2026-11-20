@@ -12,25 +12,45 @@
 #
 # Only edge (the web door) and control (the human-only page) join Coolify's proxy network.
 # machine never does: that network has a gateway, so it would give agents direct internet.
+# The proxy network is also the way out for edge and control, so this file drops the outer
+# network of compose.yaml: a second bridge with its own range would let edge and control reach
+# the host where a firewall rule for the proxy range does not apply. The inner network stays.
 # Values checked against a Coolify server with Traefik 3.7 (entry points http and https,
 # certificate resolver letsencrypt).
 
 services:
+  # Image tags: this file pins one tested build of main (sha-<commit>, published by images.yml
+  # after the end-to-end run) until the first release exists. To move it, change the three
+  # sha- tags below, or set AGENTSONE_IMAGE_TAG in Coolify. After the first release it can
+  # follow compose.yaml again. There is no `latest` tag.
+  machine:
+    image: ghcr.io/sdk-e/agentsone-machine:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
+
   edge:
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     command:
       - edge
       - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
-      - --door-addr=${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}:8080
-      # Second door address, on the proxy network, so Traefik can reach the door. The name is a
-      # network alias of edge on that network only; it never resolves to the inner address.
+      # The one door address, on the proxy network, for Traefik. The name is a network alias of
+      # edge on that network only; it never resolves to the inner address.
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
-    networks:
-      coolify:
+      # Set AGENTSONE_EGRESS_DENY to the server's own public addresses when your proxy trusts the
+      # proxy network, which is the edge's way out (docs/deploy/coolify.md, Settings).
+      - --egress-deny=${AGENTSONE_EGRESS_DENY:-}
+    # Replaces the networks of compose.yaml: inner (unchanged) and the proxy network, which is
+    # also the edge's way to the internet. No outer network.
+    networks: !override
+      inner:
+        ipv4_address: ${AGENTSONE_EDGE_IP:-10.77.42.2}
+      proxy:
         aliases:
           - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
+    # Wall: no host port. Traefik reaches the web door on the proxy network, so a port on the
+    # host would only be a second way in that skips your access control.
+    ports: !reset []
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-door-http.rule=Host(`${AGENTSONE_DOMAIN:?set AGENTSONE_DOMAIN to the web door domain}`)
       - traefik.http.routers.agentsone-door-http.entrypoints=http
@@ -40,14 +60,22 @@ services:
       - traefik.http.routers.agentsone-door.tls=true
       - traefik.http.routers.agentsone-door.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-door.service=agentsone-door
+      # Your platform's access control for the web door, as a comma-separated list of Traefik
+      # middlewares (for example sign-in and an IP allow list). Empty adds none.
+      - traefik.http.routers.agentsone-door.middlewares=${AGENTSONE_DOOR_MIDDLEWARES:-}
       - traefik.http.services.agentsone-door.loadbalancer.server.port=8080
 
   control:
-    networks:
-      coolify: {}
+    image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
+    # Replaces the outer network of compose.yaml: control is on the proxy network only, which
+    # is also its way out. The machine cannot reach it by any route.
+    networks: !override
+      proxy: {}
+    # Wall: no host port, for the same reason as the web door.
+    ports: !reset []
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-control-http.rule=Host(`${AGENTSONE_CONTROL_DOMAIN:?set AGENTSONE_CONTROL_DOMAIN to the control page domain}`)
       - traefik.http.routers.agentsone-control-http.entrypoints=http
@@ -57,9 +85,17 @@ services:
       - traefik.http.routers.agentsone-control.tls=true
       - traefik.http.routers.agentsone-control.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-control.service=agentsone-control
+      # Your platform's access control for the control page. Empty adds none, so set it unless
+      # something else already guards this domain.
+      - traefik.http.routers.agentsone-control.middlewares=${AGENTSONE_CONTROL_MIDDLEWARES:-}
       - traefik.http.services.agentsone-control.loadbalancer.server.port=8081
 
 networks:
-  # Created by Coolify; its Traefik proxy is on it.
-  coolify:
+  # No outer network in this file: edge and control use the proxy network instead, so the
+  # AGENTSONE_OUTER_* settings and AGENTSONE_EDGE_OUTER_IP apply to compose.yaml only.
+  outer: !reset null
+  # The Docker network the Traefik proxy is on. Coolify creates it as `coolify`; set
+  # AGENTSONE_PROXY_NETWORK when your proxy reaches apps on another network.
+  proxy:
     external: true
+    name: ${AGENTSONE_PROXY_NETWORK:-coolify}

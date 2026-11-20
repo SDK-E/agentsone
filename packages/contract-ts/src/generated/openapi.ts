@@ -1270,7 +1270,7 @@ export interface paths {
     };
     /**
      * List services
-     * @description Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).
+     * @description Lists the services the daemon reports. Today these are the daemon itself (`agentsoned.service`) and the machine recipe (`machine-recipe.service`). The machine runs no systemd; the daemon supervises agent runners itself, so runners are processes, not services.
      */
     get: operations["listServices"];
     put?: never;
@@ -1286,7 +1286,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1295,7 +1295,7 @@ export interface paths {
     put?: never;
     /**
      * Restart a service
-     * @description Restarts a systemd unit and returns its new state.
+     * @description Restarts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be restarted this way.
      */
     post: operations["restartService"];
     delete?: never;
@@ -1309,7 +1309,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1318,7 +1318,7 @@ export interface paths {
     put?: never;
     /**
      * Start a service
-     * @description Starts a systemd unit and returns its new state.
+     * @description Starts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be started this way.
      */
     post: operations["startService"];
     delete?: never;
@@ -1332,7 +1332,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1341,7 +1341,7 @@ export interface paths {
     put?: never;
     /**
      * Stop a service
-     * @description Stops a systemd unit and returns its new state.
+     * @description Asks to stop a service the daemon reports. Both refuse today, because the daemon stops through a reboot and the recipe runs once.
      */
     post: operations["stopService"];
     delete?: never;
@@ -1667,6 +1667,40 @@ export interface paths {
      * @description Turns a plugin on.
      */
     post: operations["enablePlugin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/plugins/{plugin_id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plugin_id: components["parameters"]["PluginId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * Read a panel file
+     * @description Returns one file of a panel plugin so the interface can load it into the panel's sandboxed
+     *     frame (as `srcdoc`, with `sandbox="allow-scripts"` only). Humans only (session cookie).
+     *
+     *     Rules the daemon enforces: the plugin is installed and enabled; the path is normalised
+     *     first, then must lie inside the folder of one of the plugin's declared panel entries
+     *     (`contents.panels[].entry`), so it can never reach other plugin files or leave the plugin
+     *     root; the file is at most 4 MiB. File content is never logged.
+     *
+     *     The file comes back as JSON, never as a document, so a visit to this address cannot run
+     *     it. A panel entry must be self-contained: its scripts and styles are inline. The response
+     *     carries `Content-Security-Policy: sandbox; default-src 'none'`,
+     *     `X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: same-origin` and
+     *     `Cache-Control: no-store`.
+     */
+    get: operations["getPluginFile"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3236,6 +3270,12 @@ export interface components {
     FileEncoding: "utf-8" | "base64";
     FileEntry: {
       group: string;
+      /**
+       * @description Where a symlink points, as stored in the link (relative or absolute). Null or absent for
+       *     other types.
+       * @example releases/42
+       */
+      link_target?: string | null;
       /** @example 0644 */
       mode: string;
       modified_at: components["schemas"]["Timestamp"];
@@ -3839,6 +3879,27 @@ export interface components {
       /** @description Semantic version. */
       version: string;
     };
+    /**
+     * @description One file of a panel plugin, read for the interface's panel host. Text files use `utf-8`;
+     *     others use `base64`.
+     */
+    PluginFile: {
+      content: string;
+      encoding: components["schemas"]["FileEncoding"];
+      /**
+       * @description Media type from the file name, for example `text/html` or `image/svg+xml`.
+       * @example text/html
+       */
+      media_type: string;
+      /**
+       * @description The normalised path inside the plugin, without a leading `./`.
+       * @example panel/index.html
+       */
+      path: string;
+      plugin_id: components["schemas"]["PluginId"];
+      /** Format: int64 */
+      size_bytes: number;
+    };
     /** @enum {string} */
     PluginHealth: "ok" | "degraded" | "failed";
     /** @description Installed plugin id, `plg_` plus a ULID. */
@@ -3964,7 +4025,7 @@ export interface components {
       type: string;
     };
     Process: {
-      /** @description Agent whose cgroup `/agents/<id>` holds the process. */
+      /** @description Agent whose Linux user runs the process, null for other users. */
       agent: string | null;
       /** @description Full command line. */
       command: string;
@@ -3974,7 +4035,7 @@ export interface components {
       /** Format: int64 */
       rss_bytes: number;
       started_at: components["schemas"]["Timestamp"];
-      /** @description systemd unit owning the process. */
+      /** @description Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself. */
       unit: string | null;
       user: string;
     };
@@ -4121,7 +4182,7 @@ export interface components {
     SemverRange: string;
     Service: {
       active_state: components["schemas"]["ServiceActiveState"];
-      /** @description Agent that owns the unit, for agent units. */
+      /** @description Agent that owns the service. Null for the services the daemon reports today. */
       agent: string | null;
       description: string;
       enabled: boolean;
@@ -4615,6 +4676,11 @@ export interface components {
     MemoryId: components["schemas"]["MemoryId"];
     PackageName: string;
     Pid: number;
+    /**
+     * @description A file inside the plugin, relative to its root, with forward slashes and an optional leading
+     *     `./`, for example `./panel/index.html`. No segment may start with a dot.
+     */
+    PluginFilePath: string;
     PluginId: components["schemas"]["PluginId"];
     PtyId: components["schemas"]["PtyId"];
     RunnerName: string;
@@ -4623,7 +4689,7 @@ export interface components {
     ThemeId: components["schemas"]["ThemeId"];
     TokenId: components["schemas"]["TokenId"];
     TriggerId: components["schemas"]["TriggerId"];
-    /** @description systemd unit name including its suffix. */
+    /** @description Service name including its suffix, as `listServices` shows it. */
     Unit: string;
   };
   requestBodies: never;
@@ -6915,7 +6981,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -6943,7 +7009,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -6971,7 +7037,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -7586,6 +7652,49 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
+      501: components["responses"]["NotImplemented"];
+    };
+  };
+  getPluginFile: {
+    parameters: {
+      query: {
+        /**
+         * @description A file inside the plugin, relative to its root, with forward slashes and an optional leading
+         *     `./`, for example `./panel/index.html`. No segment may start with a dot.
+         */
+        path: components["parameters"]["PluginFilePath"];
+      };
+      header?: never;
+      path: {
+        plugin_id: components["parameters"]["PluginId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The file. */
+      200: {
+        headers: {
+          /** @description Always `no-store`. */
+          "Cache-Control"?: string;
+          /** @description Always `sandbox; default-src 'none'`. */
+          "Content-Security-Policy"?: string;
+          /** @description Always `same-origin`. */
+          "Cross-Origin-Resource-Policy"?: string;
+          /** @description Always `nosniff`. */
+          "X-Content-Type-Options"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PluginFile"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      413: components["responses"]["PayloadTooLarge"];
       501: components["responses"]["NotImplemented"];
     };
   };

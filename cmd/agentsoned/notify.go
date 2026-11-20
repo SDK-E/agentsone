@@ -25,7 +25,7 @@ func (s systemd) notify(state string) error {
 	if err != nil {
 		return fmt.Errorf("dial notify socket: %w", err)
 	}
-	defer func() { _ = conn.Close() }() // datagram already sent or failed
+	defer func() { _ = conn.Close() }() //nolint:errcheck // a datagram socket buffers nothing; Write above already reported the send
 	if _, err := conn.Write([]byte(state)); err != nil {
 		return fmt.Errorf("notify %q: %w", state, err)
 	}

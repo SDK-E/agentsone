@@ -15,9 +15,14 @@ on:
 
 permissions: {}
 
+# Every commit on main gets its own run, and it always runs to the end. The group of a main run
+# includes the commit, so no run waits behind another one and GitHub never replaces a waiting run
+# (it keeps only one waiting run per group, and cancels the rest). Runs of other branches (manual
+# dispatch) still cancel the older run of the same branch. The main tag only ever moves forward:
+# the promote job skips it unless this commit is still the tip of main.
 concurrency:
-  group: images-${{ github.ref }}
-  cancel-in-progress: true
+  group: images-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   REGISTRY: ghcr.io/sdk-e
@@ -154,6 +159,8 @@ jobs:
       packages: read
     env:
       AGENTSONE_IMAGE_TAG: sha-${{ github.sha }}
+      # The stack plus the e2e overlay (the fake model provider), for every step, logs included.
+      COMPOSE_FILE: compose.yaml:e2e/compose.e2e.yaml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -201,20 +208,28 @@ jobs:
         run: e2e/run.sh bus
       - name: Live list and router
         run: e2e/run.sh router
+      - name: "Model turn: through the gateway to the fake provider"
+        run: e2e/run.sh model-turn
       - name: Echo chat
         run: e2e/run.sh echo-chat
       - name: Event to task
         run: e2e/run.sh event-to-task
+      - name: Services events
+        run: e2e/run.sh services-events
       - name: Memory
         run: e2e/run.sh memory
       - name: Plugin install
         run: e2e/run.sh plugin-install
       - name: agentctl parity
         run: e2e/run.sh agentctl-parity
-      - name: Budget wall and defence slice
+      - name: Budget wall
         run: e2e/run.sh budget-wall
+      - name: Defence slice
+        run: e2e/run.sh defence-slice
       - name: Freeze all and release
         run: e2e/run.sh freeze-all
+      - name: Control page
+        run: e2e/run.sh control
       - name: Stack state and logs
         if: always()
         run: |

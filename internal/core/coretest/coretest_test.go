@@ -101,16 +101,19 @@ func TestWaker(t *testing.T) {
 func TestEventsPublishAssignsIdentity(t *testing.T) {
 	clock := coretest.NewClock(start)
 	ev := coretest.NewEvents(clock, coretest.NewIDs())
-	first, err := ev.Publish(context.Background(), event("agents.one.git.push", "git"))
+	first, err := ev.Publish(context.Background(), event(gitPush, gitSource))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if first.Sequence != core.FormatSequence(1) || !strings.HasPrefix(first.ID, "evt_") || !first.Time.Equal(start) || first.SpecVersion != "1.0" {
 		t.Fatalf("first %+v", first)
 	}
-	mine := event("x", "git")
+	mine := event(gitTag, gitSource)
 	mine.ID = "mine"
-	second, _ := ev.Publish(context.Background(), mine)
+	second, err := ev.Publish(context.Background(), mine)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if second.Sequence != core.FormatSequence(2) || second.ID != "mine" {
 		t.Fatalf("second %+v", second)
 	}
@@ -121,9 +124,9 @@ func TestEventsPublishAssignsIdentity(t *testing.T) {
 
 func TestEventsPublishRequiresActorAndChartScope(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
-	noActor := event("x", "git")
+	noActor := event(gitPush, gitSource)
 	noActor.Actor = ""
-	noScope := event("x", "git")
+	noScope := event(gitPush, gitSource)
 	noScope.ChartScope = ""
 	for name, e := range map[string]core.Event{"actor": noActor, "chartscope": noScope} {
 		if _, err := ev.Publish(context.Background(), e); !errors.Is(err, core.ErrInvalid) {
@@ -139,19 +142,19 @@ func TestEventsSubscribeReplaysThenStreams(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	publish(t, ev, event("agents.one.git.push", "git"))
-	publish(t, ev, event("agents.one.clock.tick", "clock"))
-	publish(t, ev, event("agents.one.git.tag", "git"))
+	publish(t, ev, event(gitPush, gitSource))
+	publish(t, ev, event(clockTick, "/emitters/clock"))
+	publish(t, ev, event(gitTag, gitSource))
 
-	ch, err := ev.Subscribe(ctx, core.EventFilter{Types: []string{"agents.one.git."}, AfterSequence: core.FormatSequence(1)})
+	ch, err := ev.Subscribe(ctx, core.EventFilter{Types: []string{"agentsone.git."}, AfterSequence: core.FormatSequence(1)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := receive(t, ch); got.Sequence != core.FormatSequence(3) {
 		t.Fatalf("replay got sequence %s", got.Sequence)
 	}
-	publish(t, ev, event("agents.one.clock.tick", "clock"))
-	publish(t, ev, event("agents.one.git.push", "git"))
+	publish(t, ev, event(clockTick, "/emitters/clock"))
+	publish(t, ev, event(gitPush, gitSource))
 	if got := receive(t, ch); got.Sequence != core.FormatSequence(5) {
 		t.Fatalf("live got sequence %s", got.Sequence)
 	}
@@ -163,32 +166,47 @@ func TestEventsSubscribeReplaysThenStreams(t *testing.T) {
 
 func TestEventsSubscribeEmptyAfterSequenceReplaysAll(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
-	publish(t, ev, event("a", "git"))
-	publish(t, ev, event("b", "git"))
+	publish(t, ev, event(gitPush, gitSource))
+	publish(t, ev, event(gitTag, gitSource))
 	ch, err := ev.Subscribe(context.Background(), core.EventFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first, second := receive(t, ch), receive(t, ch); first.Type != "a" || second.Type != "b" {
+	if first, second := receive(t, ch), receive(t, ch); first.Type != gitPush || second.Type != gitTag {
 		t.Fatalf("replayed %s then %s", first.Type, second.Type)
 	}
 }
 
 func TestEventsSubscribeBySource(t *testing.T) {
 	ev := coretest.NewEvents(coretest.NewClock(start), coretest.NewIDs())
-	publish(t, ev, event("a", "git"))
-	publish(t, ev, event("a", "clock"))
-	ch, err := ev.Subscribe(context.Background(), core.EventFilter{Source: "clock"})
+	publish(t, ev, event(gitPush, gitSource))
+	publish(t, ev, event(clockTick, "/emitters/clock"))
+	ch, err := ev.Subscribe(context.Background(), core.EventFilter{Source: "/emitters/clock"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := receive(t, ch); got.Source != "clock" {
+	if got := receive(t, ch); got.Source != "/emitters/clock" {
 		t.Fatalf("got %+v", got)
 	}
 }
 
+// Events the fake bus accepts: catalog types, from the emitter's source,
+// with the catalog's example data.
+const (
+	gitPush   = "agentsone.git.commit.created"
+	gitTag    = "agentsone.git.ref.updated"
+	clockTick = "agentsone.clock.tick"
+	gitSource = "/emitters/git"
+)
+
+var examples = map[string]string{
+	gitPush:   `{"repo":"/home/agents/builder/site","ref":"refs/heads/main","commit":"3f786850e387550fdab836ed7e6dc881de23001b","author":"builder","summary":"Add status page"}`,
+	gitTag:    `{"repo":"/home/agents/builder/site","ref":"refs/heads/main","from":"89e6c98d92887913cadf06b2adb97f26cde4849b","to":"3f786850e387550fdab836ed7e6dc881de23001b"}`,
+	clockTick: `{"minute":"2026-11-19T19:00:00Z"}`,
+}
+
 func event(typ, source string) core.Event {
-	return core.Event{Type: typ, Source: source, Actor: "agent:founder", ChartScope: "team:founder"}
+	return core.Event{Type: typ, Source: source, Data: json.RawMessage(examples[typ]), Actor: "system:emitters", ChartScope: "machine"}
 }
 
 func publish(t *testing.T, ev *coretest.Events, e core.Event) {

@@ -16,11 +16,17 @@ linters:
     - revive
     - misspell
     - errorlint
+    - nilerr
     - bodyclose
     - nolintlint
     - forbidigo
     - depguard
   settings:
+    errcheck:
+      # A dropped error hides a dead feature: `_ = f()` counts as a drop too.
+      # A blank needs `//nolint:errcheck // <why ignoring is correct>`.
+      check-blank: true
+      check-type-assertions: true
     forbidigo:
       forbid:
         - pattern: ^time\.Sleep$
@@ -43,6 +49,30 @@ linters:
       - path-except: _test\.go$
         linters:
           - forbidigo
+      # Test code (_test.go files and the <package>test helper packages) may
+      # drop errors with a blank or an unchecked type assertion: a dropped
+      # error there fails the test's own assertions instead of hiding a dead
+      # feature. Plain unchecked calls are still errcheck errors in tests.
+      # The source pattern matches `_ =`, `x, _ :=` and `.(T)` lines.
+      - path: (_test\.go$|/[a-z]+test/)
+        linters:
+          - errcheck
+        source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
+      # Transition: production areas whose blank drops are not fixed yet.
+      # Each stacked fix PR deletes its own rule; then this block is gone.
+      # Same source pattern as above, so plain unchecked calls stay errors.
+      - path: ^internal/(agents|machine)/
+        linters:
+          - errcheck
+        source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
+      - path: ^(internal/edge|image/edge)/
+        linters:
+          - errcheck
+        source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
+      - path: ^(runners/|internal/auth/app/service\.go$)
+        linters:
+          - errcheck
+        source: (^|[^\w])_\s*(,\s*[\w.\[\]"]+\s*)*:?=([^=]|$)|,\s*_\s*:?=([^=]|$)|\.\(\*?[\w.\[\]]+\)
 
 formatters:
   enable:

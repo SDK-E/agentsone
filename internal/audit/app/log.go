@@ -134,10 +134,27 @@ func recordFrom(ctx context.Context, e core.AuditEntry) (domain.Record, error) {
 	if err != nil {
 		return domain.Record{}, err
 	}
+	outcome, err := outcomeOf(e.Outcome)
+	if err != nil {
+		return domain.Record{}, err
+	}
 	return domain.Record{
 		Actor: actor, Action: action, Target: target, Details: details,
-		Outcome: domain.OutcomeSuccess, Origin: domain.OriginInside,
+		Outcome: outcome, Origin: domain.OriginInside,
 	}, nil
+}
+
+// outcomeOf maps the port's outcome to the record's; empty is success.
+func outcomeOf(s string) (domain.Outcome, error) {
+	switch s {
+	case "":
+		return domain.OutcomeSuccess, nil
+	case core.AuditFailure:
+		return domain.OutcomeFailure, nil
+	case core.AuditDenied:
+		return domain.OutcomeDenied, nil
+	}
+	return "", fmt.Errorf("audit outcome %q is not success, failure or denied", s)
 }
 
 func actorFor(ctx context.Context, ref string) (domain.Actor, error) {

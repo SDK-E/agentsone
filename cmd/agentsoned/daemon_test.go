@@ -84,6 +84,21 @@ func TestDaemon_Serves(t *testing.T) {
 	}
 }
 
+// The agents module runs agents through the runner supervisor: a lever
+// that only a wired runtime can pull (freeze all) works, where without it
+// the daemon answered "runner supervisor not wired".
+func TestDaemon_Runtime(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	startDaemon(t, deps)
+	host := core.WithCaller(context.Background(), core.Caller{Kind: core.CallerHost, Name: "agentsone", UID: -1})
+	if err := deps.Ports.Freezer.Freeze(host, core.FreezeScope{Kind: core.FreezeAll}); err != nil {
+		t.Fatalf("freeze all: %v", err)
+	}
+	if err := deps.Ports.Freezer.Release(host, core.FreezeScope{Kind: core.FreezeAll}); err != nil {
+		t.Fatalf("release all: %v", err)
+	}
+}
+
 func TestLifecycleStopsStartedModulesInReverse(t *testing.T) {
 	var order []string
 	mods := []core.Module{
@@ -115,7 +130,11 @@ func TestOpenStoresCreatesTheFourDatabases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeAll()
+	t.Cleanup(func() {
+		if err := closeAll(); err != nil {
+			t.Errorf("close stores: %v", err)
+		}
+	})
 	for _, name := range []string{"core", "bus", "memory", "audit"} {
 		if _, err := os.Stat(filepath.Join(cfg.StateDir, name+".db")); err != nil {
 			t.Errorf("%s: %v", name, err)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -378,6 +379,16 @@ func TestTick_AFailedPublishDoesNotUndoTheFire(t *testing.T) {
 	}
 	if got, _ := e.schedules.Get(asAgent("keeper"), s.ID); got.LastRun == nil {
 		t.Error("last run is empty, want it recorded so the agent is not woken twice")
+	}
+	var failed []core.AuditEntry
+	for _, a := range e.fakes.Audit.Entries() {
+		if a.Outcome == core.AuditFailure {
+			failed = append(failed, a)
+		}
+	}
+	if len(failed) != 1 || failed[0].Action != "event.publish" || failed[0].Target != "schedule:"+s.ID ||
+		!strings.Contains(string(failed[0].Detail), "bus is down") {
+		t.Fatalf("failure entries = %+v, want one event.publish failure for the schedule", failed)
 	}
 }
 

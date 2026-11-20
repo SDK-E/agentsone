@@ -109,7 +109,7 @@ func (r *Events) After(ctx context.Context, after uint64, limit int) ([]core.Eve
 	if err != nil {
 		return nil, fmt.Errorf("list events: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []core.Event
 	for rows.Next() {
 		var (
@@ -159,9 +159,15 @@ const emitterColumns = `id, name, kind, description, event_types, enabled, unit,
 
 // Create stores e.
 func (r *Emitters) Create(ctx context.Context, e domain.Emitter) error {
-	types, _ := json.Marshal(nonNil(e.EventTypes))
-	command, _ := json.Marshal(nonNil(e.Command))
-	_, err := r.db.SQL().ExecContext(ctx, `INSERT INTO emitters (`+emitterColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	types, err := json.Marshal(nonNil(e.EventTypes))
+	if err != nil {
+		return fmt.Errorf("encode event types of emitter %q: %w", e.Name, err)
+	}
+	command, err := json.Marshal(nonNil(e.Command))
+	if err != nil {
+		return fmt.Errorf("encode command of emitter %q: %w", e.Name, err)
+	}
+	_, err = r.db.SQL().ExecContext(ctx, `INSERT INTO emitters (`+emitterColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		e.ID, e.Name, string(e.Kind), e.Description, string(types), boolInt(e.Enabled), e.Unit, e.Owner, e.PluginID,
 		e.WebhookPath, formatTime(e.CreatedAt), nullable(e.LastEventAt), string(command), e.Secret)
 	if isUnique(err) {
@@ -223,7 +229,7 @@ func (r *Emitters) List(ctx context.Context, afterID string, limit int) ([]domai
 }
 
 func scanEmitters(rows *sql.Rows) ([]domain.Emitter, error) {
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Emitter
 	for rows.Next() {
 		var (
@@ -313,20 +319,27 @@ type actionJSON struct {
 
 const triggerColumns = `id, name, owner, filter, action, rate_max, rate_per, enabled, fired_count, dropped_count, last_fired_at, created_at`
 
-func encode(t domain.Trigger) (filter, action []byte) {
+func encode(t domain.Trigger) (filter, action []byte, err error) {
 	f := filterJSON{Types: t.Filter.Types, Sources: t.Filter.Sources, SubjectPrefix: t.Filter.SubjectPrefix,
 		Actors: t.Filter.Actors, ChartScope: t.Filter.ChartScope}
 	a := actionJSON{Kind: string(t.Action.Kind), Agent: t.Action.Agent, Message: t.Action.Message,
 		Title: t.Action.Title, Priority: t.Action.Priority}
-	filter, _ = json.Marshal(f)
-	action, _ = json.Marshal(a)
-	return filter, action
+	if filter, err = json.Marshal(f); err != nil {
+		return nil, nil, fmt.Errorf("encode filter of trigger %s: %w", t.ID, err)
+	}
+	if action, err = json.Marshal(a); err != nil {
+		return nil, nil, fmt.Errorf("encode action of trigger %s: %w", t.ID, err)
+	}
+	return filter, action, nil
 }
 
 // Create stores t.
 func (r *Triggers) Create(ctx context.Context, t domain.Trigger) error {
-	filter, action := encode(t)
-	_, err := r.db.SQL().ExecContext(ctx, `INSERT INTO triggers (`+triggerColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	filter, action, err := encode(t)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.SQL().ExecContext(ctx, `INSERT INTO triggers (`+triggerColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.Owner, string(filter), string(action), t.Rate.Max, t.Rate.PerSeconds, boolInt(t.Enabled),
 		t.FiredCount, t.DroppedCount, nullable(t.LastFiredAt), formatTime(t.CreatedAt))
 	if err != nil {
@@ -371,7 +384,7 @@ func (r *Triggers) Enabled(ctx context.Context) ([]domain.Trigger, error) {
 }
 
 func scanTriggers(rows *sql.Rows) ([]domain.Trigger, error) {
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Trigger
 	for rows.Next() {
 		var (
@@ -410,7 +423,10 @@ func scanTriggers(rows *sql.Rows) ([]domain.Trigger, error) {
 
 // Update replaces the editable fields of t.
 func (r *Triggers) Update(ctx context.Context, t domain.Trigger) error {
-	filter, action := encode(t)
+	filter, action, err := encode(t)
+	if err != nil {
+		return err
+	}
 	res, err := r.db.SQL().ExecContext(ctx,
 		`UPDATE triggers SET name = ?, filter = ?, action = ?, rate_max = ?, rate_per = ?, enabled = ? WHERE id = ?`,
 		t.Name, string(filter), string(action), t.Rate.Max, t.Rate.PerSeconds, boolInt(t.Enabled), t.ID)

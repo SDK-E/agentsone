@@ -81,6 +81,6 @@ func webhookHandler(svc Service, o core.APIOptions) http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(api.WebhookAccepted{EventId: e.ID}) // the status is sent; nothing to do on error
+		_ = json.NewEncoder(w).Encode(api.WebhookAccepted{EventId: e.ID}) //nolint:errcheck // the event is stored and the status sent; a failed body write means the client left
 	})
 }

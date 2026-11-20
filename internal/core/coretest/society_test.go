@@ -121,12 +121,12 @@ func TestTokens(t *testing.T) {
 	clock := coretest.NewClock(start)
 	tk := coretest.NewTokens(clock, coretest.NewIDs())
 	who := core.Caller{Kind: core.CallerHuman, Name: "ada", UID: 1000}
-	tok, err := tk.Issue(ctx, who, []string{"chat"}, time.Hour)
+	tok, err := tk.Issue(ctx, who, []string{"bus:write"}, time.Hour)
 	if err != nil || tok.Value == "" || !tok.Expires.Equal(start.Add(time.Hour)) {
 		t.Fatalf("issue %+v %v", tok, err)
 	}
 	got, err := tk.Verify(ctx, tok.Value)
-	if err != nil || got.Name != "ada" || !got.Has("chat") || got.Has("budget") {
+	if err != nil || got.Name != "ada" || !got.Has("bus:write") || got.Has("budget:read") {
 		t.Fatalf("verify %+v %v", got, err)
 	}
 	if _, err := tk.Verify(ctx, "nope"); !errors.Is(err, core.ErrUnauthorized) {
@@ -138,6 +138,28 @@ func TestTokens(t *testing.T) {
 	}
 	if _, err := tk.Issue(ctx, who, nil, 0); !errors.Is(err, core.ErrInvalid) {
 		t.Fatalf("zero ttl: %v", err)
+	}
+}
+
+// The fake refuses what the real issuer refuses, so a caller asking for a
+// scope outside the contract's <group>:<read|write|admin> form fails in its
+// tests as it would in the daemon.
+func TestTokens_RefuseWhatTheRealIssuerRefuses(t *testing.T) {
+	t.Parallel()
+	tk := coretest.NewTokens(coretest.NewClock(start), coretest.NewIDs())
+	who := core.Caller{Kind: core.CallerAgent, Name: "founder", UID: 0, IsRoot: true}
+	for _, tt := range []struct {
+		name   string
+		scopes []string
+		ttl    time.Duration
+	}{
+		{"scope without a level", []string{"mcp"}, time.Hour},
+		{"unknown level", []string{"mcp:own"}, time.Hour},
+		{"lifetime past the longest", []string{"mcp:write"}, 31 * 24 * time.Hour},
+	} {
+		if _, err := tk.Issue(context.Background(), who, tt.scopes, tt.ttl); !errors.Is(err, core.ErrInvalid) {
+			t.Errorf("%s: Issue error = %v, want ErrInvalid", tt.name, err)
+		}
 	}
 }
 
@@ -164,6 +186,25 @@ func TestFakesFillNewPorts(t *testing.T) {
 	if p.Bus != f.Bus || p.Freezer != f.Freezer || p.Tokens != f.Tokens || p.Templates != f.Templates ||
 		p.Profiles != f.Profiles || p.Chat != f.Chat || p.Seed != f.Seed {
 		t.Fatal("new ports not wired to fakes")
+	}
+}
+
+func TestHumans_FindsWhatWasAdded(t *testing.T) {
+	f, p := coretest.NewFakes()
+	if p.Humans != f.Humans {
+		t.Fatal("humans port not wired to the fake")
+	}
+	ctx := context.Background()
+	f.Humans.Add("ada", 1000)
+	all, err := p.Humans.HumanAccounts(ctx)
+	if err != nil || len(all) != 1 || all[0] != (core.HumanAccount{Name: "ada", UID: 1000}) {
+		t.Fatalf("humans %+v %v", all, err)
+	}
+	if h, err := p.Humans.HumanAccount(ctx, "ada"); err != nil || h.UID != 1000 {
+		t.Fatalf("ada %+v %v", h, err)
+	}
+	if _, err := p.Humans.HumanAccount(ctx, "eve"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("eve: %v", err)
 	}
 }
 

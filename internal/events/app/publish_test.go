@@ -3,6 +3,7 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -203,6 +204,25 @@ func TestPublish_PortKeepsAGivenIDAndAssignsOtherwise(t *testing.T) {
 	assigned, err := f.svc.Publish(asSystem(), given)
 	if err != nil || assigned.ID == "" || assigned.ID == kept.ID {
 		t.Fatalf("Publish() without id = %+v, %v", assigned, err)
+	}
+}
+
+// The port takes the actor from the caller, so an agent that names the
+// system as the actor still publishes as itself.
+func TestPublish_PortNeverLetsAnAgentPublishAsTheSystem(t *testing.T) {
+	callers := map[string]context.Context{"agent:builder": asAgent("builder"), "agent:founder": asRootAgent("founder")}
+	for want, ctx := range callers {
+		t.Run(want, func(t *testing.T) {
+			f := newFixture(t)
+
+			e, err := f.svc.Publish(ctx, core.Event{
+				Type: "agentsone.custom.thing", Data: json.RawMessage(`{}`), Actor: "system:auth", Source: "/daemon",
+			})
+
+			if err == nil && e.Actor != want {
+				t.Fatalf("Publish() actor = %q, want %s or a refusal", e.Actor, want)
+			}
+		})
 	}
 }
 

@@ -192,6 +192,51 @@ func socketPath(t *testing.T) string {
 	return filepath.Join(dir, "admin.sock")
 }
 
+func TestEdge_PassesTheEgressDenyRanges(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		args []string
+		want []netip.Prefix
+	}{
+		{"none by default", nil, nil},
+		{"empty, as compose passes an unset setting", []string{"--egress-deny="}, nil},
+		{"a list of ipv4 and ipv6 ranges", []string{"--egress-deny=203.0.113.7/32, 2001:db8::7"}, []netip.Prefix{
+			netip.MustParsePrefix("203.0.113.7/32"), netip.MustParsePrefix("2001:db8::7/128"),
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rec := &recorder{got: make(chan component.Env, 1)}
+
+			got := serve(t, testEnv(t), rec, append([]string{"--inner-addr=10.77.42.2"}, tt.args...)...)
+
+			if diff := cmp.Diff(tt.want, got.EgressDeny, cmp.Comparer(func(a, b netip.Prefix) bool { return a == b })); diff != "" {
+				t.Errorf("egress deny ranges (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestEdge_RefusesToStartWithABadEgressDenyRange(t *testing.T) {
+	t.Parallel()
+	rec := &recorder{got: make(chan component.Env, 1)}
+	cmd := edge.NewServeCommand(testEnv(t), []component.Component{rec})
+	cmd.SetArgs([]string{"--inner-addr=10.77.42.2", "--admin-socket=" + socketPath(t), "--egress-deny=203.0.113.7/32,host.example"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.ExecuteContext(t.Context())
+
+	if err == nil || !strings.Contains(err.Error(), "--egress-deny") || !strings.Contains(err.Error(), `"host.example"`) {
+		t.Errorf("error = %v, want one naming --egress-deny and the bad item", err)
+	}
+	if len(rec.got) != 0 {
+		t.Error("a component started")
+	}
+}
+
 func TestEdge_RefusesToStartWithoutAGoodInnerAddress(t *testing.T) {
 	t.Parallel()
 	for _, args := range [][]string{{}, {"--inner-addr=edge"}, {"--inner-addr="}} {

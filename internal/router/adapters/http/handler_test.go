@@ -46,7 +46,7 @@ func newRig(t *testing.T, replies ...routertest.Reply) *rig {
 		routertest.Agent("builder", "Builder"),
 		routertest.Agent("scribe", "Docs writer"),
 	)
-	live := app.NewLiveList(memory.NewLines(), profiles, clock)
+	live := app.NewLiveList(memory.NewLines(), profiles, clock, nil)
 	chats := routertest.NewChats()
 	routing := app.NewRouter(app.RouterDeps{
 		Live: live, Chats: chats, Credentials: routertest.Credentials{}, Gateway: routertest.NewGateway(replies...),

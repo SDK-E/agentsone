@@ -281,8 +281,8 @@ func (s *Tasks) wakeAssignee(ctx context.Context, actor domain.Actor, task domai
 	case errors.Is(err, core.ErrFrozen):
 		s.audit(ctx, actor, "task.wake.skipped", "task:"+task.ID, map[string]any{"agent": task.Assignee, "reason": "frozen"})
 	default:
-		s.Log.WarnContext(ctx, "wake the assignee", "task", task.ID, "agent", task.Assignee, "err", err)
-		s.audit(ctx, actor, "task.wake.failed", "task:"+task.ID, map[string]any{"agent": task.Assignee})
+		s.Log.ErrorContext(ctx, "wake the assignee", "task", task.ID, "agent", task.Assignee, "err", err)
+		s.auditFailure(ctx, actor, "task.wake.failed", "task:"+task.ID, map[string]any{"agent": task.Assignee}, err)
 	}
 }
 

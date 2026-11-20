@@ -21,6 +21,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/net/adapters/proxy"
 	"github.com/SDK-E/agentsone/internal/edge/net/adapters/upstream"
 	"github.com/SDK-E/agentsone/internal/edge/net/app"
+	"github.com/SDK-E/agentsone/internal/edge/net/domain"
 )
 
 // File names in the edge data folder.
@@ -58,6 +59,9 @@ type Config struct {
 	Resolver app.Resolver
 	// Dial opens outbound connections. The default is a plain dialer.
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Deny holds extra destination ranges the machine never reaches, even through an allowed
+	// name. The filter drops them from every answer, and the proxies check again at dial.
+	Deny domain.DenyList
 }
 
 // Addrs are the addresses the edge listens on.
@@ -101,7 +105,7 @@ func Start(ctx context.Context, cfg Config) (*Edge, error) {
 		Resolver:    cfg.Resolver,
 		Observer:    cfg.Observer,
 		Log:         cfg.Log,
-		Filter:      app.FilterConfig{Edge: cfg.InnerAddr},
+		Filter:      app.FilterConfig{Edge: cfg.InnerAddr, Deny: cfg.Deny},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start edge filter: %w", err)
@@ -116,14 +120,14 @@ func Start(ctx context.Context, cfg Config) (*Edge, error) {
 	e := &Edge{
 		running: running,
 		dns:     dnsserver.New(filter, cfg.Log),
-		proxy:   proxy.New(filter, proxy.Config{Dial: cfg.Dial, Log: cfg.Log}),
+		proxy:   proxy.New(filter, proxy.Config{Dial: cfg.Dial, Reachable: cfg.Deny.Reachable, Log: cfg.Log}),
 		addrs:   ls.addrs(),
 	}
 	e.dns.Start(ls.dnsUDP, ls.dnsTCP)
 	e.proxy.ServeHTTP(ls.http)
 	e.proxy.ServeTLS(ls.tls)
 	e.proxy.ServeProxy(ls.proxy)
-	cfg.Log.Info("edge internet filter started", "inner_addr", cfg.InnerAddr)
+	cfg.Log.Info("edge internet filter started", "inner_addr", cfg.InnerAddr, "egress_deny", cfg.Deny.Ranges())
 	return e, nil
 }
 
@@ -210,7 +214,7 @@ func (c Component) Start(ctx context.Context, env *component.Env) (component.Sto
 	}
 	e, err := Start(ctx, Config{
 		DataDir: env.DataDir, InnerAddr: env.InnerAddr, Ports: c.Ports, Log: log,
-		Observer: observer, Resolver: c.Resolver, Dial: c.Dial,
+		Observer: observer, Resolver: c.Resolver, Dial: c.Dial, Deny: domain.NewDenyList(env.EgressDeny),
 	})
 	if err != nil {
 		return nil, err

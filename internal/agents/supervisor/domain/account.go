@@ -5,6 +5,9 @@ package domain
 // HomeRoot holds the homes of custom agents.
 const HomeRoot = "/home/agents"
 
+// RootHomeRoot holds the homes of root agents, inside root's home.
+const RootHomeRoot = "/root/agents"
+
 // NoLoginShell is the shell of custom agent users. Agents never log in: no
 // password, no SSH, no console. Terminals for an agent are started by the
 // daemon, which runs the shell as the agent's user directly, so they do not
@@ -40,11 +43,12 @@ func (a Account) WithUID(uid int) Account {
 }
 
 // AccountFor returns the account of agent name. Root agents run as root and
-// need no user. A custom agent gets its own user, named after it, with a
-// private home (0700) under HomeRoot.
+// need no user; each has its own private home (0700) under RootHomeRoot. A
+// custom agent gets its own user, named after it, with a private home (0700)
+// under HomeRoot.
 func AccountFor(name string, isRoot bool) Account {
 	if isRoot {
-		return Account{User: "root", Home: "/root", IsRoot: true}
+		return Account{User: "root", Home: RootHomeRoot + "/" + name, IsRoot: true}
 	}
 	return Account{
 		User: name, Group: name, Home: HomeRoot + "/" + name,

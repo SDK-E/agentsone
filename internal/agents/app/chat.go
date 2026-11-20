@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 // OutputChunk is one piece of runner output, as the supervisor hands it on.
@@ -28,10 +30,22 @@ type reply struct {
 	text strings.Builder
 }
 
-type chatPayload struct {
-	MessageID string `json:"message_id"`
-	Text      string `json:"text"`
-	Author    string `json:"author"`
+// chatWake is the chat wake's payload: the runner contract's ChatMessage
+// (contract/schemas/runner/messages.schema.json), which the runner checks
+// strictly. The stored message's id (cht_) is the chat the runner answers
+// in; the runner's message id is the same ULID with the msg_ prefix. A
+// message a router agent posted for an assignment names that router.
+func chatWake(m domain.ChatMessage, c core.Caller) protocol.ChatMessage {
+	w := protocol.ChatMessage{
+		ID:     common.MessageID("msg_" + strings.TrimPrefix(m.ID, "cht_")),
+		ChatID: common.ChatID(m.ID), From: common.ActorRef(m.Author),
+		Text: common.Markdown(m.Text), SentAt: common.Timestamp(m.CreatedAt),
+	}
+	if m.AssignmentID != "" && c.Kind == core.CallerAgent {
+		router := common.AgentName(c.Name)
+		w.RoutedBy = &router
+	}
+	return w
 }
 
 // SendChat posts the caller's message into agent's chat and wakes the
@@ -59,7 +73,7 @@ func (s *Society) postChat(ctx context.Context, agent, text, assignmentID string
 		return domain.ChatMessage{}, fmt.Errorf("store chat message: %w", err)
 	}
 	s.hub.Publish(agent, StreamChat, Frame{Message: &ChatFrame{Message: m}})
-	payload, err := json.Marshal(chatPayload{MessageID: m.ID, Text: m.Text, Author: author})
+	payload, err := json.Marshal(chatWake(m, c))
 	if err != nil {
 		return domain.ChatMessage{}, fmt.Errorf("encode chat wake: %w", err)
 	}

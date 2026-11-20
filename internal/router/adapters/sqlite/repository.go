@@ -66,7 +66,7 @@ func (r *Repository) List(ctx context.Context) ([]domain.StoredLine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list lines: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.StoredLine
 	for rows.Next() {
 		var agent, text, updated string

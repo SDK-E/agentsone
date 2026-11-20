@@ -98,7 +98,7 @@ func (c *Client) once(ctx context.Context, token string, body []byte) (string, e
 	if err != nil {
 		return "", retryable{fmt.Errorf("call gateway: %w", err)}
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer func() { _ = res.Body.Close() }() //nolint:errcheck // read-only body; ReadAll below reports read failures
 	raw, err := io.ReadAll(io.LimitReader(res.Body, maxBody))
 	if err != nil {
 		return "", retryable{fmt.Errorf("read gateway answer: %w", err)}

@@ -144,7 +144,7 @@ func (c *Client) Do(ctx context.Context, r domain.Request) (int, []byte, error) 
 	if err != nil {
 		return 0, nil, c.unreachable(err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // a read-only body has nothing to flush
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, nil, fmt.Errorf("read response: %w", err)
@@ -163,9 +163,11 @@ func (c *Client) Stream(ctx context.Context, r domain.Request, fn func(data []by
 	if err != nil {
 		return c.unreachable(err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // a read-only body has nothing to flush
 	if resp.StatusCode >= 400 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		// A short read keeps what arrived; ParseProblem falls back to the
+		// status text when the bytes are not a problem document.
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) //nolint:errcheck // partial error body still names the status
 		p := domain.ParseProblem(resp.StatusCode, b)
 		return &p
 	}

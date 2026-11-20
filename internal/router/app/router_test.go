@@ -39,7 +39,7 @@ func newRig(t *testing.T, creds app.Credentials, replies ...routertest.Reply) *r
 		routertest.Agent("scribe", "Docs writer"),
 		routertest.Agent("keeper", "Disk and package keeper"),
 	)
-	live := app.NewLiveList(memory.NewLines(), profiles, clock)
+	live := app.NewLiveList(memory.NewLines(), profiles, clock, nil)
 	ctx := context.Background()
 	for agent, line := range map[string]string{
 		"builder": "Goal: ship the docs site. Now: writing the page layout.",

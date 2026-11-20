@@ -2891,6 +2891,13 @@ type FileEncoding string
 type FileEntry struct {
 	Group string `json:"group"`
 
+	// LinkTarget Where a symlink points, as stored in the link (relative or absolute). Null or absent for
+	// other types.
+	//
+	//
+	// Examples: releases/42
+	LinkTarget *string `json:"link_target,omitempty"`
+
 	// Mode Examples: 0644
 	Mode string `json:"mode"`
 
@@ -3782,6 +3789,27 @@ type Plugin struct {
 	Version string `json:"version"`
 }
 
+// PluginFile One file of a panel plugin, read for the interface's panel host. Text files use `utf-8`;
+// others use `base64`.
+type PluginFile struct {
+	Content  string       `json:"content"`
+	Encoding FileEncoding `json:"encoding"`
+
+	// MediaType Media type from the file name, for example `text/html` or `image/svg+xml`.
+	//
+	// Examples: text/html
+	MediaType string `json:"media_type"`
+
+	// Path The normalised path inside the plugin, without a leading `./`.
+	//
+	// Examples: panel/index.html
+	Path string `json:"path"`
+
+	// PluginId Installed plugin id, `plg_` plus a ULID.
+	PluginId  PluginId `json:"plugin_id"`
+	SizeBytes int64    `json:"size_bytes"`
+}
+
 // PluginHealth defines model for PluginHealth.
 type PluginHealth string
 
@@ -3946,7 +3974,7 @@ type Problem struct {
 
 // Process defines model for Process.
 type Process struct {
-	// Agent Agent whose cgroup `/agents/<id>` holds the process.
+	// Agent Agent whose Linux user runs the process, null for other users.
 	Agent *string `json:"agent"`
 
 	// Command Full command line.
@@ -3959,7 +3987,7 @@ type Process struct {
 	// StartedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	StartedAt Timestamp `json:"started_at"`
 
-	// Unit systemd unit owning the process.
+	// Unit Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself.
 	Unit *string `json:"unit"`
 	User string  `json:"user"`
 }
@@ -4183,7 +4211,7 @@ type SemverRange = string
 type Service struct {
 	ActiveState ServiceActiveState `json:"active_state"`
 
-	// Agent Agent that owns the unit, for agent units.
+	// Agent Agent that owns the service. Null for the services the daemon reports today.
 	Agent       *string `json:"agent"`
 	Description string  `json:"description"`
 	Enabled     bool    `json:"enabled"`
@@ -4763,6 +4791,9 @@ type PackageName = string
 
 // Pid defines model for Pid.
 type Pid = int
+
+// PluginFilePath defines model for PluginFilePath.
+type PluginFilePath = string
 
 // PluginIdParameter Installed plugin id, `plg_` plus a ULID.
 type PluginIdParameter = PluginId
@@ -5455,6 +5486,13 @@ type ListPluginsParams struct {
 
 	// Limit Page size.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetPluginFileParams defines parameters for GetPluginFile.
+type GetPluginFileParams struct {
+	// Path A file inside the plugin, relative to its root, with forward slashes and an optional leading
+	// `./`, for example `./panel/index.html`. No segment may start with a dot.
+	Path PluginFilePath `form:"path" json:"path"`
 }
 
 // ListLiveListParams defines parameters for ListLiveList.

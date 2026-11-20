@@ -242,7 +242,7 @@ func (r *Repository) ListHumans(ctx context.Context) ([]domain.Human, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list humans: %w", err)
 	}
-	defer func() { _ = rows.Close() }() // read-only; Err below reports failures
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	out := []domain.Human{}
 	for rows.Next() {
 		h, err := scanHuman(rows)

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/contract/common"
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/sched/domain"
 )
@@ -189,14 +191,6 @@ type timerWake struct {
 	Note       string    `json:"note,omitempty"`
 }
 
-// firedData is the data of the agentsone.clock.schedule.fired event.
-type firedData struct {
-	Agent      string    `json:"agent"`
-	ScheduleID string    `json:"schedule_id"`
-	Name       string    `json:"name"`
-	Due        time.Time `json:"due"`
-}
-
 func (s *Schedules) fire(ctx context.Context, sc domain.Schedule, now time.Time) (bool, error) {
 	if _, err := s.Ports.Agents.GetAgent(ctx, sc.Agent); errors.Is(err, core.ErrNotFound) {
 		s.Log.WarnContext(ctx, "schedule of an agent that is gone", "schedule", sc.ID, "agent", sc.Agent)
@@ -235,19 +229,15 @@ func (s *Schedules) fire(ctx context.Context, sc domain.Schedule, now time.Time)
 }
 
 // publishFired announces the fire on the bus. The agent is already woken, so
-// a failure is logged and does not undo the fire.
+// a failure does not undo the fire; it is logged and audited, because the
+// event and every trigger on it are lost.
 func (s *Schedules) publishFired(ctx context.Context, sc domain.Schedule, due time.Time) {
-	data, err := json.Marshal(firedData{Agent: sc.Agent, ScheduleID: sc.ID, Name: sc.EventName(), Due: due})
-	if err != nil {
-		s.Log.ErrorContext(ctx, "encode schedule event", "schedule", sc.ID, "err", err)
-		return
-	}
-	_, err = s.Ports.Events.Publish(ctx, core.Event{
-		Source: "/emitters/clock", Type: "agentsone.clock.schedule.fired", Subject: sc.ID,
-		DataContentType: "application/json", Data: data,
-		Actor: clockActor.String(), ChartScope: "agent:" + sc.Agent,
+	_, err := core.PublishData(ctx, s.Ports.Events, core.Publication{
+		Source: "/emitters/clock", Subject: sc.ID, Actor: clockActor.String(), ChartScope: "agent:" + sc.Agent,
+		Data: eventdata.ClockScheduleFired{Agent: sc.Agent, ScheduleID: sc.ID, Name: sc.EventName(), Due: common.Timestamp(due)},
 	})
 	if err != nil {
-		s.Log.WarnContext(ctx, "publish schedule event", "schedule", sc.ID, "err", err)
+		s.Log.ErrorContext(ctx, "publish schedule event", "schedule", sc.ID, "err", err)
+		s.auditFailure(ctx, clockActor, "event.publish", "schedule:"+sc.ID, map[string]any{"agent": sc.Agent}, err)
 	}
 }

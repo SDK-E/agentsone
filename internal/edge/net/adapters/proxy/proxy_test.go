@@ -32,7 +32,13 @@ const (
 	blockedName = "blocked.example.com"
 	allowedIP   = "203.0.113.10"
 	echoIP      = "203.0.113.11"
+	// hairpinName is allowed, but resolves to an address the operator denied, such as the host's
+	// own public address.
+	hairpinName = "hairpin.example.com"
+	hairpinIP   = "198.51.100.7"
 )
+
+var deny = domain.NewDenyList([]netip.Prefix{netip.MustParsePrefix(hairpinIP + "/32")})
 
 // fixture is the three proxies in front of a fake internet: allowed.example.com is an HTTP and
 // an HTTPS test server, echo.example.com echoes bytes on port 443, and nothing else exists.
@@ -53,8 +59,9 @@ func newFixture(t *testing.T) *fixture {
 	resolver.Set(allowedName, allowedIP)
 	resolver.Set(echoName, echoIP)
 	resolver.Set(blockedName, "203.0.113.20")
+	resolver.Set(hairpinName, hairpinIP)
 	var entries []domain.Entry
-	for _, n := range []string{allowedName, echoName} {
+	for _, n := range []string{allowedName, echoName, hairpinName} {
 		p, _ := domain.ParsePattern(n)
 		entries = append(entries, domain.Entry{Pattern: p})
 	}
@@ -65,6 +72,7 @@ func newFixture(t *testing.T) *fixture {
 		Observer:    f.observer,
 		FreezeStore: nettest.NewFreezeStore(),
 		AllowList:   list,
+		Deny:        deny,
 		Edge:        netip.MustParseAddr("127.0.0.1"),
 	})
 
@@ -85,9 +93,12 @@ func newFixture(t *testing.T) *fixture {
 		allowedIP + ":80":  plain.Listener.Addr().String(),
 		allowedIP + ":443": secure.Listener.Addr().String(),
 		echoIP + ":443":    echo.Addr().String(),
+		// Reachable if the edge ever dialed it, so a missing refusal would show as a success.
+		hairpinIP + ":80":  plain.Listener.Addr().String(),
+		hairpinIP + ":443": secure.Listener.Addr().String(),
 	}}
 
-	srv := proxy.New(f.filter, proxy.Config{Dial: f.dialer.Dial, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	srv := proxy.New(f.filter, proxy.Config{Dial: f.dialer.Dial, Reachable: deny.Reachable, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	httpLn, tlsLn, proxyLn := listen(t), listen(t), listen(t)
 	srv.ServeHTTP(httpLn)
 	srv.ServeTLS(tlsLn)
@@ -393,6 +404,81 @@ func TestProxy_RefusesPlainHTTPToANameNotOnTheList(t *testing.T) {
 
 	if err != nil || code != http.StatusForbidden {
 		t.Fatalf("GET = %d, %v; want 403", code, err)
+	}
+}
+
+func TestDenyList_RefusesAnAllowedNameOnEveryEntryPoint(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		client func(f *fixture) *http.Client
+		url    string
+	}{
+		{"transparent http", func(f *fixture) *http.Client { return client(f.httpAddr) }, "http://" + hairpinName + "/"},
+		{"transparent tls", func(f *fixture) *http.Client { return client(f.tlsAddr) }, "https://" + hairpinName + "/"},
+		{"proxy connect", func(f *fixture) *http.Client { return proxyClient(f.proxy) }, "https://" + hairpinName + "/"},
+		{"proxy plain http", func(f *fixture) *http.Client { return proxyClient(f.proxy) }, "http://" + hairpinName + "/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f := newFixture(t)
+
+			code, _, err := get(t, tt.client(f), tt.url)
+
+			if err == nil && code != http.StatusForbidden {
+				t.Fatalf("GET %s = %d, want a refusal", tt.url, code)
+			}
+			f.neverDialed(t, hairpinIP)
+			ev, err := f.observer.Wait(t.Context(), func(e app.Event) bool { return e.Name == hairpinName })
+			if err != nil || ev.Allowed || ev.Reason != string(domain.ReasonDeniedDestination) {
+				t.Fatalf("record = %+v, %v; want a denied destination refusal", ev, err)
+			}
+		})
+	}
+}
+
+// leakyRouter allows every request and returns one fixed address, as a filter with a bug
+// would.
+type leakyRouter struct{ addr netip.AddrPort }
+
+func (r leakyRouter) Route(context.Context, app.EgressRequest) (app.Route, error) {
+	name, err := domain.ParseName(hairpinName)
+	return app.Route{Name: name, Addrs: []netip.AddrPort{r.addr}}, err
+}
+
+func (leakyRouter) Track(io.Closer) (func(), bool) { return func() {}, true }
+
+func TestConnect_NeverDialsAnAddressTheRouterShouldNotHaveReturned(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		addr      string
+		reachable func(netip.Addr) bool
+	}{
+		{"denied by the operator", hairpinIP + ":443", deny.Reachable},
+		{"not public, with the default check", "10.0.0.1:443", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dialer := &fakeDialer{routes: map[string]string{tt.addr: listen(t).Addr().String()}}
+			srv := proxy.New(leakyRouter{addr: netip.MustParseAddrPort(tt.addr)}, proxy.Config{
+				Dial: dialer.Dial, Reachable: tt.reachable, Log: slog.New(slog.DiscardHandler),
+			})
+			ln := listen(t)
+			srv.ServeProxy(ln)
+			t.Cleanup(func() { _ = srv.Close() })
+
+			status := rawConnect(t, ln.Addr().String(), hairpinName+":443")
+
+			if !strings.Contains(status, "502") {
+				t.Fatalf("CONNECT status = %q, want 502", status)
+			}
+			if got := dialer.Dialed(); len(got) != 0 {
+				t.Fatalf("the edge dialed %v, want nothing", got)
+			}
+		})
 	}
 }
 

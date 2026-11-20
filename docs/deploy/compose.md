@@ -65,6 +65,10 @@ them, see [Releasing](../../CONTRIBUTING.md#releasing).
   internet and no published ports.
 - The machine's DNS server is the edge. The edge answers only names on the allow list, and
   passes traffic only to those names.
+- The edge connects only to public internet addresses: an allowed name that resolves to a
+  private, loopback, link-local or shared (`100.64.0.0/10`) address is refused. Add more ranges
+  with `AGENTSONE_EGRESS_DENY`, for example the host's own public addresses when a proxy on the
+  host trusts the network the edge leaves from.
 - The edge web door listens on the outer network only, never on the inner one.
 - `control` is only on `outer`. It talks to the edge through a socket on a volume that the
   machine never mounts.
@@ -99,6 +103,7 @@ Every setting has a default. Change one with an environment variable or a `.env`
 | `AGENTSONE_OUTER_SUBNET` | `10.77.42.32/27` | Subnet of the outer network. |
 | `AGENTSONE_OUTER_DYNAMIC_RANGE` | `10.77.42.48/28` | Part of the outer subnet Docker hands out to control. |
 | `AGENTSONE_EDGE_OUTER_IP` | `10.77.42.34` | Edge address on the outer network, where the web door listens. |
+| `AGENTSONE_EGRESS_DENY` | empty | Extra destination ranges the machine never reaches, even through a name on the allow list. Comma-separated CIDR ranges or single addresses, IPv4 or IPv6, for example the host's own public addresses: `203.0.113.7/32,2001:db8::7/128`. The edge refuses to start when an item is not a range. Empty denies nothing beyond the ranges the edge always refuses. |
 
 The machine ceiling is a hard wall set by Docker outside the container. Root agents may change
 their own limits inside it, never above it. Custom agents are held to their per-agent limits.

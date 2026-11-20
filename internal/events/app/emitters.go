@@ -83,7 +83,13 @@ func (s *Service) RegisterEmitter(ctx context.Context, reg domain.Registration) 
 	}
 	if e.Kind == domain.KindProcess {
 		if err := s.d.Units.Start(ctx, e); err != nil {
-			_ = s.d.Emitters.SetEnabled(ctx, e.ID, false)
+			if derr := s.d.Emitters.SetEnabled(ctx, e.ID, false); derr != nil {
+				// The emitter now shows enabled but no unit runs it.
+				s.d.Log.ErrorContext(ctx, "emitter unit failed to start and the emitter could not be disabled",
+					"emitter", e.Name, "unit", e.Unit, "error", err, "disable_error", derr)
+			} else {
+				s.d.Log.WarnContext(ctx, "emitter unit failed to start; emitter disabled", "emitter", e.Name, "unit", e.Unit, "error", err)
+			}
 			return Registered{}, fmt.Errorf("start %s: %w", e.Unit, core.ErrUnavailable)
 		}
 	}

@@ -104,7 +104,7 @@ func (r *Tasks) List(ctx context.Context, f domain.TaskFilter) ([]domain.Task, e
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	out := []domain.Task{}
 	for rows.Next() {
 		t, err := scanTask(rows)

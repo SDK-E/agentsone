@@ -393,7 +393,7 @@ func luminance(hex string) (float64, error) {
 		return 0, themeErr("color %q is not #RRGGBB", hex)
 	}
 	channel := func(s string) float64 {
-		v, _ := strconv.ParseUint(s, 16, 8) // the pattern guarantees two hex digits
+		v, _ := strconv.ParseUint(s, 16, 8) //nolint:errcheck // colorRe above guarantees two hex digits
 		c := float64(v) / 255
 		if c <= 0.04045 {
 			return c / 12.92

@@ -45,6 +45,9 @@ type ServerInterface interface {
 	// EnablePlugin Enable a plugin
 	// (POST /plugins/{plugin_id}/enable)
 	EnablePlugin(w http.ResponseWriter, r *http.Request, pluginId PluginIdParameter)
+	// GetPluginFile Read a panel file
+	// (GET /plugins/{plugin_id}/files)
+	GetPluginFile(w http.ResponseWriter, r *http.Request, pluginId PluginIdParameter, params GetPluginFileParams)
 	// IssuePanelToken Issue a panel token
 	// (POST /plugins/{plugin_id}/panel-token)
 	IssuePanelToken(w http.ResponseWriter, r *http.Request, pluginId PluginIdParameter)
@@ -380,6 +383,48 @@ func (siw *ServerInterfaceWrapper) EnablePlugin(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetPluginFile operation middleware
+func (siw *ServerInterfaceWrapper) GetPluginFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "plugin_id" -------------
+	var pluginId PluginIdParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "plugin_id", r.PathValue("plugin_id"), &pluginId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "plugin_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPluginFileParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPluginFile(w, r, pluginId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // IssuePanelToken operation middleware
 func (siw *ServerInterfaceWrapper) IssuePanelToken(w http.ResponseWriter, r *http.Request) {
 
@@ -534,6 +579,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins/{plugin_id}", wrapper.GetPlugin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/disable", wrapper.DisablePlugin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/enable", wrapper.EnablePlugin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins/{plugin_id}/files", wrapper.GetPluginFile)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/panel-token", wrapper.IssuePanelToken)
 
 	return m
@@ -548,6 +594,8 @@ type ForbiddenApplicationProblemPlusJSONResponse Problem
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
 type NotImplementedApplicationProblemPlusJSONResponse Problem
+
+type PayloadTooLargeApplicationProblemPlusJSONResponse Problem
 
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
@@ -1251,6 +1299,163 @@ func (response EnablePlugin501ApplicationProblemPlusJSONResponse) VisitEnablePlu
 	return err
 }
 
+type GetPluginFileRequestObject struct {
+	PluginId PluginIdParameter `json:"plugin_id"`
+	Params   GetPluginFileParams
+}
+
+type GetPluginFileResponseObject interface {
+	VisitGetPluginFileResponse(w http.ResponseWriter) error
+}
+
+type GetPluginFile200ResponseHeaders struct {
+	CacheControl              *string
+	ContentSecurityPolicy     *string
+	CrossOriginResourcePolicy *string
+	XContentTypeOptions       *string
+}
+
+type GetPluginFile200JSONResponse struct {
+	Body    PluginFile
+	Headers GetPluginFile200ResponseHeaders
+}
+
+func (response GetPluginFile200JSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.ContentSecurityPolicy != nil {
+		w.Header().Set("Content-Security-Policy", fmt.Sprint(*response.Headers.ContentSecurityPolicy))
+	}
+	if response.Headers.CrossOriginResourcePolicy != nil {
+		w.Header().Set("Cross-Origin-Resource-Policy", fmt.Sprint(*response.Headers.CrossOriginResourcePolicy))
+	}
+	if response.Headers.XContentTypeOptions != nil {
+		w.Header().Set("X-Content-Type-Options", fmt.Sprint(*response.Headers.XContentTypeOptions))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile400ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile401ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile403ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile404ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile409ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile413ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginFile501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginFile501ApplicationProblemPlusJSONResponse) VisitGetPluginFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type IssuePanelTokenRequestObject struct {
 	PluginId PluginIdParameter `json:"plugin_id"`
 	Body     *IssuePanelTokenJSONRequestBody
@@ -1396,6 +1601,9 @@ type StrictServerInterface interface {
 	// EnablePlugin Enable a plugin
 	// (POST /plugins/{plugin_id}/enable)
 	EnablePlugin(ctx context.Context, request EnablePluginRequestObject) (EnablePluginResponseObject, error)
+	// GetPluginFile Read a panel file
+	// (GET /plugins/{plugin_id}/files)
+	GetPluginFile(ctx context.Context, request GetPluginFileRequestObject) (GetPluginFileResponseObject, error)
 	// IssuePanelToken Issue a panel token
 	// (POST /plugins/{plugin_id}/panel-token)
 	IssuePanelToken(ctx context.Context, request IssuePanelTokenRequestObject) (IssuePanelTokenResponseObject, error)
@@ -1646,6 +1854,33 @@ func (sh *strictHandler) EnablePlugin(w http.ResponseWriter, r *http.Request, pl
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(EnablePluginResponseObject); ok {
 		if err := validResponse.VisitEnablePluginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPluginFile operation middleware
+func (sh *strictHandler) GetPluginFile(w http.ResponseWriter, r *http.Request, pluginId PluginIdParameter, params GetPluginFileParams) {
+	var request GetPluginFileRequestObject
+
+	request.PluginId = pluginId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPluginFile(ctx, request.(GetPluginFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPluginFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPluginFileResponseObject); ok {
+		if err := validResponse.VisitGetPluginFileResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

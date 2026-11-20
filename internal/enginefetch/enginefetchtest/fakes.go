@@ -223,6 +223,8 @@ type Disk struct {
 	installed map[string][]byte
 	// FailInstall makes Install fail with this error.
 	FailInstall error
+	// FailRemovePart makes RemovePart fail with this error. The part stays.
+	FailRemovePart error
 }
 
 // NewDisk returns an empty disk.
@@ -334,6 +336,9 @@ func (d *Disk) PartSum(p domain.Pin) (string, int64, error) {
 func (d *Disk) RemovePart(p domain.Pin) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.FailRemovePart != nil {
+		return d.FailRemovePart
+	}
 	delete(d.part, key(p))
 	return nil
 }

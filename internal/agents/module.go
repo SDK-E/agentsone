@@ -12,6 +12,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/agents/adapters/sqlite"
 	"github.com/SDK-E/agentsone/internal/agents/app"
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/summaries"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/store"
 )
@@ -42,6 +43,9 @@ type Module struct {
 	// stopSeed ends the seed wait; seedDone closes when it has ended.
 	stopSeed context.CancelFunc
 	seedDone chan struct{}
+	// supOpts is set by WithSupervisor; parts is the supervisor built on it.
+	supOpts *SupervisorOptions
+	parts   *supervisorParts
 }
 
 var _ core.Module = (*Module)(nil)
@@ -62,8 +66,16 @@ func New(deps core.Deps, opts ...Option) *Module {
 	for _, o := range opts {
 		o(m)
 	}
+	var rt *supervised
+	if m.supOpts != nil {
+		rt = &supervised{}
+		m.rt = rt
+	}
 	m.repo = sqlite.New(m.db)
 	m.society = app.New(m.repo, m.rt, deps.Ports, deps.Clock, deps.IDs)
+	if rt != nil {
+		m.buildSupervisor(deps, rt)
+	}
 	return m
 }
 
@@ -86,8 +98,17 @@ func (m *Module) Provide(p *core.Ports) {
 	p.Seed = m.society.SeedStatus(SmallSeed)
 }
 
-// Migrate creates the society tables.
-func (m *Module) Migrate(ctx context.Context) error { return sqlite.Migrate(ctx, m.db) }
+// Migrate creates the society tables, and the runner summaries table when
+// the supervisor is wired.
+func (m *Module) Migrate(ctx context.Context) error {
+	if err := sqlite.Migrate(ctx, m.db); err != nil {
+		return err
+	}
+	if m.parts != nil {
+		return summaries.Migrate(ctx, m.db)
+	}
+	return nil
+}
 
 // Start brings the machine in line with core.db before any agent wakes: the
 // container's root file system resets on restart, so every active agent's
@@ -97,6 +118,9 @@ func (m *Module) Start(ctx context.Context) error {
 	if _, ok := m.rt.(noRuntime); ok {
 		close(m.seedDone) // nothing can be hired, so there is no seed
 		return nil
+	}
+	if m.parts != nil {
+		m.parts.start(ctx, m.log)
 	}
 	all, err := m.repo.ListAgents(ctx)
 	if err != nil {
@@ -162,9 +186,12 @@ func (m *Module) startSeed(ctx context.Context) {
 // seed failed, or the module stopped.
 func (m *Module) SeedDone() <-chan struct{} { return m.seedDone }
 
-// Stop ends the seed wait.
+// Stop ends the seed wait, and the supervisor's timer and runner sockets.
 func (m *Module) Stop(context.Context) error {
 	m.stopSeed()
+	if m.parts != nil {
+		return m.parts.shutdown()
+	}
 	return nil
 }
 

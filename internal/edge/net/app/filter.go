@@ -35,6 +35,9 @@ type FilterConfig struct {
 	Observer    AuditObserver
 	FreezeStore FreezeStore
 	AllowList   domain.AllowList
+	// Deny holds the operator's extra destination ranges: an allowed name never connects to an
+	// address in them. The zero DenyList denies nothing beyond the non-public ranges.
+	Deny domain.DenyList
 	// Edge is the edge's own address on the inner network: the only answer the machine's DNS
 	// ever gets.
 	Edge netip.Addr
@@ -57,6 +60,7 @@ type Filter struct {
 	observer   AuditObserver
 	freezer    FreezeStore
 	policy     domain.Policy
+	deny       domain.DenyList
 	edge       netip.Addr
 	answerTTL  time.Duration
 	resolveTTL time.Duration
@@ -81,6 +85,7 @@ func NewFilter(cfg FilterConfig) *Filter {
 		observer:   cfg.Observer,
 		freezer:    cfg.FreezeStore,
 		policy:     domain.DefaultPolicy(),
+		deny:       cfg.Deny,
 		edge:       cfg.Edge,
 		answerTTL:  orDefault(cfg.AnswerTTL, DefaultAnswerTTL),
 		resolveTTL: orDefault(cfg.ResolveTTL, DefaultResolveTTL),
@@ -210,13 +215,16 @@ func (f *Filter) addresses(ctx context.Context, name domain.Name) ([]netip.Addr,
 	if err != nil {
 		return nil, domain.ReasonNotResolved
 	}
-	public := domain.PublicAddresses(found)
-	if len(public) == 0 {
-		return nil, domain.ReasonForbiddenDestination
+	// Only addresses that pass here enter the ledger, and the proxies connect only to ledger
+	// addresses, so a name that changes its answer later can never steer a connection into a
+	// non-public or denied range.
+	reachable, reason := f.deny.Destinations(found)
+	if reason != "" {
+		return nil, reason
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.ledger.Record(name, public, f.resolveTTL, f.clock.Now())
+	f.ledger.Record(name, reachable, f.resolveTTL, f.clock.Now())
 	return f.ledger.Addrs(name, f.clock.Now()), ""
 }
 

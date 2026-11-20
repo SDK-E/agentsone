@@ -174,8 +174,10 @@ recipe puts back what the agents added.
   (on a Mac) do this by default.
 - **Coolify must use Raw mode.** In its normal mode, Coolify attaches its own network to every
   service. That network has a route to the internet, which gives `machine` a way around `edge`.
-  In Raw mode, Coolify deploys the file as written. The daemon also checks at start that `machine`
-  has no default route, and refuses to start agents if it has one.
+  In Raw mode, Coolify deploys the file as written. The daemon also checks, at start and every 5
+  minutes, that `machine` has no default route and no network besides the inner one. It logs the
+  answer (`network wall holds: no default route, interfaces: eth0`) and, while the wall does not
+  hold, refuses to wake agents and records that in the audit trail.
 - **Own address range.** The inner network uses a fixed range, set by variables in `compose.yaml`.
   Two stacks on one server need two different ranges.
 

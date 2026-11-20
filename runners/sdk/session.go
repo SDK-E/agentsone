@@ -229,8 +229,10 @@ func (s *session) onDeliver(id int, params json.RawMessage) {
 		_ = s.conn.respondError(&id, CodeUnknownTurn, "Unknown turn", map[string]string{"turnId": d.turnID})
 		return
 	}
-	cur.push(d.delivery)
+	// Answer before the turn sees the message, so the response always comes
+	// before anything the turn sends in reaction to it.
 	_ = s.conn.respond(id, empty{})
+	cur.push(d.delivery)
 }
 
 func (s *session) onCancel(id int, params json.RawMessage) {

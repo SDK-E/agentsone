@@ -43,6 +43,10 @@ func (s *Service) Send(ctx context.Context, m core.BusMessage) (core.BusMessage,
 	return core.BusMessage{ID: stored.ID, From: stored.From, To: m.To, Body: stored.Text, Sent: stored.CreatedAt}, nil
 }
 
+func isSystemActor(actor string) bool {
+	return strings.HasPrefix(actor, string(core.CallerSystem)+":")
+}
+
 // senderOf decides who sends a message that names its sender.
 func (s *Service) senderOf(ctx context.Context, from string) (core.Caller, error) {
 	if !domain.ValidActor(from) {
@@ -56,7 +60,8 @@ func (s *Service) senderOf(ctx context.Context, from string) (core.Caller, error
 		if actor == from {
 			return c, nil
 		}
-		if !isPrivileged(c) {
+		// Only the daemon speaks as the system; a root agent speaks for agents.
+		if !isPrivileged(c) || (isSystemActor(from) && c.Kind != core.CallerSystem) {
 			return core.Caller{}, fmt.Errorf("%w: %s may not send as %s", core.ErrForbidden, actor, from)
 		}
 	}

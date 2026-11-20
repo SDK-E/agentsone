@@ -91,6 +91,33 @@ content" warnings.
 
 ## Changelog
 
+### 1.1.1
+
+Descriptions and examples only. No schema change.
+
+- The machine runs no systemd. `listServices` reports the services the daemon reports, today
+  `agentsoned.service` and `machine-recipe.service`; `Process.unit` is always null, because the daemon
+  supervises agent runners itself. The descriptions of the service operations, `Process.unit`,
+  `Process.agent`, `Service.agent` and the `unit` path parameter say so.
+- The fixtures `listProcesses`, `listProcesses.long-text` and `listServices` match what the daemon
+  really returns: runner and daemon command lines, unit null, two services.
+
+### 1.1.0
+
+Additive (minor: a new operation).
+
+- New operation `getPluginFile`, `GET /v1/plugins/{plugin_id}/files?path=<path>`: one file of a
+  panel plugin, as JSON (`PluginFile`: path, media type, `utf-8` or `base64` content, size), for
+  the interface's panel host. Humans only. The plugin must be installed and enabled, the
+  normalised path must lie inside the folder of a declared panel entry, and the file is at most
+  4 MiB. The response carries `Content-Security-Policy: sandbox; default-src 'none'`,
+  `X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: same-origin` and
+  `Cache-Control: no-store`. It is JSON, never a document, so visiting the address cannot run
+  the file.
+- `FileEntry.link_target` (optional, string or null): where a symlink points.
+- New fixtures `getPluginFile` and `getPluginFile.error` (the plugin is turned off); the
+  `listFiles` symlink now names its target.
+
 ### 1.0.5
 
 Additive.

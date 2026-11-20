@@ -50,6 +50,7 @@ type Module struct {
 	terminals *app.Terminals
 	startup   *app.StartupGate
 	humans    *humanapp.Users
+	limits    domain.AgentLimits
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -95,11 +96,21 @@ func RealSystem(cfg *core.Config, clock core.Clock) System {
 	}
 }
 
+// Option changes how the machine module is built.
+type Option func(*Module)
+
+// WithAgentLimits reports l, how custom agents' limits hold on this machine
+// (decided by the daemon's start probe), in the metrics. Without it the
+// metrics leave agent_limits out.
+func WithAgentLimits(l domain.AgentLimits) Option { return func(m *Module) { m.limits = l } }
+
 // New builds the machine module on the real container.
-func New(deps core.Deps) *Module { return NewWith(deps, RealSystem(deps.Config, deps.Clock)) }
+func New(deps core.Deps, opts ...Option) *Module {
+	return NewWith(deps, RealSystem(deps.Config, deps.Clock), opts...)
+}
 
 // NewWith builds the machine module on sys.
-func NewWith(deps core.Deps, sys System) *Module {
+func NewWith(deps core.Deps, sys System, opts ...Option) *Module {
 	m := app.New(app.Deps{
 		Packages: sys.Packages, Files: sys.Files, Processes: sys.Processes, Users: sys.Users,
 		Metrics: sys.Metrics, Recipes: sys.Recipes, Baseline: sys.Baseline, Power: sys.Power, Timer: sys.Timer,
@@ -109,11 +120,18 @@ func NewWith(deps core.Deps, sys System) *Module {
 		Start: sys.Pty, Users: sys.Users, Cells: lateCells{deps.Ports}, Audit: auditPort{deps.Ports},
 		Log: deps.Log, Clock: deps.Clock, IDs: deps.IDs,
 	})
-	return &Module{
+	mod := &Module{
 		deps: deps, settings: defaultSettings(), machine: m, terminals: terms,
 		startup: app.NewStartupGate(), humans: humanapp.New(lateHumans{deps.Ports}, sys.HumanAccounts),
 	}
+	for _, o := range opts {
+		o(mod)
+	}
+	return mod
 }
+
+// AgentLimits is how custom agents' limits hold, as WithAgentLimits set it.
+func (m *Module) AgentLimits() domain.AgentLimits { return m.limits }
 
 // HumanUsers makes humans' Linux users on demand, for programs that run as
 // a human (the editor, the desktop).
@@ -129,7 +147,7 @@ func (m *Module) Provide(p *core.Ports) { p.Startup = m.startup }
 // API serves the machine tag, terminals included. The net tag (per-agent
 // network rules) and the ide tag answer 501 until their work packages land.
 func (m *Module) API() core.API {
-	h := httpadapter.New(m.machine, m.deps.Config.AgentHome).WithTerminals(m.terminals)
+	h := httpadapter.New(m.machine, m.deps.Config.AgentHome).WithTerminals(m.terminals).WithAgentLimits(m.limits)
 	return core.API{Groups: []core.APIGroup{
 		machineapi.Group(h, h.Terminal),
 		netapi.Group(netapi.Unimplemented{}),

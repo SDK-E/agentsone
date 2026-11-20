@@ -29,6 +29,66 @@ describe("Machine panel", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says quietly that the kernel holds agent limits", async () => {
+    renderWith(<MachinePanel />);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    expect(await within(machine).findByText("Agent limits: held by the kernel.")).toBeVisible();
+    expect(within(machine).queryByRole("note")).toBeNull();
+  });
+
+  it("says plainly when agent limits are soft, and why", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoft;
+    const { container } = renderWith(<MachinePanel />, api);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    const note = await within(machine).findByRole("note", { name: "Agent limits" });
+    expect(note).toHaveTextContent(
+      "Agent limits: soft. Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU or memory, and still caps how many processes each agent runs.",
+    );
+    // The daemon's reason: why, then the fix as a list with configuration names as code.
+    expect(
+      within(note).getByText(
+        "The machine container's cgroup tree is read-only, so the daemon cannot give each custom agent a cgroup of its own.",
+      ),
+    ).toBeVisible();
+    expect(within(note).getByText("To fix:")).toBeVisible();
+    const steps = within(within(note).getByRole("list")).getAllByRole("listitem");
+    expect(steps).toHaveLength(3);
+    expect(steps[0]).toHaveTextContent(
+      "Make sure compose.yaml has cgroup: private and security_opt: writable-cgroups=true for the machine service.",
+    );
+    const first = steps[0];
+    if (!first) throw new Error("no first step");
+    expect(within(first).getByText("cgroup: private").tagName).toBe("CODE");
+    expect(within(machine).queryByText("Agent limits: held by the kernel.")).toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows a long reason in full", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoftLong;
+    renderWith(<MachinePanel />, api);
+
+    const note = await screen.findByRole("note", { name: "Agent limits" });
+    const steps = within(within(note).getByRole("list")).getAllByRole("listitem");
+    expect(steps).toHaveLength(4);
+    expect(steps[3]).toHaveTextContent("Restart the machine and check its log for limits: hard.");
+  });
+
+  it("says nothing about agent limits when an older daemon does not report them", async () => {
+    const api = new FakeApi();
+    const older = { ...fixtures.metrics };
+    delete older.agent_limits;
+    api.metrics = older;
+    renderWith(<MachinePanel />, api);
+
+    const machine = await screen.findByRole("region", { name: "The machine" });
+    expect(await within(machine).findByText("11.5% of 4 cores")).toBeVisible();
+    expect(within(machine).queryByText(/Agent limits/)).toBeNull();
+  });
+
   it("names the program and folds a long command to two lines", async () => {
     const user = userEvent.setup();
     const api = new FakeApi();

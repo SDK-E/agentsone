@@ -27,6 +27,20 @@ func toMetrics(m domain.Metrics) api.MachineMetrics {
 	}
 }
 
+// toAgentLimits is nil when the daemon was not told, so the field is left
+// out. A reason goes out only with soft limits.
+func toAgentLimits(l domain.AgentLimits) *api.AgentLimitsHold {
+	switch l.Mode {
+	case domain.LimitsHard:
+		return &api.AgentLimitsHold{Mode: api.AgentLimitsHoldModeHard}
+	case domain.LimitsSoft:
+		soft := domain.SoftLimits(l.Reason)
+		return &api.AgentLimitsHold{Mode: api.AgentLimitsHoldModeSoft, Reason: &soft.Reason}
+	default:
+		return nil
+	}
+}
+
 func toProcess(p domain.Process) api.Process {
 	return api.Process{
 		Pid: p.PID, Ppid: p.PPID, User: p.User, Command: p.Command,

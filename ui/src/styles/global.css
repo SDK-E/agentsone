@@ -239,6 +239,35 @@ ul.notice {
   overflow-wrap: anywhere;
 }
 
+/* Machine safety notice. Quiet: something holds less than it should, said calmly. The dashed
+   outline matches the soft wall label. */
+.safety--quiet {
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+}
+
+/* The daemon's reason text: lines, a short list, code for configuration names. */
+.reason {
+  overflow-wrap: anywhere;
+}
+
+.reason p,
+.reason__list {
+  margin: 0;
+}
+
+.reason__list {
+  display: grid;
+  gap: var(--space-xs);
+  padding-inline-start: var(--space-lg);
+}
+
+.reason__code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
 /* Entry screens: setup and sign in */
 .entry {
   display: grid;
@@ -493,6 +522,42 @@ ul.notice {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-md);
+}
+
+/* The title with the safety chip beside it. The chip is no taller than the title's line, so it
+   moves nothing when it arrives. */
+.society__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+/* The safety chip is a button that looks like the soft wall label: small and quiet, with a hit
+   area of 44px that reaches past its outline without moving anything. */
+.safety-chip {
+  position: relative;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.safety-chip::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.safety-chip:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.society__title .safety-chip {
+  margin-inline-start: 0;
 }
 
 .live-badge {

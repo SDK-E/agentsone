@@ -17,6 +17,8 @@ import budget from "../../../contract/fixtures/api/getBudget.json";
 import budgetSplit from "../../../contract/fixtures/api/getBudgetSplit.json";
 import createdTask from "../../../contract/fixtures/api/createTask.json";
 import machineMetrics from "../../../contract/fixtures/api/getMachineMetrics.json";
+import metricsSoftLong from "../../../contract/fixtures/api/getMachineMetrics.soft-limits-long-text.json";
+import metricsSoft from "../../../contract/fixtures/api/getMachineMetrics.soft-limits.json";
 import schedulesList from "../../../contract/fixtures/api/listSchedules.json";
 import tasksList from "../../../contract/fixtures/api/listTasks.json";
 import verification from "../../../contract/fixtures/api/verifyAuditChain.json";
@@ -113,6 +115,8 @@ export const fixtures = {
   budget: budget.body as Budget,
   split: budgetSplit.body as BudgetSplit,
   metrics: machineMetrics.body as MachineMetrics,
+  metricsSoft: metricsSoft.body as MachineMetrics,
+  metricsSoftLong: metricsSoftLong.body as MachineMetrics,
   tasks: tasksList.body.items as Task[],
   newTask: createdTask.body as Task,
   schedules: schedulesList.body.items as Schedule[],

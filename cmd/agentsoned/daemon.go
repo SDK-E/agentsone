@@ -11,8 +11,12 @@ import (
 	"os"
 
 	"github.com/SDK-E/agentsone/internal/agents"
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/process"
+	supdomain "github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/daemon"
+	"github.com/SDK-E/agentsone/internal/machine"
+	machinedomain "github.com/SDK-E/agentsone/internal/machine/domain"
 	"github.com/SDK-E/agentsone/internal/store"
 )
 
@@ -53,16 +57,31 @@ func openStores(ctx context.Context, cfg core.Config) (core.Stores, func() error
 	return s, closeAll, nil
 }
 
-// serve runs the daemon until ctx ends. Custom agents' cgroups go under
-// cgroupRoot, the root the boot probe prepared; empty means soft limits.
-func serve(ctx context.Context, deps core.Deps, cgroupRoot string) error {
-	return serveModules(ctx, deps, modules(deps, cgroupRoot))
+// serve runs the daemon until ctx ends, with limits as the boot probe
+// decided them.
+func serve(ctx context.Context, deps core.Deps, limits process.Boot) error {
+	return serveModules(ctx, deps, modules(deps, limits))
 }
 
-// modules are the daemon's modules, as internal/daemon wires them, with
-// the runner processes on cgroupRoot.
-func modules(deps core.Deps, cgroupRoot string) []core.Module {
-	return daemon.Modules(deps, daemon.WithSupervisor(agents.SupervisorOptions{CgroupRoot: cgroupRoot}))
+// modules are the daemon's modules, as internal/daemon wires them. Custom
+// agents' cgroups go under limits.Root, the root the boot probe prepared
+// (empty means soft limits), and the machine module reports how the limits
+// hold in its metrics.
+func modules(deps core.Deps, limits process.Boot) []core.Module {
+	held := agentLimits(limits)
+	return daemon.Modules(deps,
+		daemon.WithSupervisor(agents.SupervisorOptions{CgroupRoot: limits.Root}),
+		daemon.WithMachine(func(d core.Deps) core.Module { return machine.New(d, machine.WithAgentLimits(held)) }),
+	)
+}
+
+// agentLimits is how the machine module reports limits: hard, or soft with
+// plain words on why and how to make them hard.
+func agentLimits(b process.Boot) machinedomain.AgentLimits {
+	if b.Mode == supdomain.LimitsHard {
+		return machinedomain.HardLimits()
+	}
+	return machinedomain.SoftLimits(b.Reason.Advice())
 }
 
 // serveModules serves mods until ctx ends, and tells systemd once the

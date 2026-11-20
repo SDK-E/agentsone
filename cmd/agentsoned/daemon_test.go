@@ -4,15 +4,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"unicode/utf8"
 
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/process"
+	supdomain "github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
+	"github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
+	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 )
 
@@ -22,6 +28,16 @@ import (
 // socket path fits the macOS limit of 104 bytes.
 func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 	t.Helper()
+	return startDaemonWith(t, deps, softBoot)
+}
+
+// softBoot is a boot probe that found no cgroup v2, as on a host without it.
+var softBoot = process.Boot{Mode: supdomain.LimitsSoft, Reason: process.ReasonNoCgroupV2}
+
+// startDaemonWith is startDaemon with limits as the boot probe's answer. A
+// test passes a Boot in place of probing the host.
+func startDaemonWith(t *testing.T, deps core.Deps, limits process.Boot) *http.Client {
+	t.Helper()
 	deps.Config.RuntimeDir = t.TempDir()
 	deps.Config.API.Addr = "127.0.0.1:0"
 	logs, _ := newMessageLog()
@@ -29,7 +45,7 @@ func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- serveModules(ctx, deps, testModules(t, deps)) }()
+	go func() { done <- serveModules(ctx, deps, testModulesWith(t, deps, limits)) }()
 	select {
 	case <-logs.ready:
 	case err := <-done:
@@ -49,10 +65,18 @@ func startDaemon(t *testing.T, deps core.Deps) *http.Client {
 // system, so tests never read or change the host's packages and files.
 func testModules(t *testing.T, deps core.Deps) []core.Module {
 	t.Helper()
-	mods := modules(deps, "")
+	return testModulesWith(t, deps, softBoot)
+}
+
+// testModulesWith is testModules with limits as the boot probe's answer.
+// The no-op machine reports the agent limits the real wiring gave the
+// machine module.
+func testModulesWith(t *testing.T, deps core.Deps, limits process.Boot) []core.Module {
+	t.Helper()
+	mods := modules(deps, limits)
 	for i, m := range mods {
-		if m.Name() == "machine" {
-			mods[i] = machinetest.New(deps)
+		if wired, ok := m.(*machine.Module); ok {
+			mods[i] = machinetest.New(deps, machine.WithAgentLimits(wired.AgentLimits()))
 			return mods
 		}
 	}
@@ -80,6 +104,60 @@ func TestDaemon_Serves(t *testing.T) {
 	// A path outside the API is not found.
 	if code := get(t, client, "http://agentsoned/v1/no-such-resource"); code != http.StatusNotFound {
 		t.Fatalf("GET /v1/no-such-resource status %d, want 404", code)
+	}
+}
+
+// The daemon reports in its machine metrics how custom agents' limits hold,
+// as the boot probe decided: hard without a reason, soft with plain words
+// of 1 to 500 characters. The schema cannot say "a reason only when soft",
+// so this test does.
+func TestDaemon_Limits(t *testing.T) {
+	for name, tc := range map[string]struct {
+		boot   process.Boot
+		want   api.AgentLimitsHoldMode
+		reason bool
+	}{
+		"hard": {process.Boot{Mode: supdomain.LimitsHard, Reason: process.ReasonWritable, Root: t.TempDir()}, api.AgentLimitsHoldModeHard, false},
+		"soft": {process.Boot{Mode: supdomain.LimitsSoft, Reason: process.ReasonReadOnly}, api.AgentLimitsHoldModeSoft, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			deps, _ := coretest.NewDeps(t)
+			client := startDaemonWith(t, deps, tc.boot)
+			resp, err := client.Get("http://agentsoned/v1/machine/metrics")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var m api.MachineMetrics
+			decodeErr := json.NewDecoder(resp.Body).Decode(&m)
+			if err := resp.Body.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("GET /v1/machine/metrics status %d, want 200", resp.StatusCode)
+			}
+			if decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			got := m.AgentLimits
+			if got == nil || got.Mode != tc.want {
+				t.Fatalf("agent_limits = %+v, want mode %s", got, tc.want)
+			}
+			if !tc.reason {
+				if got.Reason != nil {
+					t.Fatalf("hard limits came with a reason: %q", *got.Reason)
+				}
+				return
+			}
+			if got.Reason == nil {
+				t.Fatal("soft limits came without a reason")
+			}
+			if n := utf8.RuneCountInString(*got.Reason); n < 1 || n > 500 {
+				t.Fatalf("reason of %d characters, want 1 to 500: %q", n, *got.Reason)
+			}
+			if *got.Reason != process.ReasonReadOnly.Advice() {
+				t.Fatalf("reason %q, want the read-only advice", *got.Reason)
+			}
+		})
 	}
 }
 

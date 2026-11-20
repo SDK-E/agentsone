@@ -31,6 +31,39 @@ describe("LiveSociety", () => {
     expect(screen.getByText("Live")).toBeVisible();
   });
 
+  it("wears a small chip when agent limits are soft, named for where it leads", async () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoft;
+    const { container } = renderWith(<LiveSociety />, api);
+    await residents();
+
+    const chip = await screen.findByRole("button", {
+      name: "Limits: soft. Open the Machine panel to see why.",
+    });
+    expect(chip).toHaveTextContent("Limits: soft");
+    // Only the chip: the notice and the daemon's reason stay in the Machine panel.
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByText("To fix:")).toBeNull();
+    // The heading keeps its own name.
+    expect(screen.getByRole("heading", { level: 2, name: "The society" })).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
+  it("wears no chip when the kernel holds agent limits, or the daemon does not say", async () => {
+    renderWith(<LiveSociety />);
+    await residents();
+    expect(screen.queryByText("Limits: soft")).toBeNull();
+  });
+
+  it("wears no chip when the machine metrics fail", async () => {
+    const api = new FakeApi();
+    api.metrics = problem(503, "Metrics unavailable", "The machine could not be read.");
+    renderWith(<LiveSociety />, api);
+    await residents();
+    expect(screen.queryByText("Limits: soft")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("moves an agent to the top when its one-line changes on the stream", async () => {
     const api = new FakeApi();
     renderWith(<LiveSociety />, api);

@@ -25,15 +25,23 @@ type HomeOf func(agent string) string
 // Handler serves the machine group, terminals included.
 type Handler struct {
 	machineapi.Unimplemented
-	m     *app.Machine
-	terms *app.Terminals
-	home  HomeOf
+	m      *app.Machine
+	terms  *app.Terminals
+	home   HomeOf
+	limits domain.AgentLimits
 }
 
 var _ machineapi.StrictServerInterface = (*Handler)(nil)
 
 // New returns a handler over m.
 func New(m *app.Machine, home HomeOf) *Handler { return &Handler{m: m, home: home} }
+
+// WithAgentLimits reports l, how custom agents' limits hold, with the
+// metrics. Without it the metrics leave agent_limits out.
+func (h *Handler) WithAgentLimits(l domain.AgentLimits) *Handler {
+	h.limits = l
+	return h
+}
 
 // actor maps the request's caller to a machine actor. Requests without a
 // caller are refused.
@@ -71,7 +79,9 @@ func (h *Handler) GetMachineMetrics(ctx context.Context, _ machineapi.GetMachine
 	if err != nil {
 		return nil, err
 	}
-	return machineapi.GetMachineMetrics200JSONResponse(toMetrics(m)), nil
+	out := toMetrics(m)
+	out.AgentLimits = toAgentLimits(h.limits)
+	return machineapi.GetMachineMetrics200JSONResponse(out), nil
 }
 
 // ListProcesses lists processes, highest CPU first.

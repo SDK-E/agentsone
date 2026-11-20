@@ -59,7 +59,7 @@ func run(configPath string) error {
 		IDs:    core.SystemIDs(),
 		Stores: stores,
 		Ports:  core.NewPorts(),
-	}, limits.Root)
+	}, limits)
 }
 
 func newLogger(c core.LogConfig) (*slog.Logger, error) {

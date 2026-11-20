@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { PANEL_IDS } from "../panels/registry";
 import { expectNoAxeViolations } from "../test/axe";
-import { renderApp, renderWith } from "../test/fake-api";
+import { FakeApi, fixtures, renderApp, renderWith } from "../test/fake-api";
 import { media } from "../test/setup";
+import { Home } from "./home";
 import { PanelsArea } from "./panel-tabs";
 
 describe("Panels", () => {
@@ -193,6 +194,68 @@ describe("Panels", () => {
     await screen.findByText("Hard limit");
 
     await expectNoAxeViolations(container);
+  });
+});
+
+describe("Safety chip", () => {
+  beforeAll(async () => {
+    await import("../panels/machine");
+  });
+
+  const softApi = () => {
+    const api = new FakeApi();
+    api.metrics = fixtures.metricsSoft;
+    return api;
+  };
+  const chip = () =>
+    screen.findByRole("button", { name: "Limits: soft. Open the Machine panel to see why." });
+
+  it("opens the Machine panel at the agent limits notice", async () => {
+    const user = userEvent.setup();
+    renderWith(<Home />, softApi());
+
+    await user.click(await chip());
+    expect(screen.getByRole("tab", { name: "Machine" })).toHaveAttribute("aria-selected", "true");
+    const note = await screen.findByRole("note", { name: "Agent limits" });
+    await waitFor(() => {
+      expect(note).toHaveFocus();
+    });
+    // Once per request: turning away and back does not pull focus again.
+    await user.click(screen.getByRole("tab", { name: "Monitor" }));
+    await user.click(screen.getByRole("tab", { name: "Machine" }));
+    await screen.findByRole("note", { name: "Agent limits" });
+    expect(screen.getByRole("tab", { name: "Machine" })).toHaveFocus();
+  });
+
+  it("goes back to usage when the Machine panel shows another section", async () => {
+    const user = userEvent.setup();
+    renderWith(<Home />, softApi());
+
+    await user.click(screen.getByRole("tab", { name: "Machine" }));
+    await user.click(await screen.findByRole("radio", { name: "Processes" }));
+    await user.click(await chip());
+    expect(screen.getByRole("radio", { name: "Usage" })).toBeChecked();
+    const note = await screen.findByRole("note", { name: "Agent limits" });
+    await waitFor(() => {
+      expect(note).toHaveFocus();
+    });
+  });
+
+  it("opens the panels sheet on a phone", async () => {
+    const user = userEvent.setup();
+    media.phone = true;
+    renderWith(<Home />, softApi());
+
+    await user.click(await chip());
+    const sheet = screen.getByRole("dialog", { name: "Panels" });
+    expect(within(sheet).getByRole("tab", { name: "Machine" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const note = await within(sheet).findByRole("note", { name: "Agent limits" });
+    await waitFor(() => {
+      expect(note).toHaveFocus();
+    });
   });
 });
 

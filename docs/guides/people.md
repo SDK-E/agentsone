@@ -200,7 +200,11 @@ on the host, and the machine decides once, when it starts:
   this on an older or different setup, for example when the machine container does not have
   writable cgroups.
 
-To see which one you have, look at the machine's log right after it starts:
+The interface tells you too. Open the Machine panel: its usage card says "Agent limits: held by
+the kernel" when they are hard. When they are soft, it shows a note with the reason and how to
+make them hard, and the society on the home screen wears a small "Limits: soft" label.
+
+You can also look at the machine's log right after it starts:
 
 ```sh
 docker compose logs machine | grep 'limits:'

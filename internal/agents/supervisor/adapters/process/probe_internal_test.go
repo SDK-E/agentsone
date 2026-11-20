@@ -15,10 +15,10 @@ func TestPrepareReason_NamesAReadOnlyTree(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		err  error
-		want string
+		want Reason
 	}{
-		{fmt.Errorf("%w: create daemon cgroup: %w", ErrCgroupsReadOnly, &os.PathError{Op: "mkdir", Path: "/sys/fs/cgroup/daemon", Err: syscall.EROFS}), "cgroup tree is read-only"},
-		{fmt.Errorf("%w: enable controllers at the root: %w", ErrCgroupsReadOnly, syscall.EBUSY), "cgroup tree is not writable"},
+		{fmt.Errorf("%w: create daemon cgroup: %w", ErrCgroupsReadOnly, &os.PathError{Op: "mkdir", Path: "/sys/fs/cgroup/daemon", Err: syscall.EROFS}), ReasonReadOnly},
+		{fmt.Errorf("%w: enable controllers at the root: %w", ErrCgroupsReadOnly, syscall.EBUSY), ReasonNotWritable},
 	}
 	for _, tt := range tests {
 		if got := prepareReason(tt.err); got != tt.want {

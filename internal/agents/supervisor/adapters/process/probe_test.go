@@ -164,6 +164,59 @@ func TestBoot_LogsOneInfoLine(t *testing.T) {
 	}
 }
 
+// Every soft reason has plain words for people, short enough for the API
+// (1 to 500 characters): why on the first line, then a "To fix:" list in
+// the contract's reason format, never the limits themselves. Hard has none.
+func TestReasonAdvice(t *testing.T) {
+	t.Parallel()
+	soft := []process.Reason{
+		process.ReasonNoCgroupV2, process.ReasonNoCgroupMount, process.ReasonNotRoot,
+		process.ReasonHostRootCgroup, process.ReasonNoCPU, process.ReasonNoMemory,
+		process.ReasonNoPids, process.ReasonReadOnly, process.ReasonNotWritable,
+	}
+	seen := map[string]process.Reason{}
+	for _, r := range soft {
+		a := r.Advice()
+		if n := len([]rune(a)); n < 1 || n > 500 {
+			t.Errorf("%q: advice of %d characters, want 1 to 500", r, n)
+		}
+		lines := strings.Split(a, "\n")
+		if len(lines) < 3 || strings.HasPrefix(lines[0], "- ") || lines[1] != "To fix:" {
+			t.Errorf("%q: advice %q is not why, then \"To fix:\" and a list", r, a)
+		}
+		for _, l := range lines[2:] {
+			if !strings.HasPrefix(l, "- ") || strings.Count(l, "`")%2 != 0 {
+				t.Errorf("%q: fix line %q is not a list item with whole code spans", r, l)
+			}
+		}
+		if lines[len(lines)-1] != "- Restart the machine and check its log for `limits: hard`." {
+			t.Errorf("%q: advice %q does not end with the restart", r, a)
+		}
+		for _, restated := range []string{"capped", "process resource limits", "does not hold"} {
+			if strings.Contains(a, restated) {
+				t.Errorf("%q: advice restates the limits (%q)", r, restated)
+			}
+		}
+		if other, dup := seen[a]; dup && !sameCase(r, other) {
+			t.Errorf("%q and %q share advice", r, other)
+		}
+		seen[a] = r
+	}
+	if a := process.ReasonWritable.Advice(); a != "" {
+		t.Errorf("hard limits have advice %q", a)
+	}
+	if a := process.Reason("something new").Advice(); a != "" {
+		t.Errorf("an unknown reason has advice %q", a)
+	}
+}
+
+// sameCase is true for reasons that are one case for people: no cgroup v2
+// at all, or none at the mount.
+func sameCase(a, b process.Reason) bool {
+	pair := map[process.Reason]bool{process.ReasonNoCgroupV2: true, process.ReasonNoCgroupMount: true}
+	return pair[a] && pair[b]
+}
+
 func remove(name string) func(*testing.T, string) {
 	return func(t *testing.T, fs string) {
 		t.Helper()

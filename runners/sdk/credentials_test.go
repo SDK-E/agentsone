@@ -143,6 +143,10 @@ func TestCredentialsUpdateIsIgnoredOn10(t *testing.T) {
 
 // TestCredentialsUpdateRightAfterTheWelcome: an update the daemon sends
 // straight after the welcome is not lost while the SDK reads the welcome.
+// Like the daemon (rule H8), the test sends its barrier request only after
+// the runner's first status: Start returning is not enough, since a request
+// read before that status is refused as out of order and the barrier's
+// answer never comes.
 func TestCredentialsUpdateRightAfterTheWelcome(t *testing.T) {
 	for i := range 20 {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -152,6 +156,9 @@ func TestCredentialsUpdateRightAfterTheWelcome(t *testing.T) {
 			g.send(`{"jsonrpc":"2.0","id":1,"result":` + welcome11() + "}\n" +
 				credentialsLine(credentialsParams(freshGateway, farFuture, freshMCP, farFuture)))
 			c := recv(t, creds)
+			if l := g.line(); l != `{"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}` {
+				t.Fatalf("want status idle after the welcome, got %s", l)
+			}
 			g.barrier()
 			if got := tokens(c); got != freshGateway+" "+freshMCP {
 				t.Fatalf("tokens = %q, want the update sent right after the welcome", got)

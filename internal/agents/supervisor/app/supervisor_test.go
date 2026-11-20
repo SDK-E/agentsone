@@ -182,6 +182,49 @@ func TestWake_HoldsWakesWhileStarting(t *testing.T) {
 	}
 }
 
+// The connection marks itself ready only after Status returns (rule H8), but
+// the session is idle as soon as Status accepts the first status. A held wake
+// released by that status, and a wake sent meanwhile because the session is
+// idle, must wait for the connection instead of being refused and lost.
+func TestWake_WaitsUntilTheConnectionIsReady(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	_ = w.sup.Wake(t.Context(), "founder", core.WakeChat, json.RawMessage(`{}`))
+	h := w.sup.Connect("founder")
+	conn := newFakeConn()
+	h.Attach(conn)
+	if _, err := h.Hello(t.Context(), "1.0", helloParams); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle"}); err != nil {
+		t.Fatal(err)
+	}
+	direct := make(chan error, 1)
+	go func() { direct <- w.sup.Wake(t.Context(), "founder", core.WakeMessage, json.RawMessage(`{}`)) }()
+
+	conn.markReadyAfter(t, 2)
+
+	reasons := []string{}
+	for range 2 {
+		got := conn.next(t)
+		var p struct {
+			Reason string `json:"reason"`
+		}
+		_ = json.Unmarshal(got.params, &p)
+		if got.method != "wake" {
+			t.Fatalf("request = %s, want wake", got.method)
+		}
+		reasons = append(reasons, p.Reason)
+	}
+	slices.Sort(reasons)
+	if diff := cmp.Diff([]string{"chat", "message"}, reasons); diff != "" {
+		t.Fatalf("wakes (-want +got):\n%s", diff)
+	}
+	if err := <-direct; err != nil {
+		t.Fatalf("Wake() error = %v", err)
+	}
+}
+
 func TestWake_RefusesFrozenAgent(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

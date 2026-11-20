@@ -45,11 +45,17 @@ func (h *Handler) Attach(c RunnerConn) {
 	})
 }
 
+// call waits until the connection is attached and ready. Callers decide to
+// call from the session state, which Status sets before the connection marks
+// itself ready, so without the wait a call in that gap would be refused.
 func (h *Handler) call(ctx context.Context, method string, params, result any) error {
 	select {
 	case <-h.attached:
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+	if err := h.conn.WaitReady(ctx); err != nil {
+		return err
 	}
 	return h.conn.Call(ctx, method, params, result)
 }

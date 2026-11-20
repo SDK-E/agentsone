@@ -73,7 +73,8 @@ More stages check the walls the plan relies on, beyond the list: `wall-route`, `
 `wall-outer` (the network wall), `gateway` and `model-turn` (model calls through the gateway,
 ending at a fake provider), `audit-sink` (audit records from the daemon only), `rescue` (a
 restart keeps the machine, a recreate resets it), `web-door` (a header is never an identity) and
-`control` (the control page and its passphrase).
+`control` (the control page and its passphrase). `services-events` (the built-in services event
+source) is not covered yet: it waits for the daemon's service registry.
 
 ## Not covered by CI: manual
 

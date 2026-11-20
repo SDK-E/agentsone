@@ -213,6 +213,8 @@ jobs:
         run: e2e/run.sh echo-chat
       - name: Event to task
         run: e2e/run.sh event-to-task
+      - name: Services events
+        run: e2e/run.sh services-events
       - name: Memory
         run: e2e/run.sh memory
       - name: Plugin install

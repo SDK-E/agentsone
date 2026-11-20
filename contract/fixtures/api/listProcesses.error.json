@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "body": {
+    "type": "urn:agentsone:problem:validation",
+    "title": "The request is not valid",
+    "status": 400,
+    "detail": "The cursor has expired because the process list changed. Load the list again from the start.",
+    "instance": "/v1/machine/processes"
+  }
+}

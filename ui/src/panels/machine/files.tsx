@@ -99,9 +99,9 @@ export function FilesSection() {
               <p>{t("empty.body")}</p>
             </div>
           ) : (
-            <ul className="machine__list" aria-label={t("listLabel")}>
+            <ul className="machine__rows" aria-label={t("listLabel")}>
               {entries.map((entry) => (
-                <li key={entry.path} className="machine__item">
+                <li key={entry.path} className="machine__row">
                   <Entry
                     entry={entry}
                     onFolder={() => {
@@ -150,41 +150,45 @@ function Entry({
   onFile: () => void;
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.machine.files" });
-  const meta = t("meta", {
-    size: formatBytes(entry.size_bytes),
-    owner: entry.owner,
-    mode: entry.mode,
-  });
+  // The kind is said in words too: "README.md, File". The icon alone is not enough.
+  const said = `${entry.name}, ${t(`type.${entry.type}`)}`;
+  const name = (
+    <>
+      <TypeIcon type={entry.type} />
+      <span className="machine__name">{entry.name}</span>
+    </>
+  );
+  const onOpen = entry.type === "directory" ? onFolder : entry.type === "file" ? onFile : undefined;
   return (
     <>
-      <div className="machine__head">
-        {entry.type === "directory" ? (
-          <button
-            type="button"
-            className="machine__link"
-            aria-label={t("openFolder", { name: entry.name })}
-            onClick={onFolder}
-          >
-            {entry.name}/
-          </button>
-        ) : entry.type === "file" ? (
-          <button
-            type="button"
-            className="machine__link"
-            aria-label={t("readFile", { name: entry.name })}
-            onClick={onFile}
-          >
-            {entry.name}
-          </button>
-        ) : (
-          <p className="machine__title">{entry.name}</p>
-        )}
-        <span className="chip">{t(`type.${entry.type}`)}</span>
-      </div>
-      <p className="machine__meta">
-        <span>{meta}</span>
-      </p>
+      {onOpen ? (
+        <button type="button" className="machine__open" aria-label={said} onClick={onOpen}>
+          {name}
+        </button>
+      ) : (
+        <span className="machine__open machine__open--still">
+          {name}
+          <span className="visually-hidden">{`, ${t(`type.${entry.type}`)}`}</span>
+        </span>
+      )}
+      <span className="machine__size">{formatBytes(entry.size_bytes)}</span>
+      <span className="machine__owner">{entry.owner}</span>
     </>
+  );
+}
+
+/** A small picture of the entry's kind. The kind is also said in words for screen readers. */
+function TypeIcon({ type }: { type: FileEntry["type"] }) {
+  const paths: Record<FileEntry["type"], string> = {
+    directory: "M2 4.5h4l1.5 1.5H14v6.5H2z",
+    file: "M4 1.5h5l3 3v10H4z M9 1.5v3h3",
+    symlink: "M6 10l4-4 M7 6h3v3 M3 3.5h10v9H3z",
+    other: "M8 2.5a5.5 5.5 0 1 0 0.01 0z",
+  };
+  return (
+    <svg className="machine__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d={paths[type]} />
+    </svg>
   );
 }
 
@@ -213,6 +217,15 @@ function FileView({ entry, onClose }: { entry: FileEntry; onClose: () => void })
           {t("closeFile")}
         </button>
       </div>
+      <p className="machine__meta">
+        <span>
+          {t("meta", {
+            size: formatBytes(entry.size_bytes),
+            owner: `${entry.owner}:${entry.group}`,
+            mode: entry.mode,
+          })}
+        </span>
+      </p>
       {file.isPending && <Loading label={t("reading")} />}
       {file.isError && (
         <div role="alert" className="notice notice--danger stack-sm">

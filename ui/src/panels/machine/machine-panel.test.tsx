@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { FakeApi, fixtures, problem, renderWith } from "../../test/fake-api";
 import { parentOf } from "./files";
+import { programOf } from "./processes";
 import MachinePanel from ".";
 
 const show = async (section: string) => {
@@ -19,7 +20,43 @@ describe("Machine panel", () => {
     const machine = await screen.findByRole("region", { name: "The machine" });
     expect(await within(machine).findByText("11.5% of 4 cores")).toBeVisible();
     expect(screen.getByRole("radio", { name: "Usage" })).toBeChecked();
+    // A nearly full disk is said in words, not only by the bar's stripes.
+    expect(within(machine).getByText("Nearly full")).toBeVisible();
+    expect(within(machine).getByRole("meter", { name: "Disk /var" })).toHaveAttribute(
+      "aria-valuetext",
+      "13.8 GiB of 16.0 GiB, Nearly full",
+    );
     await expectNoAxeViolations(container);
+  });
+
+  it("names the program and folds a long command to two lines", async () => {
+    const user = userEvent.setup();
+    const api = new FakeApi();
+    const [first] = fixtures.processes;
+    if (!first) throw new Error("no process fixture");
+    api.processes = [
+      {
+        ...first,
+        command: `/usr/bin/node ${"/home/agents/builder/site/node_modules/vite.js ".repeat(3)}build`,
+      },
+    ];
+    renderWith(<MachinePanel />, api);
+    await show("Processes");
+
+    expect(await screen.findByText("node")).toBeVisible();
+    const toggle = screen.getByRole("button", { name: "Show full command" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Show less" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("finds the program name in a command line", () => {
+    expect(programOf("/usr/lib/agentsone/agentsoned --config x")).toBe("agentsoned");
+    expect(programOf("bash -l")).toBe("bash");
+    expect(programOf("/")).toBe("/");
   });
 
   it("lists processes with who owns them and what they use", async () => {
@@ -118,8 +155,10 @@ describe("Machine panel, files", () => {
       "/home/agents/builder/site",
     );
     const list = screen.getByRole("list", { name: "Entries in this folder, folders first" });
-    expect(within(list).getByText("Link")).toBeVisible();
-    await user.click(within(list).getByRole("button", { name: "Open folder dist" }));
+    // A link is shown, but only folders and files open.
+    expect(within(list).getByText("current")).toBeVisible();
+    expect(within(list).queryByRole("button", { name: /^current/ })).toBeNull();
+    await user.click(within(list).getByRole("button", { name: "dist, Folder" }));
     expect(api.calls).toContain("listFiles /home/agents/builder/site/dist");
     await user.click(await screen.findByRole("button", { name: "Up one folder" }));
     expect(api.calls).toContain("listFiles /home/agents/builder");
@@ -143,7 +182,7 @@ describe("Machine panel, files", () => {
     renderWith(<MachinePanel />);
     await show("Files");
 
-    await user.click(await screen.findByRole("button", { name: "Read file README.md" }));
+    await user.click(await screen.findByRole("button", { name: "README.md, File" }));
     const view = await screen.findByRole("region", { name: "/home/agents/builder/site/README.md" });
     expect(await within(view).findByText(/Built by builder for the society/)).toBeVisible();
     expect(within(view).getByRole("heading")).toHaveFocus();
@@ -158,7 +197,7 @@ describe("Machine panel, files", () => {
     renderWith(<MachinePanel />, api);
     await show("Files");
 
-    await user.click(await screen.findByRole("button", { name: "Read file README.md" }));
+    await user.click(await screen.findByRole("button", { name: "README.md, File" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("This file could not be read.");
     expect(alert).toHaveTextContent("reads stop at 8 MiB.");
@@ -170,12 +209,12 @@ describe("Machine panel, files", () => {
     api.file = { ...fixtures.file, encoding: "base64", content: "AAEC", size_bytes: 2048 };
     renderWith(<MachinePanel />, api);
     await show("Files");
-    await user.click(await screen.findByRole("button", { name: "Read file README.md" }));
+    await user.click(await screen.findByRole("button", { name: "README.md, File" }));
     expect(await screen.findByText(/This file is not text/)).toHaveTextContent("2.0 KiB");
 
     await user.click(screen.getByRole("button", { name: "Close the file" }));
     api.file = { ...fixtures.file, truncated: true };
-    await user.click(screen.getByRole("button", { name: "Read file package.json" }));
+    await user.click(screen.getByRole("button", { name: "package.json, File" }));
     expect(await screen.findByText(/Only the first 8 MiB is shown/)).toBeVisible();
   });
 

@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "body": {
+    "type": "urn:agentsone:problem:unauthorized",
+    "title": "Sign in first",
+    "status": 401,
+    "detail": "Your session ended. Sign in again to see the terminals.",
+    "instance": "/v1/machine/pty"
+  }
+}

@@ -58,7 +58,8 @@ test("machine, usage fails", async ({ page }, testInfo) => {
   const clean = await useScenario(page, { only: { getMachineMetrics: "error" } });
   await openPanel(page, "Machine");
 
-  await expect(page.getByRole("alert").first()).toBeVisible();
+  await expect(page.getByRole("alert").first()).toContainText("Sign in again");
+  await viewport(page, "machine-usage-error", testInfo.project.name);
   await checkPage(page, testInfo, "machine-usage-error");
   clean();
 });
@@ -82,7 +83,8 @@ for (const [section, names] of Object.entries(LISTS) as [
       if (state === "empty") {
         await expect(page.getByRole("heading", { name: names.empty })).toBeVisible();
       } else if (state === "error") {
-        await expect(page.getByRole("alert").first()).toBeVisible();
+        // The daemon's own words from the error fixture, not a missing-fixture answer.
+        await expect(page.getByRole("alert").first()).toContainText("The machine said:");
       } else {
         await expect(
           page.getByRole("list", { name: names.list }).getByRole("listitem").first(),
@@ -100,7 +102,7 @@ test("machine, read a file", async ({ page }, testInfo) => {
   await openPanel(page, "Machine");
   await show(page, "Files");
 
-  await page.getByRole("button", { name: "Read file README.md" }).click();
+  await page.getByRole("button", { name: "README.md, File" }).click();
   const view = page.getByRole("region", { name: "/home/agents/builder/site/README.md" });
   await expect(view.getByText(/Built by builder for the society/)).toBeVisible();
   await view.scrollIntoViewIfNeeded();
@@ -114,7 +116,7 @@ test("machine, a file too large to read", async ({ page }, testInfo) => {
   await openPanel(page, "Machine");
   await show(page, "Files");
 
-  await page.getByRole("button", { name: "Read file README.md" }).click();
+  await page.getByRole("button", { name: "README.md, File" }).click();
   const alert = page.getByRole("alert");
   await expect(alert).toContainText("reads stop at 8 MiB");
   await alert.scrollIntoViewIfNeeded();

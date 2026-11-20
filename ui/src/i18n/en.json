@@ -197,7 +197,8 @@
         "hours_other": "{{count}} h",
         "minutes_one": "{{count}} min",
         "minutes_other": "{{count}} min",
-        "load": "Load {{values}}"
+        "load": "Load {{values}}",
+        "tone": { "low": "Nearly full", "full": "Full" }
       },
       "agents": {
         "title": "Agents",
@@ -522,7 +523,9 @@
         "unit": "Service {{unit}}",
         "cpu": "{{value}}% processor",
         "memory": "{{value}} memory",
-        "started": "Started"
+        "started": "Started",
+        "fullCommand": "Show full command",
+        "lessCommand": "Show less"
       },
       "services": {
         "lead": "The services systemd runs, including one for each agent and each event source.",
@@ -589,8 +592,6 @@
           "symlink": "Link",
           "other": "Other"
         },
-        "openFolder": "Open folder {{name}}",
-        "readFile": "Read file {{name}}",
         "meta": "{{size}} · {{owner}} · mode {{mode}}",
         "reading": "Reading the file…",
         "binary": "This file is not text, so it is not shown here. It is {{size}}.",

@@ -45,7 +45,7 @@ describe("Machine panel", () => {
     const machine = await screen.findByRole("region", { name: "The machine" });
     const note = await within(machine).findByRole("note", { name: "Agent limits" });
     expect(note).toHaveTextContent(
-      "Agent limits: soft. Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU, caps memory for each process rather than each agent, and still caps how many processes each agent runs.",
+      "Agent limits: soft. Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU or memory, and still caps how many processes each agent runs.",
     );
     // The daemon's reason: why, then the fix as a list with configuration names as code.
     expect(

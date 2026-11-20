@@ -106,7 +106,7 @@
     "limitsSoft": {
       "label": "Agent limits",
       "title": "Agent limits: soft.",
-      "body": "Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU, caps memory for each process rather than each agent, and still caps how many processes each agent runs.",
+      "body": "Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU or memory, and still caps how many processes each agent runs.",
       "chip": "Limits: soft",
       "chipLabel": "Limits: soft. Open the Machine panel to see why."
     }

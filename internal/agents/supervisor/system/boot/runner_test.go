@@ -34,7 +34,10 @@ import (
 const binEnv = "AGENTSONE_SYSTEST_BIN"
 
 // scribe has the limits of the custom agent the demo machine could not run:
-// its Go runner died before main when the soft memory limit was RLIMIT_AS.
+// its Go runner died before main when the soft memory limit was RLIMIT_AS
+// at memory_mb. Node.js dies the same way under RLIMIT_DATA at memory_mb
+// ("Failed to reserve virtual memory for CodeRange"), so soft limits set no
+// memory rlimit at all.
 var scribe = domain.Limits{CPUQuotaPercent: 25, MemoryMaxBytes: 256 << 20, TasksMax: 16}
 
 // modelAnswer is what the fake model gateway answers every call with.
@@ -42,18 +45,20 @@ const modelAnswer = "Noted, alice."
 
 // nodeRunner is a minimal runner on Node.js, as a runner that is not Go
 // (the Claude engine runs on Node): hello, then one chat turn answered with
-// the chat text. It holds 32 MiB outside the V8 heap and about as much in
-// it, so both grow under the data limit before it answers, and logs what
-// it uses.
+// the chat text and V8's heap limit, which NODE_OPTIONS from the launcher
+// sets. It holds 32 MiB outside the V8 heap and about as much in it before
+// it answers, and logs what it uses.
 const nodeRunner = `'use strict';
 const net = require('node:net');
 const readline = require('node:readline');
+const v8 = require('node:v8');
 const outside = Array.from({length: 32}, () => Buffer.alloc(1 << 20, 1));
 const inside = Array.from({length: 250000}, (_, i) => ({i, s: 'x' + i}));
 const m = process.memoryUsage();
+const heapLimit = Math.round(v8.getHeapStatistics().heap_size_limit / 2 ** 20);
 process.stderr.write('node runner ' + process.version + ': rss=' + m.rss + ' heapUsed=' + m.heapUsed +
   ' external=' + m.external + ' held=' + outside.length + 'MiB+' + inside.length + ' objects' +
-  ' GOMEMLIMIT=' + process.env.GOMEMLIMIT + '\n');
+  ' heap_size_limit=' + heapLimit + 'MiB NODE_OPTIONS=' + process.env.NODE_OPTIONS + '\n');
 const sock = net.connect(process.env.AGENTSONE_RUNNER_SOCKET);
 const send = (msg) => sock.write(JSON.stringify(Object.assign({jsonrpc: '2.0'}, msg)) + '\n');
 sock.on('connect', () => send({id: 1, method: 'hello', params: {protocolVersions: ['1.0'],
@@ -67,7 +72,8 @@ readline.createInterface({input: sock}).on('line', (line) => {
     const {turnId, payload} = msg.params;
     send({id: msg.id, result: {}});
     send({method: 'status', params: {state: 'working', turnId}});
-    send({method: 'output', params: {turnId, chatId: payload.chatId, chunk: 0, text: 'node: ' + payload.text, final: true}});
+    send({method: 'output', params: {turnId, chatId: payload.chatId, chunk: 0, final: true,
+      text: 'node: ' + payload.text + '; heap limit ' + heapLimit + ' MiB'}});
     send({method: 'status', params: {state: 'idle', turnId}});
   }
 });
@@ -76,9 +82,9 @@ readline.createInterface({input: sock}).on('line', (line) => {
 // A custom agent's real runners start through the daemon's launcher, as
 // their own users with scribe's limits from the start probe, say hello over
 // their sockets and answer a chat: with hard limits on the machine recipe
-// and with soft ones on a read-only cgroup tree. Soft memory is each
-// process's data limit; the address space stays unlimited, which Go and
-// Node need to start.
+// and with soft ones on a read-only cgroup tree. No rlimit caps a runner's
+// memory in either mode; the Node.js runner's heap follows the hint of its
+// memory limit.
 func TestBoot_CustomAgentsRealRunnersAnswerAChat(t *testing.T) {
 	if !probed {
 		t.Fatalf("%s is not 1: run inside a container of its own (CI job go-integration)", inContainer)
@@ -106,7 +112,7 @@ func TestBoot_CustomAgentsRealRunnersAnswerAChat(t *testing.T) {
 	}{
 		{"echo runner, Go", "aoboot-echo", 200204, binary(bin, "agentsone-runner-echo"), "echo: hello scribe"},
 		{"openai runner, Go, as scribe ran", "aoboot-scribe", 200205, binary(bin, "agentsone-runner-openai"), modelAnswer},
-		{"node runner, Node.js of the machine image", "aoboot-node", 200206, nodeScript(bin), "node: hello scribe"},
+		{"node runner, Node.js of the machine image", "aoboot-node", 200206, nodeScript(bin), "node: hello scribe; heap limit %d MiB"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -121,18 +127,22 @@ func TestBoot_CustomAgentsRealRunnersAnswerAChat(t *testing.T) {
 			limits := runnerLimits(t, tc.uid)
 			t.Logf("proof boot runner %s (%s): as uid %d answered %q; mode=%s; %s",
 				tc.name, boot.Line(), tc.uid, answer, sup.LimitMode(acc.User), limits)
-			if answer != tc.want {
+			if heap := 0; strings.Contains(tc.want, "%d") {
+				// 3/4 of memory_mb for the old space, plus V8's small young
+				// generation; without the hint V8 sizes it from the host.
+				if _, err := fmt.Sscanf(answer, tc.want, &heap); err != nil || heap < 192 || heap >= 256 {
+					t.Errorf("runner answered %q, want %q with a heap limit from 192 to 255 MiB", answer, tc.want)
+				}
+			} else if answer != tc.want {
 				t.Errorf("runner answered %q, want %q", answer, tc.want)
 			}
 			if m := sup.LimitMode(acc.User); m != mode {
 				t.Errorf("limit mode = %s, want %s", m, mode)
 			}
-			data := "Max data size unlimited unlimited"
-			if mode == domain.LimitsSoft {
-				data = fmt.Sprintf("Max data size %d %d", scribe.MemoryMaxBytes, scribe.MemoryMaxBytes)
-			}
-			if as := "Max address space unlimited unlimited"; !strings.Contains(limits, as) || !strings.Contains(limits, data) {
-				t.Errorf("runner limits %q, want %q and %q", limits, as, data)
+			for _, want := range []string{"Max data size unlimited unlimited", "Max address space unlimited unlimited"} {
+				if !strings.Contains(limits, want) {
+					t.Errorf("runner limits %q, want %q", limits, want)
+				}
 			}
 		})
 	}

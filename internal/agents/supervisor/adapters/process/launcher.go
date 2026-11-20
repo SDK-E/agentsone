@@ -9,12 +9,13 @@
 // the cgroup, lowers rlimits and drops to the agent's user before it execs
 // the runner, so the runner never runs unlimited or as root. Without a
 // writable tree only process resource limits apply and the mode is
-// reported as soft: there is no cgroup per agent, CPU is not capped,
-// memory is capped per process by a data limit (RLIMIT_DATA) and tasks
-// per agent user (RLIMIT_NPROC). A runner with a memory limit gets
-// GOMEMLIMIT at 3/4 of it, so a Go runner collects garbage before it
-// reaches the limit. Root agents have no limits: they are trusted and
-// could lift them anyway. The
+// reported as soft: there is no cgroup per agent, the kernel does not cap
+// CPU or memory, and it still caps how many processes each agent runs
+// (RLIMIT_NPROC of the agent's user). A runner with a memory limit gets a
+// hint of it in hard and soft mode: GOMEMLIMIT and a Node.js old-space
+// size at 3/4 of it, so Go and Node.js runners collect garbage before they
+// reach it. Root agents have no limits: they are trusted and could lift
+// them anyway. The
 // launcher never starts a runner by itself: a runner that exits without
 // being stopped is reported to Exited, and the supervisor decides whether
 // it starts again, through its network wall check.
@@ -222,14 +223,22 @@ func (l *Launcher) startLocked(name string) error {
 
 // SoftLimitsLine is the warning logged when a custom agent's runner starts
 // with soft limits.
-const SoftLimitsLine = "agent limits are soft: no cgroup per agent; CPU not capped; " +
-	"memory capped per process by a data limit; tasks capped per agent user"
+const SoftLimitsLine = "agent limits are soft: no cgroup per agent; the kernel does not cap CPU or memory, " +
+	"and still caps how many processes each agent runs"
 
-// GoMemLimitEnv is the Go runtime's soft memory limit. A runner with a
-// memory limit gets it at 3/4 of that limit, unless its own environment
-// sets it: the rest is room for memory the Go heap does not count, such
-// as the runtime's own maps, and for the runner's children.
-const GoMemLimitEnv = "GOMEMLIMIT"
+// A runner with a memory limit gets a hint of it, at 3/4 of the limit, for
+// the runtimes that collect garbage: the rest is room for memory their heap
+// does not count, such as the runtime's own maps, and for the runner's
+// children. The hint is all a soft memory limit is.
+const (
+	// GoMemLimitEnv is the Go runtime's soft memory limit, in bytes. A
+	// runner that sets its own keeps it.
+	GoMemLimitEnv = "GOMEMLIMIT"
+	// NodeOptionsEnv gets --max-old-space-size, in MiB, after the runner's
+	// own options, unless they already set it.
+	NodeOptionsEnv = "NODE_OPTIONS"
+	nodeOldSpace   = "--max-old-space-size"
+)
 
 func environment(spec domain.UnitSpec) []string {
 	env := []string{
@@ -240,16 +249,32 @@ func environment(spec domain.UnitSpec) []string {
 		"LOGNAME=" + spec.Account.User,
 		"PATH=/usr/local/bin:/usr/bin:/bin",
 	}
-	own := false
+	goLimit, node := false, -1
 	for _, e := range spec.Exec.Env {
 		k, _, _ := strings.Cut(e, "=")
-		own = own || k == GoMemLimitEnv
-		if k != domain.SocketEnv {
-			env = append(env, e)
+		switch k {
+		case domain.SocketEnv:
+			continue
+		case GoMemLimitEnv:
+			goLimit = true
+		case NodeOptionsEnv:
+			node = len(env)
 		}
+		env = append(env, e)
 	}
-	if m := spec.Limits.MemoryMaxBytes; m > 0 && !own {
-		env = append(env, GoMemLimitEnv+"="+strconv.FormatInt(m/4*3, 10))
+	hint := spec.Limits.MemoryMaxBytes / 4 * 3
+	if hint <= 0 {
+		return env
+	}
+	if !goLimit {
+		env = append(env, GoMemLimitEnv+"="+strconv.FormatInt(hint, 10))
+	}
+	oldSpace := nodeOldSpace + "=" + strconv.FormatInt(hint>>20, 10)
+	switch {
+	case node < 0:
+		env = append(env, NodeOptionsEnv+"="+oldSpace)
+	case !strings.Contains(env[node], nodeOldSpace):
+		env[node] += " " + oldSpace
 	}
 	return env
 }

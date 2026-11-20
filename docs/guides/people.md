@@ -194,11 +194,11 @@ on the host, and the machine decides once, when it starts:
   memory is stopped by the kernel, and it cannot start more processes than it is allowed. This is
   what you get with the compose files as they are, on Docker Engine 28 or newer and a host with
   cgroup v2.
-- **Soft.** The agent still runs, but it has no cgroup of its own. Its CPU use is not capped.
-  Its memory is capped per process, not for the agent as a whole, by a data limit: each of its
-  processes may use up to the agent's memory limit. The number of its processes is still capped.
-  You get this on an older or different setup, for example when the machine container does not
-  have writable cgroups.
+- **Soft.** The agent still runs, but it has no cgroup of its own. The kernel does not cap its
+  CPU or memory, and still caps how many processes it runs. The agent's runner is told its
+  memory limit, so a Go or Node.js runner tries to stay under it, but nothing stops it. You get
+  this on an older or different setup, for example when the machine container does not have
+  writable cgroups.
 
 To see which one you have, look at the machine's log right after it starts:
 

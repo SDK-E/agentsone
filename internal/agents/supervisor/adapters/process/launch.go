@@ -36,11 +36,10 @@ const (
 	rlimitCore rlimitKind = iota
 	rlimitNoFile
 	rlimitNProc
-	rlimitData
 )
 
 func (k rlimitKind) String() string {
-	return [...]string{"core", "nofile", "nproc", "data"}[k]
+	return [...]string{"core", "nofile", "nproc"}[k]
 }
 
 // launchPlan is everything the helper does, in order. It travels as
@@ -51,7 +50,6 @@ type launchPlan struct {
 	GID    int    // the group to become, or -1 to keep the daemon's
 	NoFile uint64 // RLIMIT_NOFILE, or 0 to leave it
 	NProc  uint64 // RLIMIT_NPROC, or 0 to leave it
-	Data   uint64 // RLIMIT_DATA, or 0 to leave it
 	Path   string // the runner executable
 	Args   []string
 }
@@ -65,7 +63,6 @@ func (p launchPlan) args() []string {
 		"--uid", strconv.Itoa(p.UID), "--gid", strconv.Itoa(p.GID),
 		"--nofile", strconv.FormatUint(p.NoFile, 10),
 		"--nproc", strconv.FormatUint(p.NProc, 10),
-		"--data", strconv.FormatUint(p.Data, 10),
 		"--", p.Path,
 	}
 	return append(a, p.Args...)
@@ -94,8 +91,6 @@ func parseLaunch(args []string) (launchPlan, error) {
 			p.NoFile, err = strconv.ParseUint(v, 10, 64)
 		case "--nproc":
 			p.NProc, err = strconv.ParseUint(v, 10, 64)
-		case "--data":
-			p.Data, err = strconv.ParseUint(v, 10, 64)
 		default:
 			return p, fmt.Errorf("%w: unknown option %s", errBadLaunch, name)
 		}
@@ -104,8 +99,8 @@ func parseLaunch(args []string) (launchPlan, error) {
 		}
 		seen[name] = true
 	}
-	if len(seen) != 6 {
-		return p, fmt.Errorf("%w: want all six options, got %d", errBadLaunch, len(seen))
+	if len(seen) != 5 {
+		return p, fmt.Errorf("%w: want all five options, got %d", errBadLaunch, len(seen))
 	}
 	if len(args) < 2 || args[1] == "" {
 		return p, fmt.Errorf("%w: no runner after --", errBadLaunch)
@@ -139,7 +134,7 @@ func runLaunch(p launchPlan, sys launchSys, report io.Writer) error {
 	limits := []struct {
 		k rlimitKind
 		v uint64
-	}{{rlimitCore, 0}, {rlimitNoFile, p.NoFile}, {rlimitNProc, p.NProc}, {rlimitData, p.Data}}
+	}{{rlimitCore, 0}, {rlimitNoFile, p.NoFile}, {rlimitNProc, p.NProc}}
 	for _, l := range limits {
 		if l.v == 0 && l.k != rlimitCore {
 			continue

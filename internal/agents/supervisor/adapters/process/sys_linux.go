@@ -53,15 +53,14 @@ func prepare(cmd *exec.Cmd, spec domain.UnitSpec, cgroupRoot string) (*sysState,
 		if dir := agentCgroup(cgroupRoot, spec); dir != "" {
 			st.cgroup, st.mode, plan.Cgroup = dir, domain.LimitsHard, dir
 		} else {
-			// Without a cgroup the rlimits are the limits, and CPU has
-			// none. Memory is RLIMIT_DATA, the private writable memory of
-			// each process, so each process may use memory_mb, not the
-			// agent as a whole. Never RLIMIT_AS: address space is not
-			// memory, and Go, Node and Java reserve far more of it than
-			// they use, so the runner died before main. Tasks are the
-			// processes of the agent's user. With a cgroup, memory.max and
-			// pids.max are exact and per agent.
-			plan.Data = uint64(max(spec.Limits.MemoryMaxBytes, 0))
+			// Without a cgroup only tasks have a limit: the processes of
+			// the agent's user. CPU and memory have none. No memory rlimit
+			// can stand in for memory.max: Go reserves more address space
+			// than memory_mb before main (RLIMIT_AS), and Node.js maps its
+			// code range writable at start (RLIMIT_DATA), so both runners
+			// died before they ran. environment gives runners a hint of
+			// the limit instead. With a cgroup, memory.max and pids.max
+			// are exact and per agent.
 			plan.NProc = uint64(max(spec.Limits.TasksMax, 0))
 		}
 	}
@@ -109,7 +108,6 @@ func cellFor(root string, spec domain.UnitSpec) core.ProcessCell {
 		return c
 	}
 	if !spec.Account.IsRoot {
-		c.Data = uint64(max(spec.Limits.MemoryMaxBytes, 0))
 		c.NProc = uint64(max(spec.Limits.TasksMax, 0))
 	}
 	return c
@@ -163,7 +161,7 @@ func Place(cmd *exec.Cmd, p Placement) (*Placed, error) {
 	}
 	plan := launchPlan{
 		Cgroup: p.Cell.Cgroup, UID: p.UID, GID: p.GID,
-		NoFile: p.Cell.NoFile, NProc: p.Cell.NProc, Data: p.Cell.Data,
+		NoFile: p.Cell.NoFile, NProc: p.Cell.NProc,
 		Path: cmd.Path, Args: cmd.Args[1:],
 	}
 	r, w, err := os.Pipe()

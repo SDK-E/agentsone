@@ -74,7 +74,7 @@ func TestAgentCell_IsTheRunnersCellOrNothing(t *testing.T) {
 		want core.ProcessCell
 	}{
 		{"custom agent, hard", root, customSpec("mira", limits), core.ProcessCell{Cgroup: filepath.Join(root, "mira"), NoFile: DefaultNoFile}},
-		{"custom agent, soft", "", customSpec("mira", limits), core.ProcessCell{NoFile: DefaultNoFile, NProc: 48, Data: 1 << 30}},
+		{"custom agent, soft", "", customSpec("mira", limits), core.ProcessCell{NoFile: DefaultNoFile, NProc: 48}},
 		{"root agent, hard", root, rootAgent, core.ProcessCell{Cgroup: filepath.Join(root, "founder")}},
 		{"root agent, soft", "", rootAgent, core.ProcessCell{}},
 	}

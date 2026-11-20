@@ -108,15 +108,16 @@ The daemon decides between hard and soft once, when it starts, before any agent 
   `privileged`, never `CAP_SYS_ADMIN`, never the Docker socket.
 - **Soft.** Anything else: no cgroup v2, a read-only cgroup tree (Docker without
   `writable-cgroups=true`), a missing CPU, memory or process controller, or a daemon that is not
-  root. Custom agents still run as their own users, but there is no cgroup per agent. CPU is not
-  capped. Memory is capped per process, not per agent, by a data limit (`RLIMIT_DATA` at the
-  agent's `memory_mb`): each process may use that much private memory, and an allocation past it
-  fails. Processes are capped per agent user (`RLIMIT_NPROC` at `tasks`). The address space is
-  never capped: Go and Node.js runners reserve far more of it than they use, and would not
-  start.
-- **Both.** A runner with a memory limit gets `GOMEMLIMIT` at three quarters of it, so a Go
-  runner collects garbage before it reaches the limit. A runner that sets its own `GOMEMLIMIT`
-  keeps it.
+  root. Custom agents still run as their own users, but there is no cgroup per agent. The kernel
+  does not cap their CPU or memory, and still caps how many processes each agent runs
+  (`RLIMIT_NPROC` of the agent's user, at `tasks`). No process limit can stand in for the memory
+  limit: under the address-space limit at `memory_mb` a Go runner dies before `main`, and under
+  the data limit at `memory_mb` Node.js dies at start (`Failed to reserve virtual memory for
+  CodeRange`).
+- **Both.** A runner with a memory limit gets a hint of it, at three quarters of the limit:
+  `GOMEMLIMIT` for Go, and `--max-old-space-size` added after its own `NODE_OPTIONS` for
+  Node.js. Both runtimes then collect garbage before they reach the limit. A runner that sets
+  its own `GOMEMLIMIT` or `--max-old-space-size` keeps it. In soft mode the hint is all there is.
 
 The daemon writes one line on its log at start that says which and why, for example
 `limits: hard (cgroup v2, writable)` or `limits: soft (cgroup tree is read-only)`. The line is
@@ -191,8 +192,8 @@ instruction.
 - An agent's terminal runs as the agent's own user, in the agent's cgroup `/agents/<name>`, under
   the same limits as the agent's runner. That holds while the runner sleeps too: the daemon makes
   the cgroup with the agent's limits when it is missing. Without writable cgroups the terminal
-  gets the same process limits as the runner instead: processes, memory (the data limit, per
-  process) and open files.
+  gets the same process limits as the runner instead: processes and open files. Its CPU and
+  memory are not capped either.
 - A human's web terminal runs as root, in the cgroup `/humans/<name>`. That cgroup and the
   `/humans` folder belong to root, and no one else may write them. The socket names a process
   there as that human, with a human's rights, never as root. Without writable cgroups there is

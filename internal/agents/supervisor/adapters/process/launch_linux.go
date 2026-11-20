@@ -38,7 +38,7 @@ func (osLaunch) JoinCgroup(dir string) error {
 
 var rlimits = map[rlimitKind]int{
 	rlimitCore: unix.RLIMIT_CORE, rlimitNoFile: unix.RLIMIT_NOFILE,
-	rlimitNProc: unix.RLIMIT_NPROC, rlimitData: unix.RLIMIT_DATA,
+	rlimitNProc: unix.RLIMIT_NPROC,
 }
 
 func (osLaunch) LowerLimit(k rlimitKind, v uint64) error {

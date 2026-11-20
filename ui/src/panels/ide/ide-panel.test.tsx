@@ -5,9 +5,17 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { FakeApi, fixtures, problem, renderWith } from "../../test/fake-api";
-import IdePanel from ".";
+import IdePanel, { buildName } from ".";
 
 const stopped = { ...fixtures.ideStarting, state: "stopped" as const };
+
+describe("buildName", () => {
+  it("names the builds the machine reports and shows an unknown id as sent", () => {
+    expect(buildName("vscodium")).toBe("VSCodium");
+    expect(buildName("code-oss")).toBe("Code - OSS");
+    expect(buildName("custom-build")).toBe("custom-build");
+  });
+});
 
 describe("IDE panel", () => {
   // axe-core in jsdom cannot step into frames; the Playwright run checks this state with axe.

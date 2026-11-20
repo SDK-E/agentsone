@@ -11,6 +11,17 @@ import { LoadError, Loading } from "../../shell/status";
 /** While the editor starts, ask how it is doing this often. */
 const STARTING_POLL_MS = 1000;
 
+/** Display names of the build ids the machine reports. Brand names, so not translated. */
+const BUILD_NAMES: Readonly<Record<string, string>> = {
+  vscodium: "VSCodium",
+  "code-oss": "Code - OSS",
+};
+
+/** The display name of a build id; an unknown id shows as the machine sent it. */
+export function buildName(id: string): string {
+  return BUILD_NAMES[id] ?? id;
+}
+
 /** IDE: the open-source VS Code server of the signed-in person, opened in place. */
 export default function IdePanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.ide" });
@@ -64,7 +75,7 @@ function Editor({ human }: { human: string }) {
     <div className="ide stack-sm">
       {status.data && (
         <p className="hint">
-          {t("build", { build: status.data.build, version: status.data.version })}
+          {t("build", { build: buildName(status.data.build), version: status.data.version })}
         </p>
       )}
       {failure !== null && (

@@ -5,6 +5,7 @@ package process
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -80,7 +81,7 @@ func TestLaunch_RefusesBadArguments(t *testing.T) {
 func TestLaunch_JoinsCgroupLimitsDropsThenExecs(t *testing.T) {
 	t.Parallel()
 	f := &fakeLaunch{}
-	if err := runLaunch(fullPlan, f); err != nil {
+	if err := runLaunch(fullPlan, f, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
@@ -94,10 +95,42 @@ func TestLaunch_JoinsCgroupLimitsDropsThenExecs(t *testing.T) {
 	}
 }
 
+// The helper says it is ready right before the exec, and only then, so
+// the daemon can tell a started runner from a helper that died first.
+func TestLaunch_ReportsReadyRightBeforeExec(t *testing.T) {
+	t.Parallel()
+	var report strings.Builder
+	f := &readyCheck{report: &report}
+	if err := runLaunch(fullPlan, f, &report); err != nil {
+		t.Fatal(err)
+	}
+	if f.atJoin != "" || f.atExec != launchReady {
+		t.Fatalf("report at join %q, at exec %q; want empty, then %q", f.atJoin, f.atExec, launchReady)
+	}
+}
+
+// readyCheck is a fakeLaunch that notes the report at the first and the
+// last step.
+type readyCheck struct {
+	fakeLaunch
+	report         *strings.Builder
+	atJoin, atExec string
+}
+
+func (r *readyCheck) JoinCgroup(dir string) error {
+	r.atJoin = r.report.String()
+	return r.fakeLaunch.JoinCgroup(dir)
+}
+
+func (r *readyCheck) Exec(path string, argv []string) error {
+	r.atExec = r.report.String()
+	return r.fakeLaunch.Exec(path, argv)
+}
+
 func TestLaunch_SkipsWhatThePlanLeavesOut(t *testing.T) {
 	t.Parallel()
 	f := &fakeLaunch{}
-	if err := runLaunch(launchPlan{UID: -1, GID: -1, Path: "/bin/sh"}, f); err != nil {
+	if err := runLaunch(launchPlan{UID: -1, GID: -1, Path: "/bin/sh"}, f, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff([]string{"limit core 0", "exec /bin/sh /bin/sh"}, f.steps); diff != "" {
@@ -110,9 +143,13 @@ func TestLaunch_StopsAtTheFirstFailedStep(t *testing.T) {
 	t.Parallel()
 	for _, fail := range []string{"join", "limit core", "limit nproc", "ids", "exec"} {
 		f := &fakeLaunch{fail: fail}
-		err := runLaunch(fullPlan, f)
+		var report strings.Builder
+		err := runLaunch(fullPlan, f, &report)
 		if err == nil {
 			t.Fatalf("%s fails: runLaunch error = nil", fail)
+		}
+		if ready := report.String() == launchReady; ready != (fail == "exec") {
+			t.Errorf("%s fails: report %q, want ready only when exec itself fails", fail, report.String())
 		}
 		last := f.steps[len(f.steps)-1]
 		if !strings.HasPrefix(last, strings.Split(fail, " ")[0]) {

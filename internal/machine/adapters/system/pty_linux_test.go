@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/machine/adapters/system"
 	"github.com/SDK-E/agentsone/internal/machine/domain"
 )
@@ -24,7 +25,7 @@ func TestPtyRunsAsTheAgentUser(t *testing.T) {
 	const agent = 200201
 	home := agentHome(t, agent)
 	spec := domain.PtySpec{Command: []string{"/bin/sh", "-c", "echo uid=$(id -u) gid=$(id -g) groups=$(id -G) dir=$(pwd)"}, Cols: 80, Rows: 24}
-	p, err := system.PtyStarter{}.Start(ctx(), spec, agent, agent, home)
+	p, err := system.PtyStarter{}.Start(ctx(), spec, agent, agent, home, core.ProcessCell{})
 	if err != nil {
 		t.Fatal(err)
 	}

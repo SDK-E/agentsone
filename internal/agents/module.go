@@ -88,9 +88,10 @@ func (*Module) Name() string { return "agents" }
 // supervisor's output sink, the host door's budget push).
 func (m *Module) Society() *app.Society { return m.society }
 
-// Provide sets the Agents, Waker, Budget, Freezer, Profiles, Chat and Seed
-// ports.
+// Provide sets the Agents, Waker, Budget, Freezer, Profiles, Chat, Seed and
+// Cells ports.
 func (m *Module) Provide(p *core.Ports) {
+	p.Cells = cells{m}
 	p.Agents = m.society.Directory()
 	p.Waker = m.society.Waker()
 	p.Budget = m.society.Budget()

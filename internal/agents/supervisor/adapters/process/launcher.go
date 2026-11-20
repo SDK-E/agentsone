@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,7 +31,12 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/app"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
+	"github.com/SDK-E/agentsone/internal/core"
 )
+
+// HumansCgroup is the parent of one cgroup per human with a web terminal,
+// next to AgentsCgroup.
+const HumansCgroup = "humans"
 
 // Defaults of the launcher.
 const (
@@ -115,6 +121,41 @@ func (l *Launcher) Mode(name string) domain.LimitMode {
 	default:
 		return domain.LimitsSoft
 	}
+}
+
+// AgentCell is where agent name's terminals run, so they count as the
+// agent's: with a cgroup root, the runner's own cgroup <root>/<name>, made
+// with the runner's limits when the runner is not running (hard). Without
+// one, the same process limits the runner gets (soft). A root agent has no
+// limits: its cell is its cgroup without limits, or nothing. An agent whose
+// runner was never installed has no cell, and no terminal opens for it.
+func (l *Launcher) AgentCell(_ context.Context, name string) (core.ProcessCell, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.init()
+	spec, ok := l.specs[name]
+	if !ok {
+		return core.ProcessCell{}, fmt.Errorf("cell of %s: %w", name, ErrNotInstalled)
+	}
+	return cellFor(l.CgroupRoot, spec), nil
+}
+
+// HumanCell is where the human called name runs a web terminal: with a
+// cgroup root, the cgroup <root>/../humans/<name>, made root-owned when it is
+// missing. Without a cgroup root it is the zero cell: the terminal runs
+// where the daemon runs, and the socket refuses it as any root process.
+func (l *Launcher) HumanCell(_ context.Context, name string) (core.ProcessCell, error) {
+	if l.CgroupRoot == "" {
+		return core.ProcessCell{}, nil
+	}
+	if err := domain.ValidateName(name); err != nil {
+		return core.ProcessCell{}, fmt.Errorf("cell of human %q: %w", name, err)
+	}
+	dir, err := humanCgroup(filepath.Join(filepath.Dir(l.CgroupRoot), HumansCgroup), name)
+	if err != nil {
+		return core.ProcessCell{}, fmt.Errorf("cell of human %s: %w", name, err)
+	}
+	return core.ProcessCell{Cgroup: dir}, nil
 }
 
 // Running reports whether agent name has a live runner process.

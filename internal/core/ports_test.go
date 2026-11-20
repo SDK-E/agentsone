@@ -104,6 +104,8 @@ func TestNewPortsUnavailable(t *testing.T) {
 		"HumanAccounts":   func() error { _, err := p.Humans.HumanAccounts(ctx); return err },
 		"HumanAccount":    func() error { _, err := p.Humans.HumanAccount(ctx, "ada"); return err },
 		"HumanByUID":      func() error { _, err := p.Humans.HumanByUID(ctx, 1000); return err },
+		"AgentCell":       func() error { _, err := p.Cells.AgentCell(ctx, "scout"); return err },
+		"HumanCell":       func() error { _, err := p.Cells.HumanCell(ctx, "ada"); return err },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

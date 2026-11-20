@@ -69,7 +69,7 @@ type echoStarter struct {
 	last *echoPty
 }
 
-func (s *echoStarter) Start(context.Context, domain.PtySpec, int, int, string) (app.PtyProcess, error) {
+func (s *echoStarter) Start(context.Context, domain.PtySpec, int, int, string, core.ProcessCell) (app.PtyProcess, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.last = newEchoPty()
@@ -97,7 +97,10 @@ func servePtyParts(t *testing.T) (http.Handler, *echoStarter, *app.Terminals, *c
 	t.Helper()
 	st := &echoStarter{}
 	clock := coretest.NewClock(coretest.Epoch)
-	terms := app.NewTerminals(st, ptyUsers{}, clock, coretest.NewIDs())
+	terms := app.NewTerminals(app.TerminalDeps{
+		Start: st, Users: ptyUsers{}, Cells: coretest.Cells{}, Audit: coretest.NewAudit(),
+		Clock: clock, IDs: coretest.NewIDs(),
+	})
 	m := app.New(app.Deps{Audit: coretest.NewAudit(), Clock: coretest.NewClock(coretest.Epoch), IDs: coretest.NewIDs()})
 	handler := httpadapter.New(m, func(name string) string { return "/home/agents/" + name }).WithTerminals(terms)
 	mux := http.NewServeMux()

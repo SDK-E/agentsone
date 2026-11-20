@@ -74,7 +74,7 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress, Public: public}.Wrap(web)),
 		resolver: peer.Resolver{
 			Proc: peer.ProcFS(), Credentials: peer.Credentials, DaemonPID: os.Getpid(),
-			Directory: domain.Directory{AgentByUID: agentByUID(ports), HumanByUID: humanByUID(ports)},
+			Directory: domain.Directory{AgentByUID: agentByUID(ports), HumanByUID: humanByUID(ports), HumanByName: humanByName(ports)},
 		},
 		log: deps.Log,
 		cfg: *deps.Config,
@@ -152,6 +152,17 @@ func humanByUID(ports *core.Ports) func(context.Context, int) (string, error) {
 			return "", fmt.Errorf("human with uid %d: %w", uid, err)
 		}
 		return h.Name, nil
+	}
+}
+
+// humanByName confirms a human called name exists, through the humans port
+// that auth owns. A process in /humans/<name> is that human only then.
+func humanByName(ports *core.Ports) func(context.Context, string) error {
+	return func(ctx context.Context, name string) error {
+		if _, err := ports.Humans.HumanAccount(ctx, name); err != nil {
+			return fmt.Errorf("human %s: %w", name, err)
+		}
+		return nil
 	}
 }
 

@@ -213,6 +213,23 @@ bound only by the ceiling of the whole machine.
 It limits where agents can reach. It does not stop data leaving through a site that is on the
 allow list. Allow only what you trust.
 
+### Your web terminal is root
+
+A terminal you open on the machine from the browser runs as root. The owner chose this, so you
+can fix anything on the machine.
+
+- Root can do anything inside the machine, including acting as any agent and changing any
+  agent's limits. Be as careful as you would be on any server where you are root.
+- The machine still knows the terminal is yours. Every terminal you open or close is recorded in
+  the audit trail with your name.
+- When `agentctl` in your terminal talks to the daemon, the daemon treats it as you, with your
+  rights as a person, never as root. This works only when the machine has writable cgroups (Docker
+  Engine 28 or newer). Without them the daemon cannot tell your terminal from any other root
+  process, so it refuses it.
+- The IDE panel is not root. It runs as your own Linux user on the machine (`h_` and your name).
+
+A terminal an agent opens runs as that agent, with the agent's own limits.
+
 ## Look after the machine
 
 **Rescue.** If something inside the machine breaks, for example because an agent changed the

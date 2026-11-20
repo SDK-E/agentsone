@@ -12,7 +12,8 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
-// agentName is the contract's AgentName pattern. Fixed lookup table.
+// agentName is the contract's AgentName pattern, which HumanName shares.
+// Fixed lookup table.
 var agentName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
 
 // Custom agents' Linux uids, from the agents directory in core.db.
@@ -36,6 +37,9 @@ type Directory struct {
 	AgentByUID func(ctx context.Context, uid int) (string, error)
 	// HumanByUID names the human whose Linux user has uid.
 	HumanByUID func(ctx context.Context, uid int) (string, error)
+	// HumanByName confirms that a human called name exists: nil when one
+	// does. A peer in a human cgroup is that human only then.
+	HumanByName func(ctx context.Context, name string) error
 }
 
 // Why a socket peer is refused, as audit records and logs say it.
@@ -45,6 +49,8 @@ const (
 	ReasonNobody            = "uid of no agent and no human"
 	ReasonAgentLookup       = "agent directory lookup failed"
 	ReasonHumanLookup       = "human directory lookup failed"
+	ReasonNoHuman           = "human cgroup of no human"
+	ReasonHumanCgroupLookup = "human lookup for a human cgroup failed"
 	ReasonNoCredentials     = "peer credentials unreadable"
 	ReasonNoCgroup          = "peer cgroup unreadable"
 )
@@ -80,13 +86,18 @@ func (r *Refusal) Unwrap() []error {
 //  1. Agent, hard: the process is in the agent's cgroup /agents/<name>
 //     (tools a runner spawns inherit it). Several uid-0 agents stay distinct.
 //  2. The daemon: the peer is the daemon's own process. The /daemon cgroup
-//     is no proof: the daemon's terminals, package scripts and git run there.
-//  3. Any other uid 0 is refused. Root agents outside their cgroup prove who
+//     is no proof: package scripts and git run there.
+//  3. Human: the process is in the human's cgroup /humans/<name>, where the
+//     daemon starts that human's web terminal (as root). The caller is that
+//     human, never root, with no token scopes. Soft: any root process can
+//     move itself into that cgroup. A name that is no human's, or a failed
+//     lookup, is refused.
+//  4. Any other uid 0 is refused. Root agents outside their cgroup prove who
 //     they are with their bearer token.
-//  4. Agent, soft: a uid in the custom agent range that the directory knows.
-//  5. Human: a uid whose Linux user is a human's. The caller is that human,
+//  5. Agent, soft: a uid in the custom agent range that the directory knows.
+//  6. Human: a uid whose Linux user is a human's. The caller is that human,
 //     never root, with no token scopes. Soft: a root agent can take any uid.
-//  6. Anything else is refused, and so is a peer whose lookup failed.
+//  7. Anything else is refused, and so is a peer whose lookup failed.
 func ResolvePeer(ctx context.Context, p Peer, cgroup string, daemonPID int, d Directory) (core.Caller, error) {
 	root := p.UID == 0
 	if name, ok := AgentFromCgroup(cgroup); ok {
@@ -94,6 +105,9 @@ func ResolvePeer(ctx context.Context, p Peer, cgroup string, daemonPID int, d Di
 	}
 	if p.PID == daemonPID {
 		return core.Caller{Kind: core.CallerSystem, Name: "daemon", UID: p.UID, IsRoot: root}, nil
+	}
+	if name, under, ok := HumanFromCgroup(cgroup); under {
+		return humanInCgroup(ctx, p, name, ok, d)
 	}
 	if root {
 		return core.Anonymous, &Refusal{Peer: p, Reason: ReasonRootOutsideAgents}
@@ -120,18 +134,50 @@ func refusal(p Peer, err error, notFound, failed string) *Refusal {
 	return &Refusal{Peer: p, Reason: failed, Err: err}
 }
 
+// humanInCgroup names the human whose cgroup holds the peer, or refuses
+// it: a cell name no human can have, a name no human has, or a lookup that
+// failed or is not wired. It never fails open.
+func humanInCgroup(ctx context.Context, p Peer, name string, valid bool, d Directory) (core.Caller, error) {
+	if !valid {
+		return core.Anonymous, &Refusal{Peer: p, Reason: ReasonNoHuman}
+	}
+	if d.HumanByName == nil {
+		return core.Anonymous, &Refusal{Peer: p, Reason: ReasonHumanCgroupLookup}
+	}
+	if err := d.HumanByName(ctx, name); err != nil {
+		return core.Anonymous, refusal(p, err, ReasonNoHuman, ReasonHumanCgroupLookup)
+	}
+	return core.Caller{Kind: core.CallerHuman, Name: name, UID: p.UID, Assurance: core.AssuranceSoft}, nil
+}
+
 // AgentFromCgroup returns the agent name when the cgroup v2 path is
 // /agents/<name> or below it.
 func AgentFromCgroup(cgroup string) (string, bool) {
-	path, ok := unifiedPath(cgroup)
-	if !ok {
-		return "", false
+	name, _, ok := cellOf(cgroup, "agents")
+	return name, ok
+}
+
+// HumanFromCgroup reads a cgroup v2 path under /humans. under is true for
+// /humans and anything below it; ok is true, with the name, when the path
+// is /humans/<name> or below it and name is a valid human name.
+func HumanFromCgroup(cgroup string) (name string, under, ok bool) {
+	return cellOf(cgroup, "humans")
+}
+
+// cellOf reads /<parent>/<name>[/...] from the cgroup file.
+func cellOf(cgroup, parent string) (name string, under, ok bool) {
+	path, found := unifiedPath(cgroup)
+	if !found {
+		return "", false, false
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	if len(parts) < 2 || parts[0] != "agents" || !agentName.MatchString(parts[1]) {
-		return "", false
+	if parts[0] != parent {
+		return "", false, false
 	}
-	return parts[1], true
+	if len(parts) < 2 || !agentName.MatchString(parts[1]) {
+		return "", true, false
+	}
+	return parts[1], true, true
 }
 
 // unifiedPath returns the cgroup v2 line ("0::<path>") of /proc/<pid>/cgroup.

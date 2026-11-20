@@ -103,7 +103,7 @@ func (Users) List(context.Context) ([]domain.MachineUser, error) {
 type Pty struct{}
 
 // Start refuses.
-func (Pty) Start(context.Context, domain.PtySpec, int, int, string) (app.PtyProcess, error) {
+func (Pty) Start(context.Context, domain.PtySpec, int, int, string, core.ProcessCell) (app.PtyProcess, error) {
 	return nil, fmt.Errorf("the no-op machine has no terminals: %w", core.ErrUnavailable)
 }
 

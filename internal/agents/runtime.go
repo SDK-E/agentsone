@@ -111,6 +111,10 @@ type supervisorParts struct {
 	tick    time.Duration
 	stop    context.CancelFunc
 	done    chan struct{}
+
+	// procs places terminals (the Cells port); nil with an injected
+	// launcher or processes.
+	procs *process.Launcher
 }
 
 // buildSupervisor makes the supervisor over the society. Called by New
@@ -168,6 +172,7 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 		procs.Exited = func(name string, err error) { sup.RunnerExited(context.Background(), name, err) }
 	}
 	rt.sup = parts.sup
+	parts.procs = procs
 	m.parts = parts
 }
 

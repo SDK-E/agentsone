@@ -17,8 +17,10 @@ import (
 	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
-// MCPScope is the token scope a runner's MCP token carries.
-const MCPScope = "mcp"
+// MCPScope is the token scope a runner's MCP token carries, in the
+// contract's <group>:<read|write|admin> form: the runner posts MCP messages
+// to the machine MCP (group mcp), which needs write and no more.
+const MCPScope = "mcp:write"
 
 // Handler serves one runner connection of one agent. Build it with Connect,
 // hand it to the protocol server, then Attach the server's connection.
@@ -34,7 +36,7 @@ type Handler struct {
 
 // Connect returns the handler for a new connection on agent name's socket.
 func (s *Supervisor) Connect(name string) *Handler {
-	return &Handler{s: s, agent: name, attached: make(chan struct{}), log: slog.Default().With("agent", name)}
+	return &Handler{s: s, agent: name, attached: make(chan struct{}), log: s.log().With("agent", name)}
 }
 
 // Attach gives the handler its connection. Calls wait until it is attached.
@@ -81,7 +83,9 @@ func (h *Handler) currentLocked() (*runner, bool) {
 }
 
 // Hello builds the welcome (PROTOCOL.md handshake step 2). A second
-// connection while one is live is refused.
+// connection while one is live is refused. A step that fails is logged at
+// error level with its cause and returned as a domain.StepError, so the
+// runner hears which step failed and nothing more.
 func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloParams) (protocol.HelloResult, error) {
 	s := h.s
 	now := s.d.Clock.Now()
@@ -101,27 +105,27 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 
 	id, err := s.d.Identity.Identity(ctx, h.agent)
 	if err != nil {
-		return protocol.HelloResult{}, fmt.Errorf("identity of %s: %w", h.agent, err)
+		return h.helloFailed("read the agent's identity", err)
 	}
 	sum, err := s.d.Summaries.Load(ctx, h.agent)
 	if err != nil {
-		return protocol.HelloResult{}, fmt.Errorf("summary of %s: %w", h.agent, err)
+		return h.helloFailed("load the agent's session summary", err)
 	}
 	caller := core.Caller{Kind: core.CallerAgent, Name: h.agent, UID: id.Agent.UID, IsRoot: id.Agent.IsRoot, Scopes: []string{MCPScope}}
 	mcp, err := s.d.Ports.Tokens.Issue(ctx, caller, []string{MCPScope}, s.d.Config.MCPTokenTTL)
 	if err != nil {
-		return protocol.HelloResult{}, fmt.Errorf("mcp token for %s: %w", h.agent, err)
+		return h.helloFailed("issue the MCP token", err)
 	}
 	gw, err := s.gatewayToken(ctx, h.agent)
 	if err != nil {
 		s.runnerFailed(ctx, h.agent, gatewayReason(err))
-		return protocol.HelloResult{}, err
+		return h.helloFailed("mint the model gateway token", err)
 	}
 
 	s.mu.Lock()
 	if err := r.session.Welcome(now); err != nil {
 		s.mu.Unlock()
-		return protocol.HelloResult{}, err
+		return h.helloFailed("welcome the runner", err)
 	}
 	r.conn = h
 	paused := r.session.PausedTurn()
@@ -130,6 +134,13 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 		paused = sum.PausedTurnID
 	}
 	return welcome(version, id, mcp, gw, sum, paused, s.d.Config), nil
+}
+
+// helloFailed logs a failed hello step and its cause at error level, and
+// returns the failure as a domain.StepError.
+func (h *Handler) helloFailed(step string, err error) (protocol.HelloResult, error) {
+	h.log.Error("runner hello failed", "step", step, "err", err)
+	return protocol.HelloResult{}, &domain.StepError{Step: step, Err: err}
 }
 
 func welcome(version string, id AgentIdentity, mcp core.Token, gw string, sum Summary, paused string, cfg Config) protocol.HelloResult {

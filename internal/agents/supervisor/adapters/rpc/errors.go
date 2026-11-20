@@ -62,7 +62,8 @@ func (e *RemoteError) Is(target error) bool {
 }
 
 // FromError maps a handler error to its protocol error. Unknown errors are
-// -32603 with a fixed message, so no internal detail reaches the runner.
+// -32603 with a fixed message, so no internal detail reaches the runner; a
+// domain.StepError adds the name of the step that failed, never its cause.
 func FromError(err error) *RemoteError {
 	var re *RemoteError
 	if errors.As(err, &re) {
@@ -72,6 +73,9 @@ func FromError(err error) *RemoteError {
 		if errors.Is(err, c.err) {
 			return &RemoteError{Code: c.code, Message: c.message}
 		}
+	}
+	if se, ok := errors.AsType[*domain.StepError](err); ok {
+		return &RemoteError{Code: CodeInternal, Message: "Internal error: could not " + se.Step}
 	}
 	return &RemoteError{Code: CodeInternal, Message: "Internal error"}
 }

@@ -6,9 +6,13 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/SDK-E/agentsone/emitters/clock"
 	"github.com/SDK-E/agentsone/emitters/disk"
+	"github.com/SDK-E/agentsone/emitters/load"
 	"github.com/SDK-E/agentsone/internal/core"
 	emitapp "github.com/SDK-E/agentsone/internal/emitkit/app"
 	"github.com/SDK-E/agentsone/internal/events/adapters/builtin"
@@ -74,19 +78,31 @@ func New(deps core.Deps, opts ...Option) *Module {
 		Log:      deps.Log,
 		Entropy:  rand.Reader,
 	})
-	m.runner = builtin.NewRunner(deps.Log, deps.Clock, o.sleeper, m.svc, sources(settings))
+	m.runner = builtin.NewRunner(deps.Log, deps.Clock, o.sleeper, m.svc, sources(settings, deps.Log))
 	return m
 }
 
 // sources lists the built-in sources that run inside the daemon. Each one is
 // a Go package under emitters/ and publishes as its own built-in emitter.
-func sources(o builtin.Options) []builtin.Named {
+// The load source needs a /proc with stat; where there is none (a developer's
+// Mac) it is left out and the daemon says so once.
+func sources(o builtin.Options, log *slog.Logger) []builtin.Named {
 	d := o.Disk
 	cfg := disk.Config{ThresholdPercent: d.ThresholdPercent, MarginPercent: d.MarginPercent, Interval: d.Interval.Duration}
-	return []builtin.Named{
+	list := []builtin.Named{
 		{Name: "clock", Source: clock.New()},
 		{Name: "disk", Source: disk.New(cfg, disk.MountsFile(d.MountsFile), disk.StatFS{})},
 	}
+	l := o.Load
+	if _, err := os.Stat(filepath.Join(l.ProcDir, "stat")); err != nil {
+		log.Info("load event source is off: no stat file", "proc_dir", l.ProcDir)
+		return list
+	}
+	lc := load.Config{
+		CPUThresholdPercent: l.CPUThresholdPercent, MemoryThresholdPercent: l.MemoryThresholdPercent,
+		MarginPercent: l.MarginPercent, Interval: l.Interval.Duration, Window: l.Window.Duration,
+	}
+	return append(list, builtin.Named{Name: "load", Source: load.New(lc, load.Proc{FS: os.DirFS(l.ProcDir)})})
 }
 
 // Name is the module and migration namespace.

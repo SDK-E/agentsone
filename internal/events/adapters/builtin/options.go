@@ -18,20 +18,41 @@ type DiskOptions struct {
 	MountsFile       string        `toml:"mounts_file"`
 }
 
+// LoadSourceOptions is the [emitters.load] table.
+type LoadSourceOptions struct {
+	CPUThresholdPercent    int           `toml:"cpu_threshold_percent"`
+	MemoryThresholdPercent int           `toml:"memory_threshold_percent"`
+	MarginPercent          int           `toml:"margin_percent"`
+	Interval               core.Duration `toml:"interval"`
+	Window                 core.Duration `toml:"window"`
+	ProcDir                string        `toml:"proc_dir"`
+}
+
 // Options is the [emitters] table of the daemon config. Every key has a
 // default, so a machine with no table runs the sources as designed.
 type Options struct {
-	Disk DiskOptions `toml:"disk"`
+	Disk DiskOptions       `toml:"disk"`
+	Load LoadSourceOptions `toml:"load"`
 }
 
 // DefaultOptions are the settings a machine runs with.
 func DefaultOptions() Options {
-	return Options{Disk: DiskOptions{
-		ThresholdPercent: 90,
-		MarginPercent:    2,
-		Interval:         core.Duration{Duration: time.Minute},
-		MountsFile:       "/proc/self/mounts",
-	}}
+	return Options{
+		Disk: DiskOptions{
+			ThresholdPercent: 90,
+			MarginPercent:    2,
+			Interval:         core.Duration{Duration: time.Minute},
+			MountsFile:       "/proc/self/mounts",
+		},
+		Load: LoadSourceOptions{
+			CPUThresholdPercent:    90,
+			MemoryThresholdPercent: 90,
+			MarginPercent:          5,
+			Interval:               core.Duration{Duration: 10 * time.Second},
+			Window:                 core.Duration{Duration: time.Minute},
+			ProcDir:                "/proc",
+		},
+	}
 }
 
 // LoadOptions reads [emitters] over the defaults. Unknown keys and values
@@ -62,6 +83,25 @@ func (o Options) validate() error {
 		return errors.New("disk.interval must be positive")
 	case d.MountsFile == "":
 		return errors.New("disk.mounts_file must not be empty")
+	}
+	return o.Load.validate()
+}
+
+func (l LoadSourceOptions) validate() error {
+	lowest := min(l.CPUThresholdPercent, l.MemoryThresholdPercent)
+	switch {
+	case l.CPUThresholdPercent < 1 || l.CPUThresholdPercent > 100:
+		return errors.New("load.cpu_threshold_percent must be 1 to 100")
+	case l.MemoryThresholdPercent < 1 || l.MemoryThresholdPercent > 100:
+		return errors.New("load.memory_threshold_percent must be 1 to 100")
+	case l.MarginPercent < 0 || l.MarginPercent >= lowest:
+		return errors.New("load.margin_percent must be at least 0 and below both thresholds")
+	case l.Interval.Duration <= 0:
+		return errors.New("load.interval must be positive")
+	case l.Window.Duration < l.Interval.Duration:
+		return errors.New("load.window must be at least one interval")
+	case l.ProcDir == "":
+		return errors.New("load.proc_dir must not be empty")
 	}
 	return nil
 }

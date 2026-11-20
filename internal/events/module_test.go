@@ -112,6 +112,67 @@ func TestModule_RunsTheDiskSourceInProcess(t *testing.T) {
 	}
 }
 
+func TestModule_RunsTheLoadSourceInProcess(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	proc := t.TempDir()
+	stat := "cpu  100 0 100 800 0 0 0 0 0 0\n"
+	mem := "MemTotal:        1000000 kB\nMemAvailable:      50000 kB\n"
+	for name, body := range map[string]string{"stat": stat, "meminfo": mem} {
+		if err := os.WriteFile(filepath.Join(proc, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg, err := core.ParseConfig([]byte("[emitters.load]\ninterval = '1s'\nwindow = '1s'\nproc_dir = '" + proc + "'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Config = &cfg
+	m := events.New(deps)
+	m.Provide(deps.Ports)
+	if err := m.Migrate(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	live, err := deps.Ports.Subscribe.Subscribe(t.Context(), core.EventFilter{Types: []string{"agentsone.load."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = m.Stop(context.Background()) }()
+
+	select {
+	case e := <-live:
+		if e.Type != "agentsone.load.memory.high" || e.Source != "/emitters/load" || e.Actor != "system:daemon" {
+			t.Fatalf("event = %+v", e)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("no load event within 10 seconds")
+	}
+}
+
+func TestModule_SkipsTheLoadSourceWhereThereIsNoProc(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	cfg, err := core.ParseConfig([]byte("[emitters.load]\nproc_dir = '" + t.TempDir() + "'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Config = &cfg
+	m := events.New(deps)
+	m.Provide(deps.Ports)
+	if err := m.Migrate(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v, want the daemon to start without /proc", err)
+	}
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestModule_SeedsTheBuiltinEmittersAndServesThem(t *testing.T) {
 	m, _ := boot(t)
 	if err := m.Start(t.Context()); err != nil {

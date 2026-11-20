@@ -51,22 +51,39 @@ func (f Freezer) State(ctx context.Context) ([]core.FreezeScope, error) {
 }
 
 func (s *Society) setFrozen(ctx context.Context, scope core.FreezeScope, frozen bool) error {
+	released, err := s.applyFreeze(ctx, scope, frozen)
+	if err != nil {
+		return err
+	}
+	// Released always-on runners start again, idle, as at the daemon's
+	// start. This runs outside the lock, since starting a runner reads the
+	// chart. A runner that cannot start does not undo the release: the
+	// supervisor records it and puts the reason on the agent's status.
+	for _, name := range released {
+		_ = s.rt.Run(ctx, name)
+	}
+	return nil
+}
+
+// applyFreeze records scope's freeze or release and returns the always-on
+// agents a release set free.
+func (s *Society) applyFreeze(ctx context.Context, scope core.FreezeScope, frozen bool) ([]string, error) {
 	c, _ := core.CallerFrom(ctx)
 	if c.Kind != core.CallerHost && c.Kind != core.CallerSystem {
-		return fmt.Errorf("freeze is a host lever: %w", core.ErrForbidden)
+		return nil, fmt.Errorf("freeze is a host lever: %w", core.ErrForbidden)
 	}
 	if _, err := core.ParseFreezeScope(scope.String()); err != nil {
-		return err
+		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	chart, err := s.chart(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if scope.Kind != core.FreezeAll {
 		if _, err := chart.Get(scope.Target); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	action := "agent.release"
@@ -77,7 +94,7 @@ func (s *Society) setFrozen(ctx context.Context, scope core.FreezeScope, frozen 
 		err = s.rt.Release(ctx, scope)
 	}
 	if err != nil {
-		return fmt.Errorf("%s %s: %w", action, scope, err)
+		return nil, fmt.Errorf("%s %s: %w", action, scope, err)
 	}
 	if frozen {
 		err = s.repo.AddFreeze(ctx, scope.String())
@@ -85,17 +102,30 @@ func (s *Society) setFrozen(ctx context.Context, scope core.FreezeScope, frozen 
 		err = s.repo.RemoveFreeze(ctx, scope.String())
 	}
 	if err != nil {
-		return fmt.Errorf("save %s %s: %w", action, scope, err)
+		return nil, fmt.Errorf("save %s %s: %w", action, scope, err)
 	}
 	changed, err := s.syncFrozenStates(ctx, chart)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	raw, err := json.Marshal(map[string]any{"scope": scope.String(), "agents": changed})
 	if err != nil {
-		return fmt.Errorf("encode %s: %w", action, err)
+		return nil, fmt.Errorf("encode %s: %w", action, err)
 	}
-	return s.ports.Audit.Append(ctx, core.AuditEntry{Actor: string(c.Kind) + ":" + c.Name, Action: action, Target: "freeze:" + scope.String(), Detail: raw})
+	if err := s.ports.Audit.Append(ctx, core.AuditEntry{Actor: string(c.Kind) + ":" + c.Name, Action: action, Target: "freeze:" + scope.String(), Detail: raw}); err != nil {
+		return nil, err
+	}
+	if frozen {
+		return nil, nil
+	}
+	// A release only uncovers agents, so every agent it changed is free now.
+	var released []string
+	for _, name := range changed {
+		if a, err := chart.Get(name); err == nil && a.Kind == domain.KindAlwaysOn {
+			released = append(released, name)
+		}
+	}
+	return released, nil
 }
 
 // syncFrozenStates sets every active agent's state from the active freezes

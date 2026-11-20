@@ -88,12 +88,16 @@ func (s *Supervisor) wallDue(now time.Time) bool {
 }
 
 // markWallBroken shows the wall's reason on agent, and remembers to clear
-// it once the wall holds again.
-func (s *Supervisor) markWallBroken(ctx context.Context, agent string, w domain.NetWall) {
+// it once the wall holds again. An agent that shows it already is told
+// again only when the reason changed (again is true).
+func (s *Supervisor) markWallBroken(ctx context.Context, agent string, w domain.NetWall, again bool) {
 	s.mu.Lock()
+	known := s.wallMarked[agent]
 	s.wallMarked[agent] = true
 	s.mu.Unlock()
-	s.runnerFailed(ctx, agent, w.StateReason())
+	if !known || again {
+		s.runnerFailed(ctx, agent, w.StateReason())
+	}
 }
 
 func (s *Supervisor) markAllWallBroken(ctx context.Context, w domain.NetWall) {
@@ -103,7 +107,7 @@ func (s *Supervisor) markAllWallBroken(ctx context.Context, w domain.NetWall) {
 		return
 	}
 	for _, a := range all {
-		s.markWallBroken(ctx, a.Name, w)
+		s.markWallBroken(ctx, a.Name, w, true)
 	}
 }
 

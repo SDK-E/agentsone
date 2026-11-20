@@ -122,6 +122,15 @@ func TestCheckWall_BrokenRefusesEveryWake(t *testing.T) {
 	if n := len(w.wallAudits()); n != 1 {
 		t.Errorf("%d wall audit records, want 1: refused wakes do not add records", n)
 	}
+	if diff := cmp.Diff(want, w.sink.heard()); diff != "" {
+		t.Errorf("refused wakes told the society again (-want +got):\n%s", diff)
+	}
+	// An agent hired after the check hears why at its first wake.
+	w.fakes.Agents.Add(core.Agent{Name: "nova", Kind: core.AgentChat, Manager: "founder", Runner: "echo", UID: 200003})
+	_ = wake(t, w, "nova")
+	if got := w.sink.heard(); got[len(got)-1] != "failed nova: "+reason {
+		t.Errorf("society heard %v, want nova's reason last", got)
+	}
 }
 
 // The wall is checked again every five minutes. A line and an audit record

@@ -218,7 +218,7 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		return fmt.Errorf("wake: %w: %w", core.ErrInvalid, err)
 	}
 	if w, ok := s.wallRefusal(); !ok {
-		s.markWallBroken(ctx, name, w)
+		s.markWallBroken(ctx, name, w, false)
 		return fmt.Errorf("wake %s: %w: %s: %w", name, ErrNetworkWall, w.Reason, core.ErrUnavailable)
 	}
 	frozen, err := s.Frozen(ctx, name)

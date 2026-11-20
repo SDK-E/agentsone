@@ -389,7 +389,7 @@ func TestEngineLicence_AcceptedByAHuman(t *testing.T) {
 	rec = d.call(ada, http.MethodGet, "/v1/setup/engine-fetch", "", "")
 	want(t, rec, http.StatusOK)
 	rec = d.call(core.Anonymous, http.MethodGet, "/v1/setup", "", "")
-	if !strings.Contains(rec.Body.String(), `"phase":"fetching-engine"`) {
+	if !strings.Contains(rec.Body.String(), `"phase":"ready"`) || !strings.Contains(rec.Body.String(), `"licence_accepted":true`) {
 		t.Fatalf("status %s", rec.Body)
 	}
 }

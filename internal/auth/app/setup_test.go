@@ -23,7 +23,7 @@ func phase(t *testing.T, env *authtest.Env) string {
 	return st.Phase
 }
 
-func TestSetupStatus_WalksThroughFirstBoot(t *testing.T) {
+func TestSetupStatus_IsReadyOnceTheFirstHumanExists(t *testing.T) {
 	t.Parallel()
 	env := authtest.New()
 	ctx := context.Background()
@@ -33,14 +33,30 @@ func TestSetupStatus_WalksThroughFirstBoot(t *testing.T) {
 	if _, err := env.Service.CreateFirstHuman(ctx, app.NewHuman{Name: "ada", Password: password}); err != nil {
 		t.Fatal(err)
 	}
-	if p := phase(t, env); p != app.PhaseNeedsLicence {
-		t.Fatalf("phase %q", p)
+	st, err := env.Service.SetupStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
+	// The Claude engine is off by default: first setup does not wait for
+	// its licence, and nothing is queued for download.
+	if st.Phase != app.PhaseReady || st.LicenceAccepted || st.Engine.State != app.FetchWaitingLicence {
+		t.Fatalf("after the first human: %+v", st)
+	}
+}
+
+func TestSetupStatus_StaysReadyWhenTheEngineIsTurnedOnLater(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
 	if _, err := env.Service.AcceptEngineLicence(ctx, authtest.Human("ada"), authtest.DefaultLicence.Version, true); err != nil {
 		t.Fatal(err)
 	}
-	if p := phase(t, env); p != app.PhaseFetchingEngine {
-		t.Fatalf("phase %q", p)
+	st, err := env.Service.SetupStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Phase != app.PhaseReady || !st.LicenceAccepted || st.Engine.State != app.FetchQueued {
+		t.Fatalf("after accepting the licence: %+v", st)
 	}
 	if err := env.Store.SaveEngineFetch(ctx, domain.EngineFetch{State: app.FetchReady}); err != nil {
 		t.Fatal(err)
@@ -60,7 +76,7 @@ func TestSetupStatus_ReportsTheSeed(t *testing.T) {
 	}
 	env.Seed.SetInstalled(true)
 	st, err = env.Service.SetupStatus(ctx)
-	if err != nil || !st.SeedInstalled || st.Phase != app.PhaseNeedsLicence {
+	if err != nil || !st.SeedInstalled || st.Phase != app.PhaseReady {
 		t.Fatalf("after seeding: %+v %v", st, err)
 	}
 }

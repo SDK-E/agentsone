@@ -37,6 +37,16 @@ type fixture struct {
 
 func newFixture(t *testing.T, allowed ...string) fixture {
 	t.Helper()
+	return newDenyFixture(t, "", allowed...)
+}
+
+// newDenyFixture is newFixture with the operator's deny ranges, as the edge flag takes them.
+func newDenyFixture(t *testing.T, deny string, allowed ...string) fixture {
+	t.Helper()
+	ranges, err := domain.ParseDenyRanges(deny)
+	if err != nil {
+		t.Fatalf("ParseDenyRanges(%q) error = %v", deny, err)
+	}
 	f := fixture{clock: nettest.NewClock(t0), resolver: nettest.NewResolver(), observer: nettest.NewObserver(), freeze: nettest.NewFreezeStore()}
 	f.filter = app.NewFilter(app.FilterConfig{
 		Clock:       f.clock,
@@ -44,6 +54,7 @@ func newFixture(t *testing.T, allowed ...string) fixture {
 		Observer:    f.observer,
 		FreezeStore: f.freeze,
 		AllowList:   list(t, allowed...),
+		Deny:        domain.NewDenyList(ranges),
 		Edge:        edge,
 		AuditLimit:  100,
 	})
@@ -228,6 +239,84 @@ func TestRoute_RefusesANameThatPointsOnlyInside(t *testing.T) {
 	var refusal *app.Refusal
 	if !errors.As(err, &refusal) || refusal.Reason != domain.ReasonForbiddenDestination {
 		t.Fatalf("Route() error = %v, want a forbidden destination refusal", err)
+	}
+}
+
+// The host's own public addresses are the case this guards: a proxy on the same host may trust
+// the edge's network, so an allowed name that points back at the host must not get through.
+const hostAddrs = "203.0.113.7/32,2001:db8::7/128"
+
+func TestRoute_RefusesAndRecordsAnAllowedNameThatResolvesToADeniedRange(t *testing.T) {
+	t.Parallel()
+	f := newDenyFixture(t, hostAddrs, "platform.example")
+	f.resolver.Set("platform.example", "203.0.113.7")
+
+	_, err := f.filter.Route(t.Context(), tlsTo("platform.example"))
+
+	var refusal *app.Refusal
+	if !errors.As(err, &refusal) || refusal.Reason != domain.ReasonDeniedDestination {
+		t.Fatalf("Route() error = %v, want a denied destination refusal", err)
+	}
+	want := []app.Event{{At: t0, Kind: "tls", Source: vm, Name: "platform.example", Port: 443, Reason: string(domain.ReasonDeniedDestination)}}
+	if diff := cmp.Diff(want, f.observer.Events(), netipComparers); diff != "" {
+		t.Fatalf("events mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRoute_RefusesADeniedRangeOnEveryEntryPoint(t *testing.T) {
+	t.Parallel()
+	for _, r := range []app.EgressRequest{
+		{Source: vm, Host: "platform.example", Port: 80, Via: domain.ViaHTTP},
+		{Source: vm, Host: "platform.example", Port: 443, Via: domain.ViaTLS},
+		{Source: vm, Host: "platform.example", Port: 80, Via: domain.ViaConnect},
+		{Source: vm, Host: "platform.example", Port: 443, Via: domain.ViaConnect},
+	} {
+		t.Run(r.Via.String(), func(t *testing.T) {
+			t.Parallel()
+			f := newDenyFixture(t, hostAddrs, "platform.example")
+			f.resolver.Set("platform.example", "::ffff:203.0.113.7")
+
+			_, err := f.filter.Route(t.Context(), r)
+
+			var refusal *app.Refusal
+			if !errors.As(err, &refusal) || refusal.Reason != domain.ReasonDeniedDestination {
+				t.Fatalf("Route(%+v) error = %v, want a denied destination refusal", r, err)
+			}
+		})
+	}
+}
+
+func TestRoute_ConnectsOnlyToAddressesOutsideTheDeniedRanges(t *testing.T) {
+	t.Parallel()
+	f := newDenyFixture(t, hostAddrs, "github.com")
+	f.resolver.Set("github.com", "203.0.113.7", "140.82.121.4")
+
+	got, err := f.filter.Route(t.Context(), tlsTo("github.com"))
+	if err != nil {
+		t.Fatalf("Route() error = %v", err)
+	}
+
+	if diff := cmp.Diff([]netip.AddrPort{netip.MustParseAddrPort("140.82.121.4:443")}, got.Addrs, netipComparers); diff != "" {
+		t.Fatalf("addresses mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRoute_RefusesAnAllowedNameThatLaterResolvesToADeniedRange(t *testing.T) {
+	t.Parallel()
+	f := newDenyFixture(t, hostAddrs, "rebind.example")
+	f.resolver.Set("rebind.example", "140.82.121.4")
+	if _, err := f.filter.Route(t.Context(), tlsTo("rebind.example")); err != nil {
+		t.Fatalf("first Route() error = %v", err)
+	}
+	// The name's owner points it at the host once the first answer has expired.
+	f.resolver.Set("rebind.example", "203.0.113.7")
+	f.clock.Advance(app.DefaultResolveTTL + app.DefaultGrace)
+
+	got, err := f.filter.Route(t.Context(), tlsTo("rebind.example"))
+
+	var refusal *app.Refusal
+	if !errors.As(err, &refusal) || refusal.Reason != domain.ReasonDeniedDestination {
+		t.Fatalf("second Route() = %v, %v, want a denied destination refusal", got.Addrs, err)
 	}
 }
 

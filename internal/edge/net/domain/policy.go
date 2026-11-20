@@ -20,6 +20,7 @@ const (
 	ReasonPortNotAllowed       Reason = "port is not allowed for this entry point"
 	ReasonFrozen               Reason = "all egress is frozen"
 	ReasonForbiddenDestination Reason = "name resolved only to addresses that are not public internet addresses"
+	ReasonDeniedDestination    Reason = "name resolved only to addresses the operator denied for egress"
 	ReasonNotResolved          Reason = "name could not be resolved"
 )
 

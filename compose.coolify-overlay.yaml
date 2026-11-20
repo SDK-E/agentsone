@@ -34,6 +34,9 @@ services:
       # The one door address, on the proxy network, for Traefik and the published port. The name
       # is a network alias of edge on that network only; it never resolves to the inner address.
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
+      # Set AGENTSONE_EGRESS_DENY to the server's own public addresses when your proxy trusts the
+      # proxy network, which is the edge's way out (docs/deploy/coolify.md, Settings).
+      - --egress-deny=${AGENTSONE_EGRESS_DENY:-}
     # Replaces the networks of compose.yaml: inner (unchanged) and the proxy network, which is
     # also the edge's way to the internet. No outer network.
     networks: !override

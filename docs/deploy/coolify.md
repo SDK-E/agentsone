@@ -121,6 +121,7 @@ they live behind the control page.
 | `AGENTSONE_INNER_SUBNET` | No | `10.77.42.0/27` | Subnet of the inner network. Change it if Docker reports an overlap, or if your proxy or firewall trusts that range. |
 | `AGENTSONE_INNER_DYNAMIC_RANGE` | No | `10.77.42.16/28` | Part of the inner subnet handed to the machine. |
 | `AGENTSONE_EDGE_IP` | No | `10.77.42.2` | Edge address on the inner network, outside the dynamic range. The machine uses it as its DNS server and its one trusted proxy. |
+| `AGENTSONE_EGRESS_DENY` | No | empty | Extra destination ranges the machine never reaches, even through a name on the allow list. Comma-separated CIDR ranges or single addresses, IPv4 or IPv6. Set it to the server's own public addresses when your proxy trusts the proxy network (see below). The edge refuses to start when an item is not a range. |
 
 `AGENTSONE_PROXY_NETWORK` and the two middleware settings change only the proxy network and the
 Traefik labels. Plain `compose.yaml` has no proxy, so they exist only in the Coolify file.
@@ -129,6 +130,14 @@ The Coolify file has no outer network, so `AGENTSONE_OUTER_SUBNET`,
 `AGENTSONE_OUTER_DYNAMIC_RANGE` and `AGENTSONE_EDGE_OUTER_IP` apply to plain `compose.yaml` only.
 Setting them in Coolify changes nothing; see
 [How the Coolify file works](#how-the-coolify-file-works).
+
+The edge reaches the internet through the proxy network. If your proxy trusts that network, for
+example to let internal or VPN-only hosts through, an allowed name that resolves to the server's
+own public address would come back to the proxy from a trusted address. Set
+`AGENTSONE_EGRESS_DENY` to the server's public addresses (every IPv4 and IPv6 address the proxy
+listens on) before you allow any name that points at the server. Requests to those addresses are
+then refused, with the reason in the edge log and the edge audit log, and the edge start line
+lists the ranges in force (`egress_deny=`).
 
 The edge and control containers read no other environment variables; their addresses come from
 the command line in the file. The machine reads `AGENTSONE_EDGE_IP` only. The same settings,

@@ -53,7 +53,12 @@ type Config struct {
 	// Dial opens outbound connections. It is only ever called with an IP address and port the
 	// router returned. The default is a net.Dialer with a 15 second timeout.
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
-	Log  *slog.Logger
+	// Reachable reports whether the proxies may connect to an address. It is checked again
+	// right before each dial, whatever the router returned, so a fault in the router cannot
+	// open a non-public or denied destination. The default allows public addresses only
+	// (domain.IsPublicDestination).
+	Reachable func(netip.Addr) bool
+	Log       *slog.Logger
 	// HandshakeTimeout bounds how long a client may take to send its request head or TLS hello.
 	HandshakeTimeout time.Duration
 }
@@ -62,6 +67,7 @@ type Config struct {
 type Server struct {
 	router           Router
 	dial             func(ctx context.Context, network, addr string) (net.Conn, error)
+	reachable        func(netip.Addr) bool
 	log              *slog.Logger
 	handshakeTimeout time.Duration
 	ctx              context.Context
@@ -80,6 +86,9 @@ func New(router Router, cfg Config) *Server {
 		d := &net.Dialer{Timeout: defaultDialTimeout}
 		cfg.Dial = d.DialContext
 	}
+	if cfg.Reachable == nil {
+		cfg.Reachable = domain.IsPublicDestination
+	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
@@ -88,7 +97,7 @@ func New(router Router, cfg Config) *Server {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		router: router, dial: cfg.Dial, log: cfg.Log, handshakeTimeout: cfg.HandshakeTimeout,
+		router: router, dial: cfg.Dial, reachable: cfg.Reachable, log: cfg.Log, handshakeTimeout: cfg.HandshakeTimeout,
 		ctx: ctx, cancel: cancel, conns: map[net.Conn]struct{}{},
 	}
 }
@@ -177,10 +186,16 @@ func (s *Server) route(conn net.Conn, host string, port uint16, via domain.Via) 
 	return s.router.Route(ctx, app.EgressRequest{Source: sourceOf(conn), Host: host, Port: port, Via: via})
 }
 
-// connect dials the first address of the route that answers.
+// connect dials the first address of the route that answers. An address that is not reachable
+// is never dialed: the router should not have returned it, so it is logged as an error.
 func (s *Server) connect(route app.Route) (net.Conn, error) {
 	var errs []error
 	for _, addr := range route.Addrs {
+		if !s.reachable(addr.Addr()) {
+			s.log.Error("egress refused at dial: the address is not public or is denied", "name", route.Name, "addr", addr)
+			errs = append(errs, fmt.Errorf("%s is not a reachable destination", addr))
+			continue
+		}
 		ctx, cancel := context.WithTimeout(s.ctx, defaultDialTimeout)
 		c, err := s.dial(ctx, "tcp", addr.String())
 		cancel()

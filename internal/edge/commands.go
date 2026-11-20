@@ -25,6 +25,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/freeze"
 	"github.com/SDK-E/agentsone/internal/edge/gateway"
 	edgenet "github.com/SDK-E/agentsone/internal/edge/net"
+	"github.com/SDK-E/agentsone/internal/edge/net/domain"
 )
 
 // Components are the parts of the edge, in start order. Add a part here; see package component.
@@ -51,7 +52,7 @@ func Commands(env *edgeenv.Env) []*cobra.Command {
 
 // NewServeCommand builds `agentsone edge`, which serves components until SIGINT or SIGTERM.
 func NewServeCommand(env *edgeenv.Env, components []component.Component) *cobra.Command {
-	var innerAddr, dataDir, adminSocket string
+	var innerAddr, dataDir, adminSocket, egressDeny string
 	var doorAddrs []string
 	cmd := &cobra.Command{
 		Use:   "edge",
@@ -68,6 +69,10 @@ func NewServeCommand(env *edgeenv.Env, components []component.Component) *cobra.
 			if err != nil {
 				return fmt.Errorf("--inner-addr %q is not an IP address", innerAddr)
 			}
+			deny, err := domain.ParseDenyRanges(egressDeny)
+			if err != nil {
+				return fmt.Errorf("--egress-deny: %w", err)
+			}
 			admin, err := adminsock.Listen(adminSocket)
 			if err != nil {
 				return err
@@ -76,6 +81,7 @@ func NewServeCommand(env *edgeenv.Env, components []component.Component) *cobra.
 			defer stop()
 			return component.Run(ctx, &component.Env{
 				InnerAddr: addr, DataDir: dataDir, ConfigDir: env.ConfigDir, Log: env.Log, DoorAddrs: doorAddrs,
+				EgressDeny: deny,
 			}, components, admin)
 		},
 	}
@@ -84,5 +90,7 @@ func NewServeCommand(env *edgeenv.Env, components []component.Component) *cobra.
 	f.StringVar(&dataDir, "data-dir", env.DataDir, "the edge state folder")
 	f.StringVar(&adminSocket, "admin-socket", adminsock.DefaultPath, "the admin socket the control container uses")
 	f.StringArrayVar(&doorAddrs, "door-addr", nil, "a door address of the machine, host:port (repeat for more)")
+	f.StringVar(&egressDeny, "egress-deny", "", "comma-separated IP ranges (CIDR) or addresses the machine never reaches, even "+
+		"through an allowed name, for example the host's own public addresses; empty denies nothing extra")
 	return cmd
 }

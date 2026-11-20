@@ -339,6 +339,11 @@ cmd_list() {
   for dup in $(for s in ${STAGES[@]+"${STAGES[@]}"}; do printf '%s\n' "${s%%|*}"; done | sort | uniq -d); do
     fail "list: the stage $dup is registered more than once"
   done
+  local want ran
+  want="$(for s in ${STAGES[@]+"${STAGES[@]}"}; do printf '%s ' "${s%%|*}"; done)"
+  ran="$(grep -E '^ +run: e2e/run\.sh [a-z0-9-]+$' .github/workflows/images.yml | awk '{ print $3 }' |
+    grep -vxE 'up|down|all|list' | tr '\n' ' ')"
+  [ "$ran" = "$want" ] || fail "list: the e2e job runs the stages in another order than e2e/stages/" "it runs: $ran"
   echo "Stages, in run order:"
   for s in ${STAGES[@]+"${STAGES[@]}"}; do
     name="${s%%|*}" what="${s#*|}"

@@ -7,12 +7,20 @@
 
 stage defence-slice "with the rest of the budget spent, the defence slice still pays for defence calls"
 
-# defence_slice_set <json>: a human changes the defence slice through the admin socket.
-defence_slice_set() { printf '%s' "$1" | as_control_in /v1/gateway/budget/defence -X PATCH; }
+# defence_slice_set <json> [curl args...]: a human changes the defence slice through the admin
+# socket.
+defence_slice_set() {
+  local body="$1"
+  shift
+  printf '%s' "$body" | as_control_in /v1/gateway/budget/defence -X PATCH "$@"
+}
 
-# defence_slice_view <token>: the budget as the caller with this token sees it, from the machine.
+# defence_slice_view <token> [curl args...]: the budget as the caller with this token sees it,
+# from the machine.
 defence_slice_view() {
-  in_machine curl -sS -m 10 -H "Authorization: Bearer $1" "http://${EDGE_IP}:4000/v1/budget"
+  local token="$1"
+  shift
+  in_machine curl -sS -m 10 -H "Authorization: Bearer ${token}" "$@" "http://${EDGE_IP}:4000/v1/budget"
 }
 
 # defence_slice_left: what is left of the defence slice, through the admin socket.

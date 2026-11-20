@@ -1270,7 +1270,7 @@ export interface paths {
     };
     /**
      * List services
-     * @description Lists systemd units, including the units of agents and of emitters (`emitter@<id>.service`).
+     * @description Lists the services the daemon reports. Today these are the daemon itself (`agentsoned.service`) and the machine recipe (`machine-recipe.service`). The machine runs no systemd; the daemon supervises agent runners itself, so runners are processes, not services.
      */
     get: operations["listServices"];
     put?: never;
@@ -1286,7 +1286,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1295,7 +1295,7 @@ export interface paths {
     put?: never;
     /**
      * Restart a service
-     * @description Restarts a systemd unit and returns its new state.
+     * @description Restarts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be restarted this way.
      */
     post: operations["restartService"];
     delete?: never;
@@ -1309,7 +1309,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1318,7 +1318,7 @@ export interface paths {
     put?: never;
     /**
      * Start a service
-     * @description Starts a systemd unit and returns its new state.
+     * @description Starts a service the daemon reports and returns its new state. `machine-recipe.service` applies the recipe again; the daemon cannot be started this way.
      */
     post: operations["startService"];
     delete?: never;
@@ -1332,7 +1332,7 @@ export interface paths {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -1341,7 +1341,7 @@ export interface paths {
     put?: never;
     /**
      * Stop a service
-     * @description Stops a systemd unit and returns its new state.
+     * @description Asks to stop a service the daemon reports. Both refuse today, because the daemon stops through a reboot and the recipe runs once.
      */
     post: operations["stopService"];
     delete?: never;
@@ -4025,7 +4025,7 @@ export interface components {
       type: string;
     };
     Process: {
-      /** @description Agent whose cgroup `/agents/<id>` holds the process. */
+      /** @description Agent whose Linux user runs the process, null for other users. */
       agent: string | null;
       /** @description Full command line. */
       command: string;
@@ -4035,7 +4035,7 @@ export interface components {
       /** Format: int64 */
       rss_bytes: number;
       started_at: components["schemas"]["Timestamp"];
-      /** @description systemd unit owning the process. */
+      /** @description Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself. */
       unit: string | null;
       user: string;
     };
@@ -4182,7 +4182,7 @@ export interface components {
     SemverRange: string;
     Service: {
       active_state: components["schemas"]["ServiceActiveState"];
-      /** @description Agent that owns the unit, for agent units. */
+      /** @description Agent that owns the service. Null for the services the daemon reports today. */
       agent: string | null;
       description: string;
       enabled: boolean;
@@ -4689,7 +4689,7 @@ export interface components {
     ThemeId: components["schemas"]["ThemeId"];
     TokenId: components["schemas"]["TokenId"];
     TriggerId: components["schemas"]["TriggerId"];
-    /** @description systemd unit name including its suffix. */
+    /** @description Service name including its suffix, as `listServices` shows it. */
     Unit: string;
   };
   requestBodies: never;
@@ -6981,7 +6981,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -7009,7 +7009,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;
@@ -7037,7 +7037,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description systemd unit name including its suffix. */
+        /** @description Service name including its suffix, as `listServices` shows it. */
         unit: components["parameters"]["Unit"];
       };
       cookie?: never;

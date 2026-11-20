@@ -143,7 +143,7 @@ Unit:
   name: unit
   in: path
   required: true
-  description: systemd unit name including its suffix.
+  description: Service name including its suffix, as `listServices` shows it.
   schema:
     type: string
     pattern: '^[A-Za-z0-9@._:-]+\.(service|timer|socket|target|mount|path)$'

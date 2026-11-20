@@ -91,6 +91,17 @@ content" warnings.
 
 ## Changelog
 
+### 1.1.1
+
+Descriptions and examples only. No schema change.
+
+- The machine runs no systemd. `listServices` reports the services the daemon reports, today
+  `agentsoned.service` and `machine-recipe.service`; `Process.unit` is always null, because the daemon
+  supervises agent runners itself. The descriptions of the service operations, `Process.unit`,
+  `Process.agent`, `Service.agent` and the `unit` path parameter say so.
+- The fixtures `listProcesses`, `listProcesses.long-text` and `listServices` match what the daemon
+  really returns: runner and daemon command lines, unit null, two services.
+
 ### 1.1.0
 
 Additive (minor: a new operation).

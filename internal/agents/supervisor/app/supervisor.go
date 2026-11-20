@@ -201,6 +201,7 @@ func (s *Supervisor) Reconfigure(ctx context.Context, a core.Agent, limits *doma
 	}
 	s.mu.Unlock()
 	if running {
+		s.runnerState(ctx, a.Name, RunStarting)
 		if err := s.d.Launcher.Restart(ctx, a.Name); err != nil {
 			return fmt.Errorf("reconfigure %s: restart: %w", a.Name, err)
 		}
@@ -344,6 +345,7 @@ func (s *Supervisor) launch(ctx context.Context, name string, r *runner) error {
 		s.mu.Unlock()
 		s.runnerFailed(ctx, name, reason)
 	}
+	s.runnerState(ctx, name, RunStarting)
 	if _, err := s.gatewayToken(ctx, name); err != nil {
 		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
 		fail(gatewayReason(err))
@@ -412,6 +414,7 @@ func (s *Supervisor) Sleep(ctx context.Context, name string, compact bool) error
 	r.pending = nil
 	r.restartAt = time.Time{} // a sleeping agent is not restarted
 	s.mu.Unlock()
+	s.runnerState(ctx, name, RunStopped)
 	if err := s.d.Launcher.Stop(ctx, name); err != nil {
 		return fmt.Errorf("sleep %s: stop: %w", name, err)
 	}
@@ -456,6 +459,7 @@ func (s *Supervisor) Tick(ctx context.Context) error {
 	var errs []error
 	for _, name := range expired {
 		s.audit(ctx, ActionHeartbeatTimeout, "agent:"+name, map[string]any{"code": -32003})
+		s.runnerState(ctx, name, RunStarting)
 		if err := s.d.Launcher.Restart(ctx, name); err != nil {
 			errs = append(errs, fmt.Errorf("restart %s: %w", name, err))
 		}

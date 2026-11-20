@@ -253,6 +253,31 @@ func runAgentContract(t *testing.T, newRepo func(t *testing.T) domain.Repository
 			t.Fatalf("dev after failed save = %+v, %v, want unchanged", got, err)
 		}
 	})
+	t.Run("records a turn without touching the rest of the agent", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		a := fullAgent()
+		createAgents(t, repo, a)
+		at := time.Date(2026, 11, 20, 5, 30, 0, 987654321, time.UTC)
+		if err := repo.RecordTurn(t.Context(), a.Name, at); err != nil {
+			t.Fatalf("RecordTurn() error = %v", err)
+		}
+		a.LastTurnAt = &at
+		got, err := repo.GetAgent(t.Context(), a.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(a, got); diff != "" {
+			t.Fatalf("agent after RecordTurn (-want +got):\n%s", diff)
+		}
+	})
+	t.Run("returns not found when recording a turn of an unknown agent", func(t *testing.T) {
+		t.Parallel()
+		repo := newRepo(t)
+		if err := repo.RecordTurn(t.Context(), "ghost", time.Now()); !errors.Is(err, domain.ErrAgentNotFound) {
+			t.Fatalf("RecordTurn(ghost) error = %v, want %v", err, domain.ErrAgentNotFound)
+		}
+	})
 	t.Run("does not share memory with the caller", func(t *testing.T) {
 		t.Parallel()
 		repo := newRepo(t)

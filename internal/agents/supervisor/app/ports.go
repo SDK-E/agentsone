@@ -118,6 +118,31 @@ type AgentStates interface {
 	RunnerCleared(ctx context.Context, agent string) error
 }
 
+// RunState is what an agent's runner is doing, as the society shows it.
+type RunState string
+
+// Run states.
+const (
+	// RunStopped: no runner. The agent shows as sleeping.
+	RunStopped RunState = "stopped"
+	// RunStarting: the runner was started and has not finished its handshake.
+	RunStarting RunState = "starting"
+	// RunIdle: the runner is connected and waits for a wake.
+	RunIdle RunState = "idle"
+	// RunWorking: a turn is running.
+	RunWorking RunState = "working"
+)
+
+// RunObserver hears what each agent's runner is doing and when a turn ends
+// (the society context, internal/agents/app), so the agent's record shows
+// its real state and its last turn.
+type RunObserver interface {
+	// RunnerState says what agent's runner is doing now.
+	RunnerState(ctx context.Context, agent string, state RunState) error
+	// TurnEnded says a turn of agent ended at at.
+	TurnEnded(ctx context.Context, agent string, at time.Time) error
+}
+
 // NetworkWall checks the machine's network wall: no route out and one
 // network only, so the edge is the only way out (adapters/netwall reads
 // /proc).
@@ -192,6 +217,8 @@ type Deps struct {
 	Config    Config
 	// States hears runner failures and recoveries; nil hears nothing.
 	States AgentStates
+	// Runs hears what runners do and when turns end; nil hears nothing.
+	Runs RunObserver
 	// Wall checks the network wall. Nil cannot prove it, so no agent wakes.
 	Wall NetworkWall
 	// Log takes the supervisor's lines (the network wall, the credential

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -69,6 +70,9 @@ func (s *Society) seedFromTemplate(ctx context.Context, hirer string, chart doma
 		if err := s.ports.Live.UpdateLine(ctx, a.Name, seed.OneLine); err != nil {
 			return fmt.Errorf("seed one-line of %s: %w", a.Name, err)
 		}
+	} else if err := s.ports.Live.UpdateLine(ctx, a.Name, StartingLine(a.Role)); err != nil {
+		// The agent is hired already; a missing line is filled at the next start.
+		s.log.WarnContext(ctx, "agents: a new agent has no starting one-line", "agent", a.Name, "error", err)
 	}
 	for _, title := range seed.Goals {
 		g, err := domain.NewGoal(chart, hirer, domain.GoalSpec{Owner: a.Name, Title: title}, nil, s.ids.New("gol"), s.clock.Now())
@@ -77,6 +81,51 @@ func (s *Society) seedFromTemplate(ctx context.Context, hirer string, chart doma
 		}
 		if err := s.repo.CreateGoal(ctx, g); err != nil {
 			return fmt.Errorf("store seed goal of %s: %w", a.Name, err)
+		}
+	}
+	return nil
+}
+
+// noRoleLine is the one-line of a new agent that has no role.
+const noRoleLine = "new"
+
+// StartingLine is what an agent's one-line says before its first turn: its
+// role on one line, cut to fit the live list, or "new" when it has none.
+// The agent's own first line replaces it.
+func StartingLine(role string) string {
+	line := strings.Join(strings.Fields(role), " ")
+	for len(line) > core.MaxLiveLine {
+		_, size := utf8.DecodeLastRuneInString(line)
+		line = line[:len(line)-size]
+	}
+	if line = strings.TrimSpace(line); line == "" {
+		return noRoleLine
+	}
+	return line
+}
+
+// FillStartingLines gives every active agent that has no one-line yet its
+// starting line. The daemon runs it at start, for agents hired before new
+// agents got one. It stops at the first failure.
+func (s *Society) FillStartingLines(ctx context.Context) error {
+	chart, err := s.chart(ctx)
+	if err != nil {
+		return err
+	}
+	lines, err := s.ports.Live.Lines(ctx)
+	if err != nil {
+		return fmt.Errorf("read live list: %w", err)
+	}
+	has := make(map[string]bool, len(lines))
+	for _, l := range lines {
+		has[l.Agent] = true
+	}
+	for _, a := range chart.Agents() {
+		if !a.Active() || has[a.Name] {
+			continue
+		}
+		if err := s.ports.Live.UpdateLine(ctx, a.Name, StartingLine(a.Role)); err != nil {
+			return fmt.Errorf("starting one-line of %s: %w", a.Name, err)
 		}
 	}
 	return nil

@@ -264,6 +264,18 @@ func (r *Repository) SaveAgents(ctx context.Context, agents ...domain.Agent) err
 	return nil
 }
 
+// RecordTurn sets only the agent's last turn time.
+func (r *Repository) RecordTurn(ctx context.Context, name string, at time.Time) error {
+	res, err := r.db.SQL().ExecContext(ctx, `UPDATE agents SET last_turn_at = ? WHERE name = ?`, formatTime(at), name)
+	if err != nil {
+		return fmt.Errorf("record turn of %s: %w", name, err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return errors.Join(fmt.Errorf("%w: %s", domain.ErrAgentNotFound, name), err)
+	}
+	return nil
+}
+
 // Charter.
 
 // Charter returns the stored charter, or the zero Charter.

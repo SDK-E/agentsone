@@ -56,8 +56,15 @@ type Society struct {
 	mu sync.Mutex
 	// replies holds agent replies being written, by turn id.
 	replies map[string]*reply
+	// runMu guards failed and live. It is a leaf lock, never held while
+	// another is taken, so a read of the chart may run inside a change
+	// (the router reads the profiles while a hire holds mu).
+	runMu sync.Mutex
 	// failed holds why each agent's runner cannot run, by agent name.
 	failed map[string]string
+	// live holds what each agent's runner does now, by agent name. An agent
+	// with no entry has no runner, so it shows its stored state.
+	live map[string]domain.State
 }
 
 // New returns the society over repo. Ports is read when used, so modules
@@ -65,7 +72,7 @@ type Society struct {
 func New(repo domain.Repository, rt Runtime, ports *core.Ports, clock core.Clock, ids core.IDs) *Society {
 	return &Society{
 		repo: repo, rt: rt, ports: ports, clock: clock, ids: ids, hub: NewHub(), log: slog.New(slog.DiscardHandler),
-		replies: map[string]*reply{}, failed: map[string]string{},
+		replies: map[string]*reply{}, failed: map[string]string{}, live: map[string]domain.State{},
 	}
 }
 
@@ -336,6 +343,9 @@ func (s *Society) Retire(ctx context.Context, target string) error {
 	}
 	retired, _ := chart.Get(target)
 	retired.State = domain.StateRetired
+	s.runMu.Lock()
+	delete(s.live, target)
+	s.runMu.Unlock()
 	changed := []domain.Agent{retired}
 	for _, m := range plan.Moved {
 		report, _ := chart.Get(m)

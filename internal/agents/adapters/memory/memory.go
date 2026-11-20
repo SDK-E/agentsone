@@ -214,6 +214,19 @@ func (r *Repository) SaveAgents(_ context.Context, agents ...domain.Agent) error
 	return nil
 }
 
+// RecordTurn sets the agent's last turn time.
+func (r *Repository) RecordTurn(_ context.Context, name string, at time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a, ok := r.agents[name]
+	if !ok {
+		return fmt.Errorf("%w: %s", domain.ErrAgentNotFound, name)
+	}
+	a.LastTurnAt = &at
+	r.agents[name] = copyAgent(a)
+	return nil
+}
+
 // Charter returns the stored charter.
 func (r *Repository) Charter(context.Context) (domain.Charter, error) {
 	r.mu.Lock()

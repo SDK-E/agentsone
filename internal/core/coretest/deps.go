@@ -92,6 +92,7 @@ func NewDeps(t testing.TB) (core.Deps, *Fakes) {
 	t.Helper()
 	cfg := testConfig(t.TempDir())
 	fakes, ports := NewFakes()
+	fakes.Waker.Strict(func(err error) { t.Error(err) })
 	return core.Deps{
 		Config: &cfg,
 		Log:    slog.New(slog.DiscardHandler),

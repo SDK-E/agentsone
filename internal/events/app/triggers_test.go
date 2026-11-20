@@ -5,6 +5,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -84,6 +85,28 @@ func TestTrigger_WakesTheAgentWithAReasonOfEvent(t *testing.T) {
 	}
 	if actions := f.auditActions(); !slices.Contains(actions, "trigger.fire") {
 		t.Fatalf("audit actions = %v", actions)
+	}
+}
+
+func TestTrigger_WakePayloadIsTheEventThatFiredIt(t *testing.T) {
+	f := newFixture(t) // the fixture's waker checks the payload against the runner contract
+	createTrigger(asAgent("builder"), t, f, wakeSpec("builder"))
+
+	published, err := f.svc.PublishDraft(asSystem(), diskEvent())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wakes := f.wakes()
+	if len(wakes) != 1 {
+		t.Fatalf("wakes = %+v, want 1", wakes)
+	}
+	var got struct{ ID, Type string }
+	if err := json.Unmarshal(wakes[0].Payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != published.ID || got.Type != published.Type {
+		t.Fatalf("payload event = %+v, want id %s type %s", got, published.ID, published.Type)
 	}
 }
 

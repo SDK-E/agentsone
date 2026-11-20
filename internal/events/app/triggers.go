@@ -193,11 +193,9 @@ func (s *Service) act(ctx context.Context, t domain.Trigger, e core.Event) error
 		})
 		return err
 	}
-	payload, err := json.Marshal(map[string]any{
-		"trigger_id": t.ID,
-		"message":    domain.Render(a.Message, e),
-		"event":      e,
-	})
+	// The runner contract's event wake carries the event itself and has no
+	// place for the trigger's message, so the message is not sent.
+	payload, err := json.Marshal(e)
 	if err != nil {
 		return fmt.Errorf("encode wake payload: %w", err)
 	}

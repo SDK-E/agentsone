@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
@@ -95,6 +96,47 @@ func TestWaker(t *testing.T) {
 	wakes := w.Wakes()
 	if len(wakes) != 1 || wakes[0].Agent != "dev" || wakes[0].Reason != core.WakeTask || string(wakes[0].Payload) != string(payload) {
 		t.Fatalf("wakes %+v", wakes)
+	}
+}
+
+// Every reason the daemon wakes for has a payload the runner contract
+// defines. A reason added to core without a mapping in the validator fails here.
+func TestEveryWakeReasonHasAPayloadInTheRunnerContract(t *testing.T) {
+	for _, reason := range []core.WakeReason{core.WakeMessage, core.WakeTask, core.WakeEvent, core.WakeTimer, core.WakeChat} {
+		err := contracttest.ValidateWakePayload(string(reason), []byte(`{}`))
+		if err == nil || strings.Contains(err.Error(), "not in the runner contract") {
+			t.Errorf("reason %q: ValidateWakePayload(empty object) error = %v, want a schema violation", reason, err)
+		}
+	}
+}
+
+func TestStrictWaker_RejectsAPayloadThatBreaksTheRunnerContract(t *testing.T) {
+	var reported []error
+	w := coretest.NewStrictWaker(func(err error) { reported = append(reported, err) })
+	bad := json.RawMessage(`{"message_id":"msg_1","text":"hi"}`)
+
+	err := w.Wake(context.Background(), "dev", core.WakeMessage, bad)
+
+	if !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("Wake error = %v, want core.ErrInvalid", err)
+	}
+	if len(reported) != 1 {
+		t.Fatalf("reported %d violations, want 1", len(reported))
+	}
+	if n := len(w.Wakes()); n != 0 {
+		t.Fatalf("recorded %d wakes for a refused payload, want 0", n)
+	}
+}
+
+func TestStrictWaker_RecordsAPayloadThatMatchesTheContract(t *testing.T) {
+	w := coretest.NewStrictWaker(func(err error) { t.Errorf("unexpected violation: %v", err) })
+	good := json.RawMessage(`{"scheduleId":"sch_01JD8X3Q5Y6Z7A8B9C0D1E2F70","name":"nightly","due":"2026-11-19T19:10:00Z","firedAt":"2026-11-19T19:10:00Z"}`)
+
+	if err := w.Wake(context.Background(), "dev", core.WakeTimer, good); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(w.Wakes()); n != 1 {
+		t.Fatalf("recorded %d wakes, want 1", n)
 	}
 }
 

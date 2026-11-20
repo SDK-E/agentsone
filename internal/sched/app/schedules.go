@@ -13,6 +13,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/sched/domain"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 // clockActor is who a fired schedule acts as.
@@ -182,13 +183,18 @@ func (s *Schedules) Tick(ctx context.Context) (int, error) {
 	return fired, errors.Join(errs...)
 }
 
-// timerWake is the payload of a timer wake, as the runner protocol defines it.
-type timerWake struct {
-	ScheduleID string    `json:"scheduleId"`
-	Name       string    `json:"name"`
-	Due        time.Time `json:"due"`
-	FiredAt    time.Time `json:"firedAt"`
-	Note       string    `json:"note,omitempty"`
+// timerWake is the runner contract's wake payload for reason "timer".
+func timerWake(sc domain.Schedule, due, firedAt time.Time) protocol.TimerFired {
+	out := protocol.TimerFired{
+		ScheduleID: common.ScheduleID(sc.ID),
+		Name:       sc.Name,
+		Due:        common.Timestamp(due),
+		FiredAt:    common.Timestamp(firedAt),
+	}
+	if sc.Message != "" {
+		out.Note = &sc.Message
+	}
+	return out
 }
 
 func (s *Schedules) fire(ctx context.Context, sc domain.Schedule, now time.Time) (bool, error) {
@@ -206,7 +212,7 @@ func (s *Schedules) fire(ctx context.Context, sc domain.Schedule, now time.Time)
 	if err != nil {
 		return false, coreErr(err)
 	}
-	payload, err := json.Marshal(timerWake{ScheduleID: sc.ID, Name: sc.Name, Due: due, FiredAt: now, Note: sc.Message})
+	payload, err := json.Marshal(timerWake(sc, due, now))
 	if err != nil {
 		return false, fmt.Errorf("encode the wake: %w", err)
 	}

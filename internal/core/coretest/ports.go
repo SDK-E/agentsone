@@ -82,6 +82,7 @@ func (s *Tasks) CreateTask(_ context.Context, t core.NewTask) (core.Task, error)
 	task := core.Task{
 		ID:        s.ids.New("tsk"),
 		Title:     t.Title,
+		Body:      t.Body,
 		Assignee:  t.Assignee,
 		Status:    "open",
 		Priority:  priority,

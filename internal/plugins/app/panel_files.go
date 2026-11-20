@@ -36,7 +36,7 @@ func (p *Plugins) ReadPanelFile(ctx context.Context, id, rel string) (domain.Pan
 	if err != nil {
 		return domain.PanelFile{}, fmt.Errorf("read panel file: open %s: %w", pl.Name, err)
 	}
-	defer func() { _ = root.Close() }()
+	defer func() { _ = root.Close() }() //nolint:errcheck // a read-only folder handle has nothing to flush
 	// The root keeps links inside the plugin, but a link inside the panel
 	// folder could still reach the plugin's other files, so no part of the
 	// path may be a link.
@@ -55,7 +55,7 @@ func (p *Plugins) ReadPanelFile(ctx context.Context, id, rel string) (domain.Pan
 		// Includes a symlink that points outside the plugin.
 		return domain.PanelFile{}, fmt.Errorf("read panel file %s: %w: %w", clean, domain.ErrUnsafePath, err)
 	}
-	defer func() { _ = f.Close() }()
+	defer func() { _ = f.Close() }() //nolint:errcheck // a read-only file handle has nothing to flush
 	info, err := f.Stat()
 	if err != nil {
 		return domain.PanelFile{}, fmt.Errorf("read panel file %s: %w", clean, err)

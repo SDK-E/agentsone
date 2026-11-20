@@ -25,7 +25,8 @@ type Human struct {
 	Name        string
 	DisplayName string
 	// UID is a stable account number from 1000 up, shown in the contract's
-	// Human.uid. It is not a Linux uid.
+	// Human.uid. It is also the uid of the human's Linux user, h_<name>
+	// (internal/humanuser).
 	UID int
 	// PasswordHash is an argon2id PHC string. It never leaves this context.
 	PasswordHash string

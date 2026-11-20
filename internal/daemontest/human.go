@@ -81,6 +81,16 @@ func (p peerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return p.door.serveAs(req, p.caller).Result(), nil
 }
 
+// Anonymous is a browser before anyone signs in: a client with no session
+// that comes through the edge's web door, as the setup screen does. It
+// reaches only the public operations, such as the setup status.
+func (d *Daemon) Anonymous() *Client {
+	d.t.Helper()
+	c := d.newClient("anonymous")
+	c.c.Transport = peerTransport{door: d.door, caller: core.Anonymous}
+	return c
+}
+
 // SignInHuman creates the machine's first human and signs it in. Like on a
 // fresh machine, the first human starts the society: the small seed
 // provisions its founder, router and waker. SignInHuman returns once the

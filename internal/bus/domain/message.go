@@ -66,6 +66,26 @@ type Message struct {
 	CreatedAt     time.Time
 }
 
+// maxSubject is the longest derived subject, in characters.
+const maxSubject = 80
+
+// Subject is the one-line subject the runner contract asks of a bus
+// message. The API has no subject field, so it is the first non-blank line
+// of the text, trimmed and cut to maxSubject characters with an ellipsis.
+func (m Message) Subject() string {
+	for line := range strings.SplitSeq(m.Text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if utf8.RuneCountInString(line) > maxSubject {
+			return string([]rune(line)[:maxSubject-1]) + "…"
+		}
+		return line
+	}
+	return "(no subject)"
+}
+
 // IsDirect reports whether m is addressed to one agent.
 func (m Message) IsDirect() bool { return m.To != "" }
 

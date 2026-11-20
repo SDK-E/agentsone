@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/SDK-E/agentsone/internal/bus/domain"
+	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 // Post sends a message for an API caller. The sender is the caller; the
@@ -178,14 +180,35 @@ func (s *Service) store(ctx context.Context, m domain.Message) (domain.Message, 
 	return stored, nil
 }
 
+// WakeMessage is m as the runner contract's wake payload for reason
+// "message". The subject is derived from the text (Message.Subject) and the
+// body is the whole text.
+func WakeMessage(m domain.Message) protocol.BusMessage {
+	out := protocol.BusMessage{
+		ID:      common.MessageID(m.ID),
+		From:    common.ActorRef(m.From),
+		To:      common.AgentName(m.To),
+		Subject: common.OneLine(m.Subject()),
+		Body:    common.Markdown(m.Text),
+		SentAt:  common.Timestamp(m.CreatedAt),
+	}
+	if m.ReplyTo != "" {
+		r := common.MessageID(m.ReplyTo)
+		out.ReplyTo = &r
+	}
+	if m.CorrelationID != "" {
+		c := common.AnyID(m.CorrelationID)
+		out.CorrelationID = &c
+	}
+	return out
+}
+
 // wake tells the recipient of a direct message about it. A frozen recipient
 // stays asleep and a failed wake is logged: the message is stored either
 // way, so the recipient finds it when it next looks. It reports whether the
 // recipient was woken.
 func (s *Service) wake(ctx context.Context, m domain.Message) bool {
-	payload, err := json.Marshal(map[string]any{
-		"message_id": m.ID, "from": m.From, "text": m.Text, "reply_to": m.ReplyTo, "correlation_id": m.CorrelationID,
-	})
+	payload, err := json.Marshal(WakeMessage(m))
 	if err != nil {
 		s.d.Log.WarnContext(ctx, "encode wake payload failed", "message", m.ID, "error", err)
 		return false

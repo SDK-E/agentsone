@@ -69,6 +69,32 @@ func TestMessage_IsDirect(t *testing.T) {
 	}
 }
 
+func TestMessage_Subject(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"one line", "Please review PR 7.", "Please review PR 7."},
+		{"first line only", "Review PR 7\n\nIt touches the bus.", "Review PR 7"},
+		{"skips leading blank lines", "\n\n  Review PR 7  \nmore", "Review PR 7"},
+		{"crlf", "Review PR 7\r\nmore", "Review PR 7"},
+		{"long line is cut with an ellipsis", strings.Repeat("a", 100), strings.Repeat("a", 79) + "…"},
+		{"cut counts characters, not bytes", strings.Repeat("é", 100), strings.Repeat("é", 79) + "…"},
+		{"exactly the limit stays whole", strings.Repeat("a", 80), strings.Repeat("a", 80)},
+		{"blank text still has a subject", " \n ", "(no subject)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := (domain.Message{Text: tt.text}).Subject(); got != tt.want {
+				t.Fatalf("Subject() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidActor(t *testing.T) {
 	t.Parallel()
 	for _, ok := range []string{"agent:founder", "human:ada", "system:daemon", "host:agentsone", "plugin:plg_01JD7ZK3M00000000000000001"} {

@@ -98,6 +98,36 @@ func TestWaker(t *testing.T) {
 	}
 }
 
+func TestStrictWaker_RejectsAPayloadThatBreaksTheRunnerContract(t *testing.T) {
+	var reported []error
+	w := coretest.NewStrictWaker(func(err error) { reported = append(reported, err) })
+	bad := json.RawMessage(`{"message_id":"msg_1","text":"hi"}`)
+
+	err := w.Wake(context.Background(), "dev", core.WakeMessage, bad)
+
+	if !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("Wake error = %v, want core.ErrInvalid", err)
+	}
+	if len(reported) != 1 {
+		t.Fatalf("reported %d violations, want 1", len(reported))
+	}
+	if n := len(w.Wakes()); n != 0 {
+		t.Fatalf("recorded %d wakes for a refused payload, want 0", n)
+	}
+}
+
+func TestStrictWaker_RecordsAPayloadThatMatchesTheContract(t *testing.T) {
+	w := coretest.NewStrictWaker(func(err error) { t.Errorf("unexpected violation: %v", err) })
+	good := json.RawMessage(`{"scheduleId":"sch_01JD8X3Q5Y6Z7A8B9C0D1E2F70","name":"nightly","due":"2026-11-19T19:10:00Z","firedAt":"2026-11-19T19:10:00Z"}`)
+
+	if err := w.Wake(context.Background(), "dev", core.WakeTimer, good); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(w.Wakes()); n != 1 {
+		t.Fatalf("recorded %d wakes, want 1", n)
+	}
+}
+
 func TestEventsPublishAssignsIdentity(t *testing.T) {
 	clock := coretest.NewClock(start)
 	ev := coretest.NewEvents(clock, coretest.NewIDs())

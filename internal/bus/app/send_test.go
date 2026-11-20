@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/bus/domain"
+	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 func TestPost_ToAChannelStoresTheMessageAndWakesNobody(t *testing.T) {
@@ -74,12 +76,16 @@ func TestPost_DirectMessageWakesTheRecipientWithReasonMessage(t *testing.T) {
 	if len(wakes) != 1 || wakes[0].Agent != "intern" || wakes[0].Reason != core.WakeMessage {
 		t.Fatalf("wakes = %+v", wakes)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal(wakes[0].Payload, &payload); err != nil {
+	corr := common.AnyID(m.CorrelationID)
+	want, err := json.Marshal(protocol.BusMessage{
+		ID: common.MessageID(m.ID), From: "agent:builder", To: "intern", Subject: "Please review PR 7.",
+		Body: "Please review PR 7.", SentAt: common.Timestamp(m.CreatedAt), CorrelationID: &corr,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if payload["message_id"] != m.ID || payload["from"] != "agent:builder" || payload["text"] != "Please review PR 7." {
-		t.Fatalf("payload = %v", payload)
+	if string(wakes[0].Payload) != string(want) {
+		t.Fatalf("payload = %s, want %s", wakes[0].Payload, want)
 	}
 	if m.To != "intern" || m.Channel != "" {
 		t.Fatalf("message = %+v", m)

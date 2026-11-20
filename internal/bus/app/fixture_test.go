@@ -120,6 +120,7 @@ type fixture struct {
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
+	fakes.Waker.Strict(func(err error) { t.Error(err) })
 	for _, a := range []core.Agent{
 		{Name: "founder", Kind: core.AgentAlwaysOn},
 		{Name: "builder", Kind: core.AgentChat, Manager: "founder"},

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -118,15 +119,34 @@ type Wake struct {
 
 // Waker records wakes instead of waking anyone.
 type Waker struct {
-	mu     sync.Mutex
-	wakes  []Wake
-	frozen map[string]bool
+	mu      sync.Mutex
+	wakes   []Wake
+	frozen  map[string]bool
+	violate func(error) // set by NewStrictWaker
 }
 
 var _ core.Waker = (*Waker)(nil)
 
 // NewWaker returns a Waker with no wakes.
 func NewWaker() *Waker { return &Waker{frozen: map[string]bool{}} }
+
+// NewStrictWaker returns a Waker that checks every payload against the
+// runner contract, as the runner does. A payload that does not match is
+// passed to onViolation (give it t.Error so the test fails even when the
+// caller drops the wake's error), is not recorded, and makes Wake return
+// core.ErrInvalid.
+func NewStrictWaker(onViolation func(error)) *Waker {
+	w := NewWaker()
+	w.Strict(onViolation)
+	return w
+}
+
+// Strict makes w check payloads like NewStrictWaker's.
+func (w *Waker) Strict(onViolation func(error)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.violate = onViolation
+}
 
 // Freeze makes later wakes of agent return core.ErrFrozen.
 func (w *Waker) Freeze(agent string) {
@@ -141,6 +161,12 @@ func (w *Waker) Wake(_ context.Context, agent string, reason core.WakeReason, pa
 	defer w.mu.Unlock()
 	if w.frozen[agent] {
 		return fmt.Errorf("wake %q: %w", agent, core.ErrFrozen)
+	}
+	if w.violate != nil {
+		if err := contracttest.ValidateWakePayload(string(reason), payload); err != nil {
+			w.violate(fmt.Errorf("wake %q: %w", agent, err))
+			return fmt.Errorf("wake %q: %w: %w", agent, core.ErrInvalid, err)
+		}
 	}
 	w.wakes = append(w.wakes, Wake{Agent: agent, Reason: reason, Payload: payload})
 	return nil

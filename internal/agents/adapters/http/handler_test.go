@@ -133,7 +133,7 @@ type agentDTO struct {
 	Name    string  `json:"name"`
 	Team    string  `json:"team"`
 	Manager *string `json:"manager"`
-	Unit    string  `json:"unit"`
+	Unit    *string `json:"unit"`
 	Limits  *struct {
 		Wall string `json:"wall"`
 	} `json:"limits"`
@@ -186,7 +186,7 @@ func TestListAgents_FiltersByKindAndTeam(t *testing.T) {
 	}
 }
 
-func TestGetAgent_ShowsTeamUnitLimitsAndOneLine(t *testing.T) {
+func TestGetAgent_ShowsTeamLimitsAndOneLineAndLeavesTheUnitOut(t *testing.T) {
 	t.Parallel()
 	s := newServer(t)
 	if err := s.fakes.Live.UpdateLine(context.Background(), "dev", "Goal: ship. Now: testing."); err != nil {
@@ -196,7 +196,7 @@ func TestGetAgent_ShowsTeamUnitLimitsAndOneLine(t *testing.T) {
 	dev := decode[agentDTO](t, s.do("human:ada", http.MethodGet, "/v1/agents/dev", ""))
 	founder := decode[agentDTO](t, s.do("human:ada", http.MethodGet, "/v1/agents/founder", ""))
 
-	if dev.Team != "lead" || dev.Unit != "agent@dev.service" || dev.Limits == nil || dev.Limits.Wall != "soft" || dev.OneLine == nil || dev.OneLine.Text != "Goal: ship. Now: testing." {
+	if dev.Team != "lead" || dev.Unit != nil || dev.Limits == nil || dev.Limits.Wall != "soft" || dev.OneLine == nil || dev.OneLine.Text != "Goal: ship. Now: testing." {
 		t.Errorf("dev = %+v", dev)
 	}
 	if founder.Manager != nil || founder.Limits != nil || founder.OneLine != nil || founder.Team != "founder" {

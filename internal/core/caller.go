@@ -13,7 +13,8 @@ type CallerKind string
 // Caller kinds.
 const (
 	// CallerAgent is an agent, identified by socket peer credentials and
-	// its cgroup (agent@<name>.service), or by an agent token.
+	// its cgroup (/agents/<id>, when the machine holds agent limits), or by
+	// an agent token.
 	CallerAgent CallerKind = "agent"
 	// CallerHuman is a signed-in human, identified by a session cookie or token.
 	CallerHuman CallerKind = "human"

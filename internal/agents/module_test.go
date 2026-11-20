@@ -97,6 +97,41 @@ func TestModule_StartReprovisionsEveryActiveAgentWithItsUID(t *testing.T) {
 	}
 }
 
+// At start, and once the society is seeded, always-on agents' runners
+// start idle; chat agents and wakers wait for a wake.
+func TestModule_StartsAlwaysOnRunnersAtStartAndAfterTheSeed(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	rt := agentstest.NewRuntime()
+	m := agents.New(deps, agents.WithRuntime(rt))
+	ctx := context.Background()
+	if err := m.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	firstHuman(t, fakes)
+	waitSeed(t, m)
+	if diff := cmp.Diff([]string{"founder"}, rt.Ran()); diff != "" {
+		t.Errorf("after the seed (-want +got):\n%s", diff)
+	}
+
+	restarted := agentstest.NewRuntime()
+	again := agents.New(deps, agents.WithRuntime(restarted))
+	if err := again.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = again.Stop(ctx) })
+	if diff := cmp.Diff([]string{"founder"}, restarted.Ran()); diff != "" {
+		t.Errorf("after a restart (-want +got):\n%s", diff)
+	}
+	if len(restarted.Wakes()) != 0 {
+		t.Errorf("wakes = %v, want none", restarted.Wakes())
+	}
+}
+
 // addSmallSeed installs the repository's Small Seed templates in the fake
 // catalog, as the plugins module serves them.
 func addSmallSeed(t *testing.T, fakes *coretest.Fakes) {

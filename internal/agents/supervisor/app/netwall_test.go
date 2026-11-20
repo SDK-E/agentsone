@@ -3,10 +3,13 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -133,6 +136,148 @@ func TestCheckWall_BrokenRefusesEveryWake(t *testing.T) {
 	}
 }
 
+// An always-on agent's idle start is a start: a broken wall refuses it like a
+// wake, and the runner starts once the wall holds again.
+func TestRun_RefusedThroughABrokenWallAndStartsOnceItHolds(t *testing.T) {
+	t.Parallel()
+	w := newUncheckedWorld(t)
+	w.wall.set(brokenWall)
+	ctx := t.Context()
+	w.sup.CheckWall(ctx)
+
+	err := w.sup.Run(ctx, "founder")
+	if !errors.Is(err, app.ErrNetworkWall) || !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("Run() through a broken wall = %v, want ErrNetworkWall and core.ErrUnavailable", err)
+	}
+	if w.launcher.isRunning("founder") {
+		t.Fatal("founder started through a broken wall")
+	}
+
+	w.wall.set(holdingWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !w.launcher.isRunning("founder") {
+		t.Error("founder did not start once the wall held again")
+	}
+	if w.launcher.isRunning("mira") {
+		t.Error("mira started although nobody asked Run to start it")
+	}
+}
+
+// The launcher is the one place every start passes, so a path that makes no
+// wall check of its own is still refused.
+func TestLaunch_RefusedThroughABrokenWallWithoutAnyCallerCheck(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	ctx := t.Context()
+	w.wall.set(brokenWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	err := w.sup.Launch(ctx, "mira")
+	if !errors.Is(err, app.ErrNetworkWall) || !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("Launch() = %v, want ErrNetworkWall and core.ErrUnavailable", err)
+	}
+	if w.launcher.isRunning("mira") {
+		t.Fatal("mira started through a broken wall")
+	}
+}
+
+// A wall that breaks while runners are up stops them, one audit record each.
+// The always-on runner starts again with the wall; the chat runner waits for
+// its next wake.
+func TestTick_AWallThatBreaksStopsEveryRunnerAndRestartsAlwaysOnOnes(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	ctx := t.Context()
+	if err := w.sup.Run(ctx, "founder"); err != nil {
+		t.Fatal(err)
+	}
+	if err := wake(t, w, "mira"); err != nil {
+		t.Fatal(err)
+	}
+	if !w.launcher.isRunning("founder") || !w.launcher.isRunning("mira") {
+		t.Fatal("runners are not up before the wall breaks")
+	}
+
+	w.wall.set(brokenWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, agent := range []string{"founder", "mira"} {
+		if w.launcher.isRunning(agent) {
+			t.Errorf("%s still runs behind a broken wall", agent)
+		}
+		if !slices.Contains(w.actions(), "agent.runner.wall_stop agent:"+agent) {
+			t.Errorf("no audit record for the stop of %s; have %v", agent, w.actions())
+		}
+	}
+	if diff := cmp.Diff([]string{"net.wall.broken network:wall"}, w.wallAudits()); diff != "" {
+		t.Errorf("wall audit (-want +got):\n%s", diff)
+	}
+	if !slices.Contains(w.sink.heard(), "failed founder: "+brokenWall.StateReason()) {
+		t.Errorf("founder does not show the wall's reason; society heard %v", w.sink.heard())
+	}
+
+	w.wall.set(holdingWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !w.launcher.isRunning("founder") {
+		t.Error("the always-on founder did not start again with the wall")
+	}
+	if w.launcher.isRunning("mira") {
+		t.Error("the chat agent mira started without a wake")
+	}
+}
+
+// agentsDown answers ListAgents with an error once down is set.
+type agentsDown struct {
+	core.AgentDirectory
+	down *atomic.Bool
+}
+
+func (a agentsDown) ListAgents(ctx context.Context) ([]core.Agent, error) {
+	if a.down.Load() {
+		return nil, core.ErrUnavailable
+	}
+	return a.AgentDirectory.ListAgents(ctx)
+}
+
+// When the agents cannot be listed, the runners still stop; the log says,
+// at error level, which ones will not start again by themselves.
+func TestTick_AWallThatBreaksStopsRunnersEvenWhenAgentsCannotBeListed(t *testing.T) {
+	t.Parallel()
+	down := &atomic.Bool{}
+	w := newWorld(t, func(d *app.Deps) {
+		d.Ports.Agents = agentsDown{AgentDirectory: d.Ports.Agents, down: down}
+	})
+	ctx := t.Context()
+	if err := w.sup.Run(ctx, "founder"); err != nil {
+		t.Fatal(err)
+	}
+	down.Store(true)
+	w.wall.set(brokenWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if w.launcher.isRunning("founder") {
+		t.Error("founder still runs behind a broken wall")
+	}
+	const line = "ERROR supervisor: the runners stopped by the broken network wall will not start again by themselves"
+	attrs, ok := w.logs.attrsOf(line)
+	if !ok || attrs["agents"] != "founder" {
+		t.Errorf("log %v, attributes %v; want the error line naming founder", w.logs.all(), attrs)
+	}
+}
+
 // The wall is checked again every five minutes. A line and an audit record
 // come only when the answer changes; once the wall holds again, the
 // agents' failure clears and waking works.
@@ -208,7 +353,7 @@ func TestCheckWall_ADifferentBreakIsLoggedAgain(t *testing.T) {
 func TestCheckWall_NotWiredFailsClosed(t *testing.T) {
 	t.Parallel()
 	w := newUncheckedWorld(t)
-	sup := app.New(app.Deps{Clock: w.fakes.Clock, IDs: w.fakes.IDs, Ports: w.ports, Launcher: w.launcher, Config: app.DefaultConfig()})
+	sup := app.New(app.Deps{Clock: w.fakes.Clock, IDs: w.fakes.IDs, Ports: w.ports, Launcher: w.launcher, Config: app.DefaultConfig(), Log: slog.New(w.logs)})
 	if got, _ := sup.CheckWall(t.Context()); got.Holds {
 		t.Fatalf("CheckWall() without a check = %+v, want a wall that does not hold", got)
 	}

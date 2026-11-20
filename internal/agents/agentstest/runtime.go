@@ -17,6 +17,8 @@ import (
 type Runtime struct {
 	// FailProvision, when set, is returned by Provision.
 	FailProvision error
+	// FailRun, when set, is returned by Run.
+	FailRun error
 
 	mu           sync.Mutex
 	provisioned  []string
@@ -27,7 +29,22 @@ type Runtime struct {
 	frozen       map[string]bool
 	wakes        []core.WakeReason
 	payloads     []json.RawMessage
+	ran          []string
 }
+
+// Run records name, or returns FailRun.
+func (r *Runtime) Run(_ context.Context, name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.FailRun != nil {
+		return r.FailRun
+	}
+	r.ran = append(r.ran, name)
+	return nil
+}
+
+// Ran returns the agents whose runners Run started, in order.
+func (r *Runtime) Ran() []string { return r.list(r.ran) }
 
 // NewRuntime returns a runtime with nothing provisioned.
 func NewRuntime() *Runtime { return &Runtime{frozen: map[string]bool{}, uids: map[string]int{}} }

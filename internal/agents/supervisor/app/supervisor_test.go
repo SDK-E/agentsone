@@ -292,6 +292,11 @@ func TestWake_RefusesBadNameAndReportsStartFailure(t *testing.T) {
 	if w.sup.SessionState("mira") != domain.StateFailed {
 		t.Fatalf("state = %s, want failed", w.sup.SessionState("mira"))
 	}
+	// Every runner that does not start is on record, so callers that go on
+	// (a hire, the daemon's start) lose nothing.
+	if diff := cmp.Diff([]string{"agent.runner.error agent:mira"}, w.actions()); diff != "" {
+		t.Errorf("audit (-want +got):\n%s", diff)
+	}
 }
 
 // The gateway token comes from the daemon's one minter, for the agent's
@@ -421,6 +426,57 @@ func TestStatus_ErrorStateTellsTheSociety(t *testing.T) {
 	_ = h.Status(t.Context(), protocol.StatusParams{State: "error"})
 	if diff := cmp.Diff([]string{"running founder", "failed founder: The runner stopped with an error."}, w.sink.heard()); diff != "" {
 		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+}
+
+// Run starts an always-on agent's runner with no turn: after the handshake
+// the runner idles, so it makes no model call until a wake.
+func TestRun_StartsTheRunnerIdleWithoutAWake(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	if err := w.sup.Run(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	if !w.launcher.isRunning("founder") {
+		t.Fatal("runner not started")
+	}
+	h, conn, _ := w.connect(t, "founder")
+	w.fakes.Clock.Advance(time.Second)
+	h.Heard()
+	if w.sup.SessionState("founder") != domain.StateIdle {
+		t.Fatalf("state = %s, want idle", w.sup.SessionState("founder"))
+	}
+	select {
+	case c := <-conn.calls:
+		t.Fatalf("runner got %s, want nothing until a wake", c.method)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// A second Run leaves the running runner alone.
+	if err := w.sup.Run(t.Context(), "founder"); err != nil || w.launcher.restarts["founder"] != 0 {
+		t.Fatalf("second Run = %v, restarts %d", err, w.launcher.restarts["founder"])
+	}
+}
+
+func TestRun_LeavesAFrozenAgentAndReportsAMissingGateway(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	scope := core.FreezeScope{Kind: core.FreezeAgent, Target: "founder"}
+	_ = w.sup.Freeze(t.Context(), scope)
+	if err := w.sup.Run(t.Context(), "founder"); err != nil || w.launcher.isRunning("founder") {
+		t.Fatalf("Run of a frozen agent = %v, running %v; want nothing started", err, w.launcher.isRunning("founder"))
+	}
+	_ = w.sup.Release(t.Context(), scope)
+
+	w.fakes.GatewayTokens.Err = fmt.Errorf("model gateway not reachable: %w", core.ErrUnavailable)
+	if err := w.sup.Run(t.Context(), "founder"); !errors.Is(err, core.ErrUnavailable) || w.launcher.isRunning("founder") {
+		t.Fatalf("Run without the gateway = %v, running %v", err, w.launcher.isRunning("founder"))
+	}
+	if diff := cmp.Diff([]string{"failed founder: The model gateway is not reachable."}, w.sink.heard()); diff != "" {
+		t.Fatalf("society heard (-want +got):\n%s", diff)
+	}
+	if err := w.sup.Run(t.Context(), "Bad/Name"); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("bad name = %v, want ErrInvalid", err)
 	}
 }
 

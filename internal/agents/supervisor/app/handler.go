@@ -112,7 +112,8 @@ func (h *Handler) Hello(ctx context.Context, version string, p protocol.HelloPar
 		return protocol.HelloResult{}, fmt.Errorf("second connection for %s: %w", h.agent, domain.ErrNotPermitted)
 	}
 	if r.session.State() != domain.StateStarting {
-		// The unit restarted on its own (Restart=on-failure): adopt it.
+		// A runner the session did not expect, for example one started just
+		// before the report that its predecessor exited: adopt it.
 		r.session.Fail()
 		_ = r.session.Start(now)
 	}
@@ -227,6 +228,9 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 	welcomed := r.session.State() == domain.StateWelcomed
 	out, err := r.session.Status(st)
 	ready := err == nil && welcomed && r.session.State() == domain.StateIdle
+	if ready {
+		r.backoff.Up(s.d.Clock.Now())
+	}
 	var held []wakeRequest
 	var turns []string
 	if err == nil && r.session.State() == domain.StateIdle && len(r.pending) > 0 {

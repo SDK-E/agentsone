@@ -54,6 +54,9 @@ type Supervisor struct {
 	// resumeRetry holds back the next resume of an agent whose last resume
 	// wake failed.
 	resumeRetry map[string]resumeBackoff
+	// runWanted are the agents whose idle start Run refused because the
+	// wall did not hold; they start when it holds again.
+	runWanted map[string]bool
 }
 
 var (
@@ -65,6 +68,10 @@ type runner struct {
 	session *domain.Session
 	conn    *Handler // the connection that finished hello, or nil
 	pending []wakeRequest
+	// backoff paces the restarts of a runner that keeps failing; restartAt
+	// is when the failed runner starts again, zero when no restart is due.
+	backoff   domain.Backoff
+	restartAt time.Time
 }
 
 type wakeRequest struct {
@@ -74,7 +81,13 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{}}
+	s := &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
+		refused: map[string]refusal{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{},
+		runWanted: map[string]bool{}}
+	// Every start and restart of a runner passes the launcher, so the wall
+	// is checked there: a new way to start a runner cannot skip it.
+	s.d.Launcher = wallLauncher{Launcher: d.Launcher, s: s}
+	return s
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {
@@ -180,6 +193,7 @@ func (s *Supervisor) Reconfigure(ctx context.Context, a core.Agent, limits *doma
 		s.dropConnLocked(r)
 		r.session.Fail()
 		_ = r.session.Start(s.d.Clock.Now())
+		r.restartAt = time.Time{} // the restart below replaces a pending one
 	}
 	s.mu.Unlock()
 	if running {
@@ -246,26 +260,17 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		s.mu.Unlock()
 		return fmt.Errorf("wake %s: %w", name, core.ErrFrozen)
 	case domain.WakeStart:
-		_ = r.session.Start(s.d.Clock.Now())
 		r.pending = append(r.pending, req)
-		s.mu.Unlock()
-		// A runner without the model gateway cannot work: do not start it.
-		if _, err := s.gatewayToken(ctx, name); err != nil {
-			s.mu.Lock()
-			r.session.Fail()
-			r.pending = nil
+		if !r.restartAt.IsZero() {
+			// The runner failed and waits out its backoff; the restart
+			// delivers the wake, so a wake cannot hurry a failing runner.
 			s.mu.Unlock()
-			s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
-			s.runnerFailed(ctx, name, gatewayReason(err))
-			return fmt.Errorf("wake %s: %w", name, err)
+			return nil
 		}
-		if err := s.d.Launcher.Start(ctx, name); err != nil {
-			s.mu.Lock()
-			r.session.Fail()
-			r.pending = nil
-			s.mu.Unlock()
-			s.runnerFailed(ctx, name, ReasonStartFailed)
-			return fmt.Errorf("wake %s: start: %w", name, err)
+		_ = r.session.Start(s.d.Clock.Now())
+		s.mu.Unlock()
+		if err := s.launch(ctx, name, r); err != nil {
+			return fmt.Errorf("wake %s: %w", name, err)
 		}
 		return nil
 	case domain.WakeHold:
@@ -280,6 +285,78 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		s.wakeSent(ctx, name, req, err)
 		return err
 	}
+}
+
+// Run starts agent name's runner without a turn, for always-on agents: the
+// runner finishes its handshake and idles, so it makes no model call until
+// a wake. A runner that is starting or running is left alone, and a frozen
+// agent is not started. While the network wall does not hold, no runner
+// starts: Run refuses with ErrNetworkWall and core.ErrUnavailable, like
+// Wake, and starts the runner once the wall holds again.
+func (s *Supervisor) Run(ctx context.Context, name string) error {
+	if err := domain.ValidateName(name); err != nil {
+		return fmt.Errorf("run: %w: %w", core.ErrInvalid, err)
+	}
+	if w, ok := s.wallRefusal(); !ok {
+		s.mu.Lock()
+		s.runWanted[name] = true
+		s.mu.Unlock()
+		s.markWallBroken(ctx, name, w, false)
+		return fmt.Errorf("run %s: %w: %s: %w", name, ErrNetworkWall, w.Reason, core.ErrUnavailable)
+	}
+	frozen, err := s.Frozen(ctx, name)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	r := s.runnerLocked(name)
+	if domain.PlanWake(frozen, r.session.State()) != domain.WakeStart || !r.restartAt.IsZero() {
+		s.mu.Unlock()
+		return nil // up, starting, frozen, or failed and waiting to restart
+	}
+	_ = r.session.Start(s.d.Clock.Now())
+	s.mu.Unlock()
+	if err := s.launch(ctx, name, r); err != nil {
+		if errors.Is(err, ErrNetworkWall) {
+			s.mu.Lock()
+			s.runWanted[name] = true
+			s.mu.Unlock()
+		}
+		return fmt.Errorf("run %s: %w", name, err)
+	}
+	return nil
+}
+
+// launch starts the runner of a session that was just marked starting. A
+// runner without the model gateway cannot work, so it is not started. On
+// failure the session fails, held wakes are dropped and the society hears
+// why.
+func (s *Supervisor) launch(ctx context.Context, name string, r *runner) error {
+	fail := func(reason string) {
+		s.mu.Lock()
+		r.session.Fail()
+		r.pending = nil
+		s.mu.Unlock()
+		s.runnerFailed(ctx, name, reason)
+	}
+	if _, err := s.gatewayToken(ctx, name); err != nil {
+		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+		fail(gatewayReason(err))
+		return err
+	}
+	if err := s.d.Launcher.Start(ctx, name); err != nil {
+		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+		if errors.Is(err, ErrNetworkWall) {
+			// The launcher is the one place every start passes: the wall
+			// broke between the caller's check and here.
+			w, _ := s.wallRefusal()
+			fail(w.StateReason())
+			return err
+		}
+		fail(ReasonStartFailed)
+		return fmt.Errorf("start: %w", err)
+	}
+	return nil
 }
 
 // turnFor picks the turn id: the paused turn for a budget resume (rule R2),
@@ -328,6 +405,7 @@ func (s *Supervisor) Sleep(ctx context.Context, name string, compact bool) error
 	s.dropConnLocked(r)
 	r.session.Stop()
 	r.pending = nil
+	r.restartAt = time.Time{} // a sleeping agent is not restarted
 	s.mu.Unlock()
 	if err := s.d.Launcher.Stop(ctx, name); err != nil {
 		return fmt.Errorf("sleep %s: stop: %w", name, err)
@@ -347,10 +425,11 @@ func (s *Supervisor) dropConnLocked(r *runner) {
 
 // Tick restarts every runner that has been silent for the heartbeat
 // timeout (rule B2): it records -32003 in the audit trail, closes the
-// connection and restarts the unit. Every WallRecheck it checks the network
-// wall again. It also sends credentials.update to 1.1 runners whose tokens
-// are due. The module calls it on a timer; tests call it after moving the
-// fake clock.
+// connection and restarts the unit. It starts again the failed runners
+// whose backoff is over, and ends the spell of those that stayed up. Every
+// WallRecheck it checks the network wall again. It also sends
+// credentials.update to 1.1 runners whose tokens are due. The module calls
+// it on a timer; tests call it after moving the fake clock.
 func (s *Supervisor) Tick(ctx context.Context) error {
 	now := s.d.Clock.Now()
 	if s.wallDue(now) {
@@ -376,6 +455,9 @@ func (s *Supervisor) Tick(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("restart %s: %w", name, err))
 		}
 	}
+	// After the heartbeat check, so a silent runner never counts as up.
+	s.restartDue(ctx, now)
+	s.recoverStable(ctx, now)
 	return errors.Join(errs...)
 }
 

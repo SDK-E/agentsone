@@ -21,6 +21,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
 
 // base is the host of every request: the socket is dialled whatever the
@@ -148,7 +149,11 @@ func (h *Client) Do(method, path string, body, out any) {
 	if err != nil {
 		h.d.t.Fatalf("%s %s: %v", method, path, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.d.t.Errorf("%s %s: close answer: %v", method, path, err)
+		}
+	}()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		h.d.t.Fatalf("%s %s: read answer: %v", method, path, err)
@@ -317,7 +322,7 @@ func (h *Client) Stream(path string) *Stream {
 	}
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
+		coretest.Close(h.d.t, resp.Body)
 		cancel()
 		h.d.t.Fatalf("GET %s: status %d: %s", path, resp.StatusCode, raw)
 	}
@@ -411,6 +416,6 @@ func (s *Stream) WaitText(want string) api.OutputFrame {
 // Close ends the stream. It is safe to call more than once.
 func (s *Stream) Close() {
 	s.cancel()
-	_ = s.body.Close()
+	coretest.Close(s.d.t, s.body)
 	s.wg.Wait()
 }

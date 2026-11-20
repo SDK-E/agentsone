@@ -66,7 +66,9 @@ export function SafetyNotice({ safety }: { safety: MachineSafety }) {
     // dialog takes focus as it opens; so move focus on the next frame, once per request.
     const frame = requestAnimationFrame(() => {
       if (!take(safety.level)) return;
-      ref.current?.scrollIntoView({ block: "center" });
+      // Start, not center: a long reason on a phone is taller than the sheet, and its
+      // headline must be the part in view.
+      ref.current?.scrollIntoView({ block: "start" });
       ref.current?.focus();
     });
     return () => {

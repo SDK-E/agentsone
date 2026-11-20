@@ -240,7 +240,7 @@ func (f *Filter) Track(c io.Closer) (release func(), ok bool) {
 	f.mu.Lock()
 	if f.frozen {
 		f.mu.Unlock()
-		_ = c.Close()
+		_ = c.Close() //nolint:errcheck // egress is frozen, so the connection is cut; a failed close leaves nothing to undo
 		return func() {}, false
 	}
 	t := &tracked{c: c}
@@ -263,7 +263,7 @@ func (f *Filter) Freeze(ctx context.Context) error {
 	f.open = map[*tracked]struct{}{}
 	f.mu.Unlock()
 	for t := range open {
-		_ = t.c.Close()
+		_ = t.c.Close() //nolint:errcheck // the freeze cuts the connection; a failed close leaves nothing to undo
 	}
 	if err := f.freezer.Save(ctx, true); err != nil {
 		return fmt.Errorf("egress is frozen, but the freeze was not saved and may not survive a restart: %w", err)

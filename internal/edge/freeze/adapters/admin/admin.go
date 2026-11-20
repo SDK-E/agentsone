@@ -99,5 +99,5 @@ func writeJSON(w http.ResponseWriter, code int, contentType string, v any) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is sent; a failed body write means the client left
 }

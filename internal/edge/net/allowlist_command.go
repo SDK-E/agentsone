@@ -46,9 +46,9 @@ func listCommand(dataDir string, out io.Writer) *cobra.Command {
 				return err
 			}
 			tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			_, _ = fmt.Fprintln(tw, "NAME\tWHY")
+			_, _ = fmt.Fprintln(tw, "NAME\tWHY") //nolint:errcheck // tabwriter buffers; Flush below reports write failures
 			for _, e := range entries {
-				_, _ = fmt.Fprintf(tw, "%s\t%s\n", e.Pattern, e.Why)
+				_, _ = fmt.Fprintf(tw, "%s\t%s\n", e.Pattern, e.Why) //nolint:errcheck // tabwriter buffers; Flush below reports write failures
 			}
 			return tw.Flush()
 		},

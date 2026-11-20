@@ -231,12 +231,12 @@ func writeProblem(w http.ResponseWriter, code int, typ, title string, ext map[st
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(body)
+	_ = json.NewEncoder(w).Encode(body) //nolint:errcheck // the status is sent; a failed body write means the client left
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is sent; a failed body write means the client left
 }

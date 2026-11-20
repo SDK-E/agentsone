@@ -119,7 +119,7 @@ func (s *Store) List(ctx context.Context, c app.Chain, after int64, limit int) (
 	if err != nil {
 		return nil, fmt.Errorf("audit: list %s: %w", c, err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []app.Stored
 	for rows.Next() {
 		var r app.Stored
@@ -152,7 +152,7 @@ func (s *Store) Alerts(ctx context.Context, limit int) ([]domain.Alert, error) {
 	if err != nil {
 		return nil, fmt.Errorf("audit: alerts: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only query; rows.Err below reports iteration failures
 	var out []domain.Alert
 	for rows.Next() {
 		var a domain.Alert

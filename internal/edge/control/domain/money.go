@@ -37,7 +37,7 @@ func ParseDollars(in string) (int64, error) {
 	}
 	micros := dollars * microsPerDollar
 	if frac != "" {
-		f, _ := strconv.ParseInt(frac+strings.Repeat("0", 6-len(frac)), 10, 64)
+		f, _ := strconv.ParseInt(frac+strings.Repeat("0", 6-len(frac)), 10, 64) //nolint:errcheck // the checks above leave one to six digits, which always parse
 		micros += f
 	}
 	if micros > maxDollars*microsPerDollar {

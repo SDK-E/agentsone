@@ -210,7 +210,12 @@ func rewrite(call gatewayapp.UpstreamCall, cfg Config) ([]byte, error) {
 	if call.Stream {
 		opts := map[string]json.RawMessage{}
 		if raw, ok := m["stream_options"]; ok {
-			_ = json.Unmarshal(raw, &opts)
+			if err := json.Unmarshal(raw, &opts); err != nil {
+				return nil, ErrBadBody
+			}
+			if opts == nil { // "stream_options": null
+				opts = map[string]json.RawMessage{}
+			}
 		}
 		opts["include_usage"] = mustJSON(true)
 		m["stream_options"] = mustJSON(opts)

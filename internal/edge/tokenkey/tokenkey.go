@@ -86,7 +86,7 @@ func create(path string) error {
 	if err != nil {
 		return fmt.Errorf("gateway key: %w", err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
+	defer func() { _ = os.Remove(tmp.Name()) }() //nolint:errcheck // temp file cleanup after the link; a leftover dot file is never read
 	if _, err := tmp.Write(key); err != nil {
 		return errors.Join(fmt.Errorf("gateway key: %w", err), tmp.Close())
 	}

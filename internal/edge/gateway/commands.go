@@ -87,12 +87,12 @@ func commands(_ *edgeenv.Env, d deps) []*cobra.Command {
 				if err != nil {
 					return err
 				}
-				out := cmd.OutOrStdout()
-				_, _ = fmt.Fprintf(out, "%s added. The gateway routes calls to it now.\n", p.ID)
+				msg := fmt.Sprintf("%s added. The gateway routes calls to it now.\n", p.ID)
 				if p.KeyRequired && !p.Key.Set {
-					_, _ = fmt.Fprintf(out, "No key is stored yet. Store one with: agentsone gateway key set %s\n", p.ID)
+					msg += fmt.Sprintf("No key is stored yet. Store one with: agentsone gateway key set %s\n", p.ID)
 				}
-				return nil
+				_, err = io.WriteString(cmd.OutOrStdout(), msg)
+				return err
 			},
 		},
 		&cobra.Command{
@@ -155,7 +155,7 @@ func commands(_ *edgeenv.Env, d deps) []*cobra.Command {
 
 func listProviders(w io.Writer, list []adminapi.Provider) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "PROVIDER\tADDED\tKEY\tMODELS")
+	_, _ = fmt.Fprintln(tw, "PROVIDER\tADDED\tKEY\tMODELS") //nolint:errcheck // tabwriter buffers; Flush below reports write failures
 	for _, p := range list {
 		keyState := "not needed"
 		switch {
@@ -168,7 +168,7 @@ func listProviders(w io.Writer, list []adminapi.Provider) error {
 		for _, m := range p.Models {
 			models = append(models, m.ID+" ("+m.Tier+")")
 		}
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", p.ID, yesNo(p.Enabled), keyState, strings.Join(models, ", "))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", p.ID, yesNo(p.Enabled), keyState, strings.Join(models, ", ")) //nolint:errcheck // tabwriter buffers; Flush below reports write failures
 	}
 	return tw.Flush()
 }
@@ -183,9 +183,9 @@ func yesNo(b bool) string {
 func readKey(cmd *cobra.Command, d deps, provider string) (string, error) {
 	var key string
 	if d.terminal() {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Paste the %s key and press Enter (it is not shown): ", provider)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Paste the %s key and press Enter (it is not shown): ", provider) //nolint:errcheck // a prompt on the terminal; ReadPassword below reports a broken terminal
 		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr())
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr()) //nolint:errcheck // ends the prompt line; the key is already read
 		if err != nil {
 			return "", fmt.Errorf("gateway: read key: %w", err)
 		}

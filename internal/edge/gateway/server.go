@@ -290,7 +290,7 @@ loop:
 	if err := hs.Shutdown(grace); err != nil {
 		// Calls still running are cut. Their reservations were already counted as spent by the
 		// last flush, so no money is forgotten.
-		_ = hs.Close()
+		_ = hs.Close() //nolint:errcheck // last resort after Shutdown ran out of time; it only cuts what is left, nothing to report
 	}
 	stopBudget()
 	return errors.Join(runErr, <-budgetDone, s.store.Close())

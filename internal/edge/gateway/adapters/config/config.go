@@ -183,7 +183,7 @@ func Save(path string, f File) error {
 	if err != nil {
 		return fmt.Errorf("gatewayconfig: save %s: %w", path, err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
+	defer func() { _ = os.Remove(tmp.Name()) }() //nolint:errcheck // temp file cleanup; after the rename it is gone, and a leftover dot file is never read
 	if _, err := tmp.WriteString(header + string(body)); err != nil {
 		return errors.Join(fmt.Errorf("gatewayconfig: write %s: %w", path, err), tmp.Close())
 	}

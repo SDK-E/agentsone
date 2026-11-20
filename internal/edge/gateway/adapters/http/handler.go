@@ -375,7 +375,7 @@ func (h *handler) relay(w http.ResponseWriter, r *http.Request, c gatewaytoken.C
 	}
 	w.Header().Set(ModelHeader, string(res.Model.Provider)+"/"+res.Model.ID)
 	w.WriteHeader(res.Status)
-	flusher, _ := w.(http.Flusher)
+	flusher, _ := w.(http.Flusher) //nolint:errcheck // a writer that cannot flush gets the stream unflushed; flusher stays nil
 	buf := make([]byte, 32<<10)
 	for {
 		n, err := res.Body.Read(buf)
@@ -451,5 +451,5 @@ func (h *handler) problem(w http.ResponseWriter, status int, typ, title, detail 
 func writeJSON(w http.ResponseWriter, status int, contentType string, v any) {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is sent; a failed body write means the client left
 }

@@ -269,7 +269,7 @@ func (r *Router) Call(ctx context.Context, req CallRequest) (*CallResult, error)
 			continue
 		}
 		if providerFailed(resp.Status) {
-			_ = resp.Body.Close()
+			_ = resp.Body.Close() //nolint:errcheck // the failed answer is dropped unread; the next provider is tried
 			r.release(id)
 			r.d.Breaker.Failure(m.Provider, r.d.Clock.Now())
 			lastErr, lastStatus = fmt.Errorf("provider %s answered %d", m.Provider, resp.Status), resp.Status
@@ -304,7 +304,7 @@ func providerFailed(status int) bool {
 func (r *Router) release(id ledger.ReservationID) {
 	// The reservation was made just now by this call; releasing it cannot
 	// meet an unknown id.
-	_ = r.d.Budget.Settle(id, 0)
+	_ = r.d.Budget.Settle(id, 0) //nolint:errcheck // settling at zero fails only for an unknown id, and this call made the id
 }
 
 func (r *Router) settler(id ledger.ReservationID, m routing.Model, estimate ledger.Micros,
@@ -379,7 +379,7 @@ func (r *Router) CountTokens(ctx context.Context, req CountRequest) (*CallResult
 			continue
 		}
 		if providerFailed(resp.Status) {
-			_ = resp.Body.Close()
+			_ = resp.Body.Close() //nolint:errcheck // the failed answer is dropped unread; the next provider is tried
 			lastErr, lastStatus = fmt.Errorf("provider %s answered %d", m.Provider, resp.Status), resp.Status
 			continue
 		}

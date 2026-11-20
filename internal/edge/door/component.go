@@ -60,7 +60,7 @@ func (c Component) Start(ctx context.Context, env *component.Env) (component.Sto
 		opened, err := listen.Listen(ctx, addr, env.InnerAddr, net.DefaultResolver)
 		if err != nil {
 			for _, ln := range lns {
-				_ = ln.Close()
+				err = errors.Join(err, ln.Close())
 			}
 			return nil, err
 		}
@@ -124,8 +124,7 @@ func (d *Door) Stop() error {
 	var errs []error
 	for _, srv := range d.servers {
 		if err := srv.Shutdown(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("door: shut down: %w", err))
-			_ = srv.Close()
+			errs = append(errs, fmt.Errorf("door: shut down: %w", err), srv.Close())
 		}
 	}
 	// Hijacked connections (WebSocket tunnels) are not tracked by the server.

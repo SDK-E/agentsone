@@ -62,7 +62,7 @@ func (c Component) Start(ctx context.Context, env *component.Env) (component.Sto
 	if env.Admin != nil {
 		srv.RegisterAdmin(env.Admin)
 	}
-	addr := ln.Addr().(*net.TCPAddr).AddrPort()
+	addr := ln.Addr().(*net.TCPAddr).AddrPort() //nolint:errcheck // a tcp4 listener's address is always a *net.TCPAddr
 	if c.Started != nil {
 		c.Started(srv, addr)
 	}

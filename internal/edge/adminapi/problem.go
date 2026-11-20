@@ -59,7 +59,7 @@ func WriteProblem(w http.ResponseWriter, p *Problem) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(p.Status)
-	_ = json.NewEncoder(w).Encode(p)
+	_ = json.NewEncoder(w).Encode(p) //nolint:errcheck // the status is sent; a failed body write means the client left
 }
 
 // WriteJSON writes v as a JSON answer with status.
@@ -67,5 +67,5 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is sent; a failed body write means the client left
 }

@@ -124,6 +124,25 @@ func TestOpenAIStreamingAsksForUsageAndCapturesIt(t *testing.T) {
 	}
 }
 
+func TestOpenAIStreamingAsksForUsageWhenStreamOptionsIsNull(t *testing.T) {
+	srv, got := fakeProvider(t, 200, "text/event-stream", "data: [DONE]\n\n")
+	c := client(providers.Config{ID: "groq", OpenAIBaseURL: srv.URL + "/openai/v1", KeyRequired: true})
+
+	resp, err := c.Call(context.Background(), gatewayapp.UpstreamCall{
+		Provider: "groq", API: routing.APIOpenAI, Model: "llama", Key: "k", Stream: true,
+		Body:            []byte(`{"model":"autoagents/one","stream":true,"stream_options":null,"messages":[]}`),
+		MaxOutputTokens: 4096,
+	})
+	if err != nil {
+		t.Fatalf("Call: %v", err)
+	}
+	readAll(t, resp)
+	opts, _ := got.body["stream_options"].(map[string]any)
+	if opts["include_usage"] != true {
+		t.Fatalf("rewritten body = %v, want stream_options.include_usage true", got.body)
+	}
+}
+
 func TestAnthropicNonStreaming(t *testing.T) {
 	answer := `{"id":"msg_1","type":"message","content":[],"usage":{"input_tokens":200,"output_tokens":40,"cache_creation_input_tokens":10,"cache_read_input_tokens":5}}`
 	srv, got := fakeProvider(t, 200, "application/json", answer)
@@ -277,6 +296,9 @@ func TestCallRefusals(t *testing.T) {
 		{"unknown provider", gatewayapp.UpstreamCall{Provider: "nope", API: routing.APIOpenAI, Body: []byte(`{}`)}, providers.ErrUnknownProvider},
 		{"API not offered", gatewayapp.UpstreamCall{Provider: "openai-only", API: routing.APIAnthropic, Body: []byte(`{}`)}, providers.ErrAPINotOffered},
 		{"body not JSON", gatewayapp.UpstreamCall{Provider: "openai-only", API: routing.APIOpenAI, Body: []byte(`[1`)}, providers.ErrBadBody},
+		{"stream options not an object", gatewayapp.UpstreamCall{
+			Provider: "openai-only", API: routing.APIOpenAI, Stream: true, Body: []byte(`{"stream":true,"stream_options":true}`),
+		}, providers.ErrBadBody},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

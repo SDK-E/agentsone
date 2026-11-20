@@ -113,7 +113,7 @@ func (s *Store) Set(_ context.Context, p routing.ProviderID, key string) error {
 	if err != nil {
 		return fmt.Errorf("keyfile: store key for %s: %w", p, err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
+	defer func() { _ = os.Remove(tmp.Name()) }() //nolint:errcheck // temp file cleanup; after the rename it is gone, and a leftover dot file is never read
 	if _, err := tmp.WriteString(key); err != nil {
 		return errors.Join(fmt.Errorf("keyfile: store key for %s: %w", p, err), tmp.Close())
 	}

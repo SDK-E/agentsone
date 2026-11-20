@@ -496,7 +496,7 @@
     "ide": {
       "label": "IDE",
       "about": "The code editor on this machine, opened in place.",
-      "build": "Open-source VS Code ({{build}} {{version}}). It runs as your own Linux user.",
+      "build": "{{build}} {{version}}, the open-source build of VS Code. It runs as your own Linux user.",
       "looking": "Looking for your editor…",
       "stopped": {
         "title": "Your editor is not running",

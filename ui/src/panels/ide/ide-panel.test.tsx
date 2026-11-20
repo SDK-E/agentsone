@@ -25,7 +25,7 @@ describe("IDE panel", () => {
     expect(tab).toHaveAttribute("rel", "noopener noreferrer");
     expect(
       await screen.findByText(
-        "Open-source VS Code (code-oss 1.106.0). It runs as your own Linux user.",
+        "VSCodium 1.143.17232, the open-source build of VS Code. It runs as your own Linux user.",
       ),
     ).toBeVisible();
     expect(api.calls).toContain("getIdeServer ada");

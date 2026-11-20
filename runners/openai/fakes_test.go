@@ -34,6 +34,23 @@ type gwRequest struct {
 // last is the content of the last message.
 func (r gwRequest) last() openai.Message { return r.Messages[len(r.Messages)-1] }
 
+// deliveryPrefix starts the message the runner adds for a message delivered
+// into a running turn.
+const deliveryPrefix = "New message from "
+
+// wake is the message that started the turn: the last one that is not a
+// delivered message. A message delivered before the turn's first model call
+// follows the wake text in that call, and it must not change what the fake
+// model does with the turn.
+func (r gwRequest) wake() openai.Message {
+	for i := len(r.Messages) - 1; i >= 0; i-- {
+		if m := r.Messages[i]; m.Role != "user" || !strings.HasPrefix(m.Content, deliveryPrefix) {
+			return m
+		}
+	}
+	return r.last()
+}
+
 // fakeCall is a tool call the fake model asks for.
 type fakeCall struct{ ID, Name, Args string }
 

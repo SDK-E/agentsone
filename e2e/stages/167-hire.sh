@@ -52,11 +52,28 @@ hire_events() {
     | ($e | length) == $c and all($e[]; .actor == "agent:founder")'
 }
 
+# hire_audit_log: every audit record, as one JSON array, read page by page as the human (the audit
+# list takes no filters yet).
+hire_audit_log() {
+  local after=0 page n all='[]'
+  while :; do
+    page="$(from_browser GET "/v1/audit?limit=200&after_seq=${after}")" || return 1
+    n="$(jq -e '.items | length' <<<"$page")" || {
+      printf '%s\n' "$page"
+      return 1
+    }
+    [ "$n" -gt 0 ] || break
+    all="$(jq -c --argjson page "$page" '. + $page.items' <<<"$all")" || return 1
+    after="$(jq -e '.items[-1].seq' <<<"$page")" || return 1
+  done
+  printf '%s\n' "$all"
+}
+
 # hire_audits <name> <count>: exactly <count> agent.hire audit records are about the agent, each
 # by agent:founder.
 hire_audits() {
-  from_browser GET '/v1/audit?action=agent.hire&limit=200' | jq -e --arg n "$1" --argjson c "$2" '
-    [.items[] | select(.target.id == $n)] as $r
+  hire_audit_log | jq -e --arg n "$1" --argjson c "$2" '
+    [.[] | select(.action == "agent.hire" and .target.id == $n)] as $r
     | ($r | length) == $c and all($r[]; .actor.kind == "agent" and .actor.name == "founder")'
 }
 

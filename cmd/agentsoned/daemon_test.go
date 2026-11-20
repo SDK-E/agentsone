@@ -127,7 +127,7 @@ func TestDaemon_Limits(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer func() { _ = resp.Body.Close() }() // test response body
+			defer coretest.Close(t, resp.Body)
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("GET /v1/machine/metrics status %d, want 200", resp.StatusCode)
 			}

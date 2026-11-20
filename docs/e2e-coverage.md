@@ -68,6 +68,7 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 | Allow list blocks and passes     | `wall-blocked`, `wall-allowed` | A name that is not on the allow list is blocked; a name that is on it passes.         |
 | Budget wall and defence slice    | `budget-wall`, `defence-slice` | Past the total budget no model call reaches a provider; the defence slice still pays. |
 | Freeze all and release           | `freeze-all`                   | Freeze all cuts model calls and egress, holds over an edge restart, and releases.     |
+| Install an IDE extension         | `ide`                          | The first human opens their own editor and installs an extension from Open VSX.       |
 
 More stages check the walls the plan relies on, beyond the list: `wall-route`, `wall-direct` and
 `wall-outer` (the network wall), `gateway` and `model-turn` (model calls through the gateway,

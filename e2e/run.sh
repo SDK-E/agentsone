@@ -288,6 +288,7 @@ VERIFICATION=(
   "allow list blocks and passes|wall-blocked wall-allowed"
   "budget wall and defence slice|budget-wall defence-slice"
   "freeze all and release|freeze-all"
+  "install an IDE extension|ide"
   "the Mac walk-through|manual"
   "the Coolify deploy|manual"
   "the real-model run|manual"

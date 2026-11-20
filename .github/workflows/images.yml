@@ -195,6 +195,8 @@ jobs:
         run: e2e/run.sh setup-page
       - name: Login
         run: e2e/run.sh login
+      - name: IDE
+        run: e2e/run.sh ide
       - name: Small Seed
         run: e2e/run.sh small-seed
       - name: Hire

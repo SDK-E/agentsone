@@ -103,7 +103,7 @@ func TestHire_StoresProvisionsPublishesAndAudits(t *testing.T) {
 		t.Errorf("event actor %q scope %q source %q", ev.Actor, ev.ChartScope, ev.Source)
 	}
 	var data map[string]any
-	if err := json.Unmarshal(ev.Data, &data); err != nil || data["agent"] != "mira" || data["manager"] != "lead" || data["isRoot"] != false {
+	if err := json.Unmarshal(ev.Data, &data); err != nil || data["agent"] != "mira" || data["manager"] != "lead" || data["is_root"] != false {
 		t.Errorf("event data %s", ev.Data)
 	}
 	rec := e.fakes.Audit.Entries()[0]
@@ -243,6 +243,20 @@ func TestUpdate_DoesNotRestartForAWordingEdit(t *testing.T) {
 	if got := e.rt.Reconfigured(); len(got) != 0 {
 		t.Fatalf("reconfigured %v for a role edit", got)
 	}
+}
+
+// The edited event names at least one changed field, so an edit that
+// changes nothing is refused before anything is saved.
+func TestUpdate_RefusesAnEditThatChangesNothing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+
+	_, err := e.society.Update(asAgent("lead"), "intern", domain.Update{})
+
+	if !errors.Is(err, domain.ErrInvalidAgent) {
+		t.Fatalf("error = %v, want %v", err, domain.ErrInvalidAgent)
+	}
+	e.assertNothingHappened(t)
 }
 
 func TestUpdate_RefusesAboveSelf(t *testing.T) {

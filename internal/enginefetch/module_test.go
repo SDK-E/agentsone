@@ -5,6 +5,7 @@ package enginefetch
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -97,7 +98,8 @@ func (r *rig) start(t *testing.T) {
 func (r *rig) publishAccepted(t *testing.T) {
 	t.Helper()
 	_, err := r.fakes.Events.Publish(t.Context(), core.Event{
-		Type: LicenceAcceptedEvent, Source: "agentsone/auth", Actor: "human:ada", ChartScope: "society",
+		Type: LicenceAcceptedEvent, Source: "/daemon", Actor: "system:auth", ChartScope: "machine",
+		Data: json.RawMessage(`{"engine":"claude-code","version":"2.1.328","accepted_by":"ada"}`),
 	})
 	if err != nil {
 		t.Fatalf("publish: %v", err)

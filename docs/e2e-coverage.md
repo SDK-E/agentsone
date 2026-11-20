@@ -18,11 +18,34 @@ Run `e2e/run.sh list`. It needs no stack and prints two tables:
 
 The pull request checks run `e2e/run.sh list`, and it fails when a stage has no check and no
 reason, has both, is not run by the e2e job in
-[`.github/workflows/images.yml`](../.github/workflows/images.yml), or when an item names a stage
-that does not exist. So the list cannot quietly drift from the script or from CI.
+[`.github/workflows/images.yml`](../.github/workflows/images.yml), when a stage file is broken,
+or when an item names a stage that does not exist. So the list cannot quietly drift from the
+stages or from CI.
 
-To make a stage real, delete its line in `PENDING` in `e2e/run.sh` and write its `stage_<name>`
-function in the same pull request.
+## Writing a stage
+
+Each stage is one file, `e2e/stages/<NNN>-<name>.sh`, so people writing different stages never
+edit the same file. The stages run in the order of their numbers. `e2e/run.sh` sources every
+file in `e2e/lib/` (helpers several stages share), then every stage file. Sourcing a file only
+defines things; it runs nothing. A stage file holds:
+
+```bash
+# SPDX-License-Identifier: MIT
+# shellcheck shell=bash
+
+stage bus "a message sent on the bus reaches its channel"
+
+stage_bus() {
+  needs bus machine edge || return 0
+  # the checks: expect, expect_out, expect_http, from_browser, as_control and the rest of run.sh
+}
+```
+
+While the stage is not a real check yet, the file has `pending bus "<why>"` instead of the
+`stage_bus` function. To make it real, delete the `pending` line and write the function in the
+same pull request. A helper only one stage uses lives in that stage's file and is named after
+the stage; `list` fails when two files define the same function. A new stage also needs its own
+step in the e2e job.
 
 ## Checked by CI on `main`
 

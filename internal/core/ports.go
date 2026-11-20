@@ -315,7 +315,16 @@ type AuditEntry struct {
 	Action string // dotted verb, for example "agent.hire"
 	Target string
 	Detail json.RawMessage
+	// Outcome is AuditFailure when the action was tried and failed, or
+	// AuditDenied when a rule refused it. Empty means it happened.
+	Outcome string
 }
+
+// Audit outcomes other than success, for AuditEntry.Outcome.
+const (
+	AuditFailure = "failure"
+	AuditDenied  = "denied"
+)
 
 // AuditLog appends to the hash-chained audit log.
 type AuditLog interface {

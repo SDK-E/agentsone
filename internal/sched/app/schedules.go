@@ -229,13 +229,15 @@ func (s *Schedules) fire(ctx context.Context, sc domain.Schedule, now time.Time)
 }
 
 // publishFired announces the fire on the bus. The agent is already woken, so
-// a failure is logged and does not undo the fire.
+// a failure does not undo the fire; it is logged and audited, because the
+// event and every trigger on it are lost.
 func (s *Schedules) publishFired(ctx context.Context, sc domain.Schedule, due time.Time) {
 	_, err := core.PublishData(ctx, s.Ports.Events, core.Publication{
 		Source: "/emitters/clock", Subject: sc.ID, Actor: clockActor.String(), ChartScope: "agent:" + sc.Agent,
 		Data: eventdata.ClockScheduleFired{Agent: sc.Agent, ScheduleID: sc.ID, Name: sc.EventName(), Due: common.Timestamp(due)},
 	})
 	if err != nil {
-		s.Log.WarnContext(ctx, "publish schedule event", "schedule", sc.ID, "err", err)
+		s.Log.ErrorContext(ctx, "publish schedule event", "schedule", sc.ID, "err", err)
+		s.auditFailure(ctx, clockActor, "event.publish", "schedule:"+sc.ID, map[string]any{"agent": sc.Agent}, err)
 	}
 }

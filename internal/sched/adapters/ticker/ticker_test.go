@@ -3,10 +3,12 @@
 package ticker_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -63,7 +65,8 @@ func TestTickError_IsLoggedAndTheLoopGoesOn(t *testing.T) {
 	t.Parallel()
 	src := newSource(errors.New("wake failed"))
 	beat := make(chan time.Time)
-	tk := ticker.NewWithBeat(src, quiet(), beat)
+	var logs bytes.Buffer
+	tk := ticker.NewWithBeat(src, slog.New(slog.NewTextHandler(&logs, nil)), beat)
 	tk.Start(context.Background())
 	<-src.seen
 	beat <- time.Time{}
@@ -72,6 +75,9 @@ func TestTickError_IsLoggedAndTheLoopGoesOn(t *testing.T) {
 	}
 	if err := tk.Stop(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+	if got := logs.String(); !strings.Contains(got, "level=ERROR") || !strings.Contains(got, "wake failed") {
+		t.Fatalf("tick error not logged as an error: %q", got)
 	}
 }
 

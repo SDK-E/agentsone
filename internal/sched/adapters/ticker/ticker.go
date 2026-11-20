@@ -97,6 +97,8 @@ func (t *Ticker) loop(ctx context.Context, done chan<- struct{}) {
 func (t *Ticker) tick(ctx context.Context) {
 	fired, err := t.src.Tick(ctx)
 	if err != nil {
-		t.log.Warn("schedule tick", "fired", fired, "err", err)
+		// A timer that failed stays due and is tried again on the next beat;
+		// the error level keeps a timer that never fires from going unseen.
+		t.log.Error("schedule tick", "fired", fired, "err", err)
 	}
 }

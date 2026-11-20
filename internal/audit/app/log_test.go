@@ -104,6 +104,33 @@ func TestAppendRejectsBadEntries(t *testing.T) {
 	}
 }
 
+func TestAppendRecordsTheOutcomeAndDefaultsToSuccess(t *testing.T) {
+	log, repo, _ := newLog()
+	for _, tc := range []struct {
+		given string
+		want  domain.Outcome
+	}{
+		{"", domain.OutcomeSuccess},
+		{core.AuditFailure, domain.OutcomeFailure},
+		{core.AuditDenied, domain.OutcomeDenied},
+	} {
+		e := hire("builder")
+		e.Outcome = tc.given
+		if err := log.Append(context.Background(), e); err != nil {
+			t.Fatal(err)
+		}
+		r, _, _ := repo.Last(context.Background())
+		if r.Outcome != tc.want {
+			t.Errorf("outcome %q stored as %q, want %q", tc.given, r.Outcome, tc.want)
+		}
+	}
+	e := hire("builder")
+	e.Outcome = "maybe"
+	if err := log.Append(context.Background(), e); !errors.Is(err, core.ErrInvalid) {
+		t.Fatalf("unknown outcome: got %v, want ErrInvalid", err)
+	}
+}
+
 func TestAppendDefaultsEmptyDetailsToAnObject(t *testing.T) {
 	log, repo, _ := newLog()
 	e := hire("builder")

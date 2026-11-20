@@ -139,7 +139,9 @@ func (s *Service) manageable(ctx context.Context, c core.Caller, id string) (dom
 func (s *Service) fire(ctx context.Context, e core.Event) {
 	triggers, err := s.d.Triggers.Enabled(ctx)
 	if err != nil {
-		s.d.Log.WarnContext(ctx, "list triggers failed", "error", err)
+		// No trigger runs for this event: their wakes and tasks are lost.
+		s.d.Log.ErrorContext(ctx, "triggers not run: list triggers failed", "event", e.ID, "error", err)
+		s.auditFailure(ctx, "system:daemon", "trigger.fire", "event:"+e.ID, map[string]any{"event": e.ID}, err)
 		return
 	}
 	for _, t := range triggers {
@@ -166,7 +168,9 @@ func (s *Service) run(ctx context.Context, t domain.Trigger, e core.Event) {
 		return
 	}
 	if err != nil {
-		s.d.Log.WarnContext(ctx, "trigger action failed", "trigger", t.ID, "error", err)
+		s.d.Log.ErrorContext(ctx, "trigger action failed", "trigger", t.ID, "event", e.ID, "error", err)
+		s.auditFailure(ctx, "system:daemon", "trigger.fire", "trigger:"+t.ID,
+			map[string]any{"event": e.ID, "action": string(t.Action.Kind), "agent": t.Action.Agent}, err)
 		return
 	}
 	if err := s.d.Triggers.RecordFire(ctx, t.ID, s.d.Clock.Now()); err != nil {

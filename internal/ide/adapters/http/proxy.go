@@ -4,7 +4,11 @@ package httpadapter
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"html"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -60,10 +64,51 @@ func NewProxy(servers Servers, log *slog.Logger) *Proxy {
 		ErrorLog:       slog.NewLogLogger(log.Handler(), slog.LevelDebug),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			log.LogAttrs(r.Context(), slog.LevelDebug, "editor proxy", slog.String("error", err.Error()))
-			core.WriteProblem(w, r, core.NewProblem(http.StatusBadGateway, "bad-gateway", "your editor did not answer; stop it and start it again"))
+			writeError(w, r, core.NewProblem(http.StatusBadGateway, "bad-gateway", "your editor did not answer; stop it and start it again"))
 		},
 	}
 	return p
+}
+
+// pageStyle is the only style of the proxy's own pages: the system font,
+// the system's light or dark colours, the interface's 16 px gutter.
+const pageStyle = "body{font:16px/1.5 system-ui,sans-serif;margin:16px}"
+
+// errorPolicy is the policy of the proxy's own pages: nothing loads but
+// pageStyle, and only the interface may frame them.
+var errorPolicy = func() string {
+	sum := sha256.Sum256([]byte(pageStyle))
+	return "default-src 'none'; style-src 'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'; " + frameAncestors
+}()
+
+// pageText says, for a browser page, why the editor did not open.
+var pageText = map[int]string{
+	http.StatusUnauthorized:       "Sign in to open your editor.",
+	http.StatusForbidden:          "This editor belongs to someone else.",
+	http.StatusServiceUnavailable: "Your editor is not running. Start it from the IDE panel.",
+	http.StatusBadGateway:         "Your editor did not answer. Stop it and start it again from the IDE panel.",
+}
+
+// writeError answers why the editor did not open: a plain page the IDE
+// panel's frame can show when a browser asks for one, a problem otherwise.
+// The page follows the system's light or dark scheme and fits a phone.
+func writeError(w http.ResponseWriter, r *http.Request, p *core.Problem) {
+	w.Header().Set(csp, errorPolicy)
+	if !strings.Contains(r.Header.Get("Accept"), "text/html") {
+		core.WriteProblem(w, r, p)
+		return
+	}
+	text, ok := pageText[p.Status]
+	if !ok {
+		text = "Your editor could not open. Try again from the IDE panel."
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(p.Status)
+	_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8">`+
+		`<meta name="viewport" content="width=device-width, initial-scale=1">`+
+		`<meta name="color-scheme" content="light dark"><title>Editor</title><style>`+pageStyle+`</style></head>`+
+		`<body><p>`+html.EscapeString(text)+`</p></body></html>`) // the status is sent; a failed write means the client left
 }
 
 // Route is the proxy as a module route.
@@ -74,16 +119,17 @@ func (p *Proxy) Route() core.Route { return core.Route{Pattern: Pattern, Handler
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	human := r.PathValue("human")
 	c, _ := core.CallerFrom(r.Context())
+	// The interface's page policy forbids framing; everything under /ide/
+	// opens in the IDE panel's frame, the error pages included.
+	h := w.Header()
+	h.Set("X-Frame-Options", "SAMEORIGIN")
 	sock, err := p.servers.Socket(c, human)
 	if err != nil {
-		core.WriteError(w, r, err)
+		writeError(w, r, core.ProblemFrom(err))
 		return
 	}
-	// The interface's page policy forbids framing and inline code; the
-	// editor brings its own policy, and must open in the IDE panel's frame.
-	h := w.Header()
+	// The editor brings its own policy (frame-ancestors is added to it).
 	h.Del(csp)
-	h.Set("X-Frame-Options", "SAMEORIGIN")
 	p.rp.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), socketKey{}, sock)))
 }
 

@@ -5,6 +5,8 @@ package httpadapter_test
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"io"
 	"log/slog"
@@ -211,6 +213,48 @@ func TestProxyKeepsOthersOut(t *testing.T) {
 			case r := <-up.last:
 				t.Fatalf("request reached the editor: %s", r.URL)
 			default:
+			}
+		})
+	}
+}
+
+func TestProxyShowsTheIDEPanelAPlainPageItMayFrame(t *testing.T) {
+	up := newUpstream(t)
+	cases := map[string]struct {
+		caller core.Caller
+		s      *servers
+		status int
+		text   string
+	}{
+		"not running":   {ada, &servers{socket: up.socket}, http.StatusServiceUnavailable, "Your editor is not running. Start it from the IDE panel."},
+		"not answering": {ada, &servers{socket: up.socket + ".gone", running: true}, http.StatusBadGateway, "Your editor did not answer. Stop it and start it again from the IDE panel."},
+		"not signed in": {core.Anonymous, &servers{socket: up.socket, running: true}, http.StatusUnauthorized, "Sign in to open your editor."},
+		"another human": {bob, &servers{socket: up.socket, running: true}, http.StatusForbidden, "This editor belongs to someone else."},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/ide/ada/", nil)
+			req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+			rec := httptest.NewRecorder()
+			proxyFor(t, c.s, c.caller).ServeHTTP(rec, req)
+			if rec.Code != c.status || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/html") {
+				t.Fatalf("status %d type %q", rec.Code, rec.Header().Get("Content-Type"))
+			}
+			body := rec.Body.String()
+			if !strings.Contains(body, "<p>"+c.text+"</p>") || !strings.Contains(body, `<meta name="color-scheme" content="light dark">`) ||
+				!strings.Contains(body, `name="viewport"`) || strings.Contains(body, "<script") {
+				t.Fatalf("page %s", body)
+			}
+			if xfo := rec.Header().Values("X-Frame-Options"); len(xfo) != 1 || xfo[0] != "SAMEORIGIN" {
+				t.Fatalf("x-frame-options %q", xfo)
+			}
+			// The one inline style is allowed by its hash, nothing else.
+			_, style, _ := strings.Cut(body, "<style>")
+			style, _, _ = strings.Cut(style, "</style>")
+			sum := sha256.Sum256([]byte(style))
+			want := "default-src 'none'; style-src 'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'; frame-ancestors 'self'"
+			if csp := rec.Header().Values("Content-Security-Policy"); len(csp) != 1 || csp[0] != want {
+				t.Fatalf("csp %q, want %q", csp, want)
 			}
 		})
 	}

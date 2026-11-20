@@ -42,9 +42,16 @@ func (f *fakeSetup) SaveFetchStatus(_ context.Context, s core.EngineFetchStatus)
 	return nil
 }
 
+// newSetup logs as text without the time, so tests can compare whole lines.
 func newSetup(p *core.Ports) (*coresetup.Setup, *bytes.Buffer) {
 	var logs bytes.Buffer
-	return coresetup.New(p, slog.New(slog.NewTextHandler(&logs, nil))), &logs
+	noTime := func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey {
+			return slog.Attr{}
+		}
+		return a
+	}
+	return coresetup.New(p, slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{ReplaceAttr: noTime}))), &logs
 }
 
 func TestAcceptedAsksThePortOnEveryCall(t *testing.T) {
@@ -62,7 +69,7 @@ func TestAcceptedAsksThePortOnEveryCall(t *testing.T) {
 	}
 }
 
-func TestAcceptedTreatsAnUnavailablePortAsNotAcceptedAndLogsOnce(t *testing.T) {
+func TestAcceptedTreatsAnUnavailablePortAsNotAcceptedAndWarnsOnce(t *testing.T) {
 	for name, p := range map[string]*core.Ports{
 		"unavailable": core.NewPorts(),
 		"nil":         {},
@@ -75,10 +82,43 @@ func TestAcceptedTreatsAnUnavailablePortAsNotAcceptedAndLogsOnce(t *testing.T) {
 					t.Fatalf("Accepted() = %v, %v, want false, nil", got, err)
 				}
 			}
-			if n := strings.Count(logs.String(), "engine setup"); n != 1 {
-				t.Errorf("log lines about the missing port = %d, want 1:\n%s", n, logs.String())
+			if n := strings.Count(logs.String(), "level=WARN"); n != 1 || strings.Count(logs.String(), "\n") != 1 {
+				t.Errorf("want one warning about the missing port:\n%s", logs.String())
+			}
+			if !strings.Contains(logs.String(), core.ErrUnavailable.Error()) {
+				t.Errorf("the warning must name the cause:\n%s", logs.String())
 			}
 		})
+	}
+}
+
+// A new machine has no accepted licence yet: that is the normal first-boot
+// state, so it is noted once at info and never warned about.
+func TestAcceptedNotesAnUnacceptedLicenceOnceAtInfo(t *testing.T) {
+	p := core.NewPorts()
+	p.EngineSetup = &fakeSetup{accepted: false}
+	s, logs := newSetup(p)
+	for range 3 {
+		got, err := s.Accepted(t.Context())
+		if err != nil || got {
+			t.Fatalf("Accepted() = %v, %v, want false, nil", got, err)
+		}
+	}
+	want := `level=INFO msg="Claude engine not set up yet: a human must accept its licence"` + "\n"
+	if logs.String() != want {
+		t.Errorf("logs = %q, want %q", logs.String(), want)
+	}
+}
+
+func TestAcceptedLogsNothingForAnAcceptedLicence(t *testing.T) {
+	p := core.NewPorts()
+	p.EngineSetup = &fakeSetup{accepted: true}
+	s, logs := newSetup(p)
+	if got, err := s.Accepted(t.Context()); err != nil || !got {
+		t.Fatalf("Accepted() = %v, %v, want true, nil", got, err)
+	}
+	if logs.Len() != 0 {
+		t.Errorf("logs = %q, want none", logs.String())
 	}
 }
 

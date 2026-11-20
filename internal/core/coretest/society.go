@@ -132,7 +132,10 @@ func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, 
 	defer t.mu.Unlock()
 	subject.Scopes = slices.Clone(scopes)
 	subject.ByToken = len(scopes) > 0
-	tok := core.Token{Value: t.ids.New("tok"), Expires: t.clock.Now().Add(ttl)}
+	// The id and the value differ, as the real issuer's do, so a test sees
+	// a value that leaks where only the id belongs.
+	id := t.ids.New("tok")
+	tok := core.Token{ID: id, Value: "aot_" + id + "_fake", Expires: t.clock.Now().Add(ttl)}
 	t.issued[tok.Value] = issuedToken{caller: subject, expires: tok.Expires}
 	return tok, nil
 }

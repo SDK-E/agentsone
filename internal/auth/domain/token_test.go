@@ -5,6 +5,7 @@ package domain_test
 import (
 	"bytes"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,12 @@ func TestNewToken_ReturnsAnOpaqueValueAndKeepsOnlyItsHash(t *testing.T) {
 	}
 	if !strings.HasPrefix(value, "aot_"+tok.ID+"_") {
 		t.Fatalf("value %q does not carry id %q", value, tok.ID)
+	}
+	if !regexp.MustCompile(`^tok_[0-9A-HJKMNP-TV-Z]{26}$`).MatchString(tok.ID) {
+		t.Fatalf("id %q is not the contract's TokenId", tok.ID)
+	}
+	if id, _, err := domain.ParseTokenValue(value); err != nil || id != tok.ID {
+		t.Fatalf("ParseTokenValue(value) id = %q, %v, want %q", id, err, tok.ID)
 	}
 	if strings.Contains(string(tok.Hash[:]), value) {
 		t.Fatal("hash holds the secret")
@@ -147,7 +154,13 @@ func TestToken_CallerCarriesSubjectAndScopes(t *testing.T) {
 
 func TestParseTokenValue_RejectsMalformedValues(t *testing.T) {
 	t.Parallel()
-	for _, v := range []string{"", "aot_", "aot_id", "xyz_id_secret", "aot__secret", "aot_id_"} {
+	for _, v := range []string{
+		"", "aot_", "aot_id", "xyz_id_secret", "aot__secret", "aot_id_",
+		// The earlier hex-id form: every such token was revoked by migration.
+		"aot_" + strings.Repeat("0a", 12) + "_x",
+		"aot_tok__x", "aot_tok_short_x", "aot_tok_01JD7ZK3M0000000000000000z_x",
+		"aot_tok_01JD7ZK3M0000000000000000Z", "aot_tok_01JD7ZK3M0000000000000000Z_",
+	} {
 		if _, _, err := domain.ParseTokenValue(v); !errors.Is(err, core.ErrUnauthorized) {
 			t.Errorf("%q: err %v", v, err)
 		}

@@ -134,6 +134,9 @@ func (o TaskOutcome) Validate() error {
 
 // Token is an issued bearer token.
 type Token struct {
+	// ID is the contract's TokenId: the id the issue answers and a revoke
+	// names. It is not the secret.
+	ID      string
 	Value   string
 	Expires time.Time
 }

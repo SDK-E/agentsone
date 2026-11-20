@@ -171,6 +171,37 @@ func (r *Repository) Token(ctx context.Context, id string) (domain.Token, error)
 	return t, nil
 }
 
+// LegacyRevokes lists the ids of the earlier-form tokens that migration
+// 0002 revoked and whose audit record is not written yet, oldest id first.
+func (r *Repository) LegacyRevokes(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM auth_legacy_revokes ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list legacy revokes: %w", err)
+	}
+	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only; rows.Err reports read failures
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("read legacy revoke: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list legacy revokes: %w", err)
+	}
+	return ids, nil
+}
+
+// LegacyRevokeAudited drops id from the legacy revokes once its audit
+// record is written.
+func (r *Repository) LegacyRevokeAudited(ctx context.Context, id string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM auth_legacy_revokes WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("clear legacy revoke %s: %w", id, err)
+	}
+	return nil
+}
+
 // RevokeToken marks a live token revoked at at.
 func (r *Repository) RevokeToken(ctx context.Context, id string, at time.Time) error {
 	res, err := r.db.ExecContext(ctx, `UPDATE auth_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?`, formatTime(at), id)

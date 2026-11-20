@@ -155,7 +155,7 @@ func (s *Society) IssueToken(ctx context.Context, agent string, req TokenRequest
 		return IssuedToken{}, fmt.Errorf("issue token for %s: %w", agent, err)
 	}
 	issued := IssuedToken{
-		ID: s.ids.New("tok"), Value: tok.Value, Subject: "agent:" + a.Name, Label: req.Label,
+		ID: tok.ID, Value: tok.Value, Subject: "agent:" + a.Name, Label: req.Label,
 		Scopes: append([]string(nil), req.Scopes...), Expires: tok.Expires, Created: s.clock.Now(),
 	}
 	detail, err := json.Marshal(map[string]any{"id": issued.ID, "label": req.Label, "scopes": req.Scopes, "expires_at": tok.Expires})

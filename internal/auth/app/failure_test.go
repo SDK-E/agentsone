@@ -72,7 +72,12 @@ func TestService_ReportsStorageFailures(t *testing.T) {
 	_, checks["EngineLicence"] = svc.EngineLicence(ctx)
 	_, checks["EngineFetch"] = svc.EngineFetch(ctx)
 	_, checks["Issue"] = svc.Issue(ctx, authtest.Agent("a"), nil, time.Hour)
-	_, checks["Verify"] = svc.Verify(ctx, "aot_ab_cd")
+	// A well-formed value, made at run time, so Verify reaches the store.
+	_, value, err := domain.NewToken(bytes.NewReader(bytes.Repeat([]byte{1}, 64)), authtest.Agent("a"), nil, time.Now(), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, checks["Verify"] = svc.Verify(ctx, value)
 	_, checks["SessionCaller"] = svc.SessionCaller(ctx, "aos_x")
 	for name, err := range checks {
 		if !errors.Is(err, errDisk) {

@@ -129,6 +129,10 @@ func TestPlugins_NativePluginEnableRegistersThemesAndPanelTokenUsesScopes(t *tes
 	if tok.ExpiresAt.Sub(tok.CreatedAt) != 2*time.Hour {
 		t.Errorf("lifetime = %s", tok.ExpiresAt.Sub(tok.CreatedAt))
 	}
+	// The id is what a revoke names; it is never the secret value.
+	if tok.ID == "" || tok.ID == tok.Value {
+		t.Errorf("panel token id = %q, want the issuer's id apart from the secret value", tok.ID)
+	}
 	def, err := svc.IssuePanelToken(humanCtx(), p.ID, 0)
 	if err != nil || def.ExpiresAt.Sub(def.CreatedAt) != time.Hour {
 		t.Errorf("default ttl token = %+v, %v", def, err)

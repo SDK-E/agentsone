@@ -343,7 +343,7 @@ func (p *Plugins) IssuePanelToken(ctx context.Context, id string, ttl time.Durat
 		return PanelToken{}, fmt.Errorf("issue panel token: %w", err)
 	}
 	return PanelToken{
-		ID: tok.Value, Value: tok.Value, Label: "panel " + pl.Name, Subject: "plugin:" + id,
+		ID: tok.ID, Value: tok.Value, Label: "panel " + pl.Name, Subject: "plugin:" + id,
 		Scopes: scopes, CreatedAt: p.d.Clock.Now().UTC(), ExpiresAt: tok.Expires,
 	}, nil
 }

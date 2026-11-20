@@ -98,7 +98,7 @@ func (p *Provider) Handler() http.Handler {
 	mux.HandleFunc("GET /seen", p.seen)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = io.WriteString(w, "ok\n")
+		_, _ = io.WriteString(w, "ok\n") //nolint:errcheck // the status is already sent; a gone client has nothing to be told
 	})
 	return mux
 }
@@ -279,12 +279,12 @@ func writeStream(w http.ResponseWriter, model, content string) {
 			return
 		}
 	}
-	_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	_, _ = io.WriteString(w, "data: [DONE]\n\n") //nolint:errcheck // the stream is already sent; a gone client has nothing to be told
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errcheck // the status is already sent; a gone client has nothing to be told
 }
 
 func main() { os.Exit(run(os.Args[1:], os.Stderr)) }
@@ -302,7 +302,7 @@ func run(args []string, stderr io.Writer) int {
 	case len(args) == 2 && args[0] == "probe":
 		return probe(args[1], stderr)
 	}
-	_, _ = fmt.Fprintln(stderr, "usage: fakeprovider serve [addr] | fakeprovider probe <url>")
+	_, _ = fmt.Fprintln(stderr, "usage: fakeprovider serve [addr] | fakeprovider probe <url>") //nolint:errcheck // stderr is the last place to report; the exit code still tells the failure
 	return 2
 }
 
@@ -337,12 +337,12 @@ func probe(url string, stderr io.Writer) int {
 	c := &http.Client{Timeout: 3 * time.Second}
 	res, err := c.Get(url) //nolint:gosec // G107: the URL is the health check's own, from compose.
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "probe:", err)
+		_, _ = fmt.Fprintln(stderr, "probe:", err) //nolint:errcheck // stderr is the last place to report; the exit code still tells the failure
 		return 1
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer func() { _ = res.Body.Close() }() //nolint:errcheck // a read-only body has nothing to flush
 	if res.StatusCode != http.StatusOK {
-		_, _ = fmt.Fprintln(stderr, "probe: status", res.StatusCode)
+		_, _ = fmt.Fprintln(stderr, "probe: status", res.StatusCode) //nolint:errcheck // stderr is the last place to report; the exit code still tells the failure
 		return 1
 	}
 	return 0

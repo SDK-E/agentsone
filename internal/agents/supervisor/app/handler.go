@@ -272,8 +272,11 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 
 func (h *Handler) flush(ctx context.Context, held []wakeRequest, turns []string) {
 	for i, req := range held {
+		h.s.mu.Lock()
+		seq := h.s.numberWakeLocked() // when it is sent: wakes sent since it was held come first
+		h.s.mu.Unlock()
 		err := h.sendWake(ctx, req, turns[i])
-		h.s.wakeSent(ctx, h.agent, req, err)
+		h.s.wakeSent(ctx, h.agent, seq, req, err)
 		if _, refused := refusedWake(req, err); refused {
 			continue // the runner is there and said no to this one; the rest may still be wanted
 		}

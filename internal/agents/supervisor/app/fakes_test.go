@@ -216,7 +216,8 @@ type fakeConn struct {
 	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call or Notify
 	ready     chan struct{}
 	mu        sync.Mutex
-	wakeErr   error // answers every wake when set
+	wakeErr   error      // answers every wake when set
+	hold      chan error // when set, the next wake waits here for its answer
 	readyOnce sync.Once
 	closed    chan struct{}
 	once      sync.Once
@@ -267,6 +268,20 @@ func (c *fakeConn) refuseWakes(err error) {
 	c.wakeErr = err
 }
 
+// holdNextWake makes the runner take the next wake and answer it only when
+// the test calls answer, as a runner can answer one wake after it answered
+// others sent since; nil accepts the wake. A test that ends first accepts it.
+func (c *fakeConn) holdNextWake(t *testing.T) (answer func(error)) {
+	hold := make(chan error, 1)
+	var once sync.Once
+	answer = func(err error) { once.Do(func() { hold <- err }) }
+	t.Cleanup(func() { answer(nil) })
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hold = hold
+	return answer
+}
+
 func newFakeConn() *fakeConn {
 	return &fakeConn{calls: make(chan call, 32), arrivals: make(chan string, 32), ready: make(chan struct{}), closed: make(chan struct{})}
 }
@@ -280,8 +295,14 @@ func (c *fakeConn) Call(_ context.Context, method string, params, result any) er
 	}
 	if method == protocol.MethodWake {
 		c.mu.Lock()
-		err := c.wakeErr
+		err, hold := c.wakeErr, c.hold
+		c.hold = nil
 		c.mu.Unlock()
+		if hold != nil {
+			raw, _ := json.Marshal(params)
+			c.calls <- call{method, raw}
+			return <-hold
+		}
 		if err != nil {
 			return err
 		}

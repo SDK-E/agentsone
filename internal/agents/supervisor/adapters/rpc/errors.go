@@ -37,6 +37,13 @@ type RemoteError struct {
 
 func (e *RemoteError) Error() string { return fmt.Sprintf("runner error %d: %s", e.Code, e.Message) }
 
+// RPCCode is the error code, for the supervisor's app layer, which reads the
+// runner's answer without importing this package.
+func (e *RemoteError) RPCCode() int { return e.Code }
+
+// RPCMessage is the error message, read the same way as RPCCode.
+func (e *RemoteError) RPCMessage() string { return e.Message }
+
 var codeErrors = []struct {
 	code    int
 	message string

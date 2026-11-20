@@ -207,17 +207,18 @@ test("panel tabs, a tab chosen with the keyboard is whole and clear of the cues"
           const box = el.getBoundingClientRect();
           const scrollerEl = el.closest(".tabs__scroller");
           if (!row || !scrollerEl) return false;
-          const clearance = (side: "start" | "end") => {
-            const cue = scrollerEl.querySelector(`.tabs__cue--${side}`);
-            const shown = scrollerEl.hasAttribute(`data-more-${side}`);
-            const solid = cue
-              ? parseFloat(getComputedStyle(cue).getPropertyValue("--cue-solid"))
-              : 0;
-            return shown ? solid : 0;
-          };
+          // The focus ring reaches 5px past the tab; it must clear the whole cue, fade included.
+          const ring = 5;
+          const cueBox = (side: "start" | "end") =>
+            scrollerEl.hasAttribute(`data-more-${side}`)
+              ? scrollerEl.querySelector(`.tabs__cue--${side}`)?.getBoundingClientRect()
+              : undefined;
+          const start = cueBox("start");
+          const end = cueBox("end");
+          // With no cue on a side the tab need only be whole there.
           return (
-            box.left >= row.left + clearance("start") - 0.5 &&
-            box.right <= row.right - clearance("end") + 0.5
+            (start ? box.left - ring >= start.right - 0.5 : box.left >= row.left - 0.5) &&
+            (end ? box.right + ring <= end.left + 0.5 : box.right <= row.right + 0.5)
           );
         }),
       )

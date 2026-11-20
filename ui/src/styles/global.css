@@ -675,6 +675,10 @@ ul.notice {
   min-width: 0;
   /* The part of a cue that fully covers the row. A tab scrolled into view stays clear of it. */
   --cue-solid: 26px;
+  /* The whole cue, fade included. A tab and its focus ring stay clear of all of it. */
+  --cue-width: 48px;
+  /* A focus ring reaches 5px past its tab: 3px line and 2px offset. */
+  --focus-reach: 5px;
 }
 
 /* A fade and an arrow where more tabs hide. The row scrolls; the cue only tells you so. */
@@ -683,7 +687,7 @@ ul.notice {
   inset-block: 0 1px;
   display: none;
   align-items: center;
-  inline-size: 48px;
+  inline-size: var(--cue-width);
   /* Fully covering up to --cue-solid, so the arrow never sits on top of tab text; then it fades. */
   color: var(--color-text);
   pointer-events: none;
@@ -714,8 +718,8 @@ ul.notice {
   overflow-x: auto;
   border-bottom: 1px solid var(--color-border);
   padding: 4px 4px 0;
-  /* A tab brought into view sits whole and clear of the cue's solid part. */
-  scroll-padding-inline: calc(var(--cue-solid) + 6px);
+  /* A tab brought into view sits whole, with its focus ring, clear of the whole cue and its fade. */
+  scroll-padding-inline: calc(var(--cue-width) + var(--focus-reach) + 1px);
 }
 
 .tabs__tab {

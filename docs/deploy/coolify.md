@@ -52,7 +52,10 @@ If the machine reaches the internet without the edge, the deployment is not in R
 6. Put your platform's access control in front of both domains, and most of all the control page.
    It holds the human-only powers: the allow list, model keys and the budget. The file does not
    add any sign-in of its own in front of the web door; the control page has its own passphrase
-   (see [First run](#first-run)), which is a second lock, not a replacement.
+   (see [First run](#first-run)), which is a second lock, not a replacement. If your access
+   control is a Traefik middleware (sign-in, IP allow list), name it in
+   `AGENTSONE_DOOR_MIDDLEWARES` and `AGENTSONE_CONTROL_MIDDLEWARES` before the first deployment,
+   so neither page is ever served without it.
 
 ## Versions
 
@@ -103,7 +106,10 @@ they live behind the control page.
 | `AGENTSONE_DOMAIN` | Yes | none | Domain of the web door. The deployment fails to start without it. |
 | `AGENTSONE_CONTROL_DOMAIN` | Yes | none | Domain of the control page. The deployment fails to start without it. |
 | `AGENTSONE_IMAGE_TAG` | No | the pinned `sha-` tag in the file | Image tag of all three services. See [Versions](#versions). |
-| `AGENTSONE_PROXY_ALIAS` | No | `agentsone-door` | Name of the web door on Coolify's proxy network. Change it if another app on the server uses it. |
+| `AGENTSONE_PROXY_NETWORK` | No | `coolify` | Docker network where Traefik reaches edge and control. Set it when your server runs apps on another network than Coolify's own. |
+| `AGENTSONE_DOOR_MIDDLEWARES` | No | empty | Traefik middlewares in front of the web door, comma-separated, for example `sign-in@file,vpn-only@file`. Empty adds none. |
+| `AGENTSONE_CONTROL_MIDDLEWARES` | No | empty | Traefik middlewares in front of the control page, in the same form. Set it unless something else already guards the control domain. |
+| `AGENTSONE_PROXY_ALIAS` | No | `agentsone-door` | Name of the web door on the proxy network. Change it if another app on the server uses it. |
 | `AGENTSONE_BIND_ADDR` | No | `127.0.0.1` | Host address for the published ports. Leave on loopback. |
 | `AGENTSONE_WEB_DOOR_PORT` | No | `7780` | Host port of the web door. |
 | `AGENTSONE_CONTROL_PORT` | No | `7781` | Host port of the control page. |
@@ -112,12 +118,15 @@ they live behind the control page.
 | `AGENTSONE_MACHINE_PIDS` | No | `4096` | Process ceiling of the machine. |
 | `AGENTSONE_EDGE_CPUS` | No | `2` | CPU ceiling of the edge. |
 | `AGENTSONE_EDGE_MEMORY` | No | `1g` | Memory ceiling of the edge. |
-| `AGENTSONE_INNER_SUBNET` | No | `10.77.42.0/27` | Subnet of the inner network. Change it only if Docker reports an overlap. |
+| `AGENTSONE_INNER_SUBNET` | No | `10.77.42.0/27` | Subnet of the inner network. Change it if Docker reports an overlap, or if your proxy or firewall trusts that range. |
 | `AGENTSONE_INNER_DYNAMIC_RANGE` | No | `10.77.42.16/28` | Part of the inner subnet handed to the machine. |
 | `AGENTSONE_EDGE_IP` | No | `10.77.42.2` | Edge address on the inner network, outside the dynamic range. The machine uses it as its DNS server and its one trusted proxy. |
-| `AGENTSONE_OUTER_SUBNET` | No | `10.77.42.32/27` | Subnet of the outer network. |
+| `AGENTSONE_OUTER_SUBNET` | No | `10.77.42.32/27` | Subnet of the outer network. Same rule as the inner subnet. |
 | `AGENTSONE_OUTER_DYNAMIC_RANGE` | No | `10.77.42.48/28` | Part of the outer subnet handed to control. |
 | `AGENTSONE_EDGE_OUTER_IP` | No | `10.77.42.34` | Edge address on the outer network, where the web door listens. |
+
+`AGENTSONE_PROXY_NETWORK` and the two middleware settings change only the proxy network and the
+Traefik labels. Plain `compose.yaml` has no proxy, so they exist only in the Coolify file.
 
 The edge and control containers read no other environment variables; their addresses come from
 the command line in the file. The machine reads `AGENTSONE_EDGE_IP` only. The same settings,
@@ -214,10 +223,10 @@ at every start.
 
 ## How the Coolify file works
 
-- Only `edge` and `control` join Coolify's `coolify` network, where Traefik runs. The machine
-  never joins it.
+- Only `edge` and `control` join the proxy network where Traefik runs: Coolify's `coolify`
+  network, or the one named in `AGENTSONE_PROXY_NETWORK`. The machine never joins it.
 - The web door listens on two addresses: the edge's outer address (for the published port) and
-  the alias `agentsone-door` on the `coolify` network (for Traefik). It never listens on the
+  the alias `agentsone-door` on the proxy network (for Traefik). It never listens on the
   inner address. Change the alias with `AGENTSONE_PROXY_ALIAS` if another app on the server
   already uses it.
 - Traefik router names start with `agentsone-`. Run one Agents One stack per Coolify server.

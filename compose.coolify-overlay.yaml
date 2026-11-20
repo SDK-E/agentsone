@@ -33,12 +33,12 @@ services:
       # network alias of edge on that network only; it never resolves to the inner address.
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
     networks:
-      coolify:
+      proxy:
         aliases:
           - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-door-http.rule=Host(`${AGENTSONE_DOMAIN:?set AGENTSONE_DOMAIN to the web door domain}`)
       - traefik.http.routers.agentsone-door-http.entrypoints=http
@@ -48,15 +48,18 @@ services:
       - traefik.http.routers.agentsone-door.tls=true
       - traefik.http.routers.agentsone-door.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-door.service=agentsone-door
+      # Your platform's access control for the web door, as a comma-separated list of Traefik
+      # middlewares (for example sign-in and an IP allow list). Empty adds none.
+      - traefik.http.routers.agentsone-door.middlewares=${AGENTSONE_DOOR_MIDDLEWARES:-}
       - traefik.http.services.agentsone-door.loadbalancer.server.port=8080
 
   control:
     image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     networks:
-      coolify: {}
+      proxy: {}
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-control-http.rule=Host(`${AGENTSONE_CONTROL_DOMAIN:?set AGENTSONE_CONTROL_DOMAIN to the control page domain}`)
       - traefik.http.routers.agentsone-control-http.entrypoints=http
@@ -66,9 +69,14 @@ services:
       - traefik.http.routers.agentsone-control.tls=true
       - traefik.http.routers.agentsone-control.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-control.service=agentsone-control
+      # Your platform's access control for the control page. Empty adds none, so set it unless
+      # something else already guards this domain.
+      - traefik.http.routers.agentsone-control.middlewares=${AGENTSONE_CONTROL_MIDDLEWARES:-}
       - traefik.http.services.agentsone-control.loadbalancer.server.port=8081
 
 networks:
-  # Created by Coolify; its Traefik proxy is on it.
-  coolify:
+  # The Docker network the Traefik proxy is on. Coolify creates it as `coolify`; set
+  # AGENTSONE_PROXY_NETWORK when your proxy reaches apps on another network.
+  proxy:
     external: true
+    name: ${AGENTSONE_PROXY_NETWORK:-coolify}

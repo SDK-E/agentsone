@@ -9,9 +9,6 @@
 # and put this header back on top. CI fails when this file and the two sources drift apart.
 name: agentsone
 networks:
-  coolify:
-    external: true
-    name: coolify
   inner:
     enable_ipv6: false
     internal: true
@@ -26,6 +23,9 @@ networks:
         - ip_range: ${AGENTSONE_OUTER_DYNAMIC_RANGE:-10.77.42.48/28}
           subnet: ${AGENTSONE_OUTER_SUBNET:-10.77.42.32/27}
     name: agentsone_outer
+  proxy:
+    external: true
+    name: ${AGENTSONE_PROXY_NETWORK:-coolify}
 services:
   control:
     cap_drop:
@@ -56,7 +56,7 @@ services:
     image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-control-http.rule=Host(`${AGENTSONE_CONTROL_DOMAIN:?set
         AGENTSONE_CONTROL_DOMAIN to the control page domain}`)
@@ -68,11 +68,12 @@ services:
       - traefik.http.routers.agentsone-control.tls=true
       - traefik.http.routers.agentsone-control.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-control.service=agentsone-control
+      - traefik.http.routers.agentsone-control.middlewares=${AGENTSONE_CONTROL_MIDDLEWARES:-}
       - traefik.http.services.agentsone-control.loadbalancer.server.port=8081
     memswap_limit: 256m
     networks:
-      coolify: {}
       outer: null
+      proxy: {}
     ports:
       - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_CONTROL_PORT:-7781}:8081
     read_only: true
@@ -113,7 +114,7 @@ services:
     image: ghcr.io/sdk-e/agentsone-edge:${AGENTSONE_IMAGE_TAG:-sha-2ae167fa0cad45477a3cddc49d68e0bbcd8eeb8f}
     labels:
       - traefik.enable=true
-      - traefik.docker.network=coolify
+      - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
       - traefik.http.middlewares.agentsone-https.redirectscheme.scheme=https
       - traefik.http.routers.agentsone-door-http.rule=Host(`${AGENTSONE_DOMAIN:?set
         AGENTSONE_DOMAIN to the web door domain}`)
@@ -125,16 +126,17 @@ services:
       - traefik.http.routers.agentsone-door.tls=true
       - traefik.http.routers.agentsone-door.tls.certresolver=letsencrypt
       - traefik.http.routers.agentsone-door.service=agentsone-door
+      - traefik.http.routers.agentsone-door.middlewares=${AGENTSONE_DOOR_MIDDLEWARES:-}
       - traefik.http.services.agentsone-door.loadbalancer.server.port=8080
     memswap_limit: ${AGENTSONE_EDGE_MEMORY:-1g}
     networks:
-      coolify:
-        aliases:
-          - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
       inner:
         ipv4_address: ${AGENTSONE_EDGE_IP:-10.77.42.2}
       outer:
         ipv4_address: ${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}
+      proxy:
+        aliases:
+          - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
     ports:
       - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_WEB_DOOR_PORT:-7780}:8080
     read_only: true

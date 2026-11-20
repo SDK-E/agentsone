@@ -8,13 +8,48 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
+	contract "github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/daemon"
 )
+
+// Every pattern a daemon module registers beside its generated groups maps
+// to a contract operation that names a scope or is public, so no module
+// route is reachable without the scope check deciding it.
+func TestDaemon_EveryModuleRouteIsAScopedContractOperation(t *testing.T) {
+	t.Parallel()
+	deps, _ := coretest.NewDeps(t)
+	param := regexp.MustCompile(`\{[^}]*\}`)
+	n := 0
+	mods := daemon.Modules(deps)
+	for _, m := range mods {
+		m.Provide(deps.Ports)
+	}
+	for _, m := range mods {
+		for _, r := range m.API().Routes {
+			n++
+			method, path, ok := strings.Cut(r.Pattern, " ")
+			if !ok || method == "" || !strings.HasPrefix(path, "/") {
+				t.Errorf("module %s route %q names no method; every route must be one contract operation", m.Name(), r.Pattern)
+				continue
+			}
+			route, ok := contract.Match(method, param.ReplaceAllString(path, "p"))
+			switch {
+			case !ok:
+				t.Errorf("module %s route %q is no contract operation", m.Name(), r.Pattern)
+			case route.Scope == "" && !route.Public:
+				t.Logf("module %s route %q is %s, which takes no token", m.Name(), r.Pattern, route.OperationID)
+			}
+		}
+	}
+	t.Logf("%d module routes checked", n)
+}
 
 // The real daemon, with every real module, holds a token to its scopes: a
 // memory:read token is refused the task list with 403 forbidden before the

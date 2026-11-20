@@ -116,6 +116,11 @@ func NewTokens(clock core.Clock, ids core.IDs) *Tokens {
 // refuses what the auth module's issuer refuses (authdomain.ValidateGrant):
 // scopes outside the contract's <group>:<read|write|admin> form and
 // lifetimes outside (0, 30 days].
+//
+// The fake also stands in for session cookies: tests sign a human in by
+// issuing a value with no scopes and sending it as the cookie. So a value
+// issued with scopes is a token (its caller is ByToken and held to them),
+// and one issued without is a session or peer stand-in that is not.
 func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, ttl time.Duration) (core.Token, error) {
 	if err := authdomain.ValidateGrant(scopes, ttl); err != nil {
 		return core.Token{}, fmt.Errorf("issue token: %w", err)
@@ -123,7 +128,7 @@ func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	subject.Scopes = slices.Clone(scopes)
-	subject.ByToken = true
+	subject.ByToken = len(scopes) > 0
 	tok := core.Token{Value: t.ids.New("tok"), Expires: t.clock.Now().Add(ttl)}
 	t.issued[tok.Value] = issuedToken{caller: subject, expires: tok.Expires}
 	return tok, nil

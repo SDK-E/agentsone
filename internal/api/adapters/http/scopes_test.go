@@ -200,18 +200,59 @@ func TestRequireScopes_LevelsOnlyCoverTheirOwnGroup(t *testing.T) {
 	}
 }
 
-// Paths outside the contract are not the middleware's to judge: the
-// interface is served to anyone and unknown API paths answer 404 later.
-func TestRequireScopes_LeavesPathsOutsideTheContract(t *testing.T) {
+// Deny by default: a token, however wide, reaches nothing that is not a
+// contract operation, and an odd spelling of a path does not slip past.
+// Callers without a token still reach the interface.
+func TestRequireScopes_RefusesATokenOutsideTheContract(t *testing.T) {
 	t.Parallel()
-	for _, path := range []string{"/", "/assets/app.js", "/v1/no/such/route"} {
+	wide := core.Caller{Kind: core.CallerAgent, Name: "scout", Scopes: contract.AllScopes(), ByToken: true}
+	memory := core.Caller{Kind: core.CallerAgent, Name: "scout", Scopes: []string{"memory:read"}, ByToken: true}
+	try := func(c core.Caller, method, path string) (int, bool) {
 		ran := false
-		h := httpadapter.RequireScopes(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { ran = true }))
-		c := core.Caller{Kind: core.CallerAgent, Name: "scout", ByToken: true}
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(core.WithCaller(t.Context(), c), http.MethodGet, path, nil))
-		if !ran {
-			t.Errorf("%s was refused", path)
+		h := httpadapter.RequireScopes(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			ran = true
+			w.WriteHeader(http.StatusOK)
+		}))
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequestWithContext(core.WithCaller(t.Context(), c), method, path, nil))
+		return rec.Code, ran
+	}
+	for _, tt := range []struct{ method, path string }{
+		{http.MethodGet, "/"},
+		{http.MethodGet, "/assets/app.js"},
+		{http.MethodGet, "/v1/no/such/route"},
+		{http.MethodGet, "/v1//tasks"},
+		{http.MethodGet, "/v1/tasks/x/y/z"},
+		{http.MethodPut, "/v1/tasks"},
+	} {
+		if code, ran := try(wide, tt.method, tt.path); ran || code != http.StatusForbidden {
+			t.Errorf("%s %s with a token holding every scope: %d (handler ran %v), want 403", tt.method, tt.path, code, ran)
 		}
+	}
+	for _, path := range []string{"/v1/tasks", "/v1/tasks/", "/v1//tasks", "/v1/tasks/%2F"} {
+		if code, ran := try(memory, http.MethodGet, path); ran || code == http.StatusOK {
+			t.Errorf("GET %s with memory:read: %d (handler ran %v), want refused", path, code, ran)
+		}
+	}
+	if code, ran := try(ada, http.MethodGet, "/assets/app.js"); !ran {
+		t.Errorf("a signed-in human was refused the interface: %d", code)
+	}
+}
+
+// The public operations are pinned: making an operation public, or no
+// longer public, is a contract change that must also edit this list.
+func TestRequireScopes_PublicOperationsArePinned(t *testing.T) {
+	t.Parallel()
+	var public []string
+	for _, r := range contract.Routes {
+		if r.Public {
+			public = append(public, r.OperationID)
+		}
+	}
+	slices.Sort(public)
+	want := []string{"createFirstHuman", "createSession", "getSetupStatus"}
+	if !slices.Equal(public, want) {
+		t.Fatalf("public operations %v, want %v", public, want)
 	}
 }
 

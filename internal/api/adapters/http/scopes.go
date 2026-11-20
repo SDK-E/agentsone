@@ -12,11 +12,12 @@ import (
 
 // RequireScopes refuses a call made with a bearer token that does not hold
 // the scope the contract names for the operation, with 403 forbidden, before
-// next runs. A token sent to an operation whose security takes no token is
-// refused the same way. Callers named by a session cookie or by socket peer
-// credentials carry no scopes and pass: caller kind and org chart rules in
-// the modules decide for them. Public operations and paths outside the
-// contract (the interface, unknown paths answered 404) pass too.
+// next runs. Deny by default: a token is refused on an operation whose
+// security takes no token, and on any method and path that is no contract
+// operation at all (the interface, unknown or oddly spelled paths). Only
+// public contract operations take any token. Callers named by a session
+// cookie or by socket peer credentials carry no scopes and pass: caller kind
+// and org chart rules in the modules decide for them.
 //
 // It wraps the composed modules, so every way in is checked: both listeners
 // and in-process dispatch such as machine MCP tool calls, which carry the
@@ -29,7 +30,12 @@ func RequireScopes(next http.Handler) http.Handler {
 			return
 		}
 		route, ok := contract.Match(r.Method, r.URL.Path)
-		if !ok || route.Public {
+		if !ok {
+			core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden",
+				"a token reaches contract operations only, and this is none"))
+			return
+		}
+		if route.Public {
 			next.ServeHTTP(w, r)
 			return
 		}

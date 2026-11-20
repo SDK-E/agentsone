@@ -107,6 +107,17 @@ operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 
 ## Changelog
 
+### 1.4.1
+
+Description and fixtures only. No schema change.
+
+- `AgentLimitsHold.reason` says why first, then the fix, never the limits themselves, and may use
+  a small format that reads well raw: lines separated by `\n`, a line starting with a dash and a
+  space is a list item, text between two backticks is code. Nothing else has a meaning (no HTML, no other
+  Markdown); clients show any other character as it is.
+- The `getMachineMetrics.soft-limits` and `getMachineMetrics.soft-limits-long-text` fixtures use
+  that format.
+
 ### 1.4.0
 
 Additive (minor: an optional field).

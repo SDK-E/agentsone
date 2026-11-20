@@ -2476,8 +2476,12 @@ export interface components {
        */
       mode: "hard" | "soft";
       /**
-       * @description Plain words that say why the limits are soft and how to make them hard. Absent when `mode` is `hard`.
-       * @example The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, then restart the machine.
+       * @description Plain words that say why the limits are soft and how to make them hard: why first, then the fix, never the limits themselves. Absent when `mode` is `hard`. It may use a small format that also reads well as raw text: lines are separated by a newline (`\n`), a line that starts with `- ` is a list item, and text between two backticks is code, such as a configuration name. Nothing else has a meaning: no HTML and no other Markdown. A client shows any other character as it is.
+       * @example The machine container's cgroup tree is read-only, so the daemon cannot give each custom agent a cgroup of its own.
+       *     To fix:
+       *     - Make sure compose.yaml has `cgroup: private` and `security_opt: writable-cgroups=true` for the machine service.
+       *     - Use Docker Engine 28 or newer.
+       *     - Restart the machine and check its log for `limits: hard`.
        */
       reason?: string;
     };

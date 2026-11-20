@@ -27,7 +27,7 @@
     },
     "agent_limits": {
       "mode": "soft",
-      "reason": "The daemon does not run as root in the machine container, so it cannot give each custom agent a cgroup of its own, and the kernel does not hold their CPU, memory and process limits. Agents still run, with process resource limits only, and their CPU use is not capped. Run the machine service as root, as compose.yaml does, keep its cgroup: private and writable-cgroups=true lines, use Docker Engine 28 or newer on a host with cgroup v2, then restart the machine and check its log."
+      "reason": "The daemon does not run as root in the machine container, so it cannot give each custom agent a cgroup of its own.\nTo fix:\n- Run the machine service as root (compose.yaml does). If a compose override sets `user:` for the machine service, remove that line.\n- Keep `cgroup: private` and `security_opt: writable-cgroups=true` for the machine service.\n- Use Docker Engine 28 or newer on a host with cgroup v2.\n- Restart the machine and check its log for `limits: hard`."
     }
   }
 }

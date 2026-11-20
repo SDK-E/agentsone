@@ -148,7 +148,7 @@ func New(o Options) http.Handler {
 	}
 	h := &handler{o: o}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/chat/completions", h.authed(false, h.recorded(h.unfrozen(h.call(routing.APIOpenAI)))))
+	mux.HandleFunc("POST "+gatewaytoken.BasePath+"/chat/completions", h.authed(false, h.recorded(h.unfrozen(h.call(routing.APIOpenAI)))))
 	mux.HandleFunc("POST /anthropic/v1/messages", h.authed(true, h.recorded(h.unfrozen(h.call(routing.APIAnthropic)))))
 	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", h.authed(true, h.recorded(h.unfrozen(h.countTokens))))
 	mux.HandleFunc("GET /v1/models", h.authed(false, h.models))

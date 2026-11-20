@@ -33,6 +33,12 @@ import (
 // Prefix starts every token and names the format version.
 const Prefix = "ao1."
 
+// BasePath is where the gateway serves its OpenAI-compatible API. The gateway
+// registers its routes under it, and the daemon hands runners the gateway
+// address ending in it (a runner adds /chat/completions to what it is given),
+// so the two cannot drift apart.
+const BasePath = "/v1"
+
 // ClockSkew is how far before its issue time a token is still accepted.
 const ClockSkew = time.Minute
 

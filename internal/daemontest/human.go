@@ -94,9 +94,7 @@ func (d *Daemon) SignInHuman(name string) *Client {
 	if err != nil {
 		d.t.Fatalf("subscribe to hires: %v", err)
 	}
-	// The account lives only in this test's temporary core.db; its
-	// password is no secret, just long enough for the password rule.
-	pass := name + " uses the test harness"
+	pass := humanPassword(name)
 	b, err := json.Marshal(api.FirstHumanCreate{Name: name, DisplayName: name, Password: &pass}) // #nosec G117 -- a test account in a temporary core.db; the password is no secret
 	if err != nil {
 		d.t.Fatalf("encode the first human: %v", err)
@@ -121,6 +119,21 @@ func (d *Daemon) SignInHuman(name string) *Client {
 	}
 	return h
 }
+
+// LogIn signs in a human that SignInHuman created, such as after Restart,
+// when the clients of the stopped daemon no longer reach the new one.
+func (d *Daemon) LogIn(name string) *Client {
+	d.t.Helper()
+	h := d.newClient(name)
+	pass := humanPassword(name)
+	h.Do(http.MethodPost, "/session", api.LoginRequest{Name: name, Password: &pass}, nil)
+	return h
+}
+
+// humanPassword is the password of the harness's human name. The account
+// lives only in the test's temporary core.db; the password is no secret,
+// just long enough for the password rule.
+func humanPassword(name string) string { return name + " uses the test harness" }
 
 // Do calls one API operation as the human: body, when not nil, is sent as
 // JSON, and a 2xx answer is decoded into out, when not nil. Any other

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/runners/echo"
+	"github.com/SDK-E/agentsone/runners/openai"
 	"github.com/SDK-E/agentsone/runners/sdk"
 )
 
@@ -92,6 +94,11 @@ func (l *inProcess) Start(_ context.Context, agent string) error {
 		defer l.wg.Done()
 		defer close(r.done)
 		err := sdk.Run(ctx, opts, h)
+		// A runner process ends with its handler, as the openai runner's
+		// main closes its tool server session.
+		if c, ok := h.(io.Closer); ok {
+			err = errors.Join(err, c.Close())
+		}
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		if l.running[agent] == r {
@@ -166,8 +173,12 @@ func runnerFor(spec domain.UnitSpec) (sdk.Options, sdk.Handler, error) {
 	switch name := filepath.Base(spec.Exec.Path); name {
 	case "echo":
 		return echo.Options(), echo.New(), nil
+	case "openai":
+		// It reaches the model gateway and the tool server at the addresses
+		// of its welcome; WithModelProvider makes them the harness's.
+		return openai.Options(), openai.New(openai.Config{}), nil
 	default:
-		return sdk.Options{}, nil, fmt.Errorf("runner %q does not run in process; the harness runs echo", name)
+		return sdk.Options{}, nil, fmt.Errorf("runner %q does not run in process; the harness runs echo and openai", name)
 	}
 }
 

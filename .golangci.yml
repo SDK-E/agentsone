@@ -44,6 +44,14 @@ linters:
               desc: write a fake in <package>test or internal/core/coretest instead
             - pkg: github.com/vektra/mockery
               desc: write a fake in <package>test or internal/core/coretest instead
+        harness-only-in-tests:
+          # The harness runs the daemon on fakes and points the gateway at any
+          # provider; no shipped binary may hold it (TESTING.md B5f).
+          files:
+            - "!$test"
+          deny:
+            - pkg: github.com/SDK-E/agentsone/internal/daemontest
+              desc: the real-daemon harness is for _test.go files only (TESTING.md B5f)
   exclusions:
     rules:
       - path-except: _test\.go$

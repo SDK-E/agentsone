@@ -57,6 +57,49 @@ func TestRunnerFailed_ShowsTheReasonUntilTheRunnerRunsAgain(t *testing.T) {
 	}
 }
 
+// When what kept a runner off is gone (the network wall holds again), the
+// failure clears and the frame carries the agent's own state, not awake:
+// the runner has not started yet. An agent that showed no failure gets no
+// frame.
+func TestRunnerCleared_ClearsTheFailureWithTheStoredState(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	frames := e.society.Hub().Subscribe(ctx, "dev", app.StreamOutput)
+	before, err := e.society.Get(asHuman("ada"), "dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.society.RunnerFailed(ctx, "dev", "The network wall does not hold."); err != nil {
+		t.Fatal(err)
+	}
+	_ = receive(t, frames)
+
+	if err := e.society.RunnerCleared(ctx, "dev"); err != nil {
+		t.Fatal(err)
+	}
+
+	if f := receive(t, frames); f.State == nil || f.State.State != before.State || f.State.Reason != "" {
+		t.Fatalf("frame %+v, want state %s without a reason", f.State, before.State)
+	}
+	dev, _ := e.society.Get(asHuman("ada"), "dev")
+	if dev.State != before.State || dev.StateReason != "" {
+		t.Fatalf("Get after clearing = %+v, want %s and no reason", dev, before.State)
+	}
+	if err := e.society.RunnerCleared(ctx, "dev"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case f := <-frames:
+		t.Fatalf("a second clear sent frame %+v; nothing changed", f)
+	default:
+	}
+	if err := e.society.RunnerCleared(ctx, "nobody"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("RunnerCleared(nobody) = %v, want core.ErrNotFound", err)
+	}
+}
+
 // The failure lives with the runner, not in core.db: saving the agent for
 // another reason never stores it.
 func TestRunnerFailed_IsNotStored(t *testing.T) {

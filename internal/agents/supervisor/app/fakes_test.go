@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"slices"
 	"sync"
 	"testing"
@@ -147,6 +148,12 @@ func (s *sink) RunnerRunning(_ context.Context, agent string) error {
 	s.states = append(s.states, "running "+agent)
 	return nil
 }
+func (s *sink) RunnerCleared(_ context.Context, agent string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.states = append(s.states, "cleared "+agent)
+	return nil
+}
 func (s *sink) heard() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -277,10 +284,22 @@ type world struct {
 	accounts  *accounts
 	sink      *sink
 	summaries *summaries
+	wall      *fakeWall
+	logs      *logLines
+	ports     *core.Ports
 	sup       *app.Supervisor
 }
 
+// newWorld is a supervisor whose network wall was checked and holds.
 func newWorld(t *testing.T) *world {
+	t.Helper()
+	w := newUncheckedWorld(t)
+	w.sup.CheckWall(t.Context())
+	return w
+}
+
+// newUncheckedWorld is a supervisor before the daemon checked the wall.
+func newUncheckedWorld(t *testing.T) *world {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
 	fakes.Runners.Register(echoAdapter{})
@@ -291,13 +310,61 @@ func newWorld(t *testing.T) *world {
 		fakes: fakes, launcher: newLauncher(),
 		accounts: &accounts{created: map[string]domain.Account{}, locked: map[string]bool{}},
 		sink:     &sink{}, summaries: &summaries{m: map[string]app.Summary{}},
+		wall:  &fakeWall{w: domain.NetWall{Holds: true, Interfaces: []string{"eth0"}}},
+		logs:  &logLines{},
+		ports: ports,
 	}
 	w.sup = app.New(app.Deps{
 		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
 		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
-		Config: app.DefaultConfig(), States: w.sink,
+		Config: app.DefaultConfig(), States: w.sink, Wall: w.wall, Log: slog.New(w.logs),
 	})
 	return w
+}
+
+// fakeWall answers what the test sets and counts the checks.
+type fakeWall struct {
+	mu     sync.Mutex
+	w      domain.NetWall
+	checks int
+}
+
+func (f *fakeWall) Check(context.Context) domain.NetWall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checks++
+	return f.w
+}
+func (f *fakeWall) set(w domain.NetWall) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.w = w
+}
+func (f *fakeWall) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.checks
+}
+
+// logLines keeps each log record as "<LEVEL> <message>".
+type logLines struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (l *logLines) Enabled(context.Context, slog.Level) bool { return true }
+func (l *logLines) Handle(_ context.Context, r slog.Record) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lines = append(l.lines, r.Level.String()+" "+r.Message)
+	return nil
+}
+func (l *logLines) WithAttrs([]slog.Attr) slog.Handler { return l }
+func (l *logLines) WithGroup(string) slog.Handler      { return l }
+func (l *logLines) all() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.lines)
 }
 
 func (w *world) actions() []string {

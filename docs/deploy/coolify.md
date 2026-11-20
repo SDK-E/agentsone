@@ -182,8 +182,10 @@ the domains: the images have no shell or curl, so use the checks above.
    passphrase prints a new code.
 4. On the control page, add the model keys, the internet allow list and the budget.
 5. Open the web door at `https://<AGENTSONE_DOMAIN>`.
-6. Check the wall: `docker exec <machine container> cat /proc/net/route` must show no
-   `00000000` destination.
+6. Check the wall in the logs of the `machine` service. At start, and again whenever the answer
+   changes, the daemon logs `network wall holds: no default route, interfaces: eth0`. If it logs
+   `network wall broken: no agent will wake` instead, the line says what breaks the wall and how
+   to fix it. No agent wakes until the wall holds again; the daemon checks every 5 minutes.
 
 ## Upgrade
 

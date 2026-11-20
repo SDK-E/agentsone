@@ -199,12 +199,9 @@ func TestProxy_UpgradesWebSockets(t *testing.T) {
 
 func TestProxy_AnswersAProblemWhenTheMachineIsDown(t *testing.T) {
 	t.Parallel()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	down := &url.URL{Scheme: "http", Host: ln.Addr().String()}
-	_ = ln.Close()
+	// Port 1 is privileged, so no parallel test can be handed it by the OS;
+	// a port freed a moment ago can be (the 200 this test once got).
+	down := &url.URL{Scheme: "http", Host: "127.0.0.1:1"}
 	d := httptest.NewServer(proxy.New(down, slog.New(slog.DiscardHandler)))
 	t.Cleanup(d.Close)
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, d.URL+"/", nil)

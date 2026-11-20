@@ -106,6 +106,10 @@ test("home, a refresh that fails keeps the page and says so without moving it", 
   await expect(page.getByRole("heading", { name: "Ask the society" })).toBeVisible();
   const line = page.getByText("Can't reach the machine. Retrying…");
   await expect(line).toBeVisible();
+  // What was live no longer says so.
+  const society = page.getByRole("region", { name: "The society" });
+  await expect(society.getByText("Paused")).toBeVisible();
+  await expect(society.getByText("Live", { exact: true })).toHaveCount(0);
   const heading = page.getByRole("heading", { name: "Ask the society" });
   // Back from the chat the page may keep its old scroll: start at the top, so places can be compared.
   await page.evaluate(() => {
@@ -122,6 +126,9 @@ test("home, a refresh that fails keeps the page and says so without moving it", 
   }
   const retry = page.getByRole("button", { name: "Try again" });
   await expect(retry).toBeVisible();
+  // One row on every width, with the button beside the text.
+  const row = await page.locator(".stale").boundingBox();
+  expect(row?.height).toBeLessThan(40);
   // The line came and the page did not move.
   expect((await heading.boundingBox())?.y).toBe(before?.y);
 
@@ -131,5 +138,7 @@ test("home, a refresh that fails keeps the page and says so without moving it", 
   await retry.click();
   await expect(line).toHaveCount(0);
   await expect(retry).toHaveCount(0);
+  await expect(society.getByText("Live", { exact: true })).toBeVisible();
+  await expect(society.getByText("Paused")).toHaveCount(0);
   expect((await heading.boundingBox())?.y).toBe(before?.y);
 });

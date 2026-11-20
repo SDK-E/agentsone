@@ -13,6 +13,7 @@ import { meKey, setupKey } from "../session/session";
 import { FakeApi } from "../test/fake-api";
 import { ThemeProvider } from "../theme/theme-provider";
 import { AppShell } from "./app-shell";
+import { useStale } from "./stale";
 
 function renderShell(api: FakeApi) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
@@ -126,6 +127,37 @@ describe("AppShell", () => {
     await waitFor(() => {
       expect(page).toHaveAttribute("data-stale", "true");
     });
+  });
+
+  it("tells what is below it that the page is stale, and that it is not any more", async () => {
+    function Probe() {
+      return <p>{useStale() ? "Paused" : "Live"}</p>;
+    }
+    const api = new FakeApi();
+    const good = api.me;
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ApiProvider api={api}>
+          <QueryClientProvider client={client}>
+            <ThemeProvider>
+              <MemoryRouter>
+                <AppShell>
+                  <Probe />
+                </AppShell>
+              </MemoryRouter>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </ApiProvider>
+      </I18nextProvider>,
+    );
+    expect(await screen.findByText("Live")).toBeVisible();
+    api.me = down();
+    await refresh(client);
+    expect(await screen.findByText("Paused")).toBeVisible();
+    api.me = good;
+    await refresh(client);
+    expect(await screen.findByText("Live")).toBeVisible();
   });
 
   it("shows the error when the first load fails", async () => {

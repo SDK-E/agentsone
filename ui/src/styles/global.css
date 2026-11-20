@@ -322,14 +322,37 @@ ul.notice {
   inset-inline: 0;
   inset-block-start: 0;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs) var(--space-md);
+  justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-xs) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-sunken);
   color: var(--color-text);
   font-size: var(--text-sm);
+}
+
+/* One row at every width: the button sits at the right, as tall as the line. Its touch area is
+   wider than it looks. */
+.stale p {
+  margin: 0;
+  min-width: 0;
+}
+
+.stale .button {
+  position: relative;
+  flex: none;
+  min-height: 0;
+  min-width: 0;
+  padding: 1px var(--space-sm);
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+.stale .button::after {
+  content: "";
+  position: absolute;
+  inset: -10px -6px;
 }
 
 /* What the page shows as live is not, while the machine cannot be reached: dim it and hold it still. */

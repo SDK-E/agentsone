@@ -6,6 +6,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { isSignedOut, useMe, useSetupStatus, useSignOut } from "../session/session";
 import { AccountMenu } from "./account-menu";
 import { Brand } from "./brand";
+import { StaleContext } from "./stale";
 import { LoadError, Loading } from "./status";
 
 /** After this many failed refreshes in a row, a click is asked for as well as the waiting. */
@@ -125,7 +126,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
       />
       <main id="main" tabIndex={-1} className="page" data-stale={stale || undefined}>
-        {children}
+        <StaleContext value={stale}>{children}</StaleContext>
       </main>
     </>
   );

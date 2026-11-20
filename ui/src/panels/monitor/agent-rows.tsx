@@ -5,6 +5,7 @@ import { Link } from "react-router";
 
 import type { BudgetNode, BudgetSplit, LiveEntry } from "../../api/api";
 import { useApi } from "../../app/api-context";
+import { useStale } from "../../shell/stale";
 import { LoadError, Loading } from "../../shell/status";
 import { Presence } from "../../society/agent-presence";
 import { relativeTime, useNow } from "../../society/relative-time";
@@ -21,6 +22,7 @@ export function AgentRows() {
   const { t } = useTranslation();
   const api = useApi();
   const live = useLiveList();
+  const stale = useStale();
   const split = useQuery({
     queryKey: splitKey,
     queryFn: () => api.getBudgetSplit(),
@@ -38,7 +40,11 @@ export function AgentRows() {
         <h3 id="monitor-agents">{t("panels.monitor.agents.title")}</h3>
         <p className={`live-badge live-badge--${live.mode}`}>
           <span className="live-badge__dot" aria-hidden="true" />
-          {live.mode === "stream" ? t("society.live") : t("society.polling")}
+          {stale
+            ? t("society.paused")
+            : live.mode === "stream"
+              ? t("society.live")
+              : t("society.polling")}
         </p>
       </div>
       <p className="hint">{t("panels.monitor.agents.softNote")}</p>

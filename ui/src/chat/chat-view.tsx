@@ -9,6 +9,7 @@ import { useApi } from "../app/api-context";
 import type { ChatLocationState } from "../router/talk-box";
 import { useMe } from "../session/session";
 import { problemText } from "../shell/problem-text";
+import { useStale } from "../shell/stale";
 import { LoadError, Loading } from "../shell/status";
 import { Presence } from "../society/agent-presence";
 import { liveKey } from "../society/use-live-list";
@@ -20,6 +21,7 @@ export function ChatView() {
   const api = useApi();
   const { name = "" } = useParams();
   const location = useLocation();
+  const stale = useStale();
   const assignment = (location.state as ChatLocationState | null)?.assignment;
   const live = useQuery({ queryKey: liveKey, queryFn: () => api.listLiveList(), retry: false });
   const entry = live.data?.find((e) => e.agent === name);
@@ -84,7 +86,9 @@ export function ChatView() {
             ))}
             {drafts.map((text, i) => (
               <li key={`draft-${String(i)}`} className="message message--agent message--draft">
-                <p className="message__author">{t("chat.writing", { name: displayName })}</p>
+                <p className="message__author">
+                  {t(stale ? "chat.writingPaused" : "chat.writing", { name: displayName })}
+                </p>
                 <p className="message__text">{text}</p>
               </li>
             ))}

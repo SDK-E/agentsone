@@ -57,7 +57,7 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 | Setup page                       | `setup-page`                   | The first human is made on the setup page, only through the web door.                 |
 | Login                            | `login`                        | The first human signs in and out through the web door.                                |
 | Small Seed                       | `small-seed`                   | On first boot the Small Seed installs a founder, a router and a waker below it.       |
-| Founder hires                    | `hire`                         | The founder hires an agent below itself.                                              |
+| Founder hires                    | `hire`                         | The founder hires an agent below itself, by a scripted tool call.                     |
 | Bus message                      | `bus`                          | A message sent on the bus reaches its channel.                                        |
 | Live list and router pick        | `router`                       | The live list and the router pick an agent for a human's request.                     |
 | Echo chat                        | `echo-chat`                    | A human chats with an echo agent.                                                     |
@@ -72,7 +72,9 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 More stages check the walls the plan relies on, beyond the list: `wall-route`, `wall-direct` and
 `wall-outer` (the network wall), `gateway` and `model-turn` (model calls through the gateway,
 ending at a fake provider), `founder-turn` (the founder answers a routed chat with its own model
-calls, and a scripted tool call runs on the machine and its answer goes back to the model),
+calls, and a scripted tool call runs on the machine and its answer goes back to the model;
+`hire` runs right after it and uses the same scripted turn to hire an agent, and to see a hire the
+chart refuses leave nothing behind),
 `audit-sink` (audit records from the daemon only), `rescue` (a
 restart keeps the machine, a recreate resets it), `web-door` (a header is never an identity) and
 `control` (the control page and its passphrase). `services-events` (the built-in services event

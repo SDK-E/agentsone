@@ -202,8 +202,6 @@ jobs:
         run: e2e/run.sh login
       - name: Small Seed
         run: e2e/run.sh small-seed
-      - name: Hire
-        run: e2e/run.sh hire
       - name: Bus message
         run: e2e/run.sh bus
       - name: Live list and router
@@ -212,6 +210,8 @@ jobs:
         run: e2e/run.sh model-turn
       - name: "Founder turn: a routed chat answered, tool calls through the machine"
         run: e2e/run.sh founder-turn
+      - name: "Hire: the founder hires an agent by a scripted tool call"
+        run: e2e/run.sh hire
       - name: Echo chat
         run: e2e/run.sh echo-chat
       - name: Event to task

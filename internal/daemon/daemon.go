@@ -45,6 +45,7 @@ type options struct {
 	machine    func(core.Deps) core.Module
 	supervisor agents.SupervisorOptions
 	sched      []sched.Option
+	events     []events.Option
 }
 
 // WithMachine builds the machine module with newMachine instead of
@@ -64,6 +65,11 @@ func WithSched(opts ...sched.Option) Option {
 	return func(o *options) { o.sched = opts }
 }
 
+// WithEvents passes opts to the events module.
+func WithEvents(opts ...events.Option) Option {
+	return func(o *options) { o.events = opts }
+}
+
 // Modules lists every daemon module in start order. Builders fill their own
 // package; this list only changes through a contract change.
 func Modules(deps core.Deps, opts ...Option) []core.Module {
@@ -78,7 +84,7 @@ func Modules(deps core.Deps, opts ...Option) []core.Module {
 		auth.New(deps),
 		api.New(deps),
 		bus.New(deps),
-		events.New(deps),
+		events.New(deps, o.events...),
 		sched.New(deps, o.sched...),
 		router.New(deps),
 		memory.New(deps),

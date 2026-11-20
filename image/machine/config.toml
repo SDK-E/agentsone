@@ -15,3 +15,11 @@ addr = "0.0.0.0:7700"
 # open terminals). Unset, it is the address the web door was reached at, as
 # the edge reports it in X-Forwarded-Host.
 # public_url = "https://agents.example.com"
+
+# Built-in event sources run inside the daemon. Every key below is optional;
+# the values shown are the defaults.
+# [emitters.disk]
+# threshold_percent = 90   # a file system this full is "high"
+# margin_percent = 2       # it is "normal" again below threshold minus margin
+# interval = "1m"          # time between samples
+# mounts_file = "/proc/self/mounts"

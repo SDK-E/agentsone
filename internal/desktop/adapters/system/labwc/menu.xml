@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- The desktop's menu: right-click (or long-press) the background. -->
+<openbox_menu>
+  <menu id="root-menu" label="">
+    <item label="Terminal">
+      <action name="Execute" command="foot" />
+    </item>
+    <item label="Web browser">
+      <!-- The Chromium sandbox cannot start under Docker's default seccomp
+           profile and Debian ships no setuid helper; the container wall is
+           the boundary. -->
+      <action name="Execute" command="chromium --ozone-platform=wayland --no-sandbox --no-first-run --disable-gpu --disable-dev-shm-usage" />
+    </item>
+  </menu>
+</openbox_menu>

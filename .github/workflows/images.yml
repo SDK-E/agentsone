@@ -221,6 +221,8 @@ jobs:
         run: e2e/run.sh freeze-all
       - name: Control page
         run: e2e/run.sh control
+      - name: Desktop
+        run: e2e/run.sh desktop
       - name: Stack state and logs
         if: always()
         run: |

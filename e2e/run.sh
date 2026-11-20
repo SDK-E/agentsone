@@ -513,10 +513,72 @@ stage_control() {
   expect_http "signed in again, the control page shows freeze all" '200' 'action="/freeze"' control_page GET /
 }
 
+# --- desktop: the human's own desktop over VNC, through the web door ------------------------
+
+# desktop_ws_handshake <path> [curl args...]: the WebSocket opening of the desktop bridge as a
+# plain HTTP request, to read a refusal.
+desktop_ws_handshake() {
+  local path="$1"
+  shift
+  local nonce
+  nonce="$(head -c 16 /dev/urandom | base64)" # the handshake's random nonce (RFC 6455)
+  curl -sS -m 10 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+    -H "Sec-WebSocket-Key: ${nonce}" -H 'Sec-WebSocket-Protocol: agentsone.vnc.v1' \
+    "$@" "${DOOR}${path}"
+}
+
+# desktop_vnc_greeting <session>: the first bytes the human's desktop sends through the web door,
+# read with a WebSocket client (curl 8.11 or later; the runner's own curl has none). The client
+# is stopped after 5 seconds, so its exit status says nothing; the bytes do.
+desktop_vnc_greeting() {
+  docker run --rm --network host "$CURL_IMAGE" -sS -m 5 --no-buffer \
+    -H 'Sec-WebSocket-Protocol: agentsone.vnc.v1' -H "Cookie: agentsone_session=$1" \
+    "ws://${DOOR#http://}/desktop/${HUMAN}/vnc" 2>&1 | head -c 64 | tr -cd '[:print:]\n'
+  return 0
+}
+
+stage_desktop() {
+  needs desktop machine edge || return 0
+  door || return 0
+  if [ ! -s "$WORK/login.json" ]; then
+    fail "desktop: no first human; run the setup-page stage first"
+    return 0
+  fi
+  rm -f "$WORK/cookies"
+  expect_http "the first human signs in to open the desktop" '201' "\"name\":\"${HUMAN}\"" \
+    from_browser POST /v1/session -d @"$WORK/login.json"
+  local session uid rt
+  session="$(awk '$6 == "agentsone_session" { print $7 }' "$WORK/cookies" 2>/dev/null)"
+  expect_http "without a session the desktop is refused" '401' 'problem:unauthenticated' \
+    desktop_ws_handshake "/desktop/${HUMAN}/vnc"
+  expect_http "a page on another site cannot open the desktop" '403' 'cross-origin' \
+    desktop_ws_handshake "/desktop/${HUMAN}/vnc" -H "Cookie: agentsone_session=${session}" \
+    -H 'Origin: https://evil.example'
+  expect_http "a human cannot open another human's desktop" '403' 'not your desktop' \
+    desktop_ws_handshake /desktop/bob/vnc -H "Cookie: agentsone_session=${session}"
+  expect_out "the human's desktop answers with the VNC greeting through the web door" '^RFB 003\.00[0-9]' \
+    desktop_vnc_greeting "$session"
+  uid="$(in_machine id -u "h_${HUMAN}" 2>/dev/null | tr -d '\r')"
+  rt="/run/agentsone/desktop/${uid}"
+  expect_out "the desktop runs as the human's own Linux user" "^ *h_${HUMAN}\$" in_machine ps -o user= -C labwc
+  expect_out "a terminal is open in the desktop, as the human" "^ *h_${HUMAN}\$" in_machine ps -o user= -C foot
+  expect_out "the VNC server listens on a socket in the human's private folder" "^700 h_${HUMAN} socket\$" \
+    in_machine sh -c "printf '%s %s ' \"\$(stat -c %a '$rt')\" \"\$(stat -c %U '$rt')\"; stat -c %F '$rt/vnc.sock'"
+  expect fail "the VNC server has no TCP port on the machine (5900)" \
+    in_machine grep -qi ':170C ' /proc/net/tcp /proc/net/tcp6
+  # A web browser started on the desktop's display, as the desktop menu starts it.
+  compose exec -T -d machine setpriv --reuid "$uid" --regid "$uid" --clear-groups env -i \
+    PATH=/usr/bin:/bin HOME="/home/humans/${HUMAN}" XDG_RUNTIME_DIR="$rt" WAYLAND_DISPLAY=wayland-0 \
+    AGENTSONE_DESKTOP="$rt" chromium --ozone-platform=wayland --no-sandbox --no-first-run --disable-gpu \
+    --disable-dev-shm-usage about:blank
+  sleep 10
+  expect_out "a web browser opens in the desktop, as the human" "^ *h_${HUMAN}\$" in_machine ps -o user= -C chromium
+}
+
 STAGES=(
   wall-route wall-direct wall-blocked wall-allowed wall-outer gateway audit-sink rescue web-door
   setup-page login small-seed hire bus router echo-chat event-to-task memory
-  plugin-install agentctl-parity budget-wall freeze-all control
+  plugin-install agentctl-parity budget-wall freeze-all control desktop
 )
 
 run_stage() {

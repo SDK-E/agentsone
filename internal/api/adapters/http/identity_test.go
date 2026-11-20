@@ -101,6 +101,7 @@ func TestTCPIdentity_NamesTheCaller(t *testing.T) {
 		{"public operation ignores a bad cookie", req{method: "GET", path: "/v1/setup", cookie: "aos_bad"}, 200, "human:"},
 		{"unknown v1 path needs a caller", req{method: "GET", path: "/v1/nothing"}, 401, ""},
 		{"interface paths are open", req{method: "GET", path: "/agents/ada/chat"}, 200, "human:"},
+		{"interface paths ignore a bad cookie", req{method: "GET", path: "/agents/ada/chat", cookie: "aos_bad"}, 200, "human:"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -118,6 +119,59 @@ func TestTCPIdentity_ClearsABadSessionCookie(t *testing.T) {
 	rec := send(req{method: "GET", path: "/v1/agents", cookie: "aos_bad"})
 	if c := rec.Result().Cookies(); len(c) != 1 || c[0].MaxAge >= 0 {
 		t.Fatalf("cookies %v", c)
+	}
+}
+
+// refusedToken checks the answer to a bad bearer token: 401 before the module
+// runs, the unauthenticated problem, no word of the token, and the session
+// cookie beside it left alone.
+func refusedToken(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	body := rec.Body.String()
+	if rec.Code != http.StatusUnauthorized || rec.Header().Get("X-Caller") != "" {
+		t.Fatalf("got %d %q, want 401 before the module runs: %s", rec.Code, rec.Header().Get("X-Caller"), body)
+	}
+	if !strings.Contains(body, `"type":"urn:agentsone:problem:unauthenticated"`) {
+		t.Errorf("body %s, want the unauthenticated problem", body)
+	}
+	if strings.Contains(body, "forged") {
+		t.Errorf("body %s repeats the token", body)
+	}
+	if c := rec.Result().Cookies(); len(c) != 0 {
+		t.Errorf("cookies %v: a bad token must not end the session", c)
+	}
+}
+
+// A bad bearer token is refused on every path, public ones and the interface
+// included, and also beside a good session cookie: whoever sends a token means
+// to be its caller, so the request never goes on as no one or as the cookie.
+func TestTCPIdentity_RefusesABadTokenOnEveryPath(t *testing.T) {
+	t.Parallel()
+	auth := func(v string) map[string]string { return map[string]string{"Authorization": v} }
+	cases := []struct {
+		name string
+		req  req
+	}{
+		{"on a guarded operation", req{method: "GET", path: "/v1/agents", bearer: "aot_forged"}},
+		{"on a public operation", req{method: "GET", path: "/v1/setup", bearer: "aot_forged"}},
+		{"on sign-in", req{method: "POST", path: "/v1/session", bearer: "aot_forged"}},
+		{"on a signed webhook", req{method: "POST", path: "/v1/webhooks/emt_1", bearer: "aot_forged"}},
+		{"on an interface path", req{method: "GET", path: "/agents/ada/chat", bearer: "aot_forged"}},
+		{"on the interface root", req{method: "GET", path: "/", bearer: "aot_forged"}},
+		{"on an unknown v1 path", req{method: "GET", path: "/v1/nothing", bearer: "aot_forged"}},
+		{"through the edge", req{method: "GET", path: "/v1/setup", remote: "172.18.0.2:4000", bearer: "aot_forged", headers: forged}},
+		{"beside a good cookie on a guarded operation", req{method: "GET", path: "/v1/agents", bearer: "aot_forged", cookie: "aos_good"}},
+		{"beside a good cookie on a public operation", req{method: "GET", path: "/v1/setup", bearer: "aot_forged", cookie: "aos_good"}},
+		{"beside a good cookie on an interface path", req{method: "GET", path: "/agents/ada/chat", bearer: "aot_forged", cookie: "aos_good"}},
+		{"an empty token", req{method: "GET", path: "/v1/setup", headers: auth("Bearer ")}},
+		{"the scheme alone", req{method: "GET", path: "/v1/setup", cookie: "aos_good", headers: auth("Bearer")}},
+		{"the scheme in lower case", req{method: "GET", path: "/v1/setup", cookie: "aos_good", headers: auth("bearer aot_forged")}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			refusedToken(t, send(c.req))
+		})
 	}
 }
 
@@ -468,6 +522,41 @@ func TestSocketIdentity_RefusesABadToken(t *testing.T) {
 	t.Parallel()
 	if rec, _ := socketAsRefused("GET", "/v1/agents", "aot_forged"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+// A bad bearer token on the socket is refused whoever the peer is: the
+// request never goes on as the agent, the human or the daemon the kernel
+// names, on guarded and public operations alike.
+func TestSocketIdentity_RefusesABadTokenWhoeverThePeerIs(t *testing.T) {
+	t.Parallel()
+	founder := core.Caller{Kind: core.CallerAgent, Name: "founder", UID: 1001}
+	daemon := core.Caller{Kind: core.CallerSystem, Name: "daemon", UID: 0, IsRoot: true}
+	cases := []struct {
+		name, path, authorization string
+		peer                      core.Caller
+		refused                   error
+	}{
+		{"an agent on a guarded operation", "/v1/agents", "Bearer aot_forged", founder, nil},
+		{"an agent on a public operation", "/v1/setup", "Bearer aot_forged", founder, nil},
+		{"an agent on an interface path", "/agents/founder/chat", "Bearer aot_forged", founder, nil},
+		{"an agent with an empty token", "/v1/agents", "Bearer ", founder, nil},
+		{"an agent with the scheme alone", "/v1/agents", "Bearer", founder, nil},
+		{"an agent with the scheme in lower case", "/v1/agents", "bearer aot_forged", founder, nil},
+		{"a human", "/v1/agents", "Bearer aot_forged", ada, nil},
+		{"the daemon itself", "/v1/setup", "Bearer aot_forged", daemon, nil},
+		{"a refused peer", "/v1/setup", "Bearer aot_forged", core.Anonymous, refusedRoot},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			r := httptest.NewRequest("GET", c.path, nil)
+			r.Header.Set("Authorization", c.authorization)
+			r = r.WithContext(httpadapter.WithPeer(r.Context(), c.peer, c.refused))
+			rec := httptest.NewRecorder()
+			httpadapter.SocketIdentity(verify, noReport, echo).ServeHTTP(rec, r)
+			refusedToken(t, rec)
+		})
 	}
 }
 

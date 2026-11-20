@@ -84,6 +84,9 @@ type ServerInterface interface {
 	// ListMachineUsers List Linux users
 	// (GET /machine/users)
 	ListMachineUsers(w http.ResponseWriter, r *http.Request, params ListMachineUsersParams)
+	// GetNetworkWall Get the network wall
+	// (GET /machine/wall)
+	GetNetworkWall(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -793,6 +796,20 @@ func (siw *ServerInterfaceWrapper) ListMachineUsers(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetNetworkWall operation middleware
+func (siw *ServerInterfaceWrapper) GetNetworkWall(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetworkWall(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -934,6 +951,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/machine/services/{unit}/start", wrapper.StartService)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/machine/services/{unit}/stop", wrapper.StopService)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/machine/users", wrapper.ListMachineUsers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/machine/wall", wrapper.GetNetworkWall)
 
 	return m
 }
@@ -2868,6 +2886,75 @@ func (response ListMachineUsers501ApplicationProblemPlusJSONResponse) VisitListM
 	return err
 }
 
+type GetNetworkWallRequestObject struct {
+}
+
+type GetNetworkWallResponseObject interface {
+	VisitGetNetworkWallResponse(w http.ResponseWriter) error
+}
+
+type GetNetworkWall200JSONResponse NetworkWall
+
+func (response GetNetworkWall200JSONResponse) VisitGetNetworkWallResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNetworkWall401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetNetworkWall401ApplicationProblemPlusJSONResponse) VisitGetNetworkWallResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNetworkWall403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetNetworkWall403ApplicationProblemPlusJSONResponse) VisitGetNetworkWallResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNetworkWall501ApplicationProblemPlusJSONResponse struct {
+	NotImplementedApplicationProblemPlusJSONResponse
+}
+
+func (response GetNetworkWall501ApplicationProblemPlusJSONResponse) VisitGetNetworkWallResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListFiles List a folder
@@ -2933,6 +3020,9 @@ type StrictServerInterface interface {
 	// ListMachineUsers List Linux users
 	// (GET /machine/users)
 	ListMachineUsers(ctx context.Context, request ListMachineUsersRequestObject) (ListMachineUsersResponseObject, error)
+	// GetNetworkWall Get the network wall
+	// (GET /machine/wall)
+	GetNetworkWall(ctx context.Context, request GetNetworkWallRequestObject) (GetNetworkWallResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -3538,6 +3628,30 @@ func (sh *strictHandler) ListMachineUsers(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListMachineUsersResponseObject); ok {
 		if err := validResponse.VisitListMachineUsersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetworkWall operation middleware
+func (sh *strictHandler) GetNetworkWall(w http.ResponseWriter, r *http.Request) {
+	var request GetNetworkWallRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetworkWall(ctx, request.(GetNetworkWallRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetworkWall")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetworkWallResponseObject); ok {
+		if err := validResponse.VisitGetNetworkWallResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -95,6 +95,7 @@ var Routes = []Route{
 	{Method: "POST", Path: BasePath + "/machine/services/{unit}/start", OperationID: "startService", Tag: "machine", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/machine/services/{unit}/stop", OperationID: "stopService", Tag: "machine", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/machine/users", OperationID: "listMachineUsers", Tag: "machine", Stream: false, WebSocket: false},
+	{Method: "GET", Path: BasePath + "/machine/wall", OperationID: "getNetworkWall", Tag: "machine", Stream: false, WebSocket: false},
 	{Method: "DELETE", Path: BasePath + "/mcp", OperationID: "mcpEndSession", Tag: "mcp", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/mcp", OperationID: "mcpListen", Tag: "mcp", Stream: true, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/mcp", OperationID: "mcpPost", Tag: "mcp", Stream: true, WebSocket: false},

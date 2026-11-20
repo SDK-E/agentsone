@@ -1370,6 +1370,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/machine/wall": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the network wall
+     * @description Says whether the machine's network wall holds: no default route and no network besides the inner one, so the edge is the only way out. The daemon checks it from inside the machine container at start and every 5 minutes; while it does not hold, no agent wakes. Open to signed-in humans; the interface shows a banner while `holds` is false.
+     */
+    get: operations["getNetworkWall"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/mcp": {
     parameters: {
       query?: never;
@@ -3763,6 +3783,19 @@ export interface components {
      * @enum {string}
      */
     NetMode: "inherit" | "allow-only" | "deny-all";
+    /** @description The machine's network wall as the daemon last checked it from inside the machine container. */
+    NetworkWall: {
+      checked_at: components["schemas"]["Timestamp"];
+      /** @description True when the machine has no route out and sits on the inner network only. */
+      holds: boolean;
+      /** @description The machine's network interfaces besides loopback, sorted. */
+      interfaces: string[];
+      /**
+       * @description Plain words that say why the wall does not hold and how to fix it. Absent when it holds.
+       * @example The network wall does not hold, so no agent may wake: the machine has a direct route to the internet (through eth1). Deploy with Raw compose mode and do not attach other networks to the machine service.
+       */
+      reason?: string;
+    };
     /** @description Optional download of the official VS Code build, after the human accepts its licence. */
     OfficialIdeDownload: {
       error: string | null;
@@ -7084,6 +7117,29 @@ export interface operations {
       };
       400: components["responses"]["BadRequest"];
       401: components["responses"]["Unauthorized"];
+      501: components["responses"]["NotImplemented"];
+    };
+  };
+  getNetworkWall: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The wall as last checked. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NetworkWall"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
       501: components["responses"]["NotImplemented"];
     };
   };

@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "holds": false,
+    "reason": "The network wall does not hold, so no agent may wake: the machine has a direct route to the internet (through eth1). Deploy with Raw compose mode and do not attach other networks to the machine service.",
+    "interfaces": ["eth0", "eth1"],
+    "checked_at": "2026-11-19T12:45:00Z"
+  }
+}

@@ -3612,6 +3612,23 @@ type NetMetrics struct {
 // NetMode `inherit` uses the whole allow list; `allow-only` narrows it to `allow`; `deny-all` blocks the agent's traffic.
 type NetMode string
 
+// NetworkWall The machine's network wall as the daemon last checked it from inside the machine container.
+type NetworkWall struct {
+	// CheckedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
+	CheckedAt Timestamp `json:"checked_at"`
+
+	// Holds True when the machine has no route out and sits on the inner network only.
+	Holds bool `json:"holds"`
+
+	// Interfaces The machine's network interfaces besides loopback, sorted.
+	Interfaces []string `json:"interfaces"`
+
+	// Reason Plain words that say why the wall does not hold and how to fix it. Absent when it holds.
+	//
+	// Examples: The network wall does not hold, so no agent may wake: the machine has a direct route to the internet (through eth1). Deploy with Raw compose mode and do not attach other networks to the machine service.
+	Reason *string `json:"reason,omitempty"`
+}
+
 // OfficialIdeDownload Optional download of the official VS Code build, after the human accepts its licence.
 type OfficialIdeDownload struct {
 	Error    *string          `json:"error"`

@@ -58,6 +58,34 @@ NetMetrics:
       format: int64
       minimum: 0
 
+NetworkWall:
+  type: object
+  description: The machine's network wall as the daemon last checked it from inside the machine container.
+  required: [holds, interfaces, checked_at]
+  properties:
+    holds:
+      type: boolean
+      description: True when the machine has no route out and sits on the inner network only.
+    reason:
+      type: string
+      maxLength: 500
+      description: Plain words that say why the wall does not hold and how to fix it. Absent when it holds.
+      examples:
+        - >-
+          The network wall does not hold, so no agent may wake: the machine has a direct route to
+          the internet (through eth1). Deploy with Raw compose mode and do not attach other networks
+          to the machine service.
+    interfaces:
+      type: array
+      description: The machine's network interfaces besides loopback, sorted.
+      maxItems: 64
+      items:
+        type: string
+        minLength: 1
+        maxLength: 15
+    checked_at:
+      $ref: "./common.yaml#/Timestamp"
+
 MachineMetrics:
   type: object
   required: [time, hostname, uptime_seconds, load, cpu, memory, disks, net]

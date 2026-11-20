@@ -68,6 +68,10 @@ type runner struct {
 	session *domain.Session
 	conn    *Handler // the connection that finished hello, or nil
 	pending []wakeRequest
+	// backoff paces the restarts of a runner that keeps failing; restartAt
+	// is when the failed runner starts again, zero when no restart is due.
+	backoff   domain.Backoff
+	restartAt time.Time
 }
 
 type wakeRequest struct {
@@ -189,6 +193,7 @@ func (s *Supervisor) Reconfigure(ctx context.Context, a core.Agent, limits *doma
 		s.dropConnLocked(r)
 		r.session.Fail()
 		_ = r.session.Start(s.d.Clock.Now())
+		r.restartAt = time.Time{} // the restart below replaces a pending one
 	}
 	s.mu.Unlock()
 	if running {
@@ -255,8 +260,14 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 		s.mu.Unlock()
 		return fmt.Errorf("wake %s: %w", name, core.ErrFrozen)
 	case domain.WakeStart:
-		_ = r.session.Start(s.d.Clock.Now())
 		r.pending = append(r.pending, req)
+		if !r.restartAt.IsZero() {
+			// The runner failed and waits out its backoff; the restart
+			// delivers the wake, so a wake cannot hurry a failing runner.
+			s.mu.Unlock()
+			return nil
+		}
+		_ = r.session.Start(s.d.Clock.Now())
 		s.mu.Unlock()
 		if err := s.launch(ctx, name, r); err != nil {
 			return fmt.Errorf("wake %s: %w", name, err)
@@ -299,9 +310,9 @@ func (s *Supervisor) Run(ctx context.Context, name string) error {
 	}
 	s.mu.Lock()
 	r := s.runnerLocked(name)
-	if domain.PlanWake(frozen, r.session.State()) != domain.WakeStart {
+	if domain.PlanWake(frozen, r.session.State()) != domain.WakeStart || !r.restartAt.IsZero() {
 		s.mu.Unlock()
-		return nil
+		return nil // up, starting, frozen, or failed and waiting to restart
 	}
 	_ = r.session.Start(s.d.Clock.Now())
 	s.mu.Unlock()
@@ -394,6 +405,7 @@ func (s *Supervisor) Sleep(ctx context.Context, name string, compact bool) error
 	s.dropConnLocked(r)
 	r.session.Stop()
 	r.pending = nil
+	r.restartAt = time.Time{} // a sleeping agent is not restarted
 	s.mu.Unlock()
 	if err := s.d.Launcher.Stop(ctx, name); err != nil {
 		return fmt.Errorf("sleep %s: stop: %w", name, err)
@@ -413,10 +425,11 @@ func (s *Supervisor) dropConnLocked(r *runner) {
 
 // Tick restarts every runner that has been silent for the heartbeat
 // timeout (rule B2): it records -32003 in the audit trail, closes the
-// connection and restarts the unit. Every WallRecheck it checks the network
-// wall again. It also sends credentials.update to 1.1 runners whose tokens
-// are due. The module calls it on a timer; tests call it after moving the
-// fake clock.
+// connection and restarts the unit. It starts again the failed runners
+// whose backoff is over, and ends the spell of those that stayed up. Every
+// WallRecheck it checks the network wall again. It also sends
+// credentials.update to 1.1 runners whose tokens are due. The module calls
+// it on a timer; tests call it after moving the fake clock.
 func (s *Supervisor) Tick(ctx context.Context) error {
 	now := s.d.Clock.Now()
 	if s.wallDue(now) {
@@ -442,6 +455,9 @@ func (s *Supervisor) Tick(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("restart %s: %w", name, err))
 		}
 	}
+	// After the heartbeat check, so a silent runner never counts as up.
+	s.restartDue(ctx, now)
+	s.recoverStable(ctx, now)
 	return errors.Join(errs...)
 }
 

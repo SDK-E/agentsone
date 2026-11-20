@@ -27,15 +27,32 @@ func TestMain(m *testing.M) {
 	case "":
 		os.Exit(m.Run())
 	case "serve":
-		_ = os.WriteFile(os.Getenv("HELPER_OUT"), []byte(strings.Join(os.Environ(), "\n")), 0o600) // #nosec G703 -- FIFO path set by the test
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGTERM)
-		<-ch
-		os.Exit(0)
+		serve()
 	case "crash":
 		_ = os.WriteFile(os.Getenv("HELPER_OUT"), []byte("started"), 0o600) // #nosec G703 -- FIFO path set by the test
 		os.Exit(3)
+	case "exit0":
+		_ = os.WriteFile(os.Getenv("HELPER_OUT"), []byte("started"), 0o600) // #nosec G703 -- FIFO path set by the test
+		os.Exit(0)
+	case "crash-once":
+		// The first run makes the HELPER_MARK directory (Mkdir fails when
+		// it is there) and crashes; every later run serves, so a runner
+		// started again stays up where a test sees it.
+		if err := os.Mkdir(os.Getenv("HELPER_MARK"), 0o700); err != nil { // #nosec G703 -- marker path set by the test
+			serve()
+		}
+		_ = os.WriteFile(os.Getenv("HELPER_OUT"), []byte("crashed"), 0o600) // #nosec G703 -- FIFO path set by the test
+		os.Exit(3)
 	}
+}
+
+// serve plays a runner that is up until SIGTERM.
+func serve() {
+	_ = os.WriteFile(os.Getenv("HELPER_OUT"), []byte(strings.Join(os.Environ(), "\n")), 0o600) // #nosec G703 -- FIFO path set by the test
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGTERM)
+	<-ch
+	os.Exit(0)
 }
 
 const waitFor = 5 * time.Second
@@ -132,43 +149,103 @@ func TestLauncher_StartsRunnerWithSocketEnvironmentAndStopsIt(t *testing.T) {
 	}
 }
 
-// Restart=on-failure: a runner that exits with a failure is started again after the delay.
-func TestLauncher_RestartsRunnerThatFails(t *testing.T) {
+// exit is one runner exit the launcher reported.
+type exit struct {
+	name string
+	err  error
+}
+
+// reporting is a launcher whose exit reports, and whose finished wait
+// goroutines, the test can wait for.
+func reporting() (l *process.Launcher, exits chan exit, done chan string) {
+	exits, done = make(chan exit, 4), make(chan string, 4)
+	l = &process.Launcher{Log: quiet, Exited: func(name string, err error) { exits <- exit{name, err} }}
+	process.SetDoneHook(l, func(name string) { done <- name })
+	return l, exits, done
+}
+
+func receive[T any](t *testing.T, ch <-chan T, what string) T {
+	t.Helper()
+	select {
+	case v := <-ch:
+		return v
+	case <-time.After(waitFor):
+		t.Fatalf("no %s within 5s", what)
+		var zero T
+		return zero
+	}
+}
+
+// crashOnce is a runner that crashes on its first run and serves on every
+// later one, so a runner started again stays up where the test sees it.
+func crashOnce(t *testing.T, out string) domain.UnitSpec {
+	t.Helper()
+	s := spec(t, "crash-once", out)
+	s.Exec.Env = append(s.Exec.Env, "HELPER_MARK="+filepath.Join(t.TempDir(), "crashed"))
+	return s
+}
+
+// The launcher has no restart policy (SDK-2082): a runner that fails is
+// reported, and once the launcher is done with it nothing runs. A restart
+// is the supervisor's call, so it passes the network wall check.
+func TestLauncher_ReportsARunnerThatFailsAndNeverStartsItAgain(t *testing.T) {
 	t.Parallel()
 	out := fifo(t)
-	delays := make(chan chan time.Time, 4)
-	l := &process.Launcher{Log: quiet, After: func(time.Duration) <-chan time.Time {
-		ch := make(chan time.Time, 1)
-		delays <- ch
-		return ch
-	}}
-	_ = l.Install(t.Context(), spec(t, "crash", out))
+	l, exits, done := reporting()
+	_ = l.Install(t.Context(), crashOnce(t, out))
 	if err := l.Start(t.Context(), "founder"); err != nil {
 		t.Fatal(err)
 	}
-	restartScheduled := func() chan time.Time {
-		select {
-		case ch := <-delays:
-			return ch
-		case <-time.After(waitFor):
-			t.Fatal("no restart scheduled within 5s")
-			return nil
-		}
+	t.Cleanup(func() { _ = l.Stop(context.Background(), "founder") })
+	if got := started(t, out); got != "crashed" {
+		t.Fatalf("first run wrote %q, want crashed", got)
 	}
-	started(t, out)
-	restartScheduled() <- time.Time{}
-	started(t, out) // the restart ran
-	// The second crash schedules another restart; the runner is gone by then.
-	pending := restartScheduled()
+
+	e := receive(t, exits, "exit report")
+	receive(t, done, "end of the runner's wait")
+
+	if e.name != "founder" || e.err == nil || e.err.Error() != "exit status 3" {
+		t.Fatalf("exit report = %s, %v; want founder, exit status 3", e.name, e.err)
+	}
 	if l.Running("founder") {
-		t.Fatal("crashed runner still reported running")
+		t.Fatal("the launcher started the failed runner again by itself")
 	}
-	if err := l.Remove(t.Context(), "founder"); err != nil {
+}
+
+func TestLauncher_ReportsACleanExitWithoutAnError(t *testing.T) {
+	t.Parallel()
+	out := fifo(t)
+	l, exits, _ := reporting()
+	_ = l.Install(t.Context(), spec(t, "exit0", out))
+	if err := l.Start(t.Context(), "founder"); err != nil {
 		t.Fatal(err)
 	}
-	pending <- time.Time{} // after Remove the pending restart starts nothing
-	if err := l.Start(t.Context(), "founder"); !errors.Is(err, process.ErrNotInstalled) {
-		t.Fatalf("Start after Remove error = %v", err)
+	started(t, out)
+
+	if e := receive(t, exits, "exit report"); e.name != "founder" || e.err != nil {
+		t.Fatalf("exit report = %s, %v; want founder, no error", e.name, e.err)
+	}
+}
+
+func TestLauncher_DoesNotReportARunnerItStopped(t *testing.T) {
+	t.Parallel()
+	out := fifo(t)
+	l, exits, done := reporting()
+	_ = l.Install(t.Context(), spec(t, "serve", out))
+	if err := l.Start(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	started(t, out)
+
+	if err := l.Stop(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	receive(t, done, "end of the runner's wait")
+
+	select {
+	case e := <-exits:
+		t.Fatalf("a stopped runner was reported as exited: %s, %v", e.name, e.err)
+	default:
 	}
 }
 

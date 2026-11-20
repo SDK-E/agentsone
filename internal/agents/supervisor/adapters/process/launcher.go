@@ -10,8 +10,10 @@
 // the runner, so the runner never runs unlimited or as root. Without a
 // writable tree only
 // process resource limits apply and the mode is reported as soft. Root
-// agents have no limits: they are trusted and could lift them anyway. A
-// runner that exits with a failure is restarted after RestartDelay.
+// agents have no limits: they are trusted and could lift them anyway. The
+// launcher never starts a runner by itself: a runner that exits without
+// being stopped is reported to Exited, and the supervisor decides whether
+// it starts again, through its network wall check.
 package process
 
 import (
@@ -32,34 +34,37 @@ import (
 
 // Defaults of the launcher.
 const (
-	DefaultRestartDelay = 2 * time.Second  // RestartSec=2s
-	DefaultStopTimeout  = 10 * time.Second // TimeoutStopSec=10s
-	DefaultNoFile       = 4096
+	DefaultStopTimeout = 10 * time.Second // TimeoutStopSec=10s
+	DefaultNoFile      = 4096
 )
 
 // ErrNotInstalled is a start of an agent whose runner was never installed.
 var ErrNotInstalled = errors.New("runner not installed")
 
-// Launcher starts and supervises runner processes.
+// Launcher starts and stops runner processes and reports the ones that end
+// by themselves. It has no restart policy.
 type Launcher struct {
 	// CgroupRoot is the cgroup v2 directory agent cgroups go under, for
 	// example /sys/fs/cgroup/agentsone. Empty disables cgroups.
-	CgroupRoot   string
-	RestartDelay time.Duration
-	StopTimeout  time.Duration
-	Log          *slog.Logger
-	// After waits before a restart; nil means time.After. Tests inject it.
-	After func(time.Duration) <-chan time.Time
+	CgroupRoot  string
+	StopTimeout time.Duration
+	Log         *slog.Logger
+	// Exited, when set, hears every runner process that ended without
+	// Stop: err says why (an exit status or a signal), nil for exit code 0.
+	// It runs on the runner's wait goroutine once the launcher has let go
+	// of the runner, so it may call Start. Set it before the first Start.
+	Exited func(name string, err error)
 
 	mu    sync.Mutex
 	specs map[string]domain.UnitSpec
 	procs map[string]*proc
 	modes map[string]domain.LimitMode
-	want  map[string]bool // Start was called and Stop was not since
 
 	// exitedHook, when set by a test, runs in a runner's wait goroutine
-	// right after Stop has been told that the runner exited.
+	// right after Stop has been told that the runner exited. doneHook runs
+	// as the last thing that goroutine does.
 	exitedHook func(name string)
+	doneHook   func(name string)
 }
 
 var _ app.Launcher = (*Launcher)(nil)
@@ -73,7 +78,6 @@ type proc struct {
 func (l *Launcher) init() {
 	if l.specs == nil {
 		l.specs, l.procs, l.modes = map[string]domain.UnitSpec{}, map[string]*proc{}, map[string]domain.LimitMode{}
-		l.want = map[string]bool{}
 	}
 	if l.Log == nil {
 		l.Log = slog.Default()
@@ -130,11 +134,7 @@ func (l *Launcher) Start(_ context.Context, name string) error {
 	if _, ok := l.procs[name]; ok {
 		return nil
 	}
-	if err := l.startLocked(name); err != nil {
-		return err
-	}
-	l.want[name] = true
-	return nil
+	return l.startLocked(name)
 }
 
 func (l *Launcher) startLocked(name string) error {
@@ -191,14 +191,19 @@ func environment(spec domain.UnitSpec) []string {
 	return env
 }
 
+// wait reaps the runner and reports it when it ended by itself. It never
+// starts a runner: a restart is the supervisor's call, made through Start.
 func (l *Launcher) wait(name string, p *proc, sys *sysState) {
+	if l.doneHook != nil {
+		defer l.doneHook(name)
+	}
 	err := p.cmd.Wait()
 	sys.cleanup()
 	l.mu.Lock()
 	if l.procs[name] == p {
 		delete(l.procs, name)
 	}
-	restart := !p.stopping && err != nil
+	byItself := !p.stopping
 	l.mu.Unlock()
 	// Tell Stop only once the runner is out of procs: Restart calls Start
 	// right after Stop, and Start must not find the old runner there.
@@ -206,32 +211,8 @@ func (l *Launcher) wait(name string, p *proc, sys *sysState) {
 	if l.exitedHook != nil {
 		l.exitedHook(name)
 	}
-	if !restart {
-		return
-	}
-	l.Log.Warn("runner exited with a failure, restarting", "agent", name, "err", err)
-	after := l.After
-	if after == nil {
-		after = time.After
-	}
-	delay := l.RestartDelay
-	if delay == 0 {
-		delay = DefaultRestartDelay
-	}
-	<-after(delay)
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if _, running := l.procs[name]; running {
-		return
-	}
-	if !l.want[name] {
-		return // stopped or removed while the restart waited
-	}
-	if _, installed := l.specs[name]; !installed {
-		return
-	}
-	if err := l.startLocked(name); err != nil {
-		l.Log.Error("runner restart failed", "agent", name, "err", err)
+	if byItself && l.Exited != nil {
+		l.Exited(name, err)
 	}
 }
 
@@ -240,7 +221,6 @@ func (l *Launcher) wait(name string, p *proc, sys *sysState) {
 func (l *Launcher) Stop(ctx context.Context, name string) error {
 	l.mu.Lock()
 	l.init()
-	l.want[name] = false
 	p, ok := l.procs[name]
 	if ok {
 		p.stopping = true
@@ -286,6 +266,5 @@ func (l *Launcher) Remove(_ context.Context, name string) error {
 	}
 	delete(l.specs, name)
 	delete(l.modes, name)
-	delete(l.want, name)
 	return nil
 }

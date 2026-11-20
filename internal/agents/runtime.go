@@ -22,8 +22,10 @@ import (
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
-// defaultTick is how often the supervisor checks heartbeats.
-const defaultTick = 5 * time.Second
+// defaultTick is how often the supervisor checks heartbeats and restarts
+// failed runners whose wait is over; the first wait is 2 seconds, so the
+// tick is shorter.
+const defaultTick = time.Second
 
 // SupervisorOptions are the machine parts the runner supervisor drives.
 type SupervisorOptions struct {
@@ -34,7 +36,8 @@ type SupervisorOptions struct {
 	// Accounts manages the custom agents' Linux users. Nil means the
 	// system's (useradd and usermod).
 	Accounts supapp.Accounts
-	// Tick is how often heartbeats are checked; zero means 5 seconds.
+	// Tick is how often heartbeats and due restarts are checked; zero
+	// means 1 second.
 	Tick time.Duration
 	// Wall checks the machine's network wall at start and every 5 minutes.
 	// Nil means the daemon's own: /proc (adapters/netwall).
@@ -102,13 +105,15 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 		parts.tick = defaultTick
 	}
 	launcher := o.Launcher
+	var procs *process.Launcher
 	if launcher == nil {
 		dir := filepath.Join(core.RuntimeDir, "runners")
 		if deps.Config != nil {
 			dir = filepath.Join(deps.Config.RuntimeDir, "runners")
 		}
 		parts.sockets = &socket.Server{Dir: dir}
-		parts.wrapped = &socket.Launcher{Inner: &process.Launcher{Log: m.log}, Server: parts.sockets}
+		procs = &process.Launcher{Log: m.log}
+		parts.wrapped = &socket.Launcher{Inner: procs, Server: parts.sockets}
 		launcher = parts.wrapped
 	}
 	acc := o.Accounts
@@ -127,6 +132,13 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 	})
 	if parts.sockets != nil {
 		parts.sockets.Supervisor = parts.sup
+	}
+	if procs != nil {
+		// The launcher only reports a runner that ended by itself; the
+		// supervisor decides whether it starts again. The report comes on
+		// the runner's own goroutine, after any call that started it.
+		sup := parts.sup
+		procs.Exited = func(name string, err error) { sup.RunnerExited(context.Background(), name, err) }
 	}
 	rt.sup = parts.sup
 	m.parts = parts

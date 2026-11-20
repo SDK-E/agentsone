@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -352,7 +353,7 @@ func TestCheckWall_ADifferentBreakIsLoggedAgain(t *testing.T) {
 func TestCheckWall_NotWiredFailsClosed(t *testing.T) {
 	t.Parallel()
 	w := newUncheckedWorld(t)
-	sup := app.New(app.Deps{Clock: w.fakes.Clock, IDs: w.fakes.IDs, Ports: w.ports, Launcher: w.launcher, Config: app.DefaultConfig()})
+	sup := app.New(app.Deps{Clock: w.fakes.Clock, IDs: w.fakes.IDs, Ports: w.ports, Launcher: w.launcher, Config: app.DefaultConfig(), Log: slog.New(w.logs)})
 	if got, _ := sup.CheckWall(t.Context()); got.Holds {
 		t.Fatalf("CheckWall() without a check = %+v, want a wall that does not hold", got)
 	}

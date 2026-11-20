@@ -7,7 +7,7 @@ import { openPanel } from "./open-panel";
 const scenarios: Record<(typeof STATES)[number], Scenario> = {
   empty: { all: "empty" },
   loaded: {},
-  error: { only: { listHumans: "error", listThemes: "error" } },
+  error: { only: { listHumans: "error", listThemes: "error", getEngineLicence: "error" } },
   "long-text": { all: "long-text" },
 };
 
@@ -81,7 +81,12 @@ test("settings, turn on the Claude engine", async ({ page }, testInfo) => {
 
   await expect(page.getByText("The Claude engine is off.", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Accept and download" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Turn on the Claude engine" }).click();
+  const turnOn = page.getByRole("button", { name: "Turn on the Claude engine" });
+  await turnOn.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/settings-engine-off-viewport.png`,
+  });
+  await turnOn.click();
 
   await expect(page.getByRole("region", { name: "Claude engine licence text" })).toBeVisible();
   await expect(
@@ -104,5 +109,9 @@ test("settings, read the licence", async ({ page }, testInfo) => {
 
   await expect(page.locator(".disclosure__body")).toBeVisible();
   await checkPage(page, testInfo, "settings-licence-open");
+  await page.getByText("Read the licence").scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/settings-engine-on-viewport.png`,
+  });
   clean();
 });

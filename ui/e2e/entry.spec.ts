@@ -8,7 +8,7 @@ const LONG =
 
 const setupScenarios: Record<(typeof STATES)[number], Scenario> = {
   empty: { only: { getSetupStatus: "needs-human" } },
-  loaded: {},
+  loaded: { only: { getSetupStatus: "engine-off" } },
   error: { only: { getSetupStatus: "error" } },
   "long-text": { only: { getSetupStatus: "needs-human" } },
 };
@@ -32,18 +32,19 @@ for (const state of STATES) {
   });
 }
 
-test("setup, done without any Claude engine step", async ({ page }, testInfo) => {
-  // The licence is not accepted. Even an older daemon that still says it waits for the licence
-  // gets the done screen: first setup never shows the licence.
-  const clean = await useScenario(page, { only: { getSetupStatus: "needs-licence" } });
-  await page.goto("/setup");
+for (const variant of ["engine-off", "needs-licence"]) {
+  test(`setup, done without any Claude engine step (${variant})`, async ({ page }) => {
+    // Right after setup the engine is off. An older daemon that still says it waits for the
+    // licence gets the same done screen: first setup never shows the licence.
+    const clean = await useScenario(page, { only: { getSetupStatus: variant } });
+    await page.goto("/setup");
 
-  await expect(page.getByRole("heading", { name: "Setup is done" })).toBeVisible();
-  await expect(page.getByText("The Claude engine is off.", { exact: false })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Accept and download" })).toHaveCount(0);
-  await checkPage(page, testInfo, "setup-done-engine-off");
-  clean();
-});
+    await expect(page.getByRole("heading", { name: "Setup is done" })).toBeVisible();
+    await expect(page.getByText("The Claude engine is off.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accept and download" })).toHaveCount(0);
+    clean();
+  });
+}
 
 const signInScenarios: Record<(typeof STATES)[number], Scenario> = {
   empty: {},

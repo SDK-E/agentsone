@@ -772,7 +772,7 @@
       "engine": {
         "title": "Claude engine",
         "loading": "Checking the Claude engine…",
-        "off": "The Claude engine is off. Agents run without it, on the OpenAI-compatible runner. Nothing for Claude downloads until you turn it on and accept its licence.",
+        "off": "The Claude engine is off. Agents run without it, on the OpenAI-compatible runner.",
         "turnOn": "Turn on the Claude engine",
         "readFirst": "Read the licence below. The engine downloads only when you accept it.",
         "facts": {

@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 // Package config reads and writes gateway.toml, the human-editable
-// list of providers, their models with tier and price, and the gateway's
-// limits. Without a file the defaults apply: every provider known, every
-// provider disabled.
+// list of providers, their models with tier, price and the request fields
+// each model refuses (drop_params), and the gateway's limits. Without a file
+// the defaults apply: every provider known, every provider disabled.
+//
+// drop_params names request fields the gateway removes before a call reaches
+// that model, such as temperature and top_p on Claude 4.7 and later and on
+// GPT-5, which answer 400 to anything but their defaults. A model the file
+// lists without drop_params takes the default's drop_params for the same
+// provider and model, so a file written before drop_params existed gets them
+// too.
 //
 // Prices are text in US dollars per million tokens, such as "0.25", so they
 // convert to micro-dollars exactly. The default prices are starting points
@@ -19,6 +26,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/pelletier/go-toml/v2"
@@ -53,7 +62,16 @@ type Model struct {
 	Family string `toml:"family" comment:"claude for Claude models"`
 	Input  string `toml:"input_usd_per_mtok"`
 	Output string `toml:"output_usd_per_mtok"`
+	// DropParams are the request fields this model refuses, such as
+	// temperature on models that accept only their default. The gateway
+	// removes them from a call before sending it, so a caller's setting does
+	// not turn into a 400.
+	DropParams []string `toml:"drop_params,omitempty" comment:"Request fields this model refuses; the gateway removes them before sending a call."`
 }
+
+// ownedFields are the request fields the gateway sets or needs itself; a
+// model may not drop them.
+var ownedFields = []string{"model", "messages", "stream", "stream_options", "max_tokens", "max_completion_tokens"}
 
 // Provider is one provider.
 type Provider struct {
@@ -90,26 +108,29 @@ func Default() File {
 			{
 				ID: "anthropic", OpenAIBaseURL: "https://api.anthropic.com/v1",
 				AnthropicBaseURL: "https://api.anthropic.com/v1", KeyRequired: true,
+				// Claude 4.7 and later refuse temperature below 1, top_p other
+				// than 0.99, both together, and any top_k.
 				Models: []Model{
-					{ID: "claude-haiku-5-5", Tier: "quick", Family: "claude", Input: "0.10", Output: "0.50"},
-					{ID: "claude-sonnet-5-5", Tier: "normal", Family: "claude", Input: "2.00", Output: "10.00"},
-					{ID: "claude-opus-5-5", Tier: "deep", Family: "claude", Input: "4.00", Output: "20.00"},
+					{ID: "claude-haiku-5-5", Tier: "quick", Family: "claude", Input: "0.10", Output: "0.50", DropParams: []string{"temperature", "top_p", "top_k"}},
+					{ID: "claude-sonnet-5-5", Tier: "normal", Family: "claude", Input: "2.00", Output: "10.00", DropParams: []string{"temperature", "top_p", "top_k"}},
+					{ID: "claude-opus-5-5", Tier: "deep", Family: "claude", Input: "4.00", Output: "20.00", DropParams: []string{"temperature", "top_p", "top_k"}},
 				},
 			},
 			{
+				// GPT-5 models accept only the default temperature and top_p.
 				ID: "openai", OpenAIBaseURL: "https://api.openai.com/v1", MaxTokensField: "max_completion_tokens", KeyRequired: true,
 				Models: []Model{
-					{ID: "gpt-5-nano", Tier: "quick", Family: "gpt", Input: "0.05", Output: "0.40"},
-					{ID: "gpt-5-mini", Tier: "normal", Family: "gpt", Input: "0.25", Output: "2.00"},
-					{ID: "gpt-5", Tier: "deep", Family: "gpt", Input: "1.25", Output: "10.00"},
+					{ID: "gpt-5-nano", Tier: "quick", Family: "gpt", Input: "0.05", Output: "0.40", DropParams: []string{"temperature", "top_p"}},
+					{ID: "gpt-5-mini", Tier: "normal", Family: "gpt", Input: "0.25", Output: "2.00", DropParams: []string{"temperature", "top_p"}},
+					{ID: "gpt-5", Tier: "deep", Family: "gpt", Input: "1.25", Output: "10.00", DropParams: []string{"temperature", "top_p"}},
 				},
 			},
 			{
 				ID: "openrouter", OpenAIBaseURL: "https://openrouter.ai/api/v1", KeyRequired: true,
 				Models: []Model{
-					{ID: "openai/gpt-5-nano", Tier: "quick", Family: "gpt", Input: "0.05", Output: "0.40"},
-					{ID: "openai/gpt-5-mini", Tier: "normal", Family: "gpt", Input: "0.25", Output: "2.00"},
-					{ID: "openai/gpt-5", Tier: "deep", Family: "gpt", Input: "1.25", Output: "10.00"},
+					{ID: "openai/gpt-5-nano", Tier: "quick", Family: "gpt", Input: "0.05", Output: "0.40", DropParams: []string{"temperature", "top_p"}},
+					{ID: "openai/gpt-5-mini", Tier: "normal", Family: "gpt", Input: "0.25", Output: "2.00", DropParams: []string{"temperature", "top_p"}},
+					{ID: "openai/gpt-5", Tier: "deep", Family: "gpt", Input: "1.25", Output: "10.00", DropParams: []string{"temperature", "top_p"}},
 				},
 			},
 			{
@@ -163,10 +184,30 @@ func Load(path string) (File, error) {
 	if err := dec.Decode(&f); err != nil {
 		return File{}, fmt.Errorf("gatewayconfig: %s: %w", path, err)
 	}
+	f.defaultDropParams()
 	if err := f.Validate(); err != nil {
 		return File{}, fmt.Errorf("gatewayconfig: %s: %w", path, err)
 	}
 	return f, nil
+}
+
+// defaultDropParams gives each model that lists no drop_params the default's
+// list for the same provider and model.
+func (f *File) defaultDropParams() {
+	known := map[[2]string][]string{}
+	for _, p := range Default().Providers {
+		for _, m := range p.Models {
+			known[[2]string{p.ID, m.ID}] = m.DropParams
+		}
+	}
+	for i := range f.Providers {
+		p := &f.Providers[i]
+		for j := range p.Models {
+			if m := &p.Models[j]; m.DropParams == nil {
+				m.DropParams = slices.Clone(known[[2]string{p.ID, m.ID}])
+			}
+		}
+	}
 }
 
 // Save writes the file atomically, readable only by the user.
@@ -259,6 +300,14 @@ func (f File) Validate() error {
 		default:
 			return fmt.Errorf("provider %q: max_tokens_field must be max_tokens or max_completion_tokens", p.ID)
 		}
+		for _, m := range p.Models {
+			for _, field := range m.DropParams {
+				if strings.TrimSpace(field) == "" || slices.Contains(ownedFields, field) {
+					return fmt.Errorf("provider %q model %q: drop_params may not hold %q; the gateway sets %s itself",
+						p.ID, m.ID, field, strings.Join(ownedFields, ", "))
+				}
+			}
+		}
 	}
 	_, err := f.Catalog()
 	return err
@@ -268,7 +317,7 @@ func (f File) Validate() error {
 func (f File) Catalog() (routing.Catalog, error) {
 	var c routing.Catalog
 	for _, p := range f.Providers {
-		rp := routing.Provider{ID: routing.ProviderID(p.ID), Enabled: p.Enabled}
+		rp := routing.Provider{ID: routing.ProviderID(p.ID), Enabled: p.Enabled, KeyRequired: p.KeyRequired}
 		if p.AnthropicBaseURL != "" {
 			rp.APIs = append(rp.APIs, routing.APIAnthropic)
 		}
@@ -301,9 +350,15 @@ func (f File) Catalog() (routing.Catalog, error) {
 func (f File) ProviderConfigs() []providers.Config {
 	out := make([]providers.Config, 0, len(f.Providers))
 	for _, p := range f.Providers {
+		drop := map[string][]string{}
+		for _, m := range p.Models {
+			if len(m.DropParams) > 0 {
+				drop[m.ID] = slices.Clone(m.DropParams)
+			}
+		}
 		out = append(out, providers.Config{
 			ID: routing.ProviderID(p.ID), OpenAIBaseURL: p.OpenAIBaseURL, AnthropicBaseURL: p.AnthropicBaseURL,
-			MaxTokensField: p.MaxTokensField, KeyRequired: p.KeyRequired,
+			MaxTokensField: p.MaxTokensField, DropParams: drop, KeyRequired: p.KeyRequired,
 		})
 	}
 	return out

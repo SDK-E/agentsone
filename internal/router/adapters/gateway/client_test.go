@@ -25,8 +25,9 @@ func answer(content string) string {
 func TestComplete_SendsAQuickWeightedChatCompletion(t *testing.T) {
 	t.Parallel()
 	var gotReq struct {
-		Model    string `json:"model"`
-		Messages []struct{ Role, Content string }
+		Model     string `json:"model"`
+		Messages  []struct{ Role, Content string }
+		MaxTokens int `json:"max_tokens"`
 	}
 	var path, auth, weight string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +47,10 @@ func TestComplete_SendsAQuickWeightedChatCompletion(t *testing.T) {
 	}
 	if gotReq.Model != "autoagents/one" || len(gotReq.Messages) != 2 || gotReq.Messages[0].Role != "system" || gotReq.Messages[1].Content != "usr" {
 		t.Fatalf("request = %+v", gotReq)
+	}
+	// Quick Claude 5 and GPT-5 models think by default, and the limit covers thinking and answer.
+	if gotReq.MaxTokens != 4096 {
+		t.Fatalf("max_tokens = %d, want 4096: room to think before the rating", gotReq.MaxTokens)
 	}
 }
 
@@ -111,6 +116,40 @@ func TestComplete_DoesNotRetryAClientError(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("calls = %d, want 1", calls.Load())
+	}
+}
+
+// The router logs the error, so it carries the status and the message of the refusal: the
+// provider's own (passed back by the gateway) or the gateway's problem detail, cut short and
+// without the router's token.
+func TestComplete_ARefusalCarriesItsStatusAndMessage(t *testing.T) {
+	t.Parallel()
+	const tok = "ao1.router-token"
+	tests := []struct {
+		name, contentType, body, want string
+		status                        int
+	}{
+		{"provider", "application/json", `{"error":{"message":"temperature: only the default value 1 is supported for this model.","type":"invalid_request_error"}}`,
+			"gateway answered 400: temperature: only the default value 1 is supported for this model.", http.StatusBadRequest},
+		{"gateway problem", "application/problem+json", `{"type":"urn:agentsone:problem:upstream-failed","detail":"gateway: every provider failed, last status 429: slow down"}`,
+			"gateway answered 502: gateway: every provider failed, last status 429: slow down", http.StatusBadGateway},
+		{"token echoed", "application/json", `{"error":{"message":"bad token ` + tok + `"}}`, "gateway answered 401: bad token [token]", http.StatusUnauthorized},
+		{"no message", "text/plain", "nope", "gateway answered 404", http.StatusNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", tc.contentType)
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			t.Cleanup(srv.Close)
+			_, err := gateway.New(srv.URL, time.Second).Complete(context.Background(), tok, app.Prompt{})
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
 	}
 }
 

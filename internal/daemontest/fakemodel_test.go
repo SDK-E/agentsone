@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -68,6 +69,11 @@ type ModelCall struct {
 	ToolResults []string
 	// Prompt is the text of the call's last user message.
 	Prompt string
+	// Fields are the call's top-level request fields, sorted.
+	Fields []string
+	// Refused is the message of the 400 the fake answered, empty when it
+	// answered the call.
+	Refused string
 	// Scripted is true when the answer was a scripted reply.
 	Scripted bool
 }
@@ -75,6 +81,11 @@ type ModelCall struct {
 // FakeModel is an OpenAI-compatible model provider on a loopback listener,
 // for WithModelProvider. It answers with the scripted replies in order, then
 // with FakeModelReply, and keeps what it saw of each call.
+//
+// It holds calls to the sampling rules of Claude 4.7 and later behind
+// Anthropic's OpenAI-compatible endpoint: a temperature below 1, a top_p
+// other than 0.99, both together, or any top_k is refused with a 400 in the
+// OpenAI error format.
 type FakeModel struct {
 	srv *httptest.Server
 	key string
@@ -172,6 +183,16 @@ func (m *FakeModel) complete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "send a JSON chat completion with the provider key", http.StatusUnauthorized)
 		return
 	}
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(body, &fields) // the body decoded above, so it is a JSON object
+	call.Fields = slices.Sorted(maps.Keys(fields))
+	if call.Refused = samplingRefusal(fields); call.Refused != "" {
+		m.note(call)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": call.Refused}})
+		return
+	}
 	reply, scripted := m.next()
 	call.Scripted = scripted
 	m.note(call)
@@ -180,6 +201,33 @@ func (m *FakeModel) complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeFakeJSON(w, fakeCompletion(req.Model, reply))
+}
+
+// samplingRefusal is the message Claude 4.7 and later refuse the call with,
+// or "" when its sampling fields are fine.
+func samplingRefusal(fields map[string]json.RawMessage) string {
+	num := func(k string) (float64, bool) {
+		raw, ok := fields[k]
+		var v float64
+		if ok && json.Unmarshal(raw, &v) != nil {
+			v = -1
+		}
+		return v, ok
+	}
+	temp, hasTemp := num("temperature")
+	topP, hasTopP := num("top_p")
+	_, hasTopK := fields["top_k"]
+	switch {
+	case hasTemp && hasTopP:
+		return "`temperature` and `top_p` cannot both be specified for this model."
+	case hasTemp && temp < 1:
+		return "temperature: only the default value 1 is supported for this model."
+	case hasTopP && topP != 0.99:
+		return "top_p: only the default value 0.99 is supported for this model."
+	case hasTopK:
+		return "top_k: not supported for this model."
+	}
+	return ""
 }
 
 func (m *FakeModel) note(c ModelCall) {

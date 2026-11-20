@@ -5,6 +5,7 @@ package daemontest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -33,9 +34,11 @@ type Option func(*startup)
 
 // startup is what the options may change before the daemon starts.
 type startup struct {
-	t     testing.TB
-	cfg   *core.Config
-	clock *coretest.Clock
+	t   testing.TB
+	cfg *core.Config
+	// cfgPath is config.toml; addSection adds module tables to it.
+	cfgPath string
+	clock   *coretest.Clock
 	// supervisor is the supervisor's settings; nil keeps its defaults.
 	supervisor *app.Config
 	// ready run once the daemon serves, in order.
@@ -64,7 +67,12 @@ const (
 // the daemon signs their gateway tokens with the gateway's own key.
 //
 // Runners also get the API's real tool server (core.MCPPath), so a model's
-// tool calls reach the machine. The openai runner runs in process.
+// tool calls reach the machine. The openai runner runs in process. The
+// router makes its rating call to the same gateway.
+//
+// The provider's models refuse the request fields the default gateway.toml
+// lists for the Claude model of the same tier, so the gateway drops them as
+// it does on a machine.
 //
 // The harness ships no provider: a test brings its own, such as the fake
 // model in this package's tests.
@@ -72,6 +80,7 @@ func WithModelProvider(baseURL, key string) Option {
 	return func(s *startup) {
 		s.t.Helper()
 		gw := startGateway(s.t, s.clock, baseURL, key)
+		s.addSection("router", fmt.Sprintf("gateway_url = %q", "http://"+gw.addr))
 		// The edge hands its token key to the daemon, which signs the
 		// runners' tokens with it.
 		var settings gatewaymint.Settings
@@ -90,6 +99,41 @@ func WithModelProvider(baseURL, key string) Option {
 	}
 }
 
+// addSection adds the module table [name] with body to config.toml and loads
+// the file again, the way the daemon reads it.
+func (s *startup) addSection(name, body string) {
+	s.t.Helper()
+	old, err := os.ReadFile(s.cfgPath)
+	if err != nil {
+		s.t.Fatalf("read config.toml: %v", err)
+	}
+	text := fmt.Sprintf("%s\n[%s]\n%s\n", old, name, body)
+	// The path is config.toml in the test's own temporary folder.
+	if err := os.WriteFile(s.cfgPath, []byte(text), 0o600); err != nil { //nolint:gosec // G703: see above
+		s.t.Fatalf("write config.toml: %v", err)
+	}
+	cfg, err := core.LoadConfig(s.cfgPath)
+	if err != nil {
+		s.t.Fatalf("load config.toml with [%s]: %v", name, err)
+	}
+	*s.cfg = cfg
+}
+
+// claudeDrops are the request fields the default gateway.toml drops for its
+// Claude model of tier.
+func claudeDrops(t testing.TB, tier string) []string {
+	t.Helper()
+	for _, p := range gatewayconfig.Default().Providers {
+		for _, m := range p.Models {
+			if m.Family == "claude" && m.Tier == tier {
+				return m.DropParams
+			}
+		}
+	}
+	t.Fatalf("the default gateway.toml has no Claude model of tier %s", tier)
+	return nil
+}
+
 // gatewayRun is the gateway serving on a loopback listener.
 type gatewayRun struct {
 	*gateway.Server
@@ -106,9 +150,9 @@ func startGateway(t testing.TB, clock *coretest.Clock, baseURL, key string) *gat
 		Providers: []gatewayconfig.Provider{{
 			ID: ModelProvider, Enabled: true, OpenAIBaseURL: baseURL, KeyRequired: true,
 			Models: []gatewayconfig.Model{
-				{ID: ModelQuick, Tier: "quick", Family: "provider", Input: "0.10", Output: "0.50"},
-				{ID: ModelNormal, Tier: "normal", Family: "provider", Input: "1.00", Output: "2.00"},
-				{ID: ModelDeep, Tier: "deep", Family: "provider", Input: "4.00", Output: "20.00"},
+				{ID: ModelQuick, Tier: "quick", Family: "provider", Input: "0.10", Output: "0.50", DropParams: claudeDrops(t, "quick")},
+				{ID: ModelNormal, Tier: "normal", Family: "provider", Input: "1.00", Output: "2.00", DropParams: claudeDrops(t, "normal")},
+				{ID: ModelDeep, Tier: "deep", Family: "provider", Input: "4.00", Output: "20.00", DropParams: claudeDrops(t, "deep")},
 			},
 		}},
 	}

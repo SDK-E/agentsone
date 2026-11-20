@@ -141,7 +141,7 @@ func Open(ctx context.Context, o Options) (*Server, error) {
 	s := &Server{
 		cfgPath: cfgPath, limits: cfg.Limits, log: o.Log,
 		store: store, budget: bsvc, catalog: &catalogSource{}, keys: o.Keys,
-		upstream: providers.New(o.HTTPClient, cfg.ProviderConfigs()), key: key,
+		upstream: providers.New(o.HTTPClient, cfg.ProviderConfigs(), o.Log), key: key,
 	}
 	s.catalog.p.Store(&cat)
 	router := gatewayapp.NewRouter(gatewayapp.Deps{

@@ -139,6 +139,98 @@ openai_base_url = "http://127.0.0.1:11434/v1"
 	}
 }
 
+// Claude 4.7 and later and GPT-5 refuse sampling fields at anything but their default; the
+// defaults say so, and the provider client gets the lists by model.
+func TestDefaultsDropTheFieldsTheModelsRefuse(t *testing.T) {
+	cfgs := gatewayconfig.Default().ProviderConfigs()
+	byID := map[routing.ProviderID]map[string][]string{}
+	for _, c := range cfgs {
+		byID[c.ID] = c.DropParams
+	}
+	for _, m := range []string{"claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"} {
+		if got := byID["anthropic"][m]; strings.Join(got, ",") != "temperature,top_p,top_k" {
+			t.Errorf("anthropic %s drops %v", m, got)
+		}
+	}
+	for p, models := range map[routing.ProviderID][]string{
+		"openai": {"gpt-5-nano", "gpt-5-mini", "gpt-5"}, "openrouter": {"openai/gpt-5-nano", "openai/gpt-5-mini", "openai/gpt-5"},
+	} {
+		for _, m := range models {
+			if got := byID[p][m]; strings.Join(got, ",") != "temperature,top_p" {
+				t.Errorf("%s %s drops %v", p, m, got)
+			}
+		}
+	}
+	for _, p := range []routing.ProviderID{"gemini", "mistral", "groq", "custom"} {
+		if len(byID[p]) != 0 {
+			t.Errorf("%s drops %v; its models take sampling fields", p, byID[p])
+		}
+	}
+}
+
+// A file written before drop_params existed, such as one the admin routes saved when a human
+// enabled a provider, gets the defaults' lists for the models the defaults know. A list in the
+// file wins, and the next save writes the lists out.
+func TestAFileWithoutDropParamsGetsTheDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gateway.toml")
+	text := `
+[[provider]]
+id = "anthropic"
+enabled = true
+openai_base_url = "https://api.anthropic.com/v1"
+key_required = true
+
+  [[provider.model]]
+  id = "claude-haiku-5-5"
+  tier = "quick"
+  family = "claude"
+  input_usd_per_mtok = "0.10"
+  output_usd_per_mtok = "0.50"
+
+  [[provider.model]]
+  id = "claude-sonnet-5-5"
+  tier = "normal"
+  family = "claude"
+  input_usd_per_mtok = "2.00"
+  output_usd_per_mtok = "10.00"
+  drop_params = ["temperature"]
+
+  [[provider.model]]
+  id = "claude-next"
+  tier = "deep"
+  family = "claude"
+  input_usd_per_mtok = "4.00"
+  output_usd_per_mtok = "20.00"
+`
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := gatewayconfig.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	drop := f.ProviderConfigs()[0].DropParams
+	if strings.Join(drop["claude-haiku-5-5"], ",") != "temperature,top_p,top_k" {
+		t.Errorf("haiku drops %v, want the defaults", drop["claude-haiku-5-5"])
+	}
+	if strings.Join(drop["claude-sonnet-5-5"], ",") != "temperature" {
+		t.Errorf("sonnet drops %v, want the file's list", drop["claude-sonnet-5-5"])
+	}
+	if _, ok := drop["claude-next"]; ok {
+		t.Errorf("a model the defaults do not know drops %v", drop["claude-next"])
+	}
+	if err := gatewayconfig.Save(path, f); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: the path is inside t.TempDir.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `drop_params = ['temperature', 'top_p', 'top_k']`) {
+		t.Errorf("saved file misses the haiku list:\n%s", raw)
+	}
+}
+
 func TestBadFilesAreRefused(t *testing.T) {
 	tests := map[string]string{
 		"not toml":         "[[provider",
@@ -148,6 +240,9 @@ func TestBadFilesAreRefused(t *testing.T) {
 		"no API":           "[[provider]]\nid = \"x\"\n",
 		"bad URL":          "[[provider]]\nid = \"x\"\nopenai_base_url = \"ftp://x\"\n",
 		"bad output field": "[[provider]]\nid = \"x\"\nopenai_base_url = \"http://x\"\nmax_tokens_field = \"limit\"\n",
+		"drops the model":  "[[provider]]\nid = \"x\"\nopenai_base_url = \"http://x\"\n[[provider.model]]\nid = \"m\"\ntier = \"quick\"\ninput_usd_per_mtok = \"0\"\noutput_usd_per_mtok = \"0\"\ndrop_params = [\"model\"]\n",
+		"drops the limit":  "[[provider]]\nid = \"x\"\nopenai_base_url = \"http://x\"\n[[provider.model]]\nid = \"m\"\ntier = \"quick\"\ninput_usd_per_mtok = \"0\"\noutput_usd_per_mtok = \"0\"\ndrop_params = [\"max_tokens\"]\n",
+		"drops nothing":    "[[provider]]\nid = \"x\"\nopenai_base_url = \"http://x\"\n[[provider.model]]\nid = \"m\"\ntier = \"quick\"\ninput_usd_per_mtok = \"0\"\noutput_usd_per_mtok = \"0\"\ndrop_params = [\" \"]\n",
 	}
 	for name, text := range tests {
 		t.Run(name, func(t *testing.T) {

@@ -185,7 +185,8 @@ func (h *handler) authed(allowAPIKey bool, next authedFunc) http.HandlerFunc {
 
 // callNote is what the call handlers tell recorded about the call.
 type callNote struct {
-	model string
+	model routing.Model // zero when no model was reached
+	tier  routing.Weight
 	spend *gatewayapp.Spend
 }
 
@@ -224,21 +225,30 @@ func (s *statusWriter) Flush() {
 	}
 }
 
-// recorded writes one call record once the call is answered.
+// recorded logs one info line and writes one call record once the call is
+// answered. The line says who called, which provider and model served it, at
+// which tier, the status, the tokens and how long it took; never the request
+// or answer text, the key or the token.
 func (h *handler) recorded(next authedFunc) authedFunc {
-	if h.o.Record == nil {
-		return next
-	}
 	return func(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims) {
+		start := h.o.Clock.Now()
 		note := &callNote{}
 		sw := &statusWriter{ResponseWriter: w}
 		next(sw, r.WithContext(context.WithValue(r.Context(), noteKey{}, note)), c)
-		rec := CallRecord{Agent: c.Agent, Kind: string(c.Kind), Chart: c.Chart, Model: note.model, Status: sw.status}
+		rec := CallRecord{Agent: c.Agent, Kind: string(c.Kind), Chart: c.Chart, Status: sw.status}
+		if note.model.ID != "" {
+			rec.Model = string(note.model.Provider) + "/" + note.model.ID
+		}
 		if note.spend != nil {
 			rec.InputTokens, rec.OutputTokens = note.spend.Usage.Input, note.spend.Usage.Output
 			rec.CostMicros = int64(note.spend.Cost)
 		}
-		h.o.Record(context.WithoutCancel(r.Context()), rec)
+		h.o.Log.Info("model call", "agent", c.Agent, "provider", string(note.model.Provider), "model", note.model.ID,
+			"tier", string(note.tier), "status", rec.Status, "tokens_in", rec.InputTokens, "tokens_out", rec.OutputTokens,
+			"latency_ms", h.o.Clock.Now().Sub(start).Milliseconds())
+		if h.o.Record != nil {
+			h.o.Record(context.WithoutCancel(r.Context()), rec)
+		}
 	}
 }
 
@@ -297,6 +307,9 @@ func (h *handler) readCall(w http.ResponseWriter, r *http.Request) (body []byte,
 		return nil, f, "", false
 	}
 	weight, err = routing.ResolveWeight(f.Model, r.Header.Get(WeightHeader))
+	if err == nil {
+		noteFrom(r.Context()).tier = weight
+	}
 	if errors.Is(err, routing.ErrBadWeight) {
 		h.problem(w, http.StatusBadRequest, ProblemBadWeight, "Unknown weight", err.Error(), nil)
 		return nil, f, "", false
@@ -362,7 +375,7 @@ var relayHeaders = []string{"Content-Type", "Cache-Control", "Request-Id", "X-Re
 
 func (h *handler) relay(w http.ResponseWriter, r *http.Request, c gatewaytoken.Claims, res *gatewayapp.CallResult) {
 	note := noteFrom(r.Context())
-	note.model, note.spend = string(res.Model.Provider)+"/"+res.Model.ID, res.Spend
+	note.model, note.spend = res.Model, res.Spend
 	defer func() {
 		if err := res.Body.Close(); err != nil {
 			h.o.Log.Error("gateway: settle call", "agent", c.Agent, "model", res.Model.ID, "err", err)
@@ -408,7 +421,8 @@ func (h *handler) callError(w http.ResponseWriter, err error) {
 	case errors.Is(err, gatewayapp.ErrNoRoute):
 		w.Header().Set("Retry-After", strconv.Itoa(retry))
 		h.problem(w, http.StatusServiceUnavailable, ProblemModelUnavailable, "No model available",
-			"No enabled, healthy provider has a model for this call.", map[string]any{"retry_after_seconds": retry})
+			"No enabled, healthy provider with its key stored has a model for this call.",
+			map[string]any{"retry_after_seconds": retry})
 	case errors.As(err, &up):
 		h.problem(w, http.StatusBadGateway, ProblemUpstreamFailed, "Providers failed", up.Error(), nil)
 	default:

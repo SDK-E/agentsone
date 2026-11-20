@@ -688,6 +688,107 @@ func TestMissingKeySkipsProvider(t *testing.T) {
 	}
 }
 
+// countingBudget counts reservations.
+type countingBudget struct {
+	*lockedLedger
+	mu       sync.Mutex
+	reserved []ledger.Micros
+}
+
+func (b *countingBudget) Reserve(c ledger.Caller, m ledger.Micros) (ledger.ReservationID, error) {
+	b.mu.Lock()
+	b.reserved = append(b.reserved, m)
+	b.mu.Unlock()
+	return b.lockedLedger.Reserve(c, m)
+}
+
+// keylessCatalog has three cheap providers that need a key in the quick tier
+// before the one provider whose key is stored: the demo machine with only an
+// Anthropic key and every provider switched on.
+func keylessCatalog() routing.Catalog {
+	c := routing.Catalog{}
+	for _, id := range []routing.ProviderID{"groq", "mistral", "gemini"} {
+		c.Providers = append(c.Providers, routing.Provider{ID: id, APIs: []routing.API{routing.APIOpenAI}, Enabled: true, KeyRequired: true})
+		c.Models = append(c.Models, routing.Model{Provider: id, ID: string(id) + "-small", Tier: routing.Quick, InputPerMTok: price("0.01"), OutputPerMTok: price("0.01")})
+	}
+	c.Providers = append(c.Providers, routing.Provider{ID: "anthropic", APIs: []routing.API{routing.APIOpenAI}, Enabled: true, KeyRequired: true})
+	c.Models = append(c.Models, routing.Model{Provider: "anthropic", ID: "claude-haiku-5-5", Tier: routing.Quick, Family: "claude", InputPerMTok: price("0.10"), OutputPerMTok: price("0.50")})
+	return c
+}
+
+func TestProvidersWithoutTheirKeyAreSkippedWithoutAnAttemptOrBudget(t *testing.T) {
+	r := newRig(t, 10*usd)
+	budget := &countingBudget{lockedLedger: r.budget}
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{keylessCatalog()}, Keys: fakeKeys{"anthropic": "test-key-a"},
+		Upstream: r.upstream, Budget: budget, Breaker: r.breaker, Clock: r.clock,
+		Limits: gatewayapp.Limits{MaxAttempts: 1},
+	})
+	r.upstream.answers["anthropic"] = []scripted{{status: 200, body: `{}`, usage: &routing.Usage{}}}
+	req := call(routing.APIOpenAI)
+	req.Weight = routing.Quick
+	res, err := r.router.Call(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Call: %v; one attempt must reach the provider that has its key", err)
+	}
+	_ = drain(t, res)
+	if got := r.upstream.providers(); len(got) != 1 || got[0] != "anthropic" {
+		t.Fatalf("providers called = %v, want only anthropic", got)
+	}
+	if len(budget.reserved) != 1 {
+		t.Fatalf("reservations = %d, want 1: a provider without its key costs no reservation", len(budget.reserved))
+	}
+	for _, id := range []routing.ProviderID{"groq", "mistral", "gemini"} {
+		if r.breaker.State(id, r.clock.now) != routing.BreakerClosed {
+			t.Errorf("%s breaker moved; a missing key says nothing about its health", id)
+		}
+	}
+}
+
+func TestOnlyProvidersWithoutTheirKeyIsNoRoute(t *testing.T) {
+	r := newRig(t, 10*usd)
+	budget := &countingBudget{lockedLedger: r.budget}
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{keylessCatalog()}, Keys: fakeKeys{},
+		Upstream: r.upstream, Budget: budget, Breaker: r.breaker, Clock: r.clock,
+	})
+	_, err := r.router.Call(context.Background(), call(routing.APIOpenAI))
+	if !errors.Is(err, gatewayapp.ErrNoRoute) {
+		t.Fatalf("error = %v, want ErrNoRoute", err)
+	}
+	if len(r.upstream.calls) != 0 || len(budget.reserved) != 0 {
+		t.Fatalf("calls = %d, reservations = %d, want none", len(r.upstream.calls), len(budget.reserved))
+	}
+}
+
+func TestAProvidersRefusalMessageReachesTheUpstreamError(t *testing.T) {
+	r := newRig(t, 10*usd)
+	r.router = gatewayapp.NewRouter(gatewayapp.Deps{
+		Catalog: staticCatalog{testCatalog()}, Keys: fakeKeys{"openai": "test-key-o"},
+		Upstream: refusing{status: 429, refusal: "rate limit reached for requests"},
+		Budget:   r.budget, Breaker: r.breaker, Clock: r.clock, Limits: gatewayapp.Limits{MaxAttempts: 1},
+	})
+	_, err := r.router.Call(context.Background(), call(routing.APIOpenAI))
+	var up *gatewayapp.UpstreamError
+	if !errors.As(err, &up) || up.Message != "rate limit reached for requests" ||
+		up.Error() != "gateway: every provider failed, last status 429: rate limit reached for requests" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+// refusing answers every call with status and a refusal message.
+type refusing struct {
+	status  int
+	refusal string
+}
+
+func (u refusing) Call(context.Context, gatewayapp.UpstreamCall) (*gatewayapp.UpstreamResponse, error) {
+	return &gatewayapp.UpstreamResponse{
+		Status: u.status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("{}")),
+		Usage: func() (routing.Usage, bool) { return routing.Usage{}, false }, Refusal: u.refusal,
+	}, nil
+}
+
 func TestBudgetView(t *testing.T) {
 	r := newRig(t, 0)
 	v := r.router.Budget(worker)

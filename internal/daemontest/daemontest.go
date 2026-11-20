@@ -103,9 +103,9 @@ func (w *webDoor) serveAs(req *http.Request, caller core.Caller) *httptest.Respo
 // Options add machine parts, such as the model gateway (WithModelProvider).
 func Start(t testing.TB, opts ...Option) *Daemon {
 	t.Helper()
-	cfg := loadConfig(t)
+	cfg, cfgPath := loadConfig(t)
 	clock := coretest.NewClock(coretest.Epoch)
-	setup := &startup{t: t, cfg: &cfg, clock: clock}
+	setup := &startup{t: t, cfg: &cfg, cfgPath: cfgPath, clock: clock}
 	for _, o := range opts {
 		o(setup)
 	}
@@ -221,9 +221,9 @@ func (d *Daemon) TCPAddr() string { return d.tcp }
 func (d *Daemon) RunnerErrors() []error { return d.runners.runnerEnds() }
 
 // loadConfig writes config.toml into temporary folders and loads it the
-// way the daemon does. The runtime folder holds the sockets, so it is short
-// (TESTING.md B5c).
-func loadConfig(t testing.TB) core.Config {
+// way the daemon does. It returns the config and the file's path. The
+// runtime folder holds the sockets, so it is short (TESTING.md B5c).
+func loadConfig(t testing.TB) (core.Config, string) {
 	t.Helper()
 	dir := t.TempDir()
 	run, err := os.MkdirTemp("", "ao")
@@ -268,7 +268,7 @@ bundled_dir = %q
 	if err != nil {
 		t.Fatalf("load config.toml: %v", err)
 	}
-	return cfg
+	return cfg, path
 }
 
 // repoRoot is the repository's root folder, found from this file.

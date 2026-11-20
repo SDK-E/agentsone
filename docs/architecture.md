@@ -154,8 +154,13 @@ the CONNECT proxy on port 3128. A name that is not on the list does not resolve.
 address has no route.
 
 **An agent calls a model.** The agent asks the gateway for the model name `autoagents/one`. The
-gateway in `edge` checks the budget, picks a real model from the providers the human enabled, adds
-the key and forwards the call. The key never enters `machine`.
+gateway in `edge` checks the budget, picks a real model from the providers the human enabled and
+gave a key, adds the key and forwards the call. The key never enters `machine`. Before it forwards
+the call, the gateway removes the request fields the chosen model refuses, as `drop_params` in
+`gateway.toml` lists them per model (the defaults drop `temperature` and `top_p` for Claude and
+GPT-5 models, which accept only their default values). The edge log has one line per model call
+(caller, provider, model, tier, status, tokens, time taken) and one warning with the provider's
+own message when a provider refuses a call. Neither holds the prompt, the answer, a key or a token.
 
 **A process in `machine` calls the daemon API.** It connects to the Unix socket
 `/run/agentsone/api.sock`. Every local user may connect (folder mode 0755, socket mode 0666,

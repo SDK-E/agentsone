@@ -3,10 +3,12 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"runtime"
 	"slices"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -318,4 +320,53 @@ func TestStatus_HeldWakeRefusedIsAuditedAndTheNextIsStillSent(t *testing.T) {
 	if n := countOf(w.logs.all(), refusedLine); n != 2 {
 		t.Errorf("%d error lines, want 2 (chat once, task once); log %v", n, w.logs.all())
 	}
+}
+
+// slowFailures is the society's side of agent states, where a failure is
+// taken only once the test lets it through: the answer that decided it sits
+// between deciding what the agent shows and telling the society.
+type slowFailures struct {
+	*sink
+	arrived chan struct{} // one value for each failure that reached the society
+	through chan struct{} // closed to let the failures through
+}
+
+func (s *slowFailures) RunnerFailed(ctx context.Context, agent, reason string) error {
+	s.arrived <- struct{}{}
+	<-s.through
+	return s.sink.RunnerFailed(ctx, agent, reason)
+}
+
+// Two answers arrive at once: the runner refused one wake and accepted the
+// newer one while the refusal was still on its way to the society. The
+// society hears the two in the order they were decided, so the agent ends up
+// showing the newest answer, running, and not the older refusal.
+func TestWake_TwoAnswersAtOnceLeaveTheNewestShown(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		states := &slowFailures{sink: &sink{}, arrived: make(chan struct{}, 2), through: make(chan struct{})}
+		w := newWorld(t, func(d *app.Deps) { d.States = states })
+		_, conn := readyFounder(t, w)
+		synctest.Wait() // the held timer wake's answer was taken
+		refused, accepted := make(chan error, 1), make(chan error, 1)
+
+		conn.refuseWakes(invalidParams)
+		go func() { refused <- wakeChat(t, w, "founder") }()
+		<-states.arrived // the refusal is decided and on its way to the society
+		conn.refuseWakes(nil)
+		go func() { accepted <- wakeChat(t, w, "founder") }()
+		synctest.Wait() // the accept is told to the society, or waits its turn
+		close(states.through)
+		if err := <-refused; err == nil {
+			t.Error("first Wake() = nil, want the runner's refusal")
+		}
+		if err := <-accepted; err != nil {
+			t.Errorf("second Wake() = %v, want accepted", err)
+		}
+
+		want := []string{"running founder", "failed founder: " + invalidParamsReason, "running founder"}
+		if diff := cmp.Diff(want, states.heard()); diff != "" {
+			t.Errorf("society heard (-want +got):\n%s", diff)
+		}
+	})
 }

@@ -177,7 +177,10 @@ recipe puts back what the agents added.
   In Raw mode, Coolify deploys the file as written. The daemon also checks, at start and every 5
   minutes, that `machine` has no default route and no network besides the inner one. It logs the
   answer (`network wall holds: no default route, interfaces: eth0`) and, while the wall does not
-  hold, refuses to wake agents and records that in the audit trail.
+  hold, starts no runner (a wake and an idle start of an always-on agent are both refused) and
+  records that in the audit trail. When the check finds the wall broken while runners are up, it
+  stops every one of them and records each stop. The runners of always-on agents start again
+  when the wall holds; the others start on their next wake.
 - **Own address range.** The inner network uses a fixed range, set by variables in `compose.yaml`.
   Two stacks on one server need two different ranges.
 

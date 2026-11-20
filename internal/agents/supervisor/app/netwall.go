@@ -107,9 +107,8 @@ func wallRefused(agent string, w domain.NetWall) error {
 // again when the wall holds.
 func (s *Supervisor) stopForWall(ctx context.Context) {
 	kinds := map[string]core.AgentKind{}
-	if all, err := s.d.Ports.Agents.ListAgents(ctx); err != nil {
-		s.log().Warn("supervisor: cannot list the agents to know which restart with the wall", "err", err)
-	} else {
+	all, listErr := s.d.Ports.Agents.ListAgents(ctx)
+	if listErr == nil {
 		for _, a := range all {
 			kinds[a.Name] = a.Kind
 		}
@@ -131,6 +130,12 @@ func (s *Supervisor) stopForWall(ctx context.Context) {
 	}
 	s.mu.Unlock()
 	slices.Sort(stopped)
+	if listErr != nil && len(stopped) > 0 {
+		// Without the agents' kinds no runner is known to be always-on, so
+		// none starts again by itself when the wall holds.
+		s.log().Error("supervisor: the runners stopped by the broken network wall will not start again by themselves",
+			"agents", strings.Join(stopped, ", "), "err", listErr)
+	}
 	for _, name := range stopped {
 		if err := s.d.Launcher.Stop(ctx, name); err != nil {
 			s.log().Warn("supervisor: a runner did not stop when the network wall broke", "agent", name, "err", err)

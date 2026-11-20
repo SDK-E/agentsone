@@ -52,7 +52,7 @@ func (l Launcher) Launch(_ context.Context, s app.Spec) (app.Process, error) {
 	if err != nil {
 		return nil, fmt.Errorf("editor log: %w", err)
 	}
-	defer func() { _ = log.Close() }() // the child holds its own copy once started
+	defer func() { _ = log.Close() }() //nolint:errcheck // the child holds its own copy once started; ours only closes
 	if err := os.Chown(s.LogFile, s.User.UID, s.User.GID); err != nil {
 		return nil, fmt.Errorf("editor log: %w", err)
 	}
@@ -130,7 +130,7 @@ func (p *proc) Ready(ctx context.Context) error {
 	var d net.Dialer
 	for {
 		if c, err := d.DialContext(ctx, "unix", p.socket); err == nil {
-			_ = c.Close() // only the dial mattered
+			_ = c.Close() //nolint:errcheck // only the dial mattered: the socket accepts
 			return nil
 		}
 		select {
@@ -163,13 +163,13 @@ func (p *proc) Stop() {
 	default:
 	}
 	pgid := -p.cmd.Process.Pid
-	_ = syscall.Kill(pgid, syscall.SIGTERM) // it may have just ended; the wait below tells
+	_ = syscall.Kill(pgid, syscall.SIGTERM) //nolint:errcheck // it may have just ended; the wait below tells
 	t := time.NewTimer(p.grace)
 	defer t.Stop()
 	select {
 	case <-p.done:
 	case <-t.C:
-		_ = syscall.Kill(pgid, syscall.SIGKILL) // as above
+		_ = syscall.Kill(pgid, syscall.SIGKILL) //nolint:errcheck // it may have just ended; the wait below tells
 		<-p.done
 	}
 }

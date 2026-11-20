@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	humandomain "github.com/SDK-E/agentsone/internal/humanuser/domain"
 	"github.com/SDK-E/agentsone/internal/ide/adapters/process"
 	"github.com/SDK-E/agentsone/internal/ide/app"
@@ -48,11 +49,15 @@ func fakeServer(socket string, fail bool) int {
 			if err != nil {
 				return
 			}
-			_ = c.Close()
+			if err := c.Close(); err != nil {
+				return
+			}
 		}
 	}()
 	<-stop
-	_ = ln.Close()
+	if err := ln.Close(); err != nil {
+		return 5
+	}
 	return 0
 }
 
@@ -64,7 +69,7 @@ func spec(t *testing.T, args ...string) app.Spec {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Cleanup(func() { coretest.Check(t, func() error { return os.RemoveAll(root) }) })
 	uid := os.Getuid()
 	dir := filepath.Join(root, "ada")
 	socket := filepath.Join(dir, "server.sock")

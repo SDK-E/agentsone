@@ -111,6 +111,23 @@ if grep -Eiq "ignoring option|not supported|unknown option" "$log"; then fail "s
   pass "server took every option"
 fi
 
+# --- another human cannot reach it, and it opens no port -----------------------
+other_uid=1001
+groupadd --gid "$other_uid" h_other
+useradd --uid "$other_uid" --gid "$other_uid" --home-dir /home/humans/other --shell /bin/bash --no-create-home --no-user-group h_other
+if setpriv --reuid="$other_uid" --regid="$other_uid" --clear-groups \
+  curl --silent --max-time 5 --unix-socket "$sock" --output /dev/null http://localhost/ide/test/ 2>/dev/null; then
+  fail "another human's user reached the editor's socket"
+else
+  pass "another human's user cannot reach the editor's socket"
+fi
+# The kernel's table of TCP sockets names each one's uid (column 8); state 0A
+# is LISTEN. The human's user, the editor's only user, must listen on none.
+listening=$(awk -v u="$uid" 'FNR > 1 && $4 == "0A" && $8 == u' /proc/net/tcp /proc/net/tcp6 2>/dev/null || true)
+if [ -z "$listening" ]; then pass "editor listens on no TCP port"; else fail "editor listens on a TCP port: $listening"; fi
+runs_as=$(awk '/^Uid:/ { print $2 }' "/proc/$pid/status")
+if [ "$runs_as" = "$uid" ]; then pass "editor runs as the human's user ($user), not root"; else fail "editor runs as uid $runs_as"; fi
+
 # --- an extension from Open VSX ------------------------------------------------
 if as_user "$bin" --install-extension "$ext" >"$run/install.log" 2>&1; then pass "installs $ext from Open VSX"; else
   cat "$run/install.log" >&2

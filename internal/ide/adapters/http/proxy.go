@@ -105,10 +105,11 @@ func writeError(w http.ResponseWriter, r *http.Request, p *core.Problem) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(p.Status)
-	_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8">`+
-		`<meta name="viewport" content="width=device-width, initial-scale=1">`+
-		`<meta name="color-scheme" content="light dark"><title>Editor</title><style>`+pageStyle+`</style></head>`+
-		`<body><p>`+html.EscapeString(text)+`</p></body></html>`) // the status is sent; a failed write means the client left
+	page := `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+		`<meta name="viewport" content="width=device-width, initial-scale=1">` +
+		`<meta name="color-scheme" content="light dark"><title>Editor</title><style>` + pageStyle + `</style></head>` +
+		`<body><p>` + html.EscapeString(text) + `</p></body></html>`
+	_, _ = io.WriteString(w, page) //nolint:errcheck // the status is sent; a failed write means the client left
 }
 
 // Route is the proxy as a module route.

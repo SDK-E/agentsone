@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	httpadapter "github.com/SDK-E/agentsone/internal/ide/adapters/http"
 	"github.com/SDK-E/agentsone/internal/ide/domain"
 )
@@ -100,7 +101,7 @@ func newUpstream(t *testing.T) *upstream {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Cleanup(func() { coretest.Check(t, func() error { return os.RemoveAll(dir) }) })
 	u := &upstream{socket: filepath.Join(dir, "server.sock"), last: make(chan *http.Request, 8)}
 	ln, err := net.Listen("unix", u.socket)
 	if err != nil {
@@ -113,7 +114,7 @@ func newUpstream(t *testing.T) *upstream {
 			if err != nil {
 				return
 			}
-			defer func() { _ = conn.Close() }()
+			defer coretest.Close(t, conn)
 			_, _ = rw.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
 			_ = rw.Flush()
 			line, _ := rw.ReadString('\n')
@@ -124,7 +125,7 @@ func newUpstream(t *testing.T) *upstream {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-src 'self';")
 		_, _ = io.WriteString(w, "workbench")
 	}))
-	_ = srv.Listener.Close()
+	coretest.Close(t, srv.Listener)
 	srv.Listener = ln
 	srv.Start()
 	t.Cleanup(srv.Close)
@@ -268,7 +269,7 @@ func TestProxyPassesWebSockets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer coretest.Close(t, conn)
 	_, err = io.WriteString(conn, "GET /ide/ada/?reconnectionToken=x HTTP/1.1\r\nHost: agents.example.com\r\n"+
 		"Upgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
 	if err != nil {
@@ -279,7 +280,11 @@ func TestProxyPassesWebSockets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			t.Errorf("close the answer: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusSwitchingProtocols {
 		t.Fatalf("status %d", res.StatusCode)
 	}

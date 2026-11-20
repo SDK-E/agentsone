@@ -158,6 +158,8 @@ jobs:
       packages: read
     env:
       AGENTSONE_IMAGE_TAG: sha-${{ github.sha }}
+      # The stack plus the e2e overlay (the fake model provider), for every step, logs included.
+      COMPOSE_FILE: compose.yaml:e2e/compose.e2e.yaml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -195,6 +197,8 @@ jobs:
         run: e2e/run.sh web-door
       - name: Setup page
         run: e2e/run.sh setup-page
+      - name: Claude engine opt-in
+        run: e2e/run.sh engine-opt-in
       - name: Login
         run: e2e/run.sh login
       - name: Small Seed
@@ -205,18 +209,24 @@ jobs:
         run: e2e/run.sh bus
       - name: Live list and router
         run: e2e/run.sh router
+      - name: "Model turn: through the gateway to the fake provider"
+        run: e2e/run.sh model-turn
       - name: Echo chat
         run: e2e/run.sh echo-chat
       - name: Event to task
         run: e2e/run.sh event-to-task
+      - name: Services events
+        run: e2e/run.sh services-events
       - name: Memory
         run: e2e/run.sh memory
       - name: Plugin install
         run: e2e/run.sh plugin-install
       - name: agentctl parity
         run: e2e/run.sh agentctl-parity
-      - name: Budget wall and defence slice
+      - name: Budget wall
         run: e2e/run.sh budget-wall
+      - name: Defence slice
+        run: e2e/run.sh defence-slice
       - name: Freeze all and release
         run: e2e/run.sh freeze-all
       - name: Control page

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Build context of e2e/fakeprovider/Dockerfile: only what the Go build needs.
+*
+!go.mod
+!go.sum
+!e2e/fakeprovider
+**/*_test.go

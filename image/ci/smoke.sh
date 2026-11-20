@@ -105,6 +105,29 @@ key_sum() {
     /var/lib/agentsone/secrets/machine.key
 }
 
+# check_licence_file: the image ships the engine licence text, with the pinned
+# engine and version, and no acceptance (a human gives that, in core.db).
+check_licence_file() {
+  local file=/usr/lib/agentsone/engine/licence.json doc
+  doc=$(docker run --rm --entrypoint cat "$image" "$file") || {
+    echo "FAIL - the image has no $file" >&2
+    exit 1
+  }
+  for key in engine version text; do
+    if ! grep -Eq "\"$key\": \"[^\"]+\"" <<<"$doc"; then
+      echo "FAIL - $file has no \"$key\":" >&2
+      echo "$doc" >&2
+      exit 1
+    fi
+  done
+  if grep -Eqi '"accept' <<<"$doc"; then
+    echo "FAIL - $file must not hold an acceptance" >&2
+    exit 1
+  fi
+  echo "ok   - the image ships the engine licence text"
+}
+
+check_licence_file
 make_gateway_key
 start
 wait_healthy

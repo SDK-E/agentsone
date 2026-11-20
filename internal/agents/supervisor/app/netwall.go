@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
+	"github.com/SDK-E/agentsone/internal/core"
 )
 
 // ErrNetworkWall is a wake refused because the network wall does not hold.
@@ -22,6 +24,9 @@ var ErrNetworkWall = errors.New("the network wall does not hold")
 const (
 	ActionWallBroken   = "net.wall.broken"
 	ActionWallRestored = "net.wall.restored"
+	// ActionRunnerWallStop is on the agent: its runner was stopped because
+	// the wall broke while it was up.
+	ActionRunnerWallStop = "agent.runner.wall_stop"
 )
 
 // Log lines for the network wall. Operators who cannot open a shell in the
@@ -61,6 +66,7 @@ func (s *Supervisor) CheckWall(ctx context.Context) (domain.NetWall, bool) {
 	switch {
 	case !w.Holds:
 		s.audit(ctx, ActionWallBroken, wallTarget, map[string]any{"reason": w.Reason, "interfaces": w.Interfaces, "routesOut": w.RoutesOut})
+		s.stopForWall(ctx)
 		s.markAllWallBroken(ctx, w)
 	case checked && !prev.Holds:
 		s.audit(ctx, ActionWallRestored, wallTarget, map[string]any{"interfaces": w.Interfaces})
@@ -68,6 +74,69 @@ func (s *Supervisor) CheckWall(ctx context.Context) (domain.NetWall, bool) {
 		s.runWantedAgain(ctx)
 	}
 	return w, true
+}
+
+// wallLauncher refuses to start or restart a runner while the network wall
+// does not hold. It wraps the launcher so that no path to a running runner
+// can skip the check.
+type wallLauncher struct {
+	Launcher
+	s *Supervisor
+}
+
+func (l wallLauncher) Start(ctx context.Context, agent string) error {
+	if w, ok := l.s.wallRefusal(); !ok {
+		return wallRefused(agent, w)
+	}
+	return l.Launcher.Start(ctx, agent)
+}
+
+func (l wallLauncher) Restart(ctx context.Context, agent string) error {
+	if w, ok := l.s.wallRefusal(); !ok {
+		return wallRefused(agent, w)
+	}
+	return l.Launcher.Restart(ctx, agent)
+}
+
+func wallRefused(agent string, w domain.NetWall) error {
+	return fmt.Errorf("%s: %w: %s: %w", agent, ErrNetworkWall, w.Reason, core.ErrUnavailable)
+}
+
+// stopForWall stops every runner that is up when the wall breaks. Each stop
+// is recorded in the audit trail; the always-on agents among them start
+// again when the wall holds.
+func (s *Supervisor) stopForWall(ctx context.Context) {
+	kinds := map[string]core.AgentKind{}
+	if all, err := s.d.Ports.Agents.ListAgents(ctx); err != nil {
+		s.log().Warn("supervisor: cannot list the agents to know which restart with the wall", "err", err)
+	} else {
+		for _, a := range all {
+			kinds[a.Name] = a.Kind
+		}
+	}
+	var stopped []string
+	s.mu.Lock()
+	for name, r := range s.runners {
+		switch r.session.State() {
+		case domain.StateStopped, domain.StateSleeping, domain.StateFailed:
+			continue
+		}
+		s.dropConnLocked(r)
+		r.session.Stop()
+		r.pending = nil
+		stopped = append(stopped, name)
+		if kinds[name] == core.AgentAlwaysOn {
+			s.runWanted[name] = true
+		}
+	}
+	s.mu.Unlock()
+	slices.Sort(stopped)
+	for _, name := range stopped {
+		if err := s.d.Launcher.Stop(ctx, name); err != nil {
+			s.log().Warn("supervisor: a runner did not stop when the network wall broke", "agent", name, "err", err)
+		}
+		s.audit(ctx, ActionRunnerWallStop, "agent:"+name, map[string]any{"reason": "the network wall does not hold"})
+	}
 }
 
 // runWantedAgain starts the runners whose idle start the broken wall

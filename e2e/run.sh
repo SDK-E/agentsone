@@ -139,19 +139,22 @@ as_control() {
     -sS -m 10 --unix-socket "${ADMIN_DIR}/admin.sock" "$@" "http://edge${path}"
 }
 
-# signed_token: a gateway token signed inside the machine with its gateway key, as the daemon
-# signs them (format ao1.<claims>.<HMAC-SHA256>). Root in the machine can always do this: the
-# token identity is soft, and every hard wall in the edge holds whatever the token says.
+# signed_token [defence]: a gateway token signed inside the machine with its gateway key, as the
+# daemon signs them (format ao1.<claims>.<HMAC-SHA256>). With `defence` the token may spend the
+# defence slice, as the daemon's tokens for wakers may. Root in the machine can always do this:
+# the token identity is soft, and every hard wall in the edge holds whatever the token says.
 signed_token() {
+  local defence=false
+  [ "${1:-}" = defence ] && defence=true
   # shellcheck disable=SC2016 # the script runs in the machine; it expands there.
   in_machine sh -c '
     set -e
     b64() { base64 -w0 | tr "+/" "-_" | tr -d "="; }
     now=$(date +%s)
-    claims=$(printf "{\"agent\":\"system:e2e\",\"kind\":\"system\",\"chart\":\"\",\"defence\":false,\"aud\":\"gateway\",\"iat\":%s,\"exp\":%s}" "$now" "$((now + 300))" | b64)
+    claims=$(printf "{\"agent\":\"system:e2e\",\"kind\":\"system\",\"chart\":\"\",\"defence\":%s,\"aud\":\"gateway\",\"iat\":%s,\"exp\":%s}" "$1" "$now" "$((now + 300))" | b64)
     key=$(od -An -v -tx1 /run/agentsone/gateway-key/key | tr -d " \n")
     mac=$(printf "ao1.%s" "$claims" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$key" -binary | b64)
-    printf "ao1.%s.%s" "$claims" "$mac"'
+    printf "ao1.%s.%s" "$claims" "$mac"' sh "$defence"
 }
 
 # needs <stage> <service...>: true when every service runs; otherwise SKIP (left out on purpose)

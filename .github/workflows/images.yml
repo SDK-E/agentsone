@@ -225,6 +225,8 @@ jobs:
         run: e2e/run.sh freeze-all
       - name: Control page
         run: e2e/run.sh control
+      - name: "Logs clean: no unexpected error or warning"
+        run: e2e/run.sh logs-clean
       - name: Stack state and logs
         if: always()
         run: |

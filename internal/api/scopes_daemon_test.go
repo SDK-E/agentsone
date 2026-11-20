@@ -21,7 +21,8 @@ import (
 
 // Every pattern a daemon module registers beside its generated groups maps
 // to a contract operation that names a scope or is public, so no module
-// route is reachable without the scope check deciding it.
+// route is reachable without the scope check deciding it. Operations that
+// take no token are served by generated groups only.
 func TestDaemon_EveryModuleRouteIsAScopedContractOperation(t *testing.T) {
 	t.Parallel()
 	deps, _ := coretest.NewDeps(t)
@@ -44,7 +45,8 @@ func TestDaemon_EveryModuleRouteIsAScopedContractOperation(t *testing.T) {
 			case !ok:
 				t.Errorf("module %s route %q is no contract operation", m.Name(), r.Pattern)
 			case route.Scope == "" && !route.Public:
-				t.Logf("module %s route %q is %s, which takes no token", m.Name(), r.Pattern, route.OperationID)
+				t.Errorf("module %s route %q is %s, which names no scope and is not public; only generated groups may serve operations that take no token",
+					m.Name(), r.Pattern, route.OperationID)
 			}
 		}
 	}

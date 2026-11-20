@@ -220,9 +220,7 @@ type fakeConn struct {
 	readyOnce sync.Once
 	closed    chan struct{}
 	once      sync.Once
-
-	mu    sync.Mutex
-	notes []call
+	notes     []call // notifications, guarded by mu
 }
 
 func (c *fakeConn) Notify(_ context.Context, method string, params any) error {

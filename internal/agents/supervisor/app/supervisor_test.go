@@ -3,6 +3,7 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -488,6 +489,59 @@ func TestHello_WelcomeCarriesIdentityTokensGatewayAndSummary(t *testing.T) {
 	caller, err := w.fakes.Tokens.Verify(t.Context(), string(mcp.Token))
 	if err != nil || caller.Name != "mira" || !slices.Equal(caller.Scopes, []string{app.MCPScope}) {
 		t.Errorf("mcp token caller = %+v, %v", caller, err)
+	}
+}
+
+// A hello that fails says on the daemon's log, at error level, which
+// agent, which step and why. The error names the step, so the runner hears
+// which step failed (rpc.FromError) but never the cause.
+func TestHello_FailedStepIsLoggedWithAgentStepAndCause(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, agent, step, cause string
+		edit                     func(*app.Deps)
+		before                   func(*world)
+	}{
+		{name: "unknown agent", agent: "nova", step: "read the agent's identity", cause: core.ErrNotFound.Error()},
+		{name: "summary store fails", agent: "mira", step: "load the agent's session summary", cause: "summary disk gone",
+			before: func(w *world) { w.summaries.loadErr = errors.New("summary disk gone") }},
+		{name: "token refused", agent: "founder", step: "issue the MCP token", cause: "token ttl",
+			edit: func(d *app.Deps) { d.Config.MCPTokenTTL = 0 }},
+		{name: "gateway refuses", agent: "mira", step: "mint the model gateway token", cause: "gateway key gone",
+			before: func(w *world) { w.fakes.GatewayTokens.Err = errors.New("gateway key gone") }},
+		{name: "put to sleep during hello", agent: "mira", step: "welcome the runner", cause: "welcome in state stopped",
+			before: func(w *world) {
+				w.summaries.onLoad = func() { _ = w.sup.Sleep(context.Background(), "mira", false) }
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var edits []func(*app.Deps)
+			if tt.edit != nil {
+				edits = append(edits, tt.edit)
+			}
+			w := newWorld(t, edits...)
+			if tt.before != nil {
+				tt.before(w)
+			}
+			h := w.sup.Connect(tt.agent)
+			h.Attach(newFakeConn())
+
+			_, err := h.Hello(t.Context(), "1.0", helloParams)
+
+			se, ok := errors.AsType[*domain.StepError](err)
+			if !ok || se.Step != tt.step {
+				t.Fatalf("Hello error = %v, want a StepError for %q", err, tt.step)
+			}
+			attrs, ok := w.logs.attrsOf("ERROR runner hello failed")
+			if !ok {
+				t.Fatalf("no ERROR runner hello failed line in %v", w.logs.all())
+			}
+			if attrs["agent"] != tt.agent || attrs["step"] != tt.step || !strings.Contains(attrs["err"], tt.cause) {
+				t.Errorf("log attributes = %v, want agent %s, step %q and an err with %q", attrs, tt.agent, tt.step, tt.cause)
+			}
+		})
 	}
 }
 

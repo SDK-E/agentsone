@@ -37,16 +37,27 @@ type Token struct {
 	RevokedAt time.Time
 }
 
-// NewToken makes a token for subject and returns it with the one-time value
-// "aot_<id>_<secret>" to hand to the holder. rand is crypto/rand in production.
-func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Time, ttl time.Duration) (Token, string, error) {
+// ValidateGrant checks what a token would grant: a lifetime in
+// (0, MaxTokenTTL] and scopes of the contract's form. An error matches
+// core.ErrInvalid. Test fakes of core.TokenIssuer call it too, so they
+// refuse what the real issuer refuses.
+func ValidateGrant(scopes []string, ttl time.Duration) error {
 	if ttl <= 0 || ttl > MaxTokenTTL {
-		return Token{}, "", fmt.Errorf("token ttl %s outside (0, %s]: %w", ttl, MaxTokenTTL, core.ErrInvalid)
+		return fmt.Errorf("token ttl %s outside (0, %s]: %w", ttl, MaxTokenTTL, core.ErrInvalid)
 	}
 	for _, s := range scopes {
 		if !scopePattern.MatchString(s) {
-			return Token{}, "", fmt.Errorf("token scope %q: %w", s, core.ErrInvalid)
+			return fmt.Errorf("token scope %q: %w", s, core.ErrInvalid)
 		}
+	}
+	return nil
+}
+
+// NewToken makes a token for subject and returns it with the one-time value
+// "aot_<id>_<secret>" to hand to the holder. rand is crypto/rand in production.
+func NewToken(rand io.Reader, subject core.Caller, scopes []string, now time.Time, ttl time.Duration) (Token, string, error) {
+	if err := ValidateGrant(scopes, ttl); err != nil {
+		return Token{}, "", err
 	}
 	// The id is hex so it never holds the "_" separator; the secret may.
 	idBytes := make([]byte, 12)

@@ -47,6 +47,20 @@ var (
 	ErrRateLimited = errors.New("rate limited")
 )
 
+// StepError is a failure of one step of the daemon's work for a runner, for
+// example issuing the MCP token during hello. Step is plain words the runner
+// may see ("issue the MCP token"); Err is the cause, which stays in the
+// daemon log because it can name paths, keys or other internals.
+type StepError struct {
+	Step string
+	Err  error
+}
+
+func (e *StepError) Error() string { return e.Step + ": " + e.Err.Error() }
+
+// Unwrap returns the cause, so errors.Is still matches it.
+func (e *StepError) Unwrap() error { return e.Err }
+
 // RunnerStatus is the content of a status notification.
 type RunnerStatus struct {
 	State        string // idle, working, sleeping or error

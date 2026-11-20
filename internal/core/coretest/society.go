@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	authdomain "github.com/SDK-E/agentsone/internal/auth/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -111,10 +112,13 @@ func NewTokens(clock core.Clock, ids core.IDs) *Tokens {
 	return &Tokens{clock: clock, ids: ids, issued: map[string]issuedToken{}}
 }
 
-// Issue makes a token for subject holding scopes until ttl passes.
+// Issue makes a token for subject holding scopes until ttl passes. It
+// refuses what the auth module's issuer refuses (authdomain.ValidateGrant):
+// scopes outside the contract's <group>:<read|write|admin> form and
+// lifetimes outside (0, 30 days].
 func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, ttl time.Duration) (core.Token, error) {
-	if ttl <= 0 {
-		return core.Token{}, fmt.Errorf("token lifetime %s must be positive: %w", ttl, core.ErrInvalid)
+	if err := authdomain.ValidateGrant(scopes, ttl); err != nil {
+		return core.Token{}, fmt.Errorf("issue token: %w", err)
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()

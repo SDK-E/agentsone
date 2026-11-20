@@ -174,11 +174,22 @@ func (s *sink) heard() []string {
 type summaries struct {
 	mu sync.Mutex
 	m  map[string]app.Summary
+	// loadErr, when set, is returned by every Load. onLoad, when set, runs
+	// at the start of every Load, as something else happening meanwhile.
+	// Tests set them before the supervisor runs.
+	loadErr error
+	onLoad  func()
 }
 
 func (s *summaries) Load(_ context.Context, a string) (app.Summary, error) {
+	if s.onLoad != nil {
+		s.onLoad()
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.loadErr != nil {
+		return app.Summary{}, s.loadErr
+	}
 	return s.m[a], nil
 }
 func (s *summaries) Save(_ context.Context, a string, v app.Summary) error {
@@ -301,16 +312,17 @@ type world struct {
 	sup       *app.Supervisor
 }
 
-// newWorld is a supervisor whose network wall was checked and holds.
-func newWorld(t *testing.T) *world {
+// newWorld is a supervisor whose network wall was checked and holds. edits
+// change its deps before it is built.
+func newWorld(t *testing.T, edits ...func(*app.Deps)) *world {
 	t.Helper()
-	w := newUncheckedWorld(t)
+	w := newUncheckedWorld(t, edits...)
 	w.sup.CheckWall(t.Context())
 	return w
 }
 
 // newUncheckedWorld is a supervisor before the daemon checked the wall.
-func newUncheckedWorld(t *testing.T) *world {
+func newUncheckedWorld(t *testing.T, edits ...func(*app.Deps)) *world {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
 	fakes.Runners.Register(echoAdapter{})
@@ -325,11 +337,15 @@ func newUncheckedWorld(t *testing.T) *world {
 		logs:  &logLines{},
 		ports: ports,
 	}
-	w.sup = app.New(app.Deps{
+	d := app.Deps{
 		Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: w.launcher, Accounts: w.accounts,
 		Identity: identity{fakes.Agents}, Output: w.sink, Summaries: w.summaries, Usage: w.sink,
 		Config: app.DefaultConfig(), States: w.sink, Wall: w.wall, Log: slog.New(w.logs),
-	})
+	}
+	for _, edit := range edits {
+		edit(&d)
+	}
+	w.sup = app.New(d)
 	return w
 }
 
@@ -357,21 +373,62 @@ func (f *fakeWall) count() int {
 	return f.checks
 }
 
-// logLines keeps each log record as "<LEVEL> <message>".
+// logLines keeps each log record as "<LEVEL> <message>", and its
+// attributes, those given With included.
 type logLines struct {
 	mu    sync.Mutex
 	lines []string
+	attrs []map[string]string
 }
 
 func (l *logLines) Enabled(context.Context, slog.Level) bool { return true }
 func (l *logLines) Handle(_ context.Context, r slog.Record) error {
+	l.record(nil, r)
+	return nil
+}
+func (l *logLines) WithAttrs(as []slog.Attr) slog.Handler { return logWith{l: l, attrs: as} }
+func (l *logLines) WithGroup(string) slog.Handler         { return l }
+
+func (l *logLines) record(with []slog.Attr, r slog.Record) {
+	attrs := map[string]string{}
+	for _, a := range with {
+		attrs[a.Key] = a.Value.String()
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		attrs[a.Key] = a.Value.String()
+		return true
+	})
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.lines = append(l.lines, r.Level.String()+" "+r.Message)
+	l.attrs = append(l.attrs, attrs)
+}
+
+// attrsOf returns the attributes of the first record kept as line.
+func (l *logLines) attrsOf(line string) (map[string]string, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if i := slices.Index(l.lines, line); i >= 0 {
+		return l.attrs[i], true
+	}
+	return nil, false
+}
+
+// logWith is logLines with attributes given by With.
+type logWith struct {
+	l     *logLines
+	attrs []slog.Attr
+}
+
+func (w logWith) Enabled(context.Context, slog.Level) bool { return true }
+func (w logWith) Handle(_ context.Context, r slog.Record) error {
+	w.l.record(w.attrs, r)
 	return nil
 }
-func (l *logLines) WithAttrs([]slog.Attr) slog.Handler { return l }
-func (l *logLines) WithGroup(string) slog.Handler      { return l }
+func (w logWith) WithAttrs(as []slog.Attr) slog.Handler {
+	return logWith{l: w.l, attrs: append(slices.Clone(w.attrs), as...)}
+}
+func (w logWith) WithGroup(string) slog.Handler { return w }
 func (l *logLines) all() []string {
 	l.mu.Lock()
 	defer l.mu.Unlock()

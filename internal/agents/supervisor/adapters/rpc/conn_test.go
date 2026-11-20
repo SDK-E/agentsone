@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -614,6 +615,34 @@ func TestConn_RefusesToSendOverlongLine(t *testing.T) {
 	err := p.conn.Call(t.Context(), protocol.MethodDeliver, map[string]any{"text": strings.Repeat("x", 5000)}, nil)
 	if !errors.Is(err, rpc.ErrLineTooLarge) {
 		t.Fatalf("Call error = %v, want ErrLineTooLarge", err)
+	}
+}
+
+// A failed step of the daemon's work tells the runner which step failed,
+// never the cause, which stays in the daemon log. A step that failed with a
+// protocol error keeps that error's code.
+func TestFromError_NamesTheFailedStepButNotItsCause(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		err     error
+		code    int
+		message string
+	}{
+		{"internal cause", fmt.Errorf("hello: %w", &domain.StepError{Step: "issue the MCP token",
+			Err: errors.New(`token scope "mcp" refused by /var/lib/agentsone/core.db`)}),
+			rpc.CodeInternal, "Internal error: could not issue the MCP token"},
+		{"protocol cause", &domain.StepError{Step: "read the agent's identity", Err: domain.ErrNotPermitted},
+			rpc.CodeNotPermitted, "Not permitted"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := rpc.FromError(tt.err)
+			if got.Code != tt.code || got.Message != tt.message || got.Data != nil {
+				t.Fatalf("FromError = %+v, want code %d and message %q only", got, tt.code, tt.message)
+			}
+		})
 	}
 }
 

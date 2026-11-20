@@ -181,6 +181,8 @@ describe("Machine panel, files", () => {
     expect(alert).toHaveTextContent("keeper keeps it private (mode 0700).");
     expect(within(alert).queryByRole("button", { name: "Try again" })).toBeNull();
     expect(field).toHaveValue("/home/agents/keeper");
+    // One way up, next to the cause, not a second copy in the toolbar.
+    expect(screen.getAllByRole("button", { name: "Up one folder" })).toHaveLength(1);
     await user.click(within(alert).getByRole("button", { name: "Up one folder" }));
     expect(api.calls).toContain("listFiles /home/agents");
   });

@@ -75,16 +75,19 @@ export function FilesSection() {
           <button type="submit" className="button button--primary">
             {t("open")}
           </button>
-          <button
-            type="button"
-            className="button"
-            disabled={here === "/"}
-            onClick={() => {
-              go(parentOf(here));
-            }}
-          >
-            {t("up")}
-          </button>
+          {/* On a load error the message offers the same button, next to the cause. */}
+          {!folder.isError && (
+            <button
+              type="button"
+              className="button"
+              disabled={here === "/"}
+              onClick={() => {
+                go(parentOf(here));
+              }}
+            >
+              {t("up")}
+            </button>
+          )}
         </div>
       </form>
 

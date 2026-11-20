@@ -9,6 +9,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
@@ -111,6 +112,16 @@ type AgentStates interface {
 	RunnerFailed(ctx context.Context, agent, reason string) error
 	// RunnerRunning says the runner finished its handshake and is ready.
 	RunnerRunning(ctx context.Context, agent string) error
+	// RunnerCleared says what kept the runner from running is gone (the
+	// network wall holds again), though the runner is not running yet.
+	RunnerCleared(ctx context.Context, agent string) error
+}
+
+// NetworkWall checks the machine's network wall: no route out and one
+// network only, so the edge is the only way out (adapters/netwall reads
+// /proc).
+type NetworkWall interface {
+	Check(ctx context.Context) domain.NetWall
 }
 
 // RunnerConn is the daemon's half of one runner connection.
@@ -142,6 +153,9 @@ type Config struct {
 	MaxLineBytes      int
 	MaxSummaryChars   int
 	ShutdownGrace     time.Duration
+	// WallRecheck is how often Tick checks the network wall again; zero
+	// means 5 minutes.
+	WallRecheck time.Duration
 }
 
 // DefaultConfig follows PROTOCOL.md defaults.
@@ -156,6 +170,7 @@ func DefaultConfig() Config {
 		MaxLineBytes:      1 << 20,
 		MaxSummaryChars:   4096,
 		ShutdownGrace:     5 * time.Second,
+		WallRecheck:       defaultWallRecheck,
 	}
 }
 
@@ -174,4 +189,8 @@ type Deps struct {
 	Config    Config
 	// States hears runner failures and recoveries; nil hears nothing.
 	States AgentStates
+	// Wall checks the network wall. Nil cannot prove it, so no agent wakes.
+	Wall NetworkWall
+	// Log takes the network wall lines; nil means slog.Default().
+	Log *slog.Logger
 }

@@ -49,6 +49,25 @@ func (s *Society) RunnerRunning(_ context.Context, agent string) error {
 	return nil
 }
 
+// RunnerCleared takes the runner supervisor's word that what kept agent's
+// runner off is gone (the network wall holds again), though the runner has
+// not started. A failure shown on the agent is cleared and a state frame
+// with the agent's own state, without a reason, goes out.
+func (s *Society) RunnerCleared(ctx context.Context, agent string) error {
+	a, err := s.repo.GetAgent(ctx, agent)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	_, was := s.failed[agent]
+	delete(s.failed, agent)
+	s.mu.Unlock()
+	if was {
+		s.hub.Publish(agent, StreamOutput, Frame{State: &StateFrame{Agent: agent, State: s.withRunState(a).State, Time: s.clock.Now()}})
+	}
+	return nil
+}
+
 // withRunState shows a runner failure on a. Frozen and retired say more,
 // so they win.
 func (s *Society) withRunState(a domain.Agent) domain.Agent {

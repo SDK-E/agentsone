@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/contract/common"
@@ -38,6 +39,13 @@ type Supervisor struct {
 	mu      sync.Mutex
 	runners map[string]*runner
 	freezes []core.FreezeScope
+	// wall is the network wall's last answer, checked at wallAt; until the
+	// first check it is wallUnchecked. wallMarked are the agents shown as
+	// failed because of it.
+	wall        domain.NetWall
+	wallAt      time.Time
+	wallChecked bool
+	wallMarked  map[string]bool
 }
 
 var (
@@ -58,7 +66,7 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}}
+	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}}
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {
@@ -208,10 +216,15 @@ func (s *Supervisor) Retire(ctx context.Context, name string) error {
 
 // Wake starts a turn for agent name. A stopped or sleeping agent's runner
 // is started first and the wake is sent once it is ready. A frozen agent is
-// refused with core.ErrFrozen.
+// refused with core.ErrFrozen; while the network wall does not hold, every
+// agent is refused with ErrNetworkWall and core.ErrUnavailable.
 func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReason, payload json.RawMessage) error {
 	if err := domain.ValidateName(name); err != nil {
 		return fmt.Errorf("wake: %w: %w", core.ErrInvalid, err)
+	}
+	if w, ok := s.wallRefusal(); !ok {
+		s.markWallBroken(ctx, name, w, false)
+		return fmt.Errorf("wake %s: %w: %s: %w", name, ErrNetworkWall, w.Reason, core.ErrUnavailable)
 	}
 	frozen, err := s.Frozen(ctx, name)
 	if err != nil {
@@ -324,10 +337,14 @@ func (s *Supervisor) dropConnLocked(r *runner) {
 
 // Tick restarts every runner that has been silent for the heartbeat
 // timeout (rule B2): it records -32003 in the audit trail, closes the
-// connection and restarts the unit. The module calls it on a timer; tests
-// call it after moving the fake clock.
+// connection and restarts the unit. Every WallRecheck it checks the network
+// wall again. The module calls it on a timer; tests call it after moving
+// the fake clock.
 func (s *Supervisor) Tick(ctx context.Context) error {
 	now := s.d.Clock.Now()
+	if s.wallDue(now) {
+		s.CheckWall(ctx)
+	}
 	var expired []string
 	s.mu.Lock()
 	for name, r := range s.runners {

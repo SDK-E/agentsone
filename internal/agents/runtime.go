@@ -13,6 +13,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/agents/app"
 	"github.com/SDK-E/agentsone/internal/agents/domain"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/accounts"
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/netwall"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/process"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/socket"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/summaries"
@@ -35,6 +36,9 @@ type SupervisorOptions struct {
 	Accounts supapp.Accounts
 	// Tick is how often heartbeats are checked; zero means 5 seconds.
 	Tick time.Duration
+	// Wall checks the machine's network wall at start and every 5 minutes.
+	// Nil means the daemon's own: /proc (adapters/netwall).
+	Wall supapp.NetworkWall
 }
 
 // WithSupervisor runs the society's agents through the runner supervisor
@@ -110,10 +114,15 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 	if acc == nil {
 		acc = &accounts.Accounts{}
 	}
+	wall := o.Wall
+	if wall == nil {
+		wall = netwall.System()
+	}
 	parts.sup = supapp.New(supapp.Deps{
 		Clock: deps.Clock, IDs: deps.IDs, Ports: deps.Ports, Launcher: launcher, Accounts: acc,
 		Identity: identity{s: m.society}, Output: output{s: m.society}, Summaries: summaries.New(m.db),
 		Usage: usage{s: m.society}, Config: supapp.DefaultConfig(), States: m.society,
+		Wall: wall, Log: m.log,
 	})
 	if parts.sockets != nil {
 		parts.sockets.Supervisor = parts.sup
@@ -122,9 +131,11 @@ func (m *Module) buildSupervisor(deps core.Deps, rt *supervised) {
 	m.parts = parts
 }
 
-// startSupervisor binds the runner sockets to the module's life and checks
-// heartbeats on a timer.
+// start checks the network wall before any agent can wake, binds the
+// runner sockets to the module's life, and checks heartbeats (and the wall
+// every 5 minutes) on a timer.
 func (p *supervisorParts) start(ctx context.Context, log *slog.Logger) {
+	p.sup.CheckWall(ctx)
 	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	p.stop, p.done = cancel, make(chan struct{})
 	if p.wrapped != nil {

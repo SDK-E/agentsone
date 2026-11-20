@@ -83,6 +83,13 @@ func (l *startLauncher) Stop(context.Context, string) error             { return
 func (l *startLauncher) Remove(context.Context, string) error           { return nil }
 func (l *startLauncher) Mode(string) domain.LimitMode                   { return domain.LimitsNone }
 
+// holdingWall is a machine on the inner network only.
+type holdingWall struct{}
+
+func (holdingWall) Check(context.Context) domain.NetWall {
+	return domain.NetWall{Holds: true, Interfaces: []string{"eth0"}}
+}
+
 type collect struct {
 	mu     sync.Mutex
 	chunks []app.OutputChunk
@@ -129,7 +136,8 @@ func TestServer_RunsAgentLifecycleOverRealSocket(t *testing.T) {
 	srv.Chown = func(_ string, uid int) error { chowned = uid; return nil }
 	launcher := &socket.Launcher{Inner: inner, Server: srv, Ctx: t.Context()}
 	t.Cleanup(func() { _ = srv.Shutdown() })
-	sup := app.New(app.Deps{Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: launcher, Identity: c, Output: c, Summaries: c, Usage: c, Config: app.DefaultConfig()})
+	sup := app.New(app.Deps{Clock: fakes.Clock, IDs: fakes.IDs, Ports: ports, Launcher: launcher, Identity: c, Output: c, Summaries: c, Usage: c, Config: app.DefaultConfig(), Wall: holdingWall{}})
+	sup.CheckWall(t.Context())
 	srv.Supervisor = sup
 	if err := launcher.Install(t.Context(), domain.UnitSpec{Agent: "founder", Account: domain.AccountFor("founder", true)}); err != nil {
 		t.Fatal(err)

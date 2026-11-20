@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"testing"
@@ -19,8 +20,10 @@ import (
 	"github.com/SDK-E/agentsone/internal/edge/door/adapters/proxy"
 )
 
-// door serves the proxy in front of upstream on a real loopback listener.
-func door(t *testing.T, upstream http.Handler) (doorURL string) {
+// door serves the proxy in front of upstream on a real loopback listener. The browser's client
+// is the door server's own: every httptest server closes the idle connections of
+// http.DefaultTransport when it closes, which can break a request a parallel test has in flight.
+func door(t *testing.T, upstream http.Handler) (doorURL string, browser *http.Client) {
 	t.Helper()
 	up := httptest.NewServer(upstream)
 	t.Cleanup(up.Close)
@@ -30,12 +33,12 @@ func door(t *testing.T, upstream http.Handler) (doorURL string) {
 	}
 	d := httptest.NewServer(proxy.New(u, slog.New(slog.DiscardHandler)))
 	t.Cleanup(d.Close)
-	return d.URL
+	return d.URL, d.Client()
 }
 
-func do(t *testing.T, req *http.Request) *http.Response {
+func do(t *testing.T, c *http.Client, req *http.Request) *http.Response {
 	t.Helper()
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.Do(req)
 	if err != nil {
 		t.Fatalf("request: %v", err)
 	}
@@ -45,21 +48,40 @@ func do(t *testing.T, req *http.Request) *http.Response {
 
 func TestProxy_ForwardsRequestsToTheMachine(t *testing.T) {
 	t.Parallel()
-	u := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u, c := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Seen", r.Method+" "+r.URL.RequestURI())
 	}))
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u+"/v1/agents?limit=2", nil)
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	if got := res.Header.Get("X-Seen"); res.StatusCode != http.StatusOK || got != "GET /v1/agents?limit=2" {
 		t.Fatalf("got %d %q", res.StatusCode, got)
 	}
 }
 
+// The door's connections to the machine are its own. Anything else in the edge process that
+// closes the idle connections of http.DefaultTransport (every httptest server does when it
+// closes) could otherwise break a request to a live machine in flight, and the door would answer
+// 502.
+func TestProxy_HasItsOwnConnectionsToTheMachine(t *testing.T) {
+	t.Parallel()
+	h := proxy.New(&url.URL{Scheme: "http", Host: "machine:7700"}, slog.New(slog.DiscardHandler))
+	rp, ok := h.(*httputil.ReverseProxy)
+	if !ok {
+		t.Fatalf("New() = %T, want a *httputil.ReverseProxy", h)
+	}
+	if rp.Transport == nil || rp.Transport == http.DefaultTransport {
+		t.Fatalf("Transport = %v, want the door's own, not http.DefaultTransport", rp.Transport)
+	}
+	if other, ok := proxy.New(&url.URL{Scheme: "http", Host: "machine:7700"}, slog.New(slog.DiscardHandler)).(*httputil.ReverseProxy); ok && other.Transport == rp.Transport {
+		t.Error("two doors share one transport, want one each")
+	}
+}
+
 func TestProxy_ReplacesForwardingAndIdentityHeaders(t *testing.T) {
 	t.Parallel()
 	seen := make(chan http.Header, 1)
-	u := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { seen <- r.Header.Clone() }))
+	u, c := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { seen <- r.Header.Clone() }))
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u+"/", nil)
 	for k, v := range map[string]string{
 		"X-Forwarded-For": "6.6.6.6", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "evil",
@@ -69,7 +91,7 @@ func TestProxy_ReplacesForwardingAndIdentityHeaders(t *testing.T) {
 	} {
 		req.Header.Set(k, v)
 	}
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	got := <-seen
 	if v := got.Values("X-Forwarded-For"); len(v) != 1 || v[0] != "127.0.0.1" {
@@ -97,12 +119,12 @@ func TestProxy_ReplacesForwardingAndIdentityHeaders(t *testing.T) {
 func TestProxy_ForwardsTheHostTheBrowserUsed(t *testing.T) {
 	t.Parallel()
 	seen := make(chan [2]string, 1)
-	u := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+	u, c := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		seen <- [2]string{r.Host, r.Header.Get("X-Forwarded-Host")}
 	}))
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, u+"/v1/setup/first-human", nil)
 	req.Host = "agents.example.test"
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	got := <-seen
 	if got[1] != "agents.example.test" {
@@ -116,9 +138,9 @@ func TestProxy_ForwardsTheHostTheBrowserUsed(t *testing.T) {
 func TestProxy_SaysHTTPWithoutAClaim(t *testing.T) {
 	t.Parallel()
 	seen := make(chan string, 1)
-	u := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { seen <- r.Header.Get("X-Forwarded-Proto") }))
+	u, c := door(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { seen <- r.Header.Get("X-Forwarded-Proto") }))
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u+"/", nil)
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	if got := <-seen; got != "http" {
 		t.Fatalf("X-Forwarded-Proto = %q, want http", got)
@@ -129,7 +151,7 @@ func TestProxy_StreamsServerSentEventsWithoutBuffering(t *testing.T) {
 	t.Parallel()
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
-	u := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u, c := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, "data: first\n\n")
 		w.(http.Flusher).Flush()
@@ -139,7 +161,7 @@ func TestProxy_StreamsServerSentEventsWithoutBuffering(t *testing.T) {
 		}
 	}))
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u+"/v1/events/stream", nil)
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	line, err := bufio.NewReader(res.Body).ReadString('\n')
 	if err != nil || line != "data: first\n" {
@@ -149,7 +171,7 @@ func TestProxy_StreamsServerSentEventsWithoutBuffering(t *testing.T) {
 
 func TestProxy_UpgradesWebSockets(t *testing.T) {
 	t.Parallel()
-	u := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u, _ := door(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Upgrade") != "websocket" {
 			http.Error(w, "want upgrade", http.StatusBadRequest)
 			return
@@ -204,8 +226,9 @@ func TestProxy_AnswersAProblemWhenTheMachineIsDown(t *testing.T) {
 	down := &url.URL{Scheme: "http", Host: "127.0.0.1:1"}
 	d := httptest.NewServer(proxy.New(down, slog.New(slog.DiscardHandler)))
 	t.Cleanup(d.Close)
+	c := d.Client()
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, d.URL+"/", nil)
-	res := do(t, req)
+	res := do(t, c, req)
 	defer func() { _ = res.Body.Close() }()
 	var p struct {
 		Type string `json:"type"`

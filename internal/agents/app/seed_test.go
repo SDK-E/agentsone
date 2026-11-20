@@ -218,6 +218,79 @@ func TestSeed_FinishesAHalfDoneSeedAndKeepsWhatAgentsChanged(t *testing.T) {
 	}
 }
 
+func TestSeedOnce_AppliesTheSeedAndRecordsIt(t *testing.T) {
+	t.Parallel()
+	e := newSeedEnv(t)
+
+	created, applied, err := e.society.SeedOnce(asSystem(), seedPlan)
+
+	if err != nil || !applied {
+		t.Fatalf("SeedOnce() applied = %v, error = %v, want applied", applied, err)
+	}
+	if diff := cmp.Diff([]string{"founder", "router", "waker"}, created); diff != "" {
+		t.Errorf("created (-want +got):\n%s", diff)
+	}
+	if ok, _ := e.repo.SeedApplied(context.Background()); !ok {
+		t.Error("the seed was not recorded")
+	}
+}
+
+// Once applied, the seed never runs again on this machine, even when the
+// plan could no longer be met: humans may retire the society or remove the
+// small-seed plugin on purpose.
+func TestSeedOnce_DoesNothingOnceTheSeedWasApplied(t *testing.T) {
+	t.Parallel()
+	e := newSeedEnv(t)
+	if _, _, err := e.society.SeedOnce(asSystem(), seedPlan); err != nil {
+		t.Fatal(err)
+	}
+	audited := len(e.fakes.Audit.Entries())
+	gone := app.SeedPlan{Founder: app.SeedAgent{Template: "small-seed/ghost", DisplayName: "G", Role: "G"}}
+
+	created, applied, err := e.society.SeedOnce(asSystem(), gone)
+
+	if err != nil || applied || len(created) != 0 {
+		t.Fatalf("second SeedOnce() = %v, %v, %v, want nothing done", created, applied, err)
+	}
+	if got := len(e.fakes.Audit.Entries()); got != audited {
+		t.Errorf("second SeedOnce() audited %d entries", got-audited)
+	}
+}
+
+// A seed cut short is not recorded, so the next try finishes it without
+// creating anyone twice.
+func TestSeedOnce_FinishesASeedCutShort(t *testing.T) {
+	t.Parallel()
+	e := newSeedEnv(t)
+	short := seedPlan
+	short.Team = append([]app.SeedAgent{seedPlan.Team[0]}, app.SeedAgent{Template: "small-seed/ghost", DisplayName: "G", Role: "G"})
+	if _, applied, err := e.society.SeedOnce(asSystem(), short); err == nil || applied {
+		t.Fatalf("SeedOnce() with a missing template = applied %v, error %v, want a failure", applied, err)
+	}
+	if ok, _ := e.repo.SeedApplied(context.Background()); ok {
+		t.Fatal("a failed seed was recorded")
+	}
+
+	created, applied, err := e.society.SeedOnce(asSystem(), seedPlan)
+
+	if err != nil || !applied {
+		t.Fatalf("SeedOnce() = applied %v, error %v", applied, err)
+	}
+	if diff := cmp.Diff([]string{"waker"}, created); diff != "" {
+		t.Errorf("created (-want +got):\n%s", diff)
+	}
+}
+
+func TestSeedOnce_RefusesAgentsAndHumans(t *testing.T) {
+	t.Parallel()
+	for _, ctx := range []context.Context{asAgent("founder"), asHuman("ada")} {
+		e := newSeedEnv(t)
+		if _, _, err := e.society.SeedOnce(ctx, seedPlan); !errors.Is(err, core.ErrForbidden) {
+			t.Errorf("SeedOnce() error = %v, want ErrForbidden", err)
+		}
+	}
+}
+
 func TestSeed_Refusals(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {

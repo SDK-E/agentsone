@@ -5,6 +5,7 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -156,40 +157,72 @@ func (m *Module) runAlwaysOn(ctx context.Context) {
 	}
 }
 
-// startSeed waits in the background for the first human, then seeds the
-// Small Seed society. The event is stored, so after a restart it replays
-// and the seed runs again; Seed creates only what is missing. A failure is
-// logged and retried on the next start: the machine runs without agents.
+// startSeed seeds the Small Seed society in the background, once per
+// machine, as soon as a human exists: at once when one does already (the
+// first human may predate the seed, or its event may never have reached
+// it), else when the first-human event arrives. It first waits for the
+// machine to be ready, so the bundled small-seed plugin is installed. A
+// failure is logged and retried on the next start: the machine runs
+// without agents.
 func (m *Module) startSeed(ctx context.Context) {
 	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	m.stopSeed = cancel
 	events, err := m.ports.Subscribe.Subscribe(ctx, core.EventFilter{Types: []string{firstHumanCreated}})
 	if err != nil {
-		cancel()
-		m.log.Error("agents: cannot wait for the first human, no seed", "error", err)
-		close(m.seedDone)
-		return
+		m.log.Error("agents: cannot wait for the first human", "error", err)
+		events = nil
 	}
-	m.stopSeed = cancel
 	go func() {
 		defer close(m.seedDone)
 		defer cancel()
-		for ev := range events {
-			if ev.Type != firstHumanCreated {
-				continue
-			}
-			sys := core.WithCaller(ctx, core.Caller{Kind: core.CallerSystem, Name: "small-seed", UID: -1, IsRoot: true})
-			created, err := m.society.Seed(sys, SmallSeed)
-			if err != nil {
-				m.log.Error("agents: seeding the society failed", "created", created, "error", err)
-				return
-			}
-			if len(created) > 0 {
-				m.log.Info("agents: seeded the society", "created", created)
-				m.runAlwaysOn(sys)
-			}
+		if err := m.ports.Startup.Wait(ctx); err != nil && !errors.Is(err, core.ErrUnavailable) {
+			return // stopped before the machine was ready
+		}
+		if m.humanExists(ctx) {
+			m.seed(ctx)
 			return
 		}
+		if events == nil {
+			return
+		}
+		for ev := range events {
+			if ev.Type == firstHumanCreated {
+				m.seed(ctx)
+				return
+			}
+		}
 	}()
+}
+
+// humanExists reads the humans through the auth module's port. A machine
+// without it waits for the first-human event instead.
+func (m *Module) humanExists(ctx context.Context) bool {
+	humans, err := m.ports.Humans.HumanAccounts(ctx)
+	if err != nil {
+		if !errors.Is(err, core.ErrUnavailable) {
+			m.log.Error("agents: cannot read the humans, waiting for the first one", "error", err)
+		}
+		return false
+	}
+	return len(humans) > 0
+}
+
+// seed applies the Small Seed unless this machine was seeded before, logs
+// the one time it is applied, and starts the runners of the always-on
+// agents it created.
+func (m *Module) seed(ctx context.Context) {
+	sys := core.WithCaller(ctx, core.Caller{Kind: core.CallerSystem, Name: "small-seed", UID: -1, IsRoot: true})
+	created, applied, err := m.society.SeedOnce(sys, SmallSeed)
+	if err != nil {
+		m.log.Error("agents: seeding the society failed", "created", created, "error", err)
+		return
+	}
+	if applied {
+		m.log.Info("agents: seeded the society", "created", created)
+	}
+	if len(created) > 0 {
+		m.runAlwaysOn(sys)
+	}
 }
 
 // SeedDone closes once the seed wait has ended: the society is seeded, the

@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -232,6 +234,198 @@ func TestModule_SeedsTheSmallSeedOnceTheFirstHumanExists(t *testing.T) {
 
 	if got := len(fakes.Audit.Entries()); got != audited {
 		t.Errorf("restart audited %d more entries, want none", got-audited)
+	}
+}
+
+// seedLog records the messages the module logs.
+type seedLog struct {
+	mu       sync.Mutex
+	messages []string
+}
+
+func (l *seedLog) Enabled(context.Context, slog.Level) bool { return true }
+func (l *seedLog) WithAttrs([]slog.Attr) slog.Handler       { return l }
+func (l *seedLog) WithGroup(string) slog.Handler            { return l }
+func (l *seedLog) Handle(_ context.Context, r slog.Record) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.messages = append(l.messages, r.Level.String()+" "+r.Message)
+	return nil
+}
+
+func (l *seedLog) count(message string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	n := 0
+	for _, m := range l.messages {
+		if m == message {
+			n++
+		}
+	}
+	return n
+}
+
+// problems returns the warnings and errors logged.
+func (l *seedLog) problems() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var out []string
+	for _, m := range l.messages {
+		if strings.HasPrefix(m, "ERROR ") || strings.HasPrefix(m, "WARN ") {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func startModule(t *testing.T, deps core.Deps) *agents.Module {
+	t.Helper()
+	m := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	if err := m.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitSeed(t, m)
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func agentNames(t *testing.T, m *agents.Module) []string {
+	t.Helper()
+	list, err := m.Society().List(context.Background(), app.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, a := range list {
+		names = append(names, a.Name)
+	}
+	return names
+}
+
+// A machine whose first human came before the seed listened, or whose
+// first-human event never reached it, still gets its society at the next
+// start.
+func TestModule_SeedsAtStartWhenAHumanExistsAndTheSeedNeverRan(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	fakes.Humans.Add("ada", 1000)
+	logs := &seedLog{}
+	deps.Log = slog.New(logs)
+
+	m := startModule(t, deps)
+
+	if diff := cmp.Diff([]string{"founder", "router", "waker"}, agentNames(t, m)); diff != "" {
+		t.Errorf("agents (-want +got):\n%s", diff)
+	}
+	if got := logs.count("INFO agents: seeded the society"); got != 1 {
+		t.Errorf("logged the seed %d times, want once", got)
+	}
+}
+
+// A society seeded at start, without the first-human event, gets its
+// always-on runners too.
+func TestModule_StartsAlwaysOnRunnersAfterTheSeedAtStart(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	fakes.Humans.Add("ada", 1000)
+	rt := agentstest.NewRuntime()
+	m := agents.New(deps, agents.WithRuntime(rt))
+	ctx := context.Background()
+	if err := m.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitSeed(t, m)
+	coretest.Check(t, func() error { return m.Stop(ctx) })
+
+	if diff := cmp.Diff([]string{"founder"}, rt.Ran()); diff != "" {
+		t.Errorf("runners started (-want +got):\n%s", diff)
+	}
+}
+
+// The seed runs once per machine: later starts leave the society as the
+// humans and agents made it, and log nothing, even when the small-seed
+// templates are gone.
+func TestModule_SeedsOncePerMachine(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	fakes.Humans.Add("ada", 1000)
+	logs := &seedLog{}
+	deps.Log = slog.New(logs)
+	startModule(t, deps)
+	audited := len(fakes.Audit.Entries())
+	withoutTemplates := *deps.Ports
+	withoutTemplates.Templates = coretest.NewTemplates()
+	deps.Ports = &withoutTemplates
+
+	startModule(t, deps)
+
+	if got := len(fakes.Audit.Entries()); got != audited {
+		t.Errorf("restart audited %d more entries, want none", got-audited)
+	}
+	if got := logs.count("INFO agents: seeded the society"); got != 1 {
+		t.Errorf("logged the seed %d times, want once", got)
+	}
+	if got := logs.problems(); len(got) != 0 {
+		t.Errorf("restart logged problems %v", got)
+	}
+}
+
+// With a human and the first-human event both there, the society is
+// seeded once.
+func TestModule_SeedsOnceWhenTheHumanAndTheEventAreBothThere(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	fakes.Humans.Add("ada", 1000)
+	firstHuman(t, fakes)
+	logs := &seedLog{}
+	deps.Log = slog.New(logs)
+
+	m := startModule(t, deps)
+
+	if diff := cmp.Diff([]string{"founder", "router", "waker"}, agentNames(t, m)); diff != "" {
+		t.Errorf("agents (-want +got):\n%s", diff)
+	}
+	if got := logs.count("INFO agents: seeded the society"); got != 1 {
+		t.Errorf("logged the seed %d times, want once", got)
+	}
+}
+
+// Without a human the seed waits for the first-human event and creates
+// nobody.
+func TestModule_WithoutAHumanTheSeedWaits(t *testing.T) {
+	t.Parallel()
+	deps, fakes := coretest.NewDeps(t)
+	addSmallSeed(t, fakes)
+	m := agents.New(deps, agents.WithRuntime(agentstest.NewRuntime()))
+	if err := m.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-m.SeedDone():
+		t.Fatal("the seed ended without a human")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitSeed(t, m)
+	if got := agentNames(t, m); len(got) != 0 {
+		t.Errorf("agents = %v, want none", got)
 	}
 }
 

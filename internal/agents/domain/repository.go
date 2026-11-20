@@ -2,7 +2,10 @@
 
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // AgentRepository stores agents, retired ones included.
 type AgentRepository interface {
@@ -80,6 +83,16 @@ type FreezeRepository interface {
 	RemoveFreeze(ctx context.Context, scope string) error
 }
 
+// SeedRecord remembers that the machine's first society was seeded, so the
+// seed runs once per machine and never again after humans change it.
+type SeedRecord interface {
+	// SeedApplied reports whether the seed was recorded.
+	SeedApplied(ctx context.Context) (bool, error)
+	// MarkSeedApplied records the seed at at. It reports false, and keeps
+	// the first record, when the seed was recorded already.
+	MarkSeedApplied(ctx context.Context, at time.Time) (bool, error)
+}
+
 // Repository is every store of the society context. Every implementation
 // passes agentstest.RunRepositoryContract.
 type Repository interface {
@@ -89,4 +102,5 @@ type Repository interface {
 	BudgetRepository
 	ChatRepository
 	FreezeRepository
+	SeedRecord
 }

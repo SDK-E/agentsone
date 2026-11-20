@@ -35,9 +35,9 @@ type SeedPlan struct {
 // hired below the founder and the charter written as the founder, audited
 // as the seeding caller.
 func (s *Society) Seed(ctx context.Context, plan SeedPlan) ([]string, error) {
-	c, _ := core.CallerFrom(ctx)
-	if c.Kind != core.CallerSystem && c.Kind != core.CallerHost {
-		return nil, fmt.Errorf("seed the society: %w", core.ErrForbidden)
+	c, err := seedingCaller(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if plan.Founder.Template == "" {
 		return nil, fmt.Errorf("%w: the seed has no founder template", domain.ErrInvalidAgent)
@@ -76,6 +76,36 @@ func (s *Society) Seed(ctx context.Context, plan SeedPlan) ([]string, error) {
 		created = append(created, tpl.Name)
 	}
 	return created, s.seedCharter(ctx, founder.Name, by, founderTpl)
+}
+
+// SeedOnce seeds plan unless this machine was seeded before, and records the
+// seed once Seed has finished, so it never runs again: what humans later do
+// to the society stays. A seed cut short is not recorded, and the next call
+// finishes it. It returns the names it created, and applied is true for the
+// one call that recorded the seed.
+func (s *Society) SeedOnce(ctx context.Context, plan SeedPlan) (created []string, applied bool, err error) {
+	if _, err := seedingCaller(ctx); err != nil {
+		return nil, false, err
+	}
+	done, err := s.repo.SeedApplied(ctx)
+	if err != nil || done {
+		return nil, false, err
+	}
+	if created, err = s.Seed(ctx, plan); err != nil {
+		return created, false, err
+	}
+	applied, err = s.repo.MarkSeedApplied(ctx, s.clock.Now())
+	return created, applied, err
+}
+
+// seedingCaller returns the caller when it may seed: only the daemon or
+// the host.
+func seedingCaller(ctx context.Context) (core.Caller, error) {
+	c, _ := core.CallerFrom(ctx)
+	if c.Kind != core.CallerSystem && c.Kind != core.CallerHost {
+		return core.Caller{}, fmt.Errorf("seed the society: %w", core.ErrForbidden)
+	}
+	return c, nil
 }
 
 // seedCharter writes the founder template's charter when the society has

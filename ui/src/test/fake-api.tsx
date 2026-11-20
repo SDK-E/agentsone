@@ -112,7 +112,7 @@ export const fixtures = {
   // monitor, tasks and audit
   budget: budget.body as Budget,
   split: budgetSplit.body as BudgetSplit,
-  metrics: machineMetrics.body satisfies MachineMetrics,
+  metrics: machineMetrics.body as MachineMetrics,
   tasks: tasksList.body.items as Task[],
   newTask: createdTask.body as Task,
   schedules: schedulesList.body.items as Schedule[],

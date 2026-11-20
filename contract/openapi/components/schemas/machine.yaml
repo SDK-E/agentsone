@@ -86,6 +86,36 @@ NetworkWall:
     checked_at:
       $ref: "./common.yaml#/Timestamp"
 
+AgentLimitsHold:
+  type: object
+  description: >-
+    Whether the Linux kernel holds custom agents' limits (`AgentLimits` `cpu_percent`, `memory_mb`
+    and `tasks`) on this machine. The daemon decides once when it starts, before any agent runs.
+    This is not `AgentLimits.wall`, which says who sets a limit and stays `soft`: a root agent
+    inside the machine container can change cgroups either way. Root agents have no limits in
+    either mode.
+  required: [mode]
+  properties:
+    mode:
+      type: string
+      enum: [hard, soft]
+      description: >-
+        `hard` when the daemon prepared its cgroup v2 tree, so each custom agent runs in its own
+        cgroup `/agents/<id>` and the kernel holds its limits. `soft` when it could not (no cgroup
+        v2, the daemon is not root, a read-only cgroup tree or a missing controller), so custom
+        agents run with process resource limits only and their CPU use is not capped.
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+      description: >-
+        Plain words that say why the limits are soft and how to make them hard. Absent when `mode`
+        is `hard`.
+      examples:
+        - >-
+          The machine container's cgroup tree is read-only. Keep the cgroup: private and
+          writable-cgroups=true lines in compose.yaml, then restart the machine.
+
 MachineMetrics:
   type: object
   required: [time, hostname, uptime_seconds, load, cpu, memory, disks, net]
@@ -116,6 +146,8 @@ MachineMetrics:
         $ref: "#/DiskMetrics"
     net:
       $ref: "#/NetMetrics"
+    agent_limits:
+      $ref: "#/AgentLimitsHold"
 
 Process:
   type: object

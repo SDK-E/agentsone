@@ -7,7 +7,10 @@ metrics:
     security: [{ cookieAuth: [] }, { bearerAuth: [machine:read] }, { peerCredentials: [] }]
     tags: [machine]
     summary: Get machine metrics
-    description: Returns a snapshot of CPU, memory, disk, network and load inside the machine container.
+    description: >-
+      Returns a snapshot of CPU, memory, disk, network and load inside the machine container, and
+      whether the kernel holds custom agents' limits (`agent_limits`, decided when the daemon
+      starts). A daemon older than contract 1.4.0 leaves `agent_limits` out.
     responses:
       "200":
         description: The metrics.

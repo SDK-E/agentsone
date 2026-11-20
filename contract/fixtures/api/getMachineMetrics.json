@@ -29,6 +29,9 @@
     "net": {
       "rx_bytes": 1288490188,
       "tx_bytes": 214748364
+    },
+    "agent_limits": {
+      "mode": "hard"
     }
   }
 }

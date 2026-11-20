@@ -38,6 +38,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv(dialEnv) != "" {
+		// This binary is a runner of a test agent (cgroup_walls_test.go).
+		os.Exit(dialHelper())
+	}
 	if os.Getenv(inContainer) == "1" {
 		cgroupRoot, cgroupErr = process.PrepareCgroups(process.CgroupFS)
 	} else {

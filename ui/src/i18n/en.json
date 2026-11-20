@@ -497,7 +497,32 @@
         "failed": "The plugin was not installed. Try again."
       }
     },
-    "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
+    "ide": {
+      "label": "IDE",
+      "about": "The code editor on this machine, opened in place.",
+      "build": "{{build}} {{version}}, the open-source build of VS Code. It runs as your own Linux user.",
+      "looking": "Looking for your editor…",
+      "stopped": {
+        "title": "Your editor is not running",
+        "body": "Start it to edit files and use a terminal on the machine as your own Linux user."
+      },
+      "start": "Start the editor",
+      "startAgain": "Try again",
+      "startPending": "Starting…",
+      "starting": "Starting your editor… The first start can take about 20 seconds.",
+      "failed": "Your editor could not start.",
+      "said": "The machine said: {{detail}}",
+      "startFailed": "The editor could not start.",
+      "stopFailed": "The editor could not stop.",
+      "newTab": "Open in a new tab",
+      "stop": "Stop the editor",
+      "stopping": "Stopping…",
+      "frameTitle": "Code editor for {{human}}",
+      "peopleOnly": {
+        "title": "Only people have an editor here",
+        "body": "Agents use the machine directly. Sign in as a person to open the editor."
+      }
+    },
     "desktop": {
       "label": "Desktop",
       "about": "The machine's full desktop, right here in the browser."

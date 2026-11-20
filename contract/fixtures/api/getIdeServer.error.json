@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "body": {
+    "type": "urn:agentsone:problem:unauthorized",
+    "title": "Sign in first",
+    "status": 401,
+    "detail": "The session cookie expired at 01:12 after 12 hours.",
+    "instance": "/v1/ide/servers/ada"
+  }
+}

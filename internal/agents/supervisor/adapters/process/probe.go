@@ -43,20 +43,34 @@ const (
 var missingController = map[string]Reason{"cpu": ReasonNoCPU, "memory": ReasonNoMemory, "pids": ReasonNoPids}
 
 // Advice says, in plain words for the people who run the machine, why
-// custom agents' limits are soft and how to make them hard. It is empty for
-// ReasonWritable (hard) and for a reason it does not know.
+// custom agents' limits are soft and how to make them hard: why on the
+// first line, then a "To fix:" list. It never restates the limits. It uses
+// the contract's small reason format (newlines, "- " list lines, code in
+// backticks). It is empty for ReasonWritable (hard) and for a reason it
+// does not know.
 func (r Reason) Advice() string {
-	const restart = " then restart the machine."
+	const (
+		noCgroup = ", so the daemon cannot give each custom agent a cgroup of its own.\nTo fix:\n"
+		compose  = "- Make sure compose.yaml has `cgroup: private` and `security_opt: writable-cgroups=true` for the machine service.\n"
+		docker   = "- Use Docker Engine 28 or newer.\n"
+		restart  = "- Restart the machine and check its log for `limits: hard`."
+	)
 	noController := func(name string) string {
-		return "The machine's cgroup has no " + name + " controller, so the kernel cannot hold that limit. Use Docker Engine 28 or newer on a host with cgroup v2," + restart
+		return "The machine's cgroup has no `" + name + "` controller" + noCgroup +
+			"- Use Docker Engine 28 or newer on a host with cgroup v2.\n" + restart
 	}
 	switch r {
 	case ReasonNoCgroupV2, ReasonNoCgroupMount:
-		return "The host has no cgroup v2, so the daemon cannot give each custom agent a cgroup of its own. Run the stack on a Linux host with cgroup v2 (Docker Desktop, colima and current Linux servers have it)," + restart
+		return "The host has no cgroup v2" + noCgroup +
+			"- Run the stack on a Linux host with cgroup v2 (Docker Desktop, colima and current Linux servers have it).\n" + restart
 	case ReasonNotRoot:
-		return "The daemon does not run as root in the machine container, so it cannot give each custom agent a cgroup of its own. Run the machine service as root, as compose.yaml does," + restart
+		return "The daemon does not run as root in the machine container" + noCgroup +
+			"- Run the machine service as root (compose.yaml does).\n" +
+			"- Keep `cgroup: private` and `security_opt: writable-cgroups=true` for the machine service.\n" +
+			"- Use Docker Engine 28 or newer on a host with cgroup v2.\n" + restart
 	case ReasonHostRootCgroup:
-		return "The machine container shares the host's root cgroup, and the daemon never makes cgroups there. Keep the cgroup: private line of the machine service in compose.yaml," + restart
+		return "The machine container shares the host's root cgroup, where the daemon never makes cgroups" + noCgroup +
+			"- Make sure compose.yaml has `cgroup: private` for the machine service.\n" + restart
 	case ReasonNoCPU:
 		return noController("cpu")
 	case ReasonNoMemory:
@@ -64,9 +78,9 @@ func (r Reason) Advice() string {
 	case ReasonNoPids:
 		return noController("pids")
 	case ReasonReadOnly:
-		return "The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, use Docker Engine 28 or newer," + restart
+		return "The machine container's cgroup tree is read-only" + noCgroup + compose + docker + restart
 	case ReasonNotWritable:
-		return "The daemon could not write the machine container's cgroup tree. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, use Docker Engine 28 or newer," + restart
+		return "The daemon could not write the machine container's cgroup tree" + noCgroup + compose + docker + restart
 	default:
 		return ""
 	}

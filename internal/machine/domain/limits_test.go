@@ -35,8 +35,9 @@ func TestSoftLimitsAlwaysSayWhyInAtMost500Characters(t *testing.T) {
 			}
 		})
 	}
-	if l := domain.SoftLimits("Short  and\nplain."); l.Reason != "Short and plain." {
-		t.Fatalf("reason %q, want spaces folded", l.Reason)
+	// Lines stay (the contract's reason format); spaces fold and blank lines go.
+	if l := domain.SoftLimits(" Why  it is.\n\nTo fix:\n-  Do\tthis. \n"); l.Reason != "Why it is.\nTo fix:\n- Do this." {
+		t.Fatalf("reason %q, want lines kept and spaces folded", l.Reason)
 	}
 	// A long reason ends with an ellipsis after a whole word.
 	l := domain.SoftLimits(long)

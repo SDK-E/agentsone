@@ -246,7 +246,25 @@ ul.notice {
   border-color: var(--color-border-strong);
 }
 
-.safety__reason {
+/* The daemon's reason text: lines, a short list, code for configuration names. */
+.reason {
+  overflow-wrap: anywhere;
+}
+
+.reason p,
+.reason__list {
+  margin: 0;
+}
+
+.reason__list {
+  display: grid;
+  gap: var(--space-xs);
+  padding-inline-start: var(--space-lg);
+}
+
+.reason__code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
   overflow-wrap: anywhere;
 }
 

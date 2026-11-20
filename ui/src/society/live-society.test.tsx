@@ -43,7 +43,7 @@ describe("LiveSociety", () => {
     expect(chip).toHaveTextContent("Limits: soft");
     // Only the chip: the notice and the daemon's reason stay in the Machine panel.
     expect(screen.queryByRole("note")).toBeNull();
-    expect(screen.queryByText(fixtures.metricsSoft.agent_limits?.reason ?? "")).toBeNull();
+    expect(screen.queryByText("To fix:")).toBeNull();
     // The heading keeps its own name.
     expect(screen.getByRole("heading", { level: 2, name: "The society" })).toBeVisible();
     await expectNoAxeViolations(container);

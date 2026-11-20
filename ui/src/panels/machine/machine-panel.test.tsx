@@ -47,7 +47,21 @@ describe("Machine panel", () => {
     expect(note).toHaveTextContent(
       "Agent limits: soft. Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU, caps memory for each process rather than each agent, and still caps how many processes each agent runs.",
     );
-    expect(within(note).getByText(fixtures.metricsSoft.agent_limits?.reason ?? "")).toBeVisible();
+    // The daemon's reason: why, then the fix as a list with configuration names as code.
+    expect(
+      within(note).getByText(
+        "The machine container's cgroup tree is read-only, so the daemon cannot give each custom agent a cgroup of its own.",
+      ),
+    ).toBeVisible();
+    expect(within(note).getByText("To fix:")).toBeVisible();
+    const steps = within(within(note).getByRole("list")).getAllByRole("listitem");
+    expect(steps).toHaveLength(3);
+    expect(steps[0]).toHaveTextContent(
+      "Make sure compose.yaml has cgroup: private and security_opt: writable-cgroups=true for the machine service.",
+    );
+    const first = steps[0];
+    if (!first) throw new Error("no first step");
+    expect(within(first).getByText("cgroup: private").tagName).toBe("CODE");
     expect(within(machine).queryByText("Agent limits: held by the kernel.")).toBeNull();
     await expectNoAxeViolations(container);
   });
@@ -58,9 +72,9 @@ describe("Machine panel", () => {
     renderWith(<MachinePanel />, api);
 
     const note = await screen.findByRole("note", { name: "Agent limits" });
-    expect(
-      within(note).getByText(fixtures.metricsSoftLong.agent_limits?.reason ?? ""),
-    ).toBeVisible();
+    const steps = within(within(note).getByRole("list")).getAllByRole("listitem");
+    expect(steps).toHaveLength(4);
+    expect(steps[3]).toHaveTextContent("Restart the machine and check its log for limits: hard.");
   });
 
   it("says nothing about agent limits when an older daemon does not report them", async () => {

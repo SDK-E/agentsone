@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import type { MachineMetrics } from "../api/api";
 import { useApi } from "../app/api-context";
 import { usePanelRequest } from "./panel-request";
+import { ReasonText } from "./reason-text";
 
 export const metricsKey = ["monitor", "metrics"] as const;
 
@@ -84,7 +85,7 @@ export function SafetyNotice({ safety }: { safety: MachineSafety }) {
       <p>
         <strong>{t("title")}</strong> {t("body")}
       </p>
-      {safety.reason && <p className="safety__reason">{safety.reason}</p>}
+      {safety.reason && <ReasonText text={safety.reason} />}
     </div>
   );
 }

@@ -165,7 +165,8 @@ func TestBoot_LogsOneInfoLine(t *testing.T) {
 }
 
 // Every soft reason has plain words for people, short enough for the API
-// (1 to 500 characters), that say how to make the limits hard. Hard has none.
+// (1 to 500 characters): why on the first line, then a "To fix:" list in
+// the contract's reason format, never the limits themselves. Hard has none.
 func TestReasonAdvice(t *testing.T) {
 	t.Parallel()
 	soft := []process.Reason{
@@ -179,8 +180,22 @@ func TestReasonAdvice(t *testing.T) {
 		if n := len([]rune(a)); n < 1 || n > 500 {
 			t.Errorf("%q: advice of %d characters, want 1 to 500", r, n)
 		}
-		if !strings.HasSuffix(a, "restart the machine.") {
-			t.Errorf("%q: advice %q does not say how to make limits hard", r, a)
+		lines := strings.Split(a, "\n")
+		if len(lines) < 3 || strings.HasPrefix(lines[0], "- ") || lines[1] != "To fix:" {
+			t.Errorf("%q: advice %q is not why, then \"To fix:\" and a list", r, a)
+		}
+		for _, l := range lines[2:] {
+			if !strings.HasPrefix(l, "- ") || strings.Count(l, "`")%2 != 0 {
+				t.Errorf("%q: fix line %q is not a list item with whole code spans", r, l)
+			}
+		}
+		if lines[len(lines)-1] != "- Restart the machine and check its log for `limits: hard`." {
+			t.Errorf("%q: advice %q does not end with the restart", r, a)
+		}
+		for _, restated := range []string{"capped", "process resource limits", "does not hold"} {
+			if strings.Contains(a, restated) {
+				t.Errorf("%q: advice restates the limits (%q)", r, restated)
+			}
 		}
 		if other, dup := seen[a]; dup && !sameCase(r, other) {
 			t.Errorf("%q and %q share advice", r, other)

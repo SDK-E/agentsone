@@ -36,11 +36,19 @@ type AgentLimits struct {
 // HardLimits are limits the kernel holds.
 func HardLimits() AgentLimits { return AgentLimits{Mode: LimitsHard} }
 
-// SoftLimits are limits the kernel does not hold, for reason. A blank
-// reason becomes a general one and a long one is cut at a word to
-// MaxLimitsReason characters, so the API always has 1 to 500.
+// SoftLimits are limits the kernel does not hold, for reason. The reason
+// keeps its lines (the contract's reason format); spaces inside a line are
+// folded and blank lines dropped. A blank reason becomes a general one and a
+// long one is cut at a word to MaxLimitsReason characters, so the API always
+// has 1 to 500.
 func SoftLimits(reason string) AgentLimits {
-	reason = strings.Join(strings.Fields(reason), " ")
+	var lines []string
+	for l := range strings.Lines(reason) {
+		if l = strings.Join(strings.Fields(l), " "); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	reason = strings.Join(lines, "\n")
 	if reason == "" {
 		reason = softFallback
 	}
@@ -55,8 +63,8 @@ func SoftLimits(reason string) AgentLimits {
 func cut(s string, n int) string {
 	r := []rune(s)[:n-1]
 	out := string(r)
-	if i := strings.LastIndexByte(out, ' '); i > 0 {
+	if i := strings.LastIndexAny(out, " \n"); i > 0 {
 		out = out[:i]
 	}
-	return strings.TrimRight(out, " ,.;:") + "…"
+	return strings.TrimRight(out, " \n,.;:") + "…"
 }

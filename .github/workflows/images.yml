@@ -15,12 +15,13 @@ on:
 
 permissions: {}
 
-# A run on main always finishes: with frequent merges, cancelling the running one on every push
-# meant the end-to-end run and the main tag promotion almost never completed. GitHub keeps only
-# the newest waiting run, so a burst of merges costs one extra run, not one per merge. Runs of
-# other branches (manual dispatch) still cancel the older run of the same branch.
+# Every commit on main gets its own run, and it always runs to the end. The group of a main run
+# includes the commit, so no run waits behind another one and GitHub never replaces a waiting run
+# (it keeps only one waiting run per group, and cancels the rest). Runs of other branches (manual
+# dispatch) still cancel the older run of the same branch. The main tag only ever moves forward:
+# the promote job skips it unless this commit is still the tip of main.
 concurrency:
-  group: images-${{ github.ref }}
+  group: images-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:

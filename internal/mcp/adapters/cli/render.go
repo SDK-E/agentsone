@@ -7,15 +7,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
+
+	"golang.org/x/term"
+
+	"github.com/SDK-E/agentsone/internal/contract/api"
 )
 
 const (
 	maxCell    = 40
 	maxColumns = 7
+	// defaultWidth is the line width when the output is no terminal and COLUMNS is not set.
+	defaultWidth = 100
+	// minOneLine is the least room a table gives the one-line column, however narrow the line.
+	minOneLine = 20
+	// columnGap is the space tabwriter puts between two columns.
+	columnGap = 2
 )
+
+// oneLineKey is the property that holds an agent's one-line: an object with
+// the text and when it was written (api.AgentOneLine).
+const oneLineKey = "one_line"
 
 // listKey is the property that holds the rows in the contract's list envelopes.
 const listKey = "items"
@@ -25,8 +43,28 @@ var firstKeys = []string{"id", "name", "kind", "status", "state"}
 
 // Render writes an API response body for a person. With asJSON the body goes
 // out as it came. Otherwise lists become tables and objects become aligned
-// key-value lines.
+// key-value lines. A table is as wide as the terminal w writes to.
 func Render(w io.Writer, body []byte, asJSON bool) error {
+	return RenderWidth(w, body, asJSON, lineWidth(w))
+}
+
+// lineWidth is how many characters fit on one line of w: the terminal's
+// width, else COLUMNS, else defaultWidth.
+func lineWidth(w io.Writer) int {
+	if f, ok := w.(*os.File); ok && term.IsTerminal(int(f.Fd())) { // #nosec G115 -- a file descriptor fits an int
+		if cols, _, err := term.GetSize(int(f.Fd())); err == nil && cols > 0 { // #nosec G115 -- a file descriptor fits an int
+			return cols
+		}
+	}
+	if cols, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && cols > 0 {
+		return cols
+	}
+	return defaultWidth
+}
+
+// RenderWidth is Render for a line that holds width characters. Only a
+// table reads the width: it cuts each agent's one-line to the room left.
+func RenderWidth(w io.Writer, body []byte, asJSON bool, width int) error {
 	trimmed := bytes.TrimSpace(body)
 	if asJSON {
 		if len(trimmed) == 0 {
@@ -48,10 +86,10 @@ func Render(w io.Writer, body []byte, asJSON bool) error {
 	}
 	switch t := v.(type) {
 	case []any:
-		return renderList(w, t, nil)
+		return renderList(w, t, nil, width)
 	case map[string]any:
 		if rows, ok := t[listKey].([]any); ok {
-			return renderList(w, rows, t)
+			return renderList(w, rows, t, width)
 		}
 		return renderObject(w, t)
 	case string:
@@ -68,19 +106,19 @@ func renderObject(w io.Writer, obj map[string]any) error {
 		if obj[k] == nil {
 			continue
 		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\n", k, cell(obj[k], 0)); err != nil {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", k, cellOf(k, obj[k], 0)); err != nil {
 			return err
 		}
 	}
 	return tw.Flush()
 }
 
-func renderList(w io.Writer, rows []any, envelope map[string]any) error {
+func renderList(w io.Writer, rows []any, envelope map[string]any, width int) error {
 	if len(rows) == 0 {
 		_, err := fmt.Fprintln(w, "no results")
 		return err
 	}
-	if err := renderRows(w, rows); err != nil {
+	if err := renderRows(w, rows, width); err != nil {
 		return err
 	}
 	for _, k := range orderedKeys(envelope) {
@@ -94,7 +132,7 @@ func renderList(w io.Writer, rows []any, envelope map[string]any) error {
 	return nil
 }
 
-func renderRows(w io.Writer, rows []any) error {
+func renderRows(w io.Writer, rows []any, width int) error {
 	objects := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
 		o, ok := r.(map[string]any)
@@ -109,8 +147,8 @@ func renderRows(w io.Writer, rows []any) error {
 		}
 		objects = append(objects, o)
 	}
-	cols := columns(objects)
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	cols, limits := fitColumns(columns(objects), objects, width)
+	tw := tabwriter.NewWriter(w, 0, 0, columnGap, ' ', 0)
 	head := make([]string, len(cols))
 	for i, c := range cols {
 		head[i] = strings.ToUpper(c)
@@ -121,7 +159,7 @@ func renderRows(w io.Writer, rows []any) error {
 	for _, o := range objects {
 		cells := make([]string, len(cols))
 		for i, c := range cols {
-			cells[i] = cell(o[c], maxCell)
+			cells[i] = cellOf(c, o[c], limits[i])
 		}
 		if _, err := fmt.Fprintln(tw, strings.Join(cells, "\t")); err != nil {
 			return err
@@ -149,7 +187,72 @@ func columns(rows []map[string]any) []string {
 	if len(keys) > maxColumns {
 		keys = keys[:maxColumns]
 	}
+	// The one-line is the long cell, so it goes last and takes the room the others leave.
+	if i := slices.Index(keys, oneLineKey); i >= 0 {
+		keys = append(slices.Delete(keys, i, i+1), oneLineKey)
+	}
 	return keys
+}
+
+// fitColumns drops the last columns of a table with a one-line until the
+// one-line has minOneLine characters on a line of width characters, and
+// returns the columns that stay with each one's cell limit. Every column
+// holds maxCell, except the one-line, which holds what is left of the line.
+// The first column always stays.
+func fitColumns(cols []string, rows []map[string]any, width int) ([]string, []int) {
+	for {
+		limits := make([]int, len(cols))
+		used := 0
+		for i, c := range cols {
+			limits[i] = maxCell
+			if c == oneLineKey {
+				continue
+			}
+			wide := utf8.RuneCountInString(c)
+			for _, r := range rows {
+				wide = max(wide, utf8.RuneCountInString(cellOf(c, r[c], maxCell)))
+			}
+			used += wide + columnGap
+		}
+		i := slices.Index(cols, oneLineKey)
+		if i < 0 {
+			return cols, limits
+		}
+		room := width - used
+		if room >= minOneLine || len(cols) <= 2 {
+			limits[i] = max(room, minOneLine)
+			return cols, limits
+		}
+		cols = slices.Delete(slices.Clone(cols), i-1, i)
+	}
+}
+
+// cellOf is cell for the property key: an agent's one-line shows its text.
+func cellOf(key string, v any, limit int) string {
+	if key == oneLineKey {
+		if text, ok := oneLineText(v); ok {
+			return cell(text, limit)
+		}
+	}
+	return cell(v, limit)
+}
+
+// oneLineText reads v as the contract's one-line (api.AgentOneLine) and
+// returns its text.
+func oneLineText(v any) (string, bool) {
+	obj, ok := v.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	raw, err := json.Marshal(obj)
+	if err != nil {
+		return "", false
+	}
+	var one api.AgentOneLine
+	if err := json.Unmarshal(raw, &one); err != nil || one.Text == "" {
+		return "", false
+	}
+	return one.Text, true
 }
 
 // orderedKeys sorts keys with the well-known ones first.

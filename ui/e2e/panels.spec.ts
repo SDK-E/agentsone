@@ -228,6 +228,85 @@ test("panel tabs, a tab chosen with the keyboard is whole and clear of the cues"
   clean();
 });
 
+test("panel tabs, at rest no tab shows a part of its label outside the cues", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the tabs only overflow on a phone");
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Monitor");
+  const scroller = page.locator(".tabs__scroller");
+  const list = page.getByRole("tablist");
+
+  // A tab cut by an edge may show only under that edge's solid cue (and its fade over the tab's
+  // own padding, which is empty): never a part of the label.
+  const cutTabs = () =>
+    scroller.evaluate((el) => {
+      const row = el.querySelector(".tabs__list")?.getBoundingClientRect();
+      if (!row) return ["no row"];
+      // How far a side's cue is solid, and how far it reaches with its fade; none when not shown.
+      const cue = (side: string) => {
+        const node = el.querySelector(`.tabs__cue--${side}`);
+        if (!node || !el.hasAttribute(`data-more-${side}`)) return { solid: 0, reach: 0 };
+        const style = getComputedStyle(node);
+        const solid = parseFloat(style.getPropertyValue("--cue-solid"));
+        return { solid, reach: solid + parseFloat(style.getPropertyValue("--cue-fade")) };
+      };
+      const start = cue("start");
+      const end = cue("end");
+      const problems: string[] = [];
+      for (const tab of el.querySelectorAll('[role="tab"]')) {
+        const box = tab.getBoundingClientRect();
+        // The label ends 16px before the tab does, and starts 16px after it begins.
+        const from = box.left + 16;
+        const to = box.right - 16;
+        // At each side the label is wholly under the solid cue, or wholly beyond the cue.
+        const startOk = to <= row.left + start.solid + 0.5 || from >= row.left + start.reach - 0.5;
+        const endOk = from >= row.right - end.solid - 0.5 || to <= row.right - end.reach + 0.5;
+        if (!startOk || !endOk) problems.push(`${tab.textContent} ${startOk ? "end" : "start"}`);
+      }
+      return problems;
+    });
+  const atRest = async () => {
+    // Let a scroll, and the snap after it, finish.
+    await list.evaluate(
+      (el) =>
+        new Promise<void>((done) => {
+          let last = el.scrollLeft;
+          let still = 0;
+          const tick = () => {
+            still = el.scrollLeft === last ? still + 1 : 0;
+            last = el.scrollLeft;
+            if (still >= 8) done();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }),
+    );
+    expect(await cutTabs()).toEqual([]);
+  };
+
+  await atRest();
+  // A click, and the keyboard, to each end and back.
+  for (const name of ["Plugins", "Audit", "Settings", "Desktop", "Tasks"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await atRest();
+  }
+  await page.getByRole("tab", { name: "Tasks", exact: true }).focus();
+  await page.keyboard.press("End");
+  await atRest();
+  for (let i = 0; i < 9; i++) {
+    await page.keyboard.press("ArrowLeft");
+    await atRest();
+  }
+  // A swipe that ends anywhere along the row.
+  const room = await list.evaluate((el) => el.scrollWidth - el.clientWidth);
+  for (let at = 0; at <= room; at += 37) {
+    await list.evaluate((el, left) => {
+      el.scrollLeft = left;
+    }, at);
+    await atRest();
+  }
+  clean();
+});
+
 test("panel tabs, the arrows on both sides sit on a solid fade, clear of tab text", async ({
   page,
 }, testInfo) => {
@@ -258,7 +337,9 @@ test("panel tabs, the arrows on both sides sit on a solid fade, clear of tab tex
     expect(reach, `the ${side} arrow stays on the solid part of its fade`).toBeLessThanOrEqual(
       solid,
     );
-    expect(await cue.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("26px");
+    expect(await cue.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain(
+      `${String(solid)}px`,
+    );
   }
   await page.screenshot({
     path: `screenshots/${testInfo.project.name}/panel-tabs-both-cues-viewport.png`,

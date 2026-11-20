@@ -199,6 +199,25 @@ jobs:
               ubuntu:24.04 sh -c 'grep CapEff /proc/self/status; exec "/systest/$(basename "$0")" -test.v -test.count=1' "$bin"
           done
 
+  go-test-drops:
+    # Test code may keep old blank drops (see .golangci.yml), but new test
+    # lines must not drop a Close or Remove error with a blank.
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: no blank Close or Remove in new test code
+        run: scripts/check-test-drops.sh "$BASE_SHA"
+
   contract:
     needs: changes
     if: needs.changes.outputs.contract == 'true'
@@ -340,6 +359,8 @@ jobs:
         run: scripts/test-check-coverage.sh
       - name: version check self-test
         run: scripts/test-check-version.sh
+      - name: test drops check self-test
+        run: scripts/test-check-test-drops.sh
 
   workflows:
     needs: changes
@@ -487,6 +508,7 @@ jobs:
       - changes
       - go
       - go-integration
+      - go-test-drops
       - contract
       - ts
       - stack

@@ -142,6 +142,8 @@ jobs:
         run: scripts/test-check-coverage.sh
       - name: version check self-test
         run: scripts/test-check-version.sh
+      - name: test drops check self-test
+        run: scripts/test-check-test-drops.sh
 
   contract:
     runs-on: ubuntu-latest

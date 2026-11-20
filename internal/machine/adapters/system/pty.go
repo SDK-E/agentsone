@@ -13,19 +13,24 @@ import (
 
 	"github.com/creack/pty"
 
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/process"
+	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/machine/app"
 	"github.com/SDK-E/agentsone/internal/machine/domain"
 )
 
 // PtyStarter starts programs on pseudo terminals, each in its own session,
-// as the given Linux user.
+// as the given Linux user, in the given cell.
 type PtyStarter struct{}
 
 var _ app.PtyStarter = PtyStarter{}
 
 // Start runs spec as uid and gid in home. The environment is fresh, so no
-// daemon setting or secret leaks into the terminal.
-func (PtyStarter) Start(_ context.Context, spec domain.PtySpec, uid, gid int, home string) (app.PtyProcess, error) {
+// daemon setting or secret leaks into the terminal. A placed cell starts
+// the program through the launch helper, which joins the cell's cgroup,
+// lowers its limits and becomes uid and gid before it execs the program:
+// the program never runs outside the cell, and nor does anything it starts.
+func (PtyStarter) Start(_ context.Context, spec domain.PtySpec, uid, gid int, home string, cell core.ProcessCell) (app.PtyProcess, error) {
 	cmd := exec.Command(spec.Command[0], spec.Command[1:]...) //nolint:gosec // G204: the caller's own command, run as the caller's own user.
 	cmd.Dir = home
 	cmd.Env = []string{
@@ -33,14 +38,44 @@ func (PtyStarter) Start(_ context.Context, spec domain.PtySpec, uid, gid int, ho
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	if uid != os.Getuid() || gid != os.Getgid() {
+	same := uid == os.Getuid() && gid == os.Getgid()
+	var placed *process.Placed
+	switch {
+	case cell.Placed():
+		p := process.Placement{Cell: cell, UID: uid, GID: gid}
+		if same {
+			p.UID, p.GID = -1, -1
+		}
+		var err error
+		if placed, err = process.Place(cmd, p); err != nil {
+			return nil, fmt.Errorf("place %s: %w", spec.Command[0], err)
+		}
+	case !same:
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid), Groups: []uint32{uint32(gid)}} //nolint:gosec // G115: uids and gids come from passwd and are non-negative.
 	}
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(spec.Cols), Rows: uint16(spec.Rows)}) //nolint:gosec // G115: the domain caps the size at 1000x500.
 	if err != nil {
+		if placed != nil {
+			placed.Close()
+		}
 		return nil, fmt.Errorf("start %s: %w", spec.Command[0], err)
 	}
-	return &ptyProcess{f: f, cmd: cmd}, nil
+	proc := &ptyProcess{f: f, cmd: cmd}
+	if placed != nil {
+		if err := placed.Started(); err != nil {
+			// The helper exits by itself once it reported; reap it.
+			return nil, errors.Join(fmt.Errorf("start %s in its cell: %w", spec.Command[0], err), proc.Close(), waitErr(proc))
+		}
+	}
+	return proc, nil
+}
+
+// waitErr reaps a helper that failed. Its exit code is known: LaunchFailed.
+func waitErr(p *ptyProcess) error {
+	if code := p.Wait(); code != process.LaunchFailed {
+		return fmt.Errorf("launch helper exited %d, want %d", code, process.LaunchFailed)
+	}
+	return nil
 }
 
 type ptyProcess struct {

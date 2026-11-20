@@ -148,13 +148,39 @@ name:
 | --- | --- |
 | A process in an agent's cgroup `/agents/<name>` | That agent |
 | The daemon's own process | The daemon |
+| A process in a human's cgroup `/humans/<name>`, where that human's web terminal runs | That human, with a human's rights and never root (identity marked soft). Refused when no human has that name, or when the lookup fails. |
 | Any other process running as root | Refused. A root agent outside its cgroup sends its token. |
 | A process whose user id is a custom agent's | That agent (identity marked soft) |
 | A process whose user id is a human's own Linux user | That human, with a human's rights and never root (identity marked soft) |
 | Anything else, or any process when a lookup fails | Refused with 403, and recorded in the audit trail |
 
-The daemon's cgroup is not proof of the daemon: terminals, package installs and git run there too.
-A bearer token sent on the socket always names the caller instead.
+The daemon's cgroup is not proof of the daemon: package installs and git run there too. A bearer
+token sent on the socket always names the caller instead.
+
+**Terminals run in their opener's cgroup.** No terminal runs in the daemon's cgroup. The daemon
+starts each terminal through a small helper that joins the cgroup first, then becomes the right
+user, then starts the shell. So the shell, and everything it starts, is placed from its first
+instruction.
+
+- An agent's terminal runs as the agent's own user, in the agent's cgroup `/agents/<name>`, under
+  the same limits as the agent's runner. That holds while the runner sleeps too: the daemon makes
+  the cgroup with the agent's limits when it is missing. Without writable cgroups the terminal
+  gets the same process limits as the runner instead: processes, memory (address space) and open
+  files.
+- A human's web terminal runs as root, in the cgroup `/humans/<name>`. That cgroup and the
+  `/humans` folder belong to root, and no one else may write them. The socket names a process
+  there as that human, with a human's rights, never as root. Without writable cgroups there is
+  no such cgroup: the web terminal is then a root process like any other, and the socket refuses
+  it, so `agentctl` in a human's web terminal works only when the machine has writable cgroups.
+- Every terminal that opens or closes is recorded in the audit trail, with the name of the human
+  or agent who opened it.
+
+The web terminal is root on the machine, and that is a choice the owner made. A root process can
+move itself into any cgroup. So from a web terminal a human can move a shell into an agent's
+cgroup and act as that agent on the socket, or change any limit. That is what root means. The
+human's cgroup only says who opened the terminal; it does not hold a root user back. The IDE panel
+is different: it runs as the human's own Linux user (`h_<name>`), not as root, and nothing here
+changes that.
 
 **A human changes a hard wall.** The human opens the `control` page on its own port. `control`
 passes the change to `edge` through an admin socket on a volume that only `control` and `edge`

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/machine/adapters/system"
 	"github.com/SDK-E/agentsone/internal/machine/domain"
 )
@@ -29,7 +30,7 @@ func readUntil(t *testing.T, r io.Reader, want string) string {
 
 func TestPtyRunsAProgram(t *testing.T) {
 	spec := domain.PtySpec{Command: []string{"/bin/sh", "-c", "stty size; read line; echo got $line; exit 3"}, Cols: 120, Rows: 32}
-	p, err := system.PtyStarter{}.Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir())
+	p, err := system.PtyStarter{}.Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir(), core.ProcessCell{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestPtyRunsAProgram(t *testing.T) {
 
 func TestPtyResizeAndHangUp(t *testing.T) {
 	spec := domain.PtySpec{Command: []string{"/bin/sh", "-c", "read line; stty size; sleep 100"}, Cols: 80, Rows: 24}
-	p, err := system.PtyStarter{}.Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir())
+	p, err := system.PtyStarter{}.Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir(), core.ProcessCell{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +70,7 @@ func TestPtyResizeAndHangUp(t *testing.T) {
 
 func TestPtyStartFailure(t *testing.T) {
 	spec := domain.PtySpec{Command: []string{"/no/such/program"}, Cols: 80, Rows: 24}
-	if _, err := (system.PtyStarter{}).Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir()); err == nil {
+	if _, err := (system.PtyStarter{}).Start(ctx(), spec, os.Getuid(), os.Getgid(), t.TempDir(), core.ProcessCell{}); err == nil {
 		t.Fatal("missing program started")
 	}
 }

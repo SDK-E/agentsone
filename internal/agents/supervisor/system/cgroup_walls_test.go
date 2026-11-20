@@ -87,6 +87,13 @@ func (whoamiModule) API() core.API {
 // reach, as /run/agentsone is, and returns its path.
 func apiSocket(t *testing.T) string {
 	t.Helper()
+	return apiSocketWith(t, whoamiModule{}, nil)
+}
+
+// apiSocketWith is apiSocket serving mod, with fakes set up by setup when
+// it is not nil.
+func apiSocketWith(t *testing.T, mod core.Module, setup func(*coretest.Fakes)) string {
+	t.Helper()
 	dir, err := os.MkdirTemp("", "ao")
 	if err != nil {
 		t.Fatal(err)
@@ -99,11 +106,14 @@ func apiSocket(t *testing.T) string {
 	if err := os.Chmod(dir, 0o755); err != nil { // #nosec G302 -- agent users must reach the socket, as in /run/agentsone
 		t.Fatal(err)
 	}
-	deps, _ := coretest.NewDeps(t)
+	deps, fakes := coretest.NewDeps(t)
+	if setup != nil {
+		setup(fakes)
+	}
 	cfg := *deps.Config
 	cfg.RuntimeDir, cfg.LibDir, cfg.API.Addr = dir, t.TempDir(), "127.0.0.1:0"
 	deps.Config = &cfg
-	srv, err := api.NewServer([]core.Module{whoamiModule{}}, deps)
+	srv, err := api.NewServer([]core.Module{mod}, deps)
 	if err != nil {
 		t.Fatal(err)
 	}

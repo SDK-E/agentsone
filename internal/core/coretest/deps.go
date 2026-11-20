@@ -76,7 +76,7 @@ func (f *Fakes) Ports() *core.Ports {
 		Tasks: f.Tasks, Audit: f.Audit, Live: f.Live, Budget: f.Budget, Runners: f.Runners,
 		Bus: f.Bus, Freezer: f.Freezer, Tokens: f.Tokens, Templates: f.Templates,
 		Profiles: f.Profiles, Chat: f.Chat, Startup: f.Startup, Seed: f.Seed,
-		GatewayTokens: f.GatewayTokens, Humans: f.Humans,
+		GatewayTokens: f.GatewayTokens, Humans: f.Humans, Cells: Cells{},
 	}
 }
 

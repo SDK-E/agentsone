@@ -105,7 +105,10 @@ func NewWith(deps core.Deps, sys System) *Module {
 		Metrics: sys.Metrics, Recipes: sys.Recipes, Baseline: sys.Baseline, Power: sys.Power, Timer: sys.Timer,
 		Audit: auditPort{deps.Ports}, Clock: deps.Clock, IDs: deps.IDs,
 	})
-	terms := app.NewTerminals(sys.Pty, sys.Users, deps.Clock, deps.IDs)
+	terms := app.NewTerminals(app.TerminalDeps{
+		Start: sys.Pty, Users: sys.Users, Cells: lateCells{deps.Ports}, Audit: auditPort{deps.Ports},
+		Log: deps.Log, Clock: deps.Clock, IDs: deps.IDs,
+	})
 	return &Module{
 		deps: deps, settings: defaultSettings(), machine: m, terminals: terms,
 		startup: app.NewStartupGate(), humans: humanapp.New(lateHumans{deps.Ports}, sys.HumanAccounts),
@@ -209,13 +212,24 @@ func (m *Module) syncLoop(ctx context.Context) {
 // Stop ends the background loops and hangs up every terminal, which also
 // ends their WebSockets: the HTTP server does not close hijacked
 // connections on shutdown.
-func (m *Module) Stop(context.Context) error {
+func (m *Module) Stop(ctx context.Context) error {
 	if m.cancel != nil {
 		m.cancel()
 	}
 	m.wg.Wait()
-	m.terminals.CloseAll()
+	m.terminals.CloseAll(ctx)
 	return nil
+}
+
+// lateCells reads the Cells port when used: ports are filled after New.
+type lateCells struct{ p *core.Ports }
+
+func (c lateCells) AgentCell(ctx context.Context, name string) (core.ProcessCell, error) {
+	return c.p.Cells.AgentCell(ctx, name)
+}
+
+func (c lateCells) HumanCell(ctx context.Context, name string) (core.ProcessCell, error) {
+	return c.p.Cells.HumanCell(ctx, name)
 }
 
 // lateHumans reads the Humans port when used: ports are filled after New.

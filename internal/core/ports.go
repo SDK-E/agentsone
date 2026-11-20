@@ -36,6 +36,8 @@ type Ports struct {
 	EngineSetup EngineSetup
 	// Humans is owned by internal/auth.
 	Humans HumanDirectory
+	// Cells is owned by internal/agents (its launcher holds the cgroup tree).
+	Cells Cells
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -46,9 +48,37 @@ func NewPorts() *Ports {
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
 		Profiles: u, Chat: u, Startup: u, Seed: u, GatewayTokens: u,
-		EngineSetup: u, Humans: u,
+		EngineSetup: u, Humans: u, Cells: u,
 	}
 }
+
+// Cells place terminals in their opener's cgroup, so the kernel counts the
+// shell and every program it starts as the opener's: an agent's under the
+// agent's limits, a human's apart from the daemon.
+type Cells interface {
+	// AgentCell is where agent name's terminals run: its runner's cgroup,
+	// made with the runner's limits when it is missing. Without writable
+	// cgroups it is the runner's process limits instead.
+	AgentCell(ctx context.Context, name string) (ProcessCell, error)
+	// HumanCell is where the human called name runs a web terminal: the
+	// cgroup /humans/<name>, made root-owned when it is missing. Without
+	// writable cgroups it is the zero cell.
+	HumanCell(ctx context.Context, name string) (ProcessCell, error)
+}
+
+// ProcessCell is how a process is placed before its program starts: a
+// cgroup to join, and process limits to lower. The zero value places
+// nothing.
+type ProcessCell struct {
+	// Cgroup is the cgroup v2 directory to join, or "" for none.
+	Cgroup string
+	// NoFile, NProc and AS lower RLIMIT_NOFILE, RLIMIT_NPROC and
+	// RLIMIT_AS; zero leaves that limit alone.
+	NoFile, NProc, AS uint64
+}
+
+// Placed reports whether the cell places the process at all.
+func (c ProcessCell) Placed() bool { return c != ProcessCell{} }
 
 // HumanDirectory lists the machine's humans with their account numbers, so
 // each human gets a Linux user of their own (internal/humanuser).
@@ -481,4 +511,10 @@ func (unavailable) HumanAccount(context.Context, string) (HumanAccount, error) {
 }
 func (unavailable) HumanByUID(context.Context, int) (HumanAccount, error) {
 	return HumanAccount{}, ErrUnavailable
+}
+func (unavailable) AgentCell(context.Context, string) (ProcessCell, error) {
+	return ProcessCell{}, ErrUnavailable
+}
+func (unavailable) HumanCell(context.Context, string) (ProcessCell, error) {
+	return ProcessCell{}, ErrUnavailable
 }

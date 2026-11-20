@@ -42,6 +42,10 @@ func TestMain(m *testing.M) {
 		// This binary is a runner of a test agent (cgroup_walls_test.go).
 		os.Exit(dialHelper())
 	}
+	if os.Getenv(callerEnv) != "" {
+		// This binary is a program run in a test terminal (terminal_cells_test.go).
+		os.Exit(callerHelper())
+	}
 	if os.Getenv(inContainer) == "1" {
 		cgroupRoot, cgroupErr = process.PrepareCgroups(process.CgroupFS)
 	} else {

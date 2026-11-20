@@ -64,7 +64,7 @@ type uidStarter struct {
 	uids []int
 }
 
-func (s *uidStarter) Start(_ context.Context, _ domain.PtySpec, uid, _ int, _ string) (app.PtyProcess, error) {
+func (s *uidStarter) Start(_ context.Context, _ domain.PtySpec, uid, _ int, _ string, _ core.ProcessCell) (app.PtyProcess, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.uids = append(s.uids, uid)

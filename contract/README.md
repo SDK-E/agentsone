@@ -110,8 +110,9 @@ operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 Additive (minor: security requirements on operations).
 
 - Every operation that takes a bearer token now names the scope it needs: its own `security`
-  lists `cookieAuth`, `bearerAuth: [<group>:<level>]` and `peerCredentials`. 122 operations
-  gained one. Operations that already had their own `security` keep it: they take no token.
+  lists `cookieAuth`, `bearerAuth: [<group>:<level>]` and `peerCredentials`. 125 operations
+  gained one. The 23 that already had their own `security` keep it and take no token: 3 public,
+  9 host door, 1 signed webhook and 10 for signed-in humans only.
 - The `bearerAuth` scheme says how scopes are checked: `admin` covers `write` and `read`, `write`
   covers `read`; a token without the scope gets 403 `forbidden` before the operation runs, and
   an operation without `bearerAuth` refuses every token. Session cookies and socket peer

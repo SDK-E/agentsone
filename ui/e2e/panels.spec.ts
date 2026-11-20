@@ -174,6 +174,59 @@ test("panel tabs, a cue shows where more tabs hide and the chosen tab comes into
   clean();
 });
 
+test("panel tabs, a tab chosen with the keyboard is whole and clear of the cues", async ({
+  page,
+}) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, "the tabs only overflow on a phone");
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Monitor");
+
+  const scroller = page.locator(".tabs__scroller");
+  const names = await page.getByRole("tab").allInnerTexts();
+  expect(names.length).toBeGreaterThan(5);
+
+  // The page does not scroll the tab first (as a click does): the app alone brings it into view.
+  await page.getByRole("tab", { name: "Monitor" }).focus();
+  await page.keyboard.press("End");
+  const last = page.getByRole("tab", { name: names[names.length - 1] ?? "", exact: true });
+  await expect(last).toHaveAttribute("aria-selected", "true");
+  await expect(last).toBeInViewport({ ratio: 1 });
+  // Every tab is in view at the end of the row, so no cue is left saying more hides there.
+  await expect(scroller).not.toHaveAttribute("data-more-end");
+  await expect(scroller).toHaveAttribute("data-more-start", "true");
+
+  // Walking back, each chosen tab sits whole, not under the fade of a cue that is showing.
+  await page.keyboard.press("Home");
+  for (const name of names) {
+    const tab = page.getByRole("tab", { name, exact: true });
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    await expect
+      .poll(async () =>
+        tab.evaluate((el) => {
+          const row = el.parentElement?.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          const scrollerEl = el.closest(".tabs__scroller");
+          if (!row || !scrollerEl) return false;
+          const clearance = (side: "start" | "end") => {
+            const cue = scrollerEl.querySelector(`.tabs__cue--${side}`);
+            const shown = scrollerEl.hasAttribute(`data-more-${side}`);
+            const solid = cue
+              ? parseFloat(getComputedStyle(cue).getPropertyValue("--cue-solid"))
+              : 0;
+            return shown ? solid : 0;
+          };
+          return (
+            box.left >= row.left + clearance("start") - 0.5 &&
+            box.right <= row.right - clearance("end") + 0.5
+          );
+        }),
+      )
+      .toBe(true);
+    await page.keyboard.press("ArrowRight");
+  }
+  clean();
+});
+
 test("panel tabs, the arrows on both sides sit on a solid fade, clear of tab text", async ({
   page,
 }, testInfo) => {

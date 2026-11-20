@@ -30,21 +30,29 @@ export function PanelTabs() {
   const list = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState({ start: false, end: false });
 
-  // On a phone the tabs do not all fit. Say where more of them are hiding.
+  // On a phone the tabs do not all fit. Say where more of them are hiding. A side has more when
+  // the first or last tab is not wholly in view; the row's own padding does not count, so a row
+  // scrolled until its last tab is flush with the edge has nothing more to the end.
   const measure = useCallback(() => {
     const el = list.current;
-    if (!el) return;
-    const start = el.scrollLeft > 1;
-    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    const first = tabs.current[panels[0]?.id ?? "monitor"];
+    const last = tabs.current[panels[panels.length - 1]?.id ?? "monitor"];
+    if (!el || !first || !last) return;
+    const row = el.getBoundingClientRect();
+    const start = first.getBoundingClientRect().left < row.left - 0.5;
+    const end = last.getBoundingClientRect().right > row.right + 0.5;
     setMore((old) => (old.start === start && old.end === end ? old : { start, end }));
   }, []);
 
+  // The row can change without scrolling: a narrower window, or the chosen tab turning bold and
+  // so wider. Measure again whenever the row or any tab changes size.
   useEffect(() => {
     measure();
     const el = list.current;
     if (!el) return;
     const watcher = new ResizeObserver(measure);
     watcher.observe(el);
+    for (const tab of Object.values(tabs.current)) if (tab) watcher.observe(tab);
     return () => {
       watcher.disconnect();
     };

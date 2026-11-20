@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT
+# Temporary: proves the agent record tests hold under -race -count=50 on a GitHub runner, and
+# that the daemon logs no "database is closed" warning at shutdown. Removed again on this
+# branch before the pull request is opened.
+name: tmp-state-flake-count50
+
+on:
+  push:
+    branches: [fix/agent-record-state-flake]
+
+permissions:
+  contents: read
+
+jobs:
+  count50:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: agent record tests, -race -count=50
+        shell: bash
+        run: go test -race -count=50 -v -run 'TestAgentRecord_' ./internal/daemontest 2>&1 | tee record.log
+      - name: socket shutdown test, -race -count=50
+        shell: bash
+        run: go test -race -count=50 -v ./internal/agents/supervisor/adapters/socket 2>&1 | tee socket.log
+      - name: whole daemon test package, -race -count=3
+        shell: bash
+        run: go test -race -count=3 -v ./internal/daemontest 2>&1 | tee daemon.log
+      - name: counts
+        shell: bash
+        run: |
+          for f in record socket daemon; do
+            echo "$f: pass $(grep -c -- '^--- PASS' $f.log), fail $(grep -c -- '^--- FAIL' $f.log || true), database-is-closed warnings $(grep -c 'database is closed' $f.log || true)"
+          done
+          test "$(cat record.log socket.log daemon.log | grep -c 'database is closed' || true)" = 0

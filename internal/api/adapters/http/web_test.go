@@ -3,6 +3,7 @@
 package httpadapter_test
 
 import (
+	"bufio"
 	"bytes"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/api/adapters/http"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
@@ -79,6 +81,56 @@ func TestSecurityHeaders_SetCSPOnTheInterfaceAndNoStoreOnTheAPI(t *testing.T) {
 	rec = get(httpadapter.SecurityHeaders(http.NotFoundHandler()), "GET", "/v1/agents")
 	if rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Content-Security-Policy") != "" {
 		t.Fatalf("api headers %v", rec.Header())
+	}
+}
+
+// Regression: the request log's writer hid http.Flusher, so every event
+// stream on the daemon's listeners held its frames in the server's 4 KB
+// buffer and a client saw nothing until the stream ended. The handler here
+// flushes the way the generated stream handlers do.
+func TestRequestLog_LetsAStreamFrameReachTheClientBeforeTheStreamEnds(t *testing.T) {
+	t.Parallel()
+	release := make(chan struct{})
+	h := httpadapter.RequestLog(slog.New(slog.DiscardHandler), "socket", coretest.NewClock(coretest.Epoch),
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("data: {}\n\n"))
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+		}))
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(release) })
+
+	frame := make(chan string, 1)
+	go func() {
+		resp, err := srv.Client().Get(srv.URL)
+		if err != nil {
+			frame <- "error: " + err.Error()
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+		line, err := bufio.NewReader(resp.Body).ReadString('\n')
+		if err != nil {
+			frame <- "error: " + err.Error()
+			return
+		}
+		frame <- line
+	}()
+
+	select {
+	case got := <-frame:
+		if got != "data: {}\n" {
+			t.Fatalf("first line = %q, want the frame", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the frame did not reach the client while the stream was open")
 	}
 }
 

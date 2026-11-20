@@ -217,6 +217,37 @@ func (d *Daemon) FireSchedules(by time.Duration) {
 // server and where the edge's web door forwards the interface.
 func (d *Daemon) TCPAddr() string { return d.tcp }
 
+// WaitLog waits until the daemon's log has n lines that each hold every
+// one of parts, and returns them. what names the wait in a failure.
+func (d *Daemon) WaitLog(what string, n int, parts ...string) []string {
+	d.t.Helper()
+	deadline := time.Now().Add(Timeout)
+	for {
+		var found []string
+		for line := range strings.SplitSeq(d.logs.String(), "\n") {
+			if containsAll(line, parts) {
+				found = append(found, line)
+			}
+		}
+		if len(found) >= n {
+			return found
+		}
+		if time.Now().After(deadline) {
+			d.t.Fatalf("%d daemon log lines for %s within %s, want %d", len(found), what, Timeout, n)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func containsAll(s string, parts []string) bool {
+	for _, p := range parts {
+		if !strings.Contains(s, p) {
+			return false
+		}
+	}
+	return true
+}
+
 // RunnerErrors are the in-process runners that stopped with an error.
 func (d *Daemon) RunnerErrors() []error { return d.runners.runnerEnds() }
 

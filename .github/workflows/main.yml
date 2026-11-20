@@ -9,8 +9,10 @@ on:
 permissions:
   contents: read
 
+# One group per commit: every push to main runs to the end. A shared group would keep only one
+# waiting run and cancel the others.
 concurrency:
-  group: main-${{ github.ref }}
+  group: main-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: false
 
 jobs:

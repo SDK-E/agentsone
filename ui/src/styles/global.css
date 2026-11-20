@@ -262,16 +262,20 @@ ul.notice {
   width: min(100%, 40rem);
 }
 
+/* The Claude engine licence, read in full before it is accepted. */
 .licence {
-  max-height: 16rem;
+  max-height: 20rem;
   overflow: auto;
   padding: var(--space-md);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.engine-facts {
+  display: grid;
+  gap: var(--space-xs);
+  padding-left: var(--space-lg);
 }
 
 .progress {

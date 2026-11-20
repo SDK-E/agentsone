@@ -75,6 +75,27 @@ test("settings, password change asks for the current password", async ({ page },
   clean();
 });
 
+test("settings, turn on the Claude engine", async ({ page }, testInfo) => {
+  const clean = await useScenario(page, { only: { getEngineLicence: "not-accepted" } });
+  await openPanel(page, "Settings");
+
+  await expect(page.getByText("The Claude engine is off.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept and download" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Turn on the Claude engine" }).click();
+
+  await expect(page.getByRole("region", { name: "Claude engine licence text" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Anthropic's legal and compliance terms/ }),
+  ).toHaveAttribute("href", "https://code.claude.com/docs/en/legal-and-compliance");
+  await page.getByRole("button", { name: "Accept and download" }).scrollIntoViewIfNeeded();
+  await checkPage(page, testInfo, "settings-engine-turn-on");
+  // Only what the phone or desktop screen shows, for a human look at the opt-in.
+  await page.screenshot({
+    path: `screenshots/${testInfo.project.name}/settings-engine-turn-on-viewport.png`,
+  });
+  clean();
+});
+
 test("settings, read the licence", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Settings");

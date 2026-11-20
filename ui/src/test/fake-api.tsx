@@ -198,7 +198,8 @@ export class FakeApi implements Api {
   getSetupStatus = () => Promise.resolve(this.setup);
   createFirstHuman = (body: { name: string; display_name: string }) => {
     this.calls.push(`createFirstHuman ${body.name}`);
-    this.setup = { ...this.setup, phase: "needs-licence", first_human_created: true };
+    // Like the daemon: setup is done once the first human exists; the Claude engine stays off.
+    this.setup = { ...this.setup, phase: "ready", first_human_created: true };
     return Promise.resolve({
       name: body.name,
       display_name: body.display_name,
@@ -218,7 +219,8 @@ export class FakeApi implements Api {
   getEngineLicence = () => this.settle(this.licence);
   acceptEngineLicence = (version: string) => {
     this.calls.push(`acceptEngineLicence ${version}`);
-    this.setup = { ...this.setup, phase: "fetching-engine", engine: fixtures.engineFetch };
+    // Turning the engine on later does not reopen setup.
+    this.setup = { ...this.setup, licence_accepted: true, engine: fixtures.engineFetch };
     if (!(this.licence instanceof ApiError)) {
       this.licence = {
         ...this.licence,

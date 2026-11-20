@@ -8,9 +8,9 @@ const LONG =
 
 const setupScenarios: Record<(typeof STATES)[number], Scenario> = {
   empty: { only: { getSetupStatus: "needs-human" } },
-  loaded: { only: { getSetupStatus: "needs-licence" } },
+  loaded: {},
   error: { only: { getSetupStatus: "error" } },
-  "long-text": { only: { getSetupStatus: "fetching-engine" } },
+  "long-text": { only: { getSetupStatus: "needs-human" } },
 };
 
 for (const state of STATES) {
@@ -23,18 +23,25 @@ for (const state of STATES) {
     ).toBeVisible();
     if (state === "error") await expect(page.getByRole("alert")).toBeVisible();
     else await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+    if (state === "long-text") {
+      await page.getByRole("textbox", { name: "Name", exact: true }).fill(LONG);
+      await page.getByRole("textbox", { name: "Display name" }).fill(LONG);
+    }
     await checkPage(page, testInfo, `setup-${state}`);
     clean();
   });
 }
 
-test("setup, licence accepted starts the download", async ({ page }, testInfo) => {
+test("setup, done without any Claude engine step", async ({ page }, testInfo) => {
+  // The licence is not accepted. Even an older daemon that still says it waits for the licence
+  // gets the done screen: first setup never shows the licence.
   const clean = await useScenario(page, { only: { getSetupStatus: "needs-licence" } });
   await page.goto("/setup");
 
-  await expect(page.getByRole("article", { name: "Claude engine licence text" })).toBeVisible();
-  await expect(page.getByText("Nothing downloads before you accept.")).toBeVisible();
-  await checkPage(page, testInfo, "setup-licence");
+  await expect(page.getByRole("heading", { name: "Setup is done" })).toBeVisible();
+  await expect(page.getByText("The Claude engine is off.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept and download" })).toHaveCount(0);
+  await checkPage(page, testInfo, "setup-done-engine-off");
   clean();
 });
 

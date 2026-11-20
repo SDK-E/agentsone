@@ -6,9 +6,16 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../test/axe";
 import { FakeApi, fixtures, renderApp } from "../test/fake-api";
 
+/** A fresh machine: no human yet, and the Claude engine off. */
 function firstBoot() {
   const api = new FakeApi();
-  api.setup = { ...fixtures.setup, phase: "needs-human", first_human_created: false };
+  api.setup = {
+    ...fixtures.setup,
+    phase: "needs-human",
+    first_human_created: false,
+    licence_accepted: false,
+    engine: { ...fixtures.engineFetch, state: "waiting-licence", progress: 0, bytes_done: 0 },
+  };
   return api;
 }
 
@@ -31,7 +38,7 @@ describe("SetupScreen", () => {
     expect(alert).toHaveTextContent("at least 12 characters");
   });
 
-  it("creates the first human, signs in, then shows the licence with honest download text", async () => {
+  it("is done once the first human exists, with no Claude engine step", async () => {
     const user = userEvent.setup();
     const { api } = renderApp("/setup", firstBoot());
 
@@ -41,28 +48,11 @@ describe("SetupScreen", () => {
     await user.type(screen.getByLabelText("Password again"), "correct horse battery");
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(await screen.findByRole("heading", { name: "The Claude engine" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Setup is done" })).toBeVisible();
     expect(api.calls).toEqual(["createFirstHuman ada", "createSession ada"]);
-    expect(screen.getByText(/Nothing downloads before you accept/)).toBeVisible();
-    expect(screen.getByRole("article", { name: "Claude engine licence text" })).toHaveTextContent(
-      "Claude Code licence",
-    );
-  });
-
-  it("accepts the licence and shows the download progress", async () => {
-    const user = userEvent.setup();
-    const api = new FakeApi();
-    api.setup = { ...fixtures.setup, phase: "needs-licence" };
-    renderApp("/setup", api);
-
-    await user.click(await screen.findByRole("button", { name: "Accept and download" }));
-
-    expect(await screen.findByRole("progressbar", { name: "Engine download" })).toHaveAttribute(
-      "value",
-      "0.42",
-    );
-    expect(api.calls).toContain(`acceptEngineLicence ${fixtures.licence.version}`);
-    expect(screen.getByText("90 of 215 MB")).toBeVisible();
+    expect(screen.getByText(/The Claude engine is off/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Accept and download" })).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByRole("link", { name: "Go to the society" })).toHaveAttribute("href", "/");
   });
 
@@ -70,6 +60,17 @@ describe("SetupScreen", () => {
     renderApp("/setup");
 
     expect(await screen.findByRole("heading", { name: "Setup is done" })).toBeVisible();
+    // This machine's engine was turned on, so there is no hint to turn it on.
+    expect(screen.queryByText(/The Claude engine is off/)).toBeNull();
+  });
+
+  it("never asks for the licence, even from an older daemon", async () => {
+    const api = new FakeApi();
+    api.setup = { ...fixtures.setup, phase: "needs-licence", licence_accepted: false };
+    renderApp("/setup", api);
+
+    expect(await screen.findByRole("heading", { name: "Setup is done" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Accept and download" })).toBeNull();
   });
 
   it("has no accessibility violations", async () => {

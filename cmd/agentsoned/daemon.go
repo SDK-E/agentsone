@@ -7,16 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
+	"net"
 	"os"
-	"time"
 
-	"github.com/SDK-E/agentsone/internal/api"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/daemon"
 	"github.com/SDK-E/agentsone/internal/store"
 )
-
-const shutdownGrace = 10 * time.Second
 
 // openStores opens the four databases under the state folder. The returned
 // close function closes every opened database and reports each failure.
@@ -55,91 +52,26 @@ func openStores(ctx context.Context, cfg core.Config) (core.Stores, func() error
 	return s, closeAll, nil
 }
 
-// lifecycle runs modules through Provide, Migrate and Start, and stops the
-// started ones in reverse order.
-type lifecycle struct {
-	mods    []core.Module
-	started []core.Module
-	log     *slog.Logger
-}
-
-func (l *lifecycle) start(ctx context.Context, ports *core.Ports) error {
-	for _, m := range l.mods {
-		m.Provide(ports)
-	}
-	for _, m := range l.mods {
-		if err := m.Migrate(ctx); err != nil {
-			return fmt.Errorf("migrate %s: %w", m.Name(), err)
-		}
-	}
-	for _, m := range l.mods {
-		if err := m.Start(ctx); err != nil {
-			return fmt.Errorf("start %s: %w", m.Name(), err)
-		}
-		l.started = append(l.started, m)
-	}
-	return nil
-}
-
-func (l *lifecycle) stop(ctx context.Context) {
-	for i := len(l.started) - 1; i >= 0; i-- {
-		m := l.started[i]
-		if err := m.Stop(ctx); err != nil {
-			l.log.Error("stop module", "module", m.Name(), "err", err)
-		}
-	}
-	l.started = nil
-}
-
 // serve runs the daemon until ctx ends.
 func serve(ctx context.Context, deps core.Deps) error {
 	return serveModules(ctx, deps, modules(deps))
 }
 
-// serveModules serves mods until ctx ends. Tests pass modules built on fakes.
+// modules are the daemon's modules, as internal/daemon wires them.
+func modules(deps core.Deps) []core.Module { return daemon.Modules(deps) }
+
+// serveModules serves mods until ctx ends, and tells systemd once the
+// daemon is ready. Tests pass modules built on fakes.
 func serveModules(ctx context.Context, deps core.Deps, mods []core.Module) error {
-	l := &lifecycle{mods: mods, log: deps.Log}
-	defer l.stop(context.WithoutCancel(ctx))
-	if err := l.start(ctx, deps.Ports); err != nil {
-		return err
-	}
-	srv, err := api.NewServer(l.mods, deps)
-	if err != nil {
-		return fmt.Errorf("compose api: %w", err)
-	}
-	dispatchInProcess(l.mods, srv.Handler())
-	running, err := srv.Listen()
-	if err != nil {
-		return err
-	}
-	errs := running.Serve()
-	deps.Log.Info("daemon ready")
-	sd := systemdFromEnv()
-	if err := sd.notify("READY=1"); err != nil {
-		deps.Log.Warn("systemd readiness", "err", err)
-	}
-	go sd.keepAlive(ctx, watchdogInterval(), func(err error) { deps.Log.Warn("systemd watchdog", "err", err) })
-	select {
-	case <-ctx.Done():
-	case err := <-errs:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve: %w", err)
-		}
-	}
-	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
-	defer cancel()
-	return running.Shutdown(shutdownCtx)
+	return daemon.Serve(ctx, deps, mods, func([]net.Addr) { notifyReady(ctx, deps.Log) })
 }
 
-// inProcess is a module that calls other modules' operations itself, such
-// as the MCP server; it gets the composed handler, with no identity rules,
-// and sets the caller on each request.
-type inProcess interface{ SetHandler(http.Handler) }
-
-func dispatchInProcess(mods []core.Module, h http.Handler) {
-	for _, m := range mods {
-		if d, ok := m.(inProcess); ok {
-			d.SetHandler(h)
-		}
+// notifyReady tells systemd the daemon is ready and pings its watchdog
+// until ctx ends.
+func notifyReady(ctx context.Context, log *slog.Logger) {
+	sd := systemdFromEnv()
+	if err := sd.notify("READY=1"); err != nil {
+		log.Warn("systemd readiness", "err", err)
 	}
+	go sd.keepAlive(ctx, watchdogInterval(), func(err error) { log.Warn("systemd watchdog", "err", err) })
 }

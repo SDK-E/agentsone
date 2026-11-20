@@ -210,6 +210,8 @@ jobs:
         run: e2e/run.sh router
       - name: "Model turn: through the gateway to the fake provider"
         run: e2e/run.sh model-turn
+      - name: "Founder turn: a routed chat answered, tool calls through the machine"
+        run: e2e/run.sh founder-turn
       - name: Echo chat
         run: e2e/run.sh echo-chat
       - name: Event to task

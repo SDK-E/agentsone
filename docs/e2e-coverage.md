@@ -71,7 +71,9 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 
 More stages check the walls the plan relies on, beyond the list: `wall-route`, `wall-direct` and
 `wall-outer` (the network wall), `gateway` and `model-turn` (model calls through the gateway,
-ending at a fake provider), `audit-sink` (audit records from the daemon only), `rescue` (a
+ending at a fake provider), `founder-turn` (the founder answers a routed chat with its own model
+calls, and a scripted tool call runs on the machine and its answer goes back to the model),
+`audit-sink` (audit records from the daemon only), `rescue` (a
 restart keeps the machine, a recreate resets it), `web-door` (a header is never an identity) and
 `control` (the control page and its passphrase). `services-events` (the built-in services event
 source) is not covered yet: it waits for the daemon's service registry.

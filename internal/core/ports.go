@@ -34,6 +34,8 @@ type Ports struct {
 	GatewayTokens GatewayTokens
 	// EngineSetup is owned by internal/auth.
 	EngineSetup EngineSetup
+	// Humans is owned by internal/auth.
+	Humans HumanDirectory
 }
 
 // NewPorts returns Ports whose every field answers ErrUnavailable.
@@ -44,8 +46,26 @@ func NewPorts() *Ports {
 		Audit: u, Live: u, Budget: u, Runners: u,
 		Bus: u, Freezer: u, Tokens: u, Templates: u,
 		Profiles: u, Chat: u, Startup: u, Seed: u, GatewayTokens: u,
-		EngineSetup: u,
+		EngineSetup: u, Humans: u,
 	}
+}
+
+// HumanDirectory lists the machine's humans with their account numbers, so
+// each human gets a Linux user of their own (internal/humanuser).
+type HumanDirectory interface {
+	// HumanAccounts returns every human.
+	HumanAccounts(ctx context.Context) ([]HumanAccount, error)
+	// HumanAccount returns the human called name, or ErrNotFound.
+	HumanAccount(ctx context.Context, name string) (HumanAccount, error)
+}
+
+// HumanAccount is a human as the machine sees them.
+type HumanAccount struct {
+	// Name is the human's login name.
+	Name string
+	// UID is the human's stable account number, from 1000 up. It is also
+	// the uid of the human's Linux user.
+	UID int
 }
 
 // GatewayTokens mints the bearer tokens callers send to the model gateway
@@ -448,3 +468,7 @@ func (unavailable) SeedInstalled(context.Context) (bool, error) { return false, 
 
 func (unavailable) LicenceAccepted(context.Context) (bool, error)            { return false, ErrUnavailable }
 func (unavailable) SaveFetchStatus(context.Context, EngineFetchStatus) error { return ErrUnavailable }
+func (unavailable) HumanAccounts(context.Context) ([]HumanAccount, error)    { return nil, ErrUnavailable }
+func (unavailable) HumanAccount(context.Context, string) (HumanAccount, error) {
+	return HumanAccount{}, ErrUnavailable
+}

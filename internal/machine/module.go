@@ -13,6 +13,8 @@ import (
 	"github.com/SDK-E/agentsone/internal/contract/api/machineapi"
 	"github.com/SDK-E/agentsone/internal/contract/api/netapi"
 	"github.com/SDK-E/agentsone/internal/core"
+	humanaccounts "github.com/SDK-E/agentsone/internal/humanuser/adapters/accounts"
+	humanapp "github.com/SDK-E/agentsone/internal/humanuser/app"
 	httpadapter "github.com/SDK-E/agentsone/internal/machine/adapters/http"
 	"github.com/SDK-E/agentsone/internal/machine/adapters/system"
 	"github.com/SDK-E/agentsone/internal/machine/app"
@@ -47,6 +49,7 @@ type Module struct {
 	machine   *app.Machine
 	terminals *app.Terminals
 	startup   *app.StartupGate
+	humans    *humanapp.Users
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -67,6 +70,8 @@ type System struct {
 	Baseline  app.BaselineSource
 	Power     app.Power
 	Timer     app.Timer
+	// HumanAccounts makes humans' Linux users (useradd).
+	HumanAccounts humanapp.Accounts
 }
 
 // RealSystem is the container the daemon runs in.
@@ -82,10 +87,11 @@ func RealSystem(cfg *core.Config, clock core.Clock) System {
 			Proc: "/proc", CPUStat: "/sys/fs/cgroup/cpu.stat",
 			Mounts: []string{"/", cfg.AgentsHome, cfg.StateDir},
 		}, clock.Now),
-		Recipes:  system.NewRecipeStore(filepath.Join(cfg.StateDir, "recipe")),
-		Baseline: system.NewBaseline(filepath.Join(cfg.LibDir, "baseline-packages.txt")),
-		Power:    system.Power{},
-		Timer:    system.Power{},
+		Recipes:       system.NewRecipeStore(filepath.Join(cfg.StateDir, "recipe")),
+		Baseline:      system.NewBaseline(filepath.Join(cfg.LibDir, "baseline-packages.txt")),
+		Power:         system.Power{},
+		Timer:         system.Power{},
+		HumanAccounts: &humanaccounts.Accounts{},
 	}
 }
 
@@ -102,9 +108,13 @@ func NewWith(deps core.Deps, sys System) *Module {
 	terms := app.NewTerminals(sys.Pty, sys.Users, deps.Clock, deps.IDs)
 	return &Module{
 		deps: deps, settings: defaultSettings(), machine: m, terminals: terms,
-		startup: app.NewStartupGate(),
+		startup: app.NewStartupGate(), humans: humanapp.New(lateHumans{deps.Ports}, sys.HumanAccounts),
 	}
 }
+
+// HumanUsers makes humans' Linux users on demand, for programs that run as
+// a human (the editor, the desktop).
+func (m *Module) HumanUsers() *humanapp.Users { return m.humans }
 
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "machine" }
@@ -135,16 +145,29 @@ func (m *Module) Start(context.Context) error {
 	}
 	bg, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
-	m.wg.Add(4)
+	m.wg.Add(5)
 	m.machine.BeginReapply(bg, m.settings.ReapplyTimeout.Duration, func(rep domain.Report) {
 		defer m.wg.Done()
 		m.logReport(rep)
 		m.startup.Open()
 	})
+	go func() { defer m.wg.Done(); m.reconcileHumans(bg) }()
 	go func() { defer m.wg.Done(); m.machine.Work(bg) }()
 	go func() { defer m.wg.Done(); m.syncLoop(bg) }()
 	go func() { defer m.wg.Done(); m.idleLoop(bg) }()
 	return nil
+}
+
+// reconcileHumans makes every human's Linux user again: a rescue resets
+// /etc, while their homes live on in the home volume. A failure is logged
+// and never stops the daemon; the user is made again on demand.
+func (m *Module) reconcileHumans(ctx context.Context) {
+	made, err := m.humans.Reconcile(ctx)
+	if err != nil {
+		m.deps.Log.Warn("human users not all made", "made", made, "error", err)
+		return
+	}
+	m.deps.Log.Info("human users made", "count", made)
 }
 
 func (m *Module) idleLoop(ctx context.Context) {
@@ -193,6 +216,17 @@ func (m *Module) Stop(context.Context) error {
 	m.wg.Wait()
 	m.terminals.CloseAll()
 	return nil
+}
+
+// lateHumans reads the Humans port when used: ports are filled after New.
+type lateHumans struct{ p *core.Ports }
+
+func (l lateHumans) HumanAccounts(ctx context.Context) ([]core.HumanAccount, error) {
+	return l.p.Humans.HumanAccounts(ctx) //nolint:wrapcheck // pass-through to the humans port
+}
+
+func (l lateHumans) HumanAccount(ctx context.Context, name string) (core.HumanAccount, error) {
+	return l.p.Humans.HumanAccount(ctx, name) //nolint:wrapcheck // pass-through to the humans port
 }
 
 // auditPort reads the Audit port when used: ports are filled after New.

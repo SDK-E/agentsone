@@ -101,6 +101,8 @@ func TestNewPortsUnavailable(t *testing.T) {
 		},
 		"LicenceAccepted": func() error { _, err := p.EngineSetup.LicenceAccepted(ctx); return err },
 		"SaveFetchStatus": func() error { return p.EngineSetup.SaveFetchStatus(ctx, core.EngineFetchStatus{}) },
+		"HumanAccounts":   func() error { _, err := p.Humans.HumanAccounts(ctx); return err },
+		"HumanAccount":    func() error { _, err := p.Humans.HumanAccount(ctx, "ada"); return err },
 	}
 	for name, call := range calls {
 		if err := call(); !errors.Is(err, core.ErrUnavailable) {

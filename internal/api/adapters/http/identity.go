@@ -38,17 +38,34 @@ type Verifier func(ctx context.Context, value string) (core.Caller, error)
 
 type peerKey struct{}
 
+// peer is what the socket listener found about a connection: its caller,
+// or why it was refused.
+type peer struct {
+	caller  core.Caller
+	refused error
+}
+
 // WithPeerCaller stores the caller resolved from socket peer credentials
-// when the connection was accepted. Use it in http.Server.ConnContext.
+// when the connection was accepted.
 func WithPeerCaller(ctx context.Context, c core.Caller) context.Context {
-	return context.WithValue(ctx, peerKey{}, c)
+	return context.WithValue(ctx, peerKey{}, peer{caller: c})
+}
+
+// WithPeer stores what resolving the socket peer gave: the caller, or the
+// refusal when err is set. Use it in http.Server.ConnContext.
+func WithPeer(ctx context.Context, c core.Caller, err error) context.Context {
+	if err != nil {
+		return context.WithValue(ctx, peerKey{}, peer{refused: err})
+	}
+	return WithPeerCaller(ctx, c)
 }
 
 // SocketIdentity sets the caller of every request on the Unix socket from
-// the peer credentials stored by WithPeerCaller: the kernel vouches for the
-// peer. A bearer token, when sent, names the caller instead; root agents
-// outside an agent cgroup prove who they are this way.
-func SocketIdentity(verify Verifier, next http.Handler) http.Handler {
+// the peer stored by WithPeer: the kernel vouches for the peer. A bearer
+// token, when sent, names the caller instead; root agents outside an agent
+// cgroup prove who they are this way. A refused peer without a token gets
+// 403, and report hears of it (for the audit trail) on every request.
+func SocketIdentity(verify Verifier, report func(*http.Request, error), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isFirstHuman(r) {
 			refuseFirstHuman(w, r)
@@ -66,12 +83,19 @@ func SocketIdentity(verify Verifier, next http.Handler) http.Handler {
 		r.Header.Del("X-Forwarded-For")
 		r.Header.Del("X-Forwarded-Proto")
 		dropIdentityHeaders(r.Header)
-		c, ok := r.Context().Value(peerKey{}).(core.Caller)
+		p, ok := r.Context().Value(peerKey{}).(peer)
 		if !ok {
 			core.WriteProblem(w, r, core.NewProblem(http.StatusUnauthorized, "unauthenticated", "peer credentials unavailable"))
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(core.WithCaller(r.Context(), c)))
+		if p.refused != nil {
+			// The reason goes to the audit trail, not to the caller.
+			report(r, p.refused)
+			core.WriteProblem(w, r, core.NewProblem(http.StatusForbidden, "forbidden",
+				"this process is not an agent, a human or the daemon; send a token"))
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(core.WithCaller(r.Context(), p.caller)))
 	})
 }
 

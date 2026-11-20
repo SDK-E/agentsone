@@ -3,6 +3,9 @@
 package domain_test
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -39,16 +42,31 @@ func TestAgentFromCgroup_ReadsTheAgentCgroup(t *testing.T) {
 	}
 }
 
-func agents(m map[int]string) domain.AgentByUID {
-	return func(uid int) (string, bool) {
-		n, ok := m[uid]
-		return n, ok
+// daemonPID is the daemon's own pid in these tests.
+const daemonPID = 7
+
+var errDown = errors.New("database is locked")
+
+// lookup answers from m, ErrNotFound for any other uid, or err for every uid.
+func lookup(m map[int]string, err error) func(context.Context, int) (string, error) {
+	return func(_ context.Context, uid int) (string, error) {
+		if err != nil {
+			return "", err
+		}
+		if n, ok := m[uid]; ok {
+			return n, nil
+		}
+		return "", fmt.Errorf("uid %d: %w", uid, core.ErrNotFound)
 	}
 }
 
-func TestResolvePeer_NamesTheCaller(t *testing.T) {
+var known = domain.Directory{
+	AgentByUID: lookup(map[int]string{200001: "scout"}, nil),
+	HumanByUID: lookup(map[int]string{1000: "ada"}, nil),
+}
+
+func TestResolvePeer_NamesAnAgentAHumanOrTheDaemon(t *testing.T) {
 	t.Parallel()
-	known := agents(map[int]string{200001: "scout"})
 	cases := []struct {
 		name   string
 		peer   domain.Peer
@@ -72,29 +90,105 @@ func TestResolvePeer_NamesTheCaller(t *testing.T) {
 			core.Caller{Kind: core.CallerAgent, Name: "scout", UID: 200001, Assurance: core.AssuranceSoft},
 		},
 		{
-			"soft: unknown uid in the agent range is system", domain.Peer{PID: 14, UID: 200002}, "0::/",
-			core.Caller{Kind: core.CallerSystem, Name: "uid:200002", UID: 200002},
+			"human: the Linux user of a human is that human, not root", domain.Peer{PID: 14, UID: 1000}, "0::/daemon",
+			core.Caller{Kind: core.CallerHuman, Name: "ada", UID: 1000, Assurance: core.AssuranceSoft},
 		},
 		{
-			"uid outside the agent range is never an agent", domain.Peer{PID: 15, UID: 1000}, "0::/",
-			core.Caller{Kind: core.CallerSystem, Name: "uid:1000", UID: 1000},
+			"soft: a custom agent's terminal, which the daemon starts in its own cgroup", domain.Peer{PID: 15, UID: 200001}, "0::/daemon",
+			core.Caller{Kind: core.CallerAgent, Name: "scout", UID: 200001, Assurance: core.AssuranceSoft},
 		},
 		{
-			"uid 0 without an agent cgroup is system, never an agent", domain.Peer{PID: 16, UID: 0}, "0::/",
-			core.Caller{Kind: core.CallerSystem, Name: "uid:0", UID: 0, IsRoot: true},
-		},
-		{
-			"the daemon's own cgroup", domain.Peer{PID: 17, UID: 0}, "0::/daemon",
+			"daemon: its own process", domain.Peer{PID: daemonPID, UID: 0}, "0::/daemon",
 			core.Caller{Kind: core.CallerSystem, Name: "daemon", UID: 0, IsRoot: true},
+		},
+		{
+			"daemon: its own process where it does not run as root", domain.Peer{PID: daemonPID, UID: 501}, "",
+			core.Caller{Kind: core.CallerSystem, Name: "daemon", UID: 501},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			got := domain.ResolvePeer(c.peer, c.cgroup, known)
+			got, err := domain.ResolvePeer(context.Background(), c.peer, c.cgroup, daemonPID, known)
+			if err != nil {
+				t.Fatalf("refused: %v", err)
+			}
 			if diff := cmp.Diff(c.want, got); diff != "" {
 				t.Fatalf("ResolvePeer mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestResolvePeer_RefusesEveryOtherPeer(t *testing.T) {
+	t.Parallel()
+	down := domain.Directory{AgentByUID: lookup(nil, errDown), HumanByUID: lookup(nil, errDown)}
+	cases := []struct {
+		name   string
+		peer   domain.Peer
+		cgroup string
+		dir    domain.Directory
+		reason string
+		cause  error
+	}{
+		{
+			"uid 0 outside every agent cgroup", domain.Peer{PID: 16, UID: 0}, "0::/", known,
+			domain.ReasonRootOutsideAgents, nil,
+		},
+		{
+			"uid 0 in the daemon's cgroup is not the daemon (its terminals live there)", domain.Peer{PID: 17, UID: 0}, "0::/daemon", known,
+			domain.ReasonRootOutsideAgents, nil,
+		},
+		{
+			"uid in the agent range that no agent owns", domain.Peer{PID: 18, UID: 200002}, "0::/", known,
+			domain.ReasonNoAgent, core.ErrNotFound,
+		},
+		{
+			"uid of no agent and no human", domain.Peer{PID: 19, UID: 4242}, "0::/", known,
+			domain.ReasonNobody, core.ErrNotFound,
+		},
+		{
+			"a service user such as nobody", domain.Peer{PID: 20, UID: 65534}, "0::/daemon", known,
+			domain.ReasonNobody, core.ErrNotFound,
+		},
+		{
+			"agent directory lookup fails", domain.Peer{PID: 21, UID: 200001}, "0::/", down,
+			domain.ReasonAgentLookup, errDown,
+		},
+		{
+			"human directory lookup fails", domain.Peer{PID: 22, UID: 1000}, "0::/", down,
+			domain.ReasonHumanLookup, errDown,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := domain.ResolvePeer(context.Background(), c.peer, c.cgroup, daemonPID, c.dir)
+			if !cmp.Equal(got, core.Anonymous) {
+				t.Errorf("caller %+v, want Anonymous", got)
+			}
+			var r *domain.Refusal
+			if !errors.As(err, &r) || !errors.Is(err, core.ErrForbidden) {
+				t.Fatalf("err %v, want a Refusal matching ErrForbidden", err)
+			}
+			if r.Peer != c.peer || r.Reason != c.reason {
+				t.Errorf("refusal %+v, want peer %+v reason %q", r, c.peer, c.reason)
+			}
+			if c.cause != nil && !errors.Is(err, c.cause) {
+				t.Errorf("err %v does not carry %v", err, c.cause)
+			}
+		})
+	}
+}
+
+func TestRefusal_SaysWhoAndWhy(t *testing.T) {
+	t.Parallel()
+	err := &domain.Refusal{Peer: domain.Peer{PID: 9, UID: 4242}, Reason: domain.ReasonNobody}
+	if got, want := err.Error(), "socket peer pid 9 uid 4242 refused: "+domain.ReasonNobody; got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
+	}
+	withCause := &domain.Refusal{Peer: domain.Peer{PID: 9, UID: 1000}, Reason: domain.ReasonHumanLookup, Err: errDown}
+	if got, want := withCause.Error(), "socket peer pid 9 uid 1000 refused: "+domain.ReasonHumanLookup+": "+errDown.Error(); got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
 	}
 }

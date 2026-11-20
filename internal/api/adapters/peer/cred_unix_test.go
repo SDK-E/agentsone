@@ -48,9 +48,10 @@ func TestCredentials_ReadsTheRealPeer(t *testing.T) {
 	if p.PID != os.Getpid() || p.UID != os.Getuid() {
 		t.Fatalf("peer %+v, want pid %d uid %d", p, os.Getpid(), os.Getuid())
 	}
-	r := peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, AgentByUID: peer.NoAgents}
-	if _, err := r.Caller(server); err != nil {
-		t.Fatalf("resolve real peer: %v", err)
+	// We are the daemon here: the peer is our own process.
+	r := peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, Directory: none, DaemonPID: os.Getpid()}
+	if c, err := r.Caller(server); err != nil || c.Name != "daemon" {
+		t.Fatalf("resolve real peer: %+v %v", c, err)
 	}
 }
 

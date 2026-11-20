@@ -224,15 +224,3 @@ func TestRevokeToken_UnknownIDIsNotFound(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
-
-func TestHumanByUID_FindsOnlyHumans(t *testing.T) {
-	t.Parallel()
-	env := withHuman(t, "ada")
-	ctx := context.Background()
-	if name, ok := env.Service.HumanByUID(ctx, 1000); !ok || name != "ada" {
-		t.Fatalf("got %q %v", name, ok)
-	}
-	if _, ok := env.Service.HumanByUID(ctx, 4242); ok {
-		t.Fatal("unknown uid found")
-	}
-}

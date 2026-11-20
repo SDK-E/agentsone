@@ -15,8 +15,8 @@ import (
 )
 
 // Credentials reads LOCAL_PEERCRED and LOCAL_PEERPID, so the daemon runs on
-// a developer's Mac. There are no cgroups there: every peer is a system
-// caller.
+// a developer's Mac. There are no cgroups there: a peer is the daemon
+// itself, a known agent or human by uid, or refused.
 func Credentials(c net.Conn) (domain.Peer, error) {
 	uc, ok := c.(*net.UnixConn)
 	if !ok {

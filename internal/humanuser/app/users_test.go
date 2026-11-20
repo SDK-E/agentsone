@@ -36,6 +36,10 @@ func (d directory) HumanAccount(_ context.Context, name string) (core.HumanAccou
 	return core.HumanAccount{}, fmt.Errorf("human %s: %w", name, core.ErrNotFound)
 }
 
+func (d directory) HumanByUID(_ context.Context, uid int) (core.HumanAccount, error) {
+	return core.HumanAccount{}, fmt.Errorf("users never look humans up by uid %d: %w", uid, core.ErrNotFound)
+}
+
 type accounts struct {
 	mu      sync.Mutex
 	ensured []string

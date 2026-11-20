@@ -36,3 +36,16 @@ func TestHumanAccounts_GiveEveryHumanWithTheirAccountNumber(t *testing.T) {
 		t.Fatalf("unknown human: %v, want ErrNotFound", err)
 	}
 }
+
+func TestHumanByUID_FindsTheHumanWhoseLinuxUserHasTheUID(t *testing.T) {
+	t.Parallel()
+	env := withHuman(t, "ada")
+	ctx := context.Background()
+	var dir core.HumanDirectory = env.Service
+	if h, err := dir.HumanByUID(ctx, 1000); err != nil || h != (core.HumanAccount{Name: "ada", UID: 1000}) {
+		t.Fatalf("uid 1000: %+v %v", h, err)
+	}
+	if _, err := dir.HumanByUID(ctx, 4242); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("unknown uid: %v, want ErrNotFound", err)
+	}
+}

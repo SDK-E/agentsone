@@ -206,6 +206,12 @@ func TestHumans_FindsWhatWasAdded(t *testing.T) {
 	if _, err := p.Humans.HumanAccount(ctx, "eve"); !errors.Is(err, core.ErrNotFound) {
 		t.Fatalf("eve: %v", err)
 	}
+	if h, err := p.Humans.HumanByUID(ctx, 1000); err != nil || h.Name != "ada" {
+		t.Fatalf("uid 1000: %+v %v", h, err)
+	}
+	if _, err := p.Humans.HumanByUID(ctx, 4242); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("uid 4242: %v", err)
+	}
 }
 
 func TestSeed_ReportsWhatItIsSet(t *testing.T) {

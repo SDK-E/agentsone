@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,10 +14,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/api/adapters/http"
 	"github.com/SDK-E/agentsone/internal/api/adapters/peer"
+	"github.com/SDK-E/agentsone/internal/api/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -64,14 +67,47 @@ func NewServer(mods []core.Module, deps core.Deps) (*Server, error) {
 	web := httpadapter.SecurityHeaders(httpadapter.Split(composed, ui))
 	s := &Server{
 		composed: composed,
-		socket:   httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(verify, web)),
 		tcp: httpadapter.RequestLog(deps.Log, "tcp", deps.Clock,
 			httpadapter.TCPIdentity{Verify: verify, EdgeIPs: edgeIPs, IsOwn: ownAddress, Public: public}.Wrap(web)),
-		resolver: peer.Resolver{Proc: peer.ProcFS(), Credentials: peer.Credentials, AgentByUID: agentByUID(ports)},
-		log:      deps.Log,
-		cfg:      *deps.Config,
+		resolver: peer.Resolver{
+			Proc: peer.ProcFS(), Credentials: peer.Credentials, DaemonPID: os.Getpid(),
+			Directory: domain.Directory{AgentByUID: agentByUID(ports), HumanByUID: humanByUID(ports)},
+		},
+		log: deps.Log,
+		cfg: *deps.Config,
 	}
+	refused := func(r *http.Request, err error) { s.refused(r, ports, err) }
+	s.socket = httpadapter.RequestLog(deps.Log, "socket", deps.Clock, httpadapter.SocketIdentity(verify, refused, web))
 	return s, nil
+}
+
+// ActionSocketRefused is the audit action of a socket peer that is not an
+// agent, a human or the daemon.
+const ActionSocketRefused = "api.socket.refused"
+
+// refused records a refused socket peer in the audit trail: who (uid,
+// pid), why, and what it asked for.
+func (s *Server) refused(r *http.Request, ports *core.Ports, err error) {
+	p, reason := domain.Peer{PID: -1, UID: -1}, err.Error()
+	var ref *domain.Refusal
+	if errors.As(err, &ref) {
+		p, reason = ref.Peer, ref.Reason
+	}
+	s.log.Info("api: socket peer refused", "pid", p.PID, "uid", p.UID, "reason", reason, "err", err)
+	detail, jerr := json.Marshal(map[string]any{
+		"pid": p.PID, "uid": p.UID, "reason": reason, "method": r.Method, "path": r.URL.Path,
+	})
+	if jerr != nil {
+		s.log.Error("api: refused socket peer not audited", "uid", p.UID, "err", jerr)
+		return
+	}
+	entry := core.AuditEntry{
+		Actor: "system:api", Action: ActionSocketRefused, Target: "uid:" + strconv.Itoa(p.UID),
+		Detail: detail, Outcome: core.AuditDenied,
+	}
+	if aerr := ports.Audit.Append(r.Context(), entry); aerr != nil {
+		s.log.Error("api: refused socket peer not audited", "uid", p.UID, "err", aerr)
+	}
 }
 
 // Handler is the composed modules with no identity rules. In-process
@@ -86,19 +122,32 @@ func (s *Server) SocketHandler() http.Handler { return s.socket }
 func (s *Server) TCPHandler() http.Handler { return s.tcp }
 
 // agentByUID finds a custom agent by uid in the agents directory, read
-// when each socket connection is accepted.
-func agentByUID(ports *core.Ports) func(int) (string, bool) {
-	return func(uid int) (string, bool) {
-		all, err := ports.Agents.ListAgents(context.Background())
+// when each socket connection is accepted. A failed read is an error, never
+// "no agent": the resolver then refuses the peer.
+func agentByUID(ports *core.Ports) func(context.Context, int) (string, error) {
+	return func(ctx context.Context, uid int) (string, error) {
+		all, err := ports.Agents.ListAgents(ctx)
 		if err != nil {
-			return "", false
+			return "", fmt.Errorf("list agents: %w", err)
 		}
 		for _, a := range all {
 			if a.UID == uid && !a.IsRoot {
-				return a.Name, true
+				return a.Name, nil
 			}
 		}
-		return "", false
+		return "", fmt.Errorf("agent with uid %d: %w", uid, core.ErrNotFound)
+	}
+}
+
+// humanByUID finds the human whose Linux user has uid, through the humans
+// port that auth owns.
+func humanByUID(ports *core.Ports) func(context.Context, int) (string, error) {
+	return func(ctx context.Context, uid int) (string, error) {
+		h, err := ports.Humans.HumanByUID(ctx, uid)
+		if err != nil {
+			return "", fmt.Errorf("human with uid %d: %w", uid, err)
+		}
+		return h.Name, nil
 	}
 }
 
@@ -154,8 +203,10 @@ type Running struct {
 
 const readHeaderTimeout = 10 * time.Second
 
-// Listen opens the Unix socket (mode 0666: every local process may
-// connect, the kernel tells us who it is) and the TCP address.
+// Listen opens the Unix socket and the TCP address. The socket is mode 0666
+// in a 0755 folder, both root's: agents, humans' Linux users and the daemon
+// run as many uids, so the file mode cannot tell them apart. The kernel
+// tells us who connects (SO_PEERCRED) and the resolver refuses the rest.
 func (s *Server) Listen() (*Running, error) {
 	sock := s.cfg.SocketPath()
 	if err := os.MkdirAll(filepath.Dir(sock), 0o755); err != nil { // #nosec G301 -- agents of other users must reach the socket
@@ -177,7 +228,7 @@ func (s *Server) Listen() (*Running, error) {
 	}
 	socketSrv := &http.Server{
 		Handler: s.socket, ReadHeaderTimeout: readHeaderTimeout,
-		ConnContext: s.resolver.ConnContext(httpadapter.WithPeerCaller),
+		ConnContext: s.resolver.ConnContext(httpadapter.WithPeer),
 	}
 	tcpSrv := &http.Server{Handler: s.tcp, ReadHeaderTimeout: readHeaderTimeout}
 	return &Running{servers: []*http.Server{socketSrv, tcpSrv}, lns: []net.Listener{unixLn, tcpLn}, log: s.log}, nil

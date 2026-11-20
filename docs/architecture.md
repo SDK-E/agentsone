@@ -138,6 +138,24 @@ address has no route.
 gateway in `edge` checks the budget, picks a real model from the providers the human enabled, adds
 the key and forwards the call. The key never enters `machine`.
 
+**A process in `machine` calls the daemon API.** It connects to the Unix socket
+`/run/agentsone/api.sock`. Every local user may connect (folder mode 0755, socket mode 0666,
+both owned by root), because the daemon does not trust the file mode: the kernel tells it the
+process id and user id of the caller. The daemon then decides, and refuses anything it cannot
+name:
+
+| The caller is | It is treated as |
+| --- | --- |
+| A process in an agent's cgroup `/agents/<name>` | That agent |
+| The daemon's own process | The daemon |
+| Any other process running as root | Refused. A root agent outside its cgroup sends its token. |
+| A process whose user id is a custom agent's | That agent (identity marked soft) |
+| A process whose user id is a human's own Linux user | That human, with a human's rights and never root (identity marked soft) |
+| Anything else, or any process when a lookup fails | Refused with 403, and recorded in the audit trail |
+
+The daemon's cgroup is not proof of the daemon: terminals, package installs and git run there too.
+A bearer token sent on the socket always names the caller instead.
+
 **A human changes a hard wall.** The human opens the `control` page on its own port. `control`
 passes the change to `edge` through an admin socket on a volume that only `control` and `edge`
 mount.

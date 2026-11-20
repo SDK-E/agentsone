@@ -8,7 +8,7 @@
 # it (folder 0700 and file 0600, both owned by the edge user 65532) and is
 # mounted read-only, as in compose.yaml.
 #
-#   1. the container turns healthy (agentsoned answers on api.sock);
+#   1. the container turns healthy (agentsoned answers on 127.0.0.1:7700);
 #   2. its log has no warning or error lines;
 #   3. its log proves the network wall: no default route, one network;
 #   4. it stops cleanly on SIGTERM (exit status 0);

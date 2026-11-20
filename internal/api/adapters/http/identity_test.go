@@ -4,15 +4,18 @@ package httpadapter_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	httpadapter "github.com/SDK-E/agentsone/internal/api/adapters/http"
+	"github.com/SDK-E/agentsone/internal/api/domain"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -188,7 +191,7 @@ func TestTCPIdentity_IdentityHeadersFromTheEdgeGiveNoSession(t *testing.T) {
 
 func TestSocketIdentity_IgnoresForwardedAndIdentityHeaders(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.SocketIdentity(verify, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+	h := httpadapter.SocketIdentity(verify, noReport, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-User", "X-Auth-User"} {
 			if r.Header.Get(name) != "" {
 				t.Errorf("%s reached the module", name)
@@ -199,13 +202,13 @@ func TestSocketIdentity_IgnoresForwardedAndIdentityHeaders(t *testing.T) {
 	for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-User", "X-Auth-User"} {
 		r.Header.Set(name, "x")
 	}
-	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerSystem, Name: "uid:0"}))
+	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerAgent, Name: "founder"}))
 	h.ServeHTTP(httptest.NewRecorder(), r)
 }
 
 func TestSocketIdentity_WithoutPeerCredentialsIsUnauthenticated(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.SocketIdentity(nil, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	h := httpadapter.SocketIdentity(nil, noReport, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Error("request without peer credentials reached the module")
 	}))
 	rec := httptest.NewRecorder()
@@ -374,7 +377,7 @@ func TestTCPIdentity_WithAPublicURLTheRequestHostIsThePublicHost(t *testing.T) {
 
 func TestSocketIdentity_UsesThePeerCaller(t *testing.T) {
 	t.Parallel()
-	h := httpadapter.SocketIdentity(verify, echo)
+	h := httpadapter.SocketIdentity(verify, noReport, echo)
 	r := httptest.NewRequest("GET", "/v1/agents", nil)
 	r.Header.Set(httpadapter.ViaHeader, "edge")
 	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerAgent, Name: "founder"}))
@@ -388,41 +391,82 @@ func TestSocketIdentity_UsesThePeerCaller(t *testing.T) {
 func TestSocketIdentity_RefusesWithoutPeerCredentials(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
-	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, httptest.NewRequest("GET", "/v1/agents", nil))
+	httpadapter.SocketIdentity(verify, noReport, echo).ServeHTTP(rec, httptest.NewRequest("GET", "/v1/agents", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d", rec.Code)
 	}
 }
 
-// socketAs sends a request on the socket chain as a uid-0 system peer.
-func socketAs(bearer string) *httptest.ResponseRecorder {
-	r := httptest.NewRequest("GET", "/v1/agents", nil)
+// noReport ignores refused peers, for tests about something else.
+func noReport(*http.Request, error) {}
+
+// refusedRoot is a uid-0 peer outside every agent cgroup that is not the daemon.
+var refusedRoot = &domain.Refusal{Peer: domain.Peer{PID: 99, UID: 0}, Reason: domain.ReasonRootOutsideAgents}
+
+// reports records what SocketIdentity reports about refused peers.
+type reports struct {
+	mu   sync.Mutex
+	errs []error
+}
+
+func (rp *reports) report(_ *http.Request, err error) {
+	rp.mu.Lock()
+	defer rp.mu.Unlock()
+	rp.errs = append(rp.errs, err)
+}
+
+func (rp *reports) all() []error {
+	rp.mu.Lock()
+	defer rp.mu.Unlock()
+	return append([]error(nil), rp.errs...)
+}
+
+// socketAsRefused sends a request on the socket chain from a refused peer.
+func socketAsRefused(method, path, bearer string) (*httptest.ResponseRecorder, []error) {
+	r := httptest.NewRequest(method, path, nil)
 	if bearer != "" {
 		r.Header.Set("Authorization", "Bearer "+bearer)
 	}
-	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerSystem, Name: "uid:0", UID: 0, IsRoot: true}))
+	r = r.WithContext(httpadapter.WithPeer(r.Context(), core.Anonymous, refusedRoot))
 	rec := httptest.NewRecorder()
-	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, r)
-	return rec
+	var rp reports
+	httpadapter.SocketIdentity(verify, rp.report, echo).ServeHTTP(rec, r)
+	return rec, rp.all()
 }
 
 func TestSocketIdentity_RootAgentOutsideItsCgroupIsNamedByItsToken(t *testing.T) {
 	t.Parallel()
-	if rec := socketAs("aot_good"); rec.Code != 200 || rec.Header().Get("X-Caller") != "agent:founder" {
-		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("X-Caller"))
+	rec, reported := socketAsRefused("GET", "/v1/agents", "aot_good")
+	if rec.Code != 200 || rec.Header().Get("X-Caller") != "agent:founder" || len(reported) != 0 {
+		t.Fatalf("got %d %q, reported %v", rec.Code, rec.Header().Get("X-Caller"), reported)
 	}
 }
 
-func TestSocketIdentity_Uid0WithoutTokenStaysSystem(t *testing.T) {
+func TestSocketIdentity_RefusedPeerWithoutTokenIsForbiddenAndReported(t *testing.T) {
 	t.Parallel()
-	if rec := socketAs(""); rec.Code != 200 || rec.Header().Get("X-Caller") != "system:uid:0" {
-		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("X-Caller"))
+	for _, path := range []string{"/v1/agents", "/v1/setup"} {
+		rec, reported := socketAsRefused("GET", path, "")
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"type":"urn:agentsone:problem:forbidden"`) {
+			t.Fatalf("%s: got %d %s", path, rec.Code, rec.Body)
+		}
+		if strings.Contains(rec.Body.String(), "uid") || strings.Contains(rec.Body.String(), domain.ReasonRootOutsideAgents) {
+			t.Errorf("%s: the answer tells the caller why: %s", path, rec.Body)
+		}
+		if len(reported) != 1 || !errors.Is(reported[0], refusedRoot) {
+			t.Errorf("%s: reported %v, want the refusal once", path, reported)
+		}
 	}
+}
+
+func TestSocketIdentity_RefusedPeerStillGetsTheDoorOnlyAnswerForTheFirstHuman(t *testing.T) {
+	t.Parallel()
+	rec, _ := socketAsRefused("POST", "/v1/setup/first-human", "")
+	refusedFirstHuman(t, rec)
 }
 
 func TestSocketIdentity_RefusesABadToken(t *testing.T) {
 	t.Parallel()
-	if rec := socketAs("aot_forged"); rec.Code != http.StatusUnauthorized {
+	if rec, _ := socketAsRefused("GET", "/v1/agents", "aot_forged"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d", rec.Code)
 	}
 }
@@ -442,7 +486,7 @@ func TestFirstHuman_RefusedOnTheSocket(t *testing.T) {
 	r := httptest.NewRequest("POST", "/v1/setup/first-human", nil)
 	r = r.WithContext(httpadapter.WithPeerCaller(r.Context(), core.Caller{Kind: core.CallerAgent, Name: "founder", IsRoot: true}))
 	rec := httptest.NewRecorder()
-	httpadapter.SocketIdentity(verify, echo).ServeHTTP(rec, r)
+	httpadapter.SocketIdentity(verify, noReport, echo).ServeHTTP(rec, r)
 	refusedFirstHuman(t, rec)
 }
 

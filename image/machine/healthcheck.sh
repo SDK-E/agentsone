@@ -2,19 +2,22 @@
 # SPDX-License-Identifier: MIT
 #
 # Container health check: healthy once agentsoned answers GET /v1/setup on
-# its Unix socket. That endpoint is public and cheap, and it is the first
-# one the web door needs.
+# its loopback TCP listener. That endpoint is public and cheap, and it is the
+# first one the web door needs.
+#
+# Not the Unix socket: the socket admits only agents, humans' own Linux users
+# and the daemon itself. The health check runs as root outside every agent
+# cgroup, so the socket refuses it, as it refuses any such process.
 #
 # 200 is the contract answer. 501 is accepted while the setup operation is
-# not built yet: the daemon is up and serving the socket either way.
+# not built yet: the daemon is up and serving either way.
 set -eu
 
-socket=/run/agentsone/api.sock
+url=http://127.0.0.1:7700/v1/setup
 
-code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 4 \
-    --unix-socket "$socket" http://localhost/v1/setup) || true
+code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 4 "$url") || true
 case "$code" in
     200 | 501) exit 0 ;;
 esac
-echo "agentsoned did not answer GET /v1/setup on $socket (status ${code:-none})" >&2
+echo "agentsoned did not answer GET $url (status ${code:-none})" >&2
 exit 1

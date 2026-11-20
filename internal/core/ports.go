@@ -57,6 +57,9 @@ type HumanDirectory interface {
 	HumanAccounts(ctx context.Context) ([]HumanAccount, error)
 	// HumanAccount returns the human called name, or ErrNotFound.
 	HumanAccount(ctx context.Context, name string) (HumanAccount, error)
+	// HumanByUID returns the human whose Linux user has uid, or
+	// ErrNotFound. The API names socket peers with it.
+	HumanByUID(ctx context.Context, uid int) (HumanAccount, error)
 }
 
 // HumanAccount is a human as the machine sees them.
@@ -474,5 +477,8 @@ func (unavailable) LicenceAccepted(context.Context) (bool, error)            { r
 func (unavailable) SaveFetchStatus(context.Context, EngineFetchStatus) error { return ErrUnavailable }
 func (unavailable) HumanAccounts(context.Context) ([]HumanAccount, error)    { return nil, ErrUnavailable }
 func (unavailable) HumanAccount(context.Context, string) (HumanAccount, error) {
+	return HumanAccount{}, ErrUnavailable
+}
+func (unavailable) HumanByUID(context.Context, int) (HumanAccount, error) {
 	return HumanAccount{}, ErrUnavailable
 }

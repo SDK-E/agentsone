@@ -26,7 +26,7 @@ const resumeWakeTimeout = 30 * time.Second
 // then after twice as long each time, up to resumeRetryCap.
 const (
 	resumeRetryFirst = time.Minute
-	resumeRetryCap = 10 * time.Minute
+	resumeRetryCap   = 10 * time.Minute
 )
 
 // resumeBudget resumes every agent that paused a turn for budget and may

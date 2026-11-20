@@ -73,7 +73,7 @@ readline.createInterface({input: sock}).on('line', (line) => {
     send({id: msg.id, result: {}});
     send({method: 'status', params: {state: 'working', turnId}});
     send({method: 'output', params: {turnId, chatId: payload.chatId, chunk: 0, final: true,
-      text: 'node: ' + payload.text + '; heap limit ' + heapLimit + ' MiB'}});
+      text: 'node: ' + payload.text + '; NODE_OPTIONS=' + process.env.NODE_OPTIONS + '; heap limit ' + heapLimit + ' MiB'}});
     send({method: 'status', params: {state: 'idle', turnId}});
   }
 });
@@ -112,7 +112,8 @@ func TestBoot_CustomAgentsRealRunnersAnswerAChat(t *testing.T) {
 	}{
 		{"echo runner, Go", "aoboot-echo", 200204, binary(bin, "agentsone-runner-echo"), "echo: hello scribe"},
 		{"openai runner, Go, as scribe ran", "aoboot-scribe", 200205, binary(bin, "agentsone-runner-openai"), modelAnswer},
-		{"node runner, Node.js of the machine image", "aoboot-node", 200206, nodeScript(bin), "node: hello scribe; heap limit %d MiB"},
+		{"node runner, Node.js of the machine image", "aoboot-node", 200206, nodeScript(bin),
+			"node: hello scribe; NODE_OPTIONS=--max-old-space-size=192; heap limit %d MiB"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -128,10 +129,12 @@ func TestBoot_CustomAgentsRealRunnersAnswerAChat(t *testing.T) {
 			t.Logf("proof boot runner %s (%s): as uid %d answered %q; mode=%s; %s",
 				tc.name, boot.Line(), tc.uid, answer, sup.LimitMode(acc.User), limits)
 			if heap := 0; strings.Contains(tc.want, "%d") {
-				// 3/4 of memory_mb for the old space, plus V8's small young
-				// generation; without the hint V8 sizes it from the host.
-				if _, err := fmt.Sscanf(answer, tc.want, &heap); err != nil || heap < 192 || heap >= 256 {
-					t.Errorf("runner answered %q, want %q with a heap limit from 192 to 255 MiB", answer, tc.want)
+				// The old space is 3/4 of memory_mb, 192 MiB. V8 sizes its
+				// young generation from the memory it sees: a few MiB under
+				// memory.max, up to 192 MiB more on the whole host. Without
+				// the hint the heap limit follows the host, gigabytes in CI.
+				if _, err := fmt.Sscanf(answer, tc.want, &heap); err != nil || heap < 192 || heap >= 512 {
+					t.Errorf("runner answered %q, want %q with a heap limit from 192 to 511 MiB", answer, tc.want)
 				}
 			} else if answer != tc.want {
 				t.Errorf("runner answered %q, want %q", answer, tc.want)

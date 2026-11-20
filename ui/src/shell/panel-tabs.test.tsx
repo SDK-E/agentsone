@@ -76,7 +76,26 @@ describe("Panels", () => {
 
     const lastCall = scrolled.mock.contexts.at(-1) as HTMLElement;
     expect(lastCall).toBe(screen.getByRole("tab", { name: "Settings" }));
-    expect(scrolled).toHaveBeenLastCalledWith({ inline: "nearest", block: "nearest" });
+    // To the start of the row, where the row's scroll snap rests, so the two agree.
+    expect(scrolled).toHaveBeenLastCalledWith({ inline: "start", block: "nearest" });
+    scrolled.mockRestore();
+  });
+
+  it("leaves the row alone when the chosen tab is already whole and clear of the cues", async () => {
+    const user = userEvent.setup();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderWith(<PanelsArea />);
+    const list = screen.getByRole("tablist");
+    const tasks = screen.getByRole("tab", { name: "Tasks" });
+    const box = (left: number, right: number) =>
+      ({ left, right, width: right - left, top: 0, bottom: 44, height: 44 }) as DOMRect;
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(box(0, 300));
+    vi.spyOn(tasks, "getBoundingClientRect").mockReturnValue(box(100, 170));
+    scrolled.mockClear();
+
+    await user.click(tasks);
+
+    expect(scrolled).not.toHaveBeenCalled();
     scrolled.mockRestore();
   });
 
@@ -85,24 +104,74 @@ describe("Panels", () => {
     const list = screen.getByRole("tablist");
     const scroller = list.parentElement;
     if (!scroller) throw new Error("the tab row has no wrapper");
-    const metrics = (left: number) => {
-      Object.defineProperty(list, "clientWidth", { configurable: true, value: 300 });
-      Object.defineProperty(list, "scrollWidth", { configurable: true, value: 700 });
-      Object.defineProperty(list, "scrollLeft", { configurable: true, value: left });
+    const first = screen.getByRole("tab", { name: "Monitor" });
+    const last = screen.getByRole("tab", { name: "Settings" });
+    const box = (left: number, right: number) =>
+      ({ left, right, width: right - left, top: 0, bottom: 44, height: 44 }) as DOMRect;
+    // The row is 300 wide. The tabs are 700 wide in all, scrolled by `scrolled` pixels, with 4 pixels
+    // of padding on each side of the row: a side has more only when its end tab is not wholly in view.
+    const scrollTo = (scrolled: number) => {
+      vi.spyOn(list, "getBoundingClientRect").mockReturnValue(box(0, 300));
+      vi.spyOn(first, "getBoundingClientRect").mockReturnValue(box(4 - scrolled, 80 - scrolled));
+      vi.spyOn(last, "getBoundingClientRect").mockReturnValue(box(624 - scrolled, 704 - scrolled));
       fireEvent.scroll(list);
     };
 
-    metrics(0);
+    scrollTo(0);
     expect(scroller).toHaveAttribute("data-more-end", "true");
     expect(scroller).not.toHaveAttribute("data-more-start");
 
-    metrics(200);
+    scrollTo(200);
     expect(scroller).toHaveAttribute("data-more-start", "true");
     expect(scroller).toHaveAttribute("data-more-end", "true");
 
-    metrics(400);
+    // Scrolled until the last tab sits at the edge: the row's own end padding is not "more".
+    scrollTo(404);
     expect(scroller).toHaveAttribute("data-more-start", "true");
     expect(scroller).not.toHaveAttribute("data-more-end");
+
+    // Scrolled back by a little: the first tab is still whole, so there is nothing more to the start.
+    scrollTo(3);
+    expect(scroller).not.toHaveAttribute("data-more-start");
+  });
+
+  it("makes each cue as wide as the tab cut by its edge needs, so no label shows", () => {
+    renderWith(<PanelsArea />);
+    const list = screen.getByRole("tablist");
+    const first = screen.getByRole("tab", { name: "Monitor" });
+    const second = screen.getByRole("tab", { name: "Tasks" });
+    const last = screen.getByRole("tab", { name: "Settings" });
+    const box = (left: number, right: number) =>
+      ({ left, right, width: right - left, top: 0, bottom: 44, height: 44 }) as DOMRect;
+    const start = list.parentElement?.querySelector<HTMLElement>(".tabs__cue--start");
+    const end = list.parentElement?.querySelector<HTMLElement>(".tabs__cue--end");
+    if (!start || !end) throw new Error("the tab row has no cues");
+
+    // The first tab is cut at the start: 40px of it is in view. Its label ends 16px before that.
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(box(0, 300));
+    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(box(-36, 40));
+    vi.spyOn(second, "getBoundingClientRect").mockReturnValue(box(44, 120));
+    vi.spyOn(last, "getBoundingClientRect").mockReturnValue(box(260, 340));
+    fireEvent.scroll(list);
+
+    // Solid up to 10px before the end of the cut tab, then the fade over its padding.
+    expect(start.style.getPropertyValue("--cue-solid")).toBe("30px");
+    // The last tab shows 40px at the end: the same rule from the other side.
+    expect(end.style.getPropertyValue("--cue-solid")).toBe("30px");
+
+    // A tab that is whole, but sits in the cue's least space, goes under the cue whole: the next
+    // tab is wholly out of view, and this one is not left with its label half hidden.
+    vi.spyOn(second, "getBoundingClientRect").mockReturnValue(box(250, 298));
+    vi.spyOn(last, "getBoundingClientRect").mockReturnValue(box(302, 380));
+    fireEvent.scroll(list);
+    expect(end.style.getPropertyValue("--cue-solid")).toBe("40px");
+
+    // Nothing cut: the cue is as short as its arrow allows.
+    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(box(4, 80));
+    vi.spyOn(last, "getBoundingClientRect").mockReturnValue(box(200, 280));
+    fireEvent.scroll(list);
+    expect(start.style.getPropertyValue("--cue-solid")).toBe("26px");
+    expect(end.style.getPropertyValue("--cue-solid")).toBe("26px");
   });
 
   it("puts the panels in a sheet on a phone", async () => {

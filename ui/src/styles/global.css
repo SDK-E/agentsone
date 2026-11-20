@@ -673,6 +673,16 @@ ul.notice {
 .tabs__scroller {
   position: relative;
   min-width: 0;
+  /* The part of a cue that fully covers the row. The tab row sets it per cue, as wide as the tab
+     cut by that edge needs, so no part of a label shows; this is the least it is (the arrow). */
+  --cue-solid: 26px;
+  /* The fade after the solid part, over the cut tab's empty padding. */
+  --cue-fade: 8px;
+  /* The most a cue reaches when a tab rests at the start of the row. A tab and its focus ring stay
+     clear of it. */
+  --cue-width: 48px;
+  /* A focus ring reaches 5px past its tab: 3px line and 2px offset. */
+  --focus-reach: 5px;
 }
 
 /* A fade and an arrow where more tabs hide. The row scrolls; the cue only tells you so. */
@@ -681,9 +691,8 @@ ul.notice {
   inset-block: 0 1px;
   display: none;
   align-items: center;
-  inline-size: 48px;
-  /* Fully covering up to here, so the arrow never sits on top of tab text; then it fades out. */
-  --cue-solid: 26px;
+  inline-size: calc(var(--cue-solid) + var(--cue-fade));
+  /* Fully covering up to --cue-solid, so the arrow never sits on top of tab text; then a short fade. */
   color: var(--color-text);
   pointer-events: none;
 }
@@ -692,14 +701,22 @@ ul.notice {
   inset-inline-start: 0;
   justify-content: flex-start;
   padding-inline-start: 4px;
-  background: linear-gradient(to right, var(--color-surface) var(--cue-solid), transparent);
+  background: linear-gradient(
+    to right,
+    var(--color-surface) var(--cue-solid),
+    transparent calc(var(--cue-solid) + var(--cue-fade))
+  );
 }
 
 .tabs__cue--end {
   inset-inline-end: 0;
   justify-content: flex-end;
   padding-inline-end: 4px;
-  background: linear-gradient(to left, var(--color-surface) var(--cue-solid), transparent);
+  background: linear-gradient(
+    to left,
+    var(--color-surface) var(--cue-solid),
+    transparent calc(var(--cue-solid) + var(--cue-fade))
+  );
 }
 
 .tabs__scroller[data-more-start] .tabs__cue--start,
@@ -713,9 +730,14 @@ ul.notice {
   overflow-x: auto;
   border-bottom: 1px solid var(--color-border);
   padding: 4px 4px 0;
+  /* A tab brought into view sits whole, with its focus ring, clear of the whole cue and its fade. */
+  scroll-padding-inline: calc(var(--cue-width) + var(--focus-reach) + 1px);
+  /* A swipe comes to rest on a whole tab. Proximity, so a slow drag is never fought. */
+  scroll-snap-type: x proximity;
 }
 
 .tabs__tab {
+  scroll-snap-align: start;
   min-height: 44px;
   padding: 0 var(--space-md);
   border: 0;

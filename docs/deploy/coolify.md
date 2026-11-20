@@ -77,20 +77,20 @@ services together: the setting does that.
 
 ## Ports
 
-Nothing is published to the internet by the file itself. Traefik reaches the two pages over
-Coolify's proxy network, and the published host ports listen on loopback only.
+The Coolify file publishes no port on the host. Traefik reaches the two pages over the proxy
+network, so its route, with your access control in front, is the only way in.
 
 | Service | Container port | Published on the host | Who reaches it |
 | --- | --- | --- | --- |
-| `edge` | 8080 (web door) | `127.0.0.1:7780` (`AGENTSONE_WEB_DOOR_PORT`) | Traefik, for `AGENTSONE_DOMAIN`. Humans, through your platform's access control. |
-| `control` | 8081 (control page) | `127.0.0.1:7781` (`AGENTSONE_CONTROL_PORT`) | Traefik, for `AGENTSONE_CONTROL_DOMAIN`. Humans only. |
+| `edge` | 8080 (web door) | Not published | Traefik, for `AGENTSONE_DOMAIN`. Humans, through your platform's access control. |
+| `control` | 8081 (control page) | Not published | Traefik, for `AGENTSONE_CONTROL_DOMAIN`. Humans only. |
 | `edge` | 53, 80, 443, 3128, 4000, 7710 | Not published | The machine, on the inner address only. |
 | `machine` | none | Not published | Nobody. Humans reach agents through the web door. |
 
 Keep these private:
 
-- Do not set `AGENTSONE_BIND_ADDR` to a public address. The loopback default keeps the host ports
-  off the network, so Traefik's route is the only way in.
+- Do not add host ports to `edge` or `control`: a host port would be a second way in that skips
+  your access control.
 - Do not publish any port of `machine`, and do not add a network to it.
 - Do not give the control page the same access as the web door. Agents' users and humans who may
   chat with agents are not the people who set the budget and the model keys.
@@ -110,9 +110,6 @@ they live behind the control page.
 | `AGENTSONE_DOOR_MIDDLEWARES` | No | empty | Traefik middlewares in front of the web door, comma-separated, for example `sign-in@file,vpn-only@file`. Empty adds none. |
 | `AGENTSONE_CONTROL_MIDDLEWARES` | No | empty | Traefik middlewares in front of the control page, in the same form. Set it unless something else already guards the control domain. |
 | `AGENTSONE_PROXY_ALIAS` | No | `agentsone-door` | Name of the web door on the proxy network. Change it if another app on the server uses it. |
-| `AGENTSONE_BIND_ADDR` | No | `127.0.0.1` | Host address for the published ports. Leave on loopback. |
-| `AGENTSONE_WEB_DOOR_PORT` | No | `7780` | Host port of the web door. |
-| `AGENTSONE_CONTROL_PORT` | No | `7781` | Host port of the control page. |
 | `AGENTSONE_MACHINE_CPUS` | No | `4` | CPU ceiling of the machine. Must not exceed the server's CPUs. |
 | `AGENTSONE_MACHINE_MEMORY` | No | `8g` | Memory ceiling of the machine, with no swap. |
 | `AGENTSONE_MACHINE_PIDS` | No | `4096` | Process ceiling of the machine. |
@@ -128,8 +125,9 @@ Traefik labels. Plain `compose.yaml` has no proxy, so they exist only in the Coo
 
 The Coolify file has no outer network, so `AGENTSONE_OUTER_SUBNET`,
 `AGENTSONE_OUTER_DYNAMIC_RANGE` and `AGENTSONE_EDGE_OUTER_IP` apply to plain `compose.yaml` only.
-Setting them in Coolify changes nothing; see
-[How the Coolify file works](#how-the-coolify-file-works).
+It publishes no host port either, so `AGENTSONE_BIND_ADDR`, `AGENTSONE_WEB_DOOR_PORT` and
+`AGENTSONE_CONTROL_PORT` apply to plain `compose.yaml` only. Setting any of them in Coolify
+changes nothing; see [How the Coolify file works](#how-the-coolify-file-works).
 
 The edge reaches the internet through the proxy network. If your proxy trusts that network, for
 example to let internal or VPN-only hosts through, an allowed name that resolves to the server's
@@ -244,8 +242,10 @@ at every start.
   edge and control get no address range of their own, and a host firewall rule that limits what
   the proxy network may reach on the server covers them too.
 - The web door listens on one address: the alias `agentsone-door` on the proxy network, for
-  Traefik and for the published port. It never listens on the inner address. Change the alias
-  with `AGENTSONE_PROXY_ALIAS` if another app on the server already uses it.
+  Traefik. It never listens on the inner address. Change the alias with `AGENTSONE_PROXY_ALIAS`
+  if another app on the server already uses it.
+- `edge` and `control` publish no host port (`ports: !reset []` in the overlay), unlike
+  `compose.yaml`, where the loopback ports are the way in when no proxy runs.
 - Traefik router names start with `agentsone-`. Run one Agents One stack per Coolify server.
 - After a change to `compose.yaml` or the overlay, remake `compose.coolify.yaml` with the command
   in its header. The pull request check fails until you do.

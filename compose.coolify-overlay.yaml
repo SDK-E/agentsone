@@ -31,8 +31,8 @@ services:
     command:
       - edge
       - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
-      # The one door address, on the proxy network, for Traefik and the published port. The name
-      # is a network alias of edge on that network only; it never resolves to the inner address.
+      # The one door address, on the proxy network, for Traefik. The name is a network alias of
+      # edge on that network only; it never resolves to the inner address.
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
       # Set AGENTSONE_EGRESS_DENY to the server's own public addresses when your proxy trusts the
       # proxy network, which is the edge's way out (docs/deploy/coolify.md, Settings).
@@ -45,6 +45,9 @@ services:
       proxy:
         aliases:
           - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
+    # Wall: no host port. Traefik reaches the web door on the proxy network, so a port on the
+    # host would only be a second way in that skips your access control.
+    ports: !reset []
     labels:
       - traefik.enable=true
       - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}
@@ -68,6 +71,8 @@ services:
     # is also its way out. The machine cannot reach it by any route.
     networks: !override
       proxy: {}
+    # Wall: no host port, for the same reason as the web door.
+    ports: !reset []
     labels:
       - traefik.enable=true
       - traefik.docker.network=${AGENTSONE_PROXY_NETWORK:-coolify}

@@ -491,7 +491,22 @@
     "ide": { "label": "IDE", "about": "The code editor on this machine, opened in place." },
     "desktop": {
       "label": "Desktop",
-      "about": "The machine's full desktop, right here in the browser."
+      "about": "The machine's full desktop, right here in the browser.",
+      "title": "Your desktop",
+      "intro": "A full desktop on this machine, as your own user, with a terminal and a web browser. It keeps running while you switch panels and stops after 30 minutes with nobody looking.",
+      "open": "Open my desktop",
+      "starting": "Starting your desktop…",
+      "failed": "The desktop did not open. Try again in a moment.",
+      "ended": "The desktop connection ended.",
+      "retry": "Try again",
+      "reconnect": "Reconnect",
+      "tools": "Desktop tools",
+      "terminal": "Terminal",
+      "browser": "Web browser",
+      "fullScreen": "Full screen",
+      "disconnect": "Disconnect",
+      "screen": "Your desktop",
+      "menuHint": "Use the buttons above, or right-click the desktop for its menu. Disconnecting leaves your programs running."
     },
     "machine": {
       "label": "Machine",

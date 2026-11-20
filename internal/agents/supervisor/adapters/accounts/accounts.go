@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/app"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
@@ -112,6 +113,15 @@ func (a *Accounts) Ensure(ctx context.Context, acc domain.Account) (int, error) 
 		return 0, err
 	}
 	return acc.UID, nil
+}
+
+// EnsureRootHome makes a root agent's home: mode 0700, owned by root. Root
+// agents run as root, so no user is made.
+func (a *Accounts) EnsureRootHome(_ context.Context, acc domain.Account) error {
+	if !acc.IsRoot || !strings.HasPrefix(acc.Home, domain.RootHomeRoot+"/") {
+		return fmt.Errorf("ensure root home %q: not a root agent's home", acc.Home)
+	}
+	return a.home(filepath.Join(a.Root, acc.Home), 0, 0)
 }
 
 // home makes the home directory private to the agent: mode 0700 and owned

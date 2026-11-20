@@ -66,6 +66,10 @@ func TestProvision_RootAgentRunsAsRootWithoutUserOrLimits(t *testing.T) {
 	if uid != 0 || len(w.accounts.created) != 0 || u.Account.User != "root" || u.Limits != (domain.Limits{}) {
 		t.Fatalf("uid=%d accounts=%v unit=%+v", uid, w.accounts.created, u)
 	}
+	// A root agent's home is its own folder in root's home, as the contract says.
+	if u.Account.Home != "/root/agents/founder" || !w.accounts.rootHomes["/root/agents/founder"] {
+		t.Fatalf("unit home %q, root homes made %v; want /root/agents/founder made", u.Account.Home, w.accounts.rootHomes)
+	}
 }
 
 // After the user database was reset, a known agent is recreated with its stored uid.

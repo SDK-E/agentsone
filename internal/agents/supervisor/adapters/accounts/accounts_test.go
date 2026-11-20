@@ -189,6 +189,29 @@ func TestEnsure_ReportsBadHome(t *testing.T) {
 	}
 }
 
+// A root agent has no user of its own, but its own private home in root's home.
+func TestEnsureRootHome_MakesAPrivateFolderOwnedByRoot(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	sys := newSystem()
+	a := sys.accounts(root)
+
+	for range 2 { // idempotent: the second call changes nothing
+		if err := a.EnsureRootHome(t.Context(), domain.AccountFor("founder", true)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	home := filepath.Join(root, "root/agents/founder")
+	info, err := os.Stat(home)
+	if err != nil || info.Mode().Perm() != 0o700 || sys.owner[home] != 0 || len(sys.cmds) != 0 {
+		t.Fatalf("home %v err=%v owner=%d cmds=%v; want 0700 owned by root, no user made", info, err, sys.owner[home], sys.cmds)
+	}
+	if err := a.EnsureRootHome(t.Context(), mira); err == nil {
+		t.Error("EnsureRootHome accepted a custom agent's account")
+	}
+}
+
 func TestEnsureAndLock_RefuseRootAccounts(t *testing.T) {
 	t.Parallel()
 	a := newSystem().accounts(t.TempDir())

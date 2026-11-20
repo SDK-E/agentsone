@@ -106,6 +106,29 @@ for (const [section, names] of Object.entries(LISTS) as [
   }
 }
 
+test("machine, files, a long name takes the row and size and owner go under it", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("phone"), "The two-line row is the phone layout.");
+  const clean = await useScenario(page, { all: "long-text" });
+  await openPanel(page, "Machine");
+  await show(page, "Files");
+
+  const row = page.getByRole("list", { name: LISTS.files.list }).getByRole("listitem").first();
+  await expect(row).toBeVisible();
+  const [rowBox, nameBox, sizeBox] = await Promise.all([
+    row.boundingBox(),
+    row.locator(".machine__name").boundingBox(),
+    row.locator(".machine__size").boundingBox(),
+  ]);
+  if (!rowBox || !nameBox || !sizeBox) throw new Error("The row has no layout.");
+  // The name fills the row (less the icon and padding), not a narrow column.
+  expect(nameBox.width).toBeGreaterThan(rowBox.width * 0.7);
+  // Size and owner sit under the name, not beside it.
+  expect(sizeBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+  clean();
+});
+
 test("machine, read a file", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Machine");

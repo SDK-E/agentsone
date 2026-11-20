@@ -2311,6 +2311,40 @@ body:has(.sheet[open]) {
   white-space: nowrap;
 }
 
+/* On a phone the name takes the whole row, so it wraps at words and dashes, not in letter chunks.
+   Size and owner sit on a second line under it. */
+@media (max-width: 767px) {
+  .machine__row {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "open open"
+      "size owner";
+    align-items: start;
+    gap: 2px var(--space-md);
+    padding-block: var(--space-sm);
+  }
+
+  .machine__open {
+    grid-area: open;
+    align-items: flex-start;
+  }
+
+  .machine__open .machine__icon {
+    margin-block-start: 2px;
+  }
+
+  .machine__size {
+    grid-area: size;
+  }
+
+  .machine__owner {
+    grid-area: owner;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 .gauge__warn {
   font-weight: var(--weight-bold);
 }

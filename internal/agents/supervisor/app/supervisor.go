@@ -52,6 +52,9 @@ type Supervisor struct {
 	// sent; answered is the newest wake whose outcome each agent took.
 	wakes    uint64
 	answered map[string]uint64
+	// telling holds, for each agent, the turn to decide what a wake's
+	// answer shows and to tell the society (see showTurn).
+	telling map[string]chan struct{}
 	// resumed is the paused turn each agent was last resumed for, until its
 	// budget runs out again.
 	resumed map[string]string
@@ -86,7 +89,7 @@ type wakeRequest struct {
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
 	s := &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
-		refused: map[string]refusal{}, answered: map[string]uint64{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{},
+		refused: map[string]refusal{}, answered: map[string]uint64{}, telling: map[string]chan struct{}{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{},
 		runWanted: map[string]bool{}}
 	// Every start and restart of a runner passes the launcher, so the wall
 	// is checked there: a new way to start a runner cannot skip it.

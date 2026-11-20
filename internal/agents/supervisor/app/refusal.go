@@ -73,11 +73,16 @@ func (s *Supervisor) numberWakeLocked() uint64 {
 // refusal. An older refusal that differs from the one shown is still logged
 // and audited, since the runner did refuse it. Other errors (the connection
 // ended) are the caller's to handle.
+//
+// Two answers can also arrive at once. Each decides what the agent shows
+// and tells the society within one show turn, so the society hears them in
+// the order they were decided and the last word it hears is the newest.
 func (s *Supervisor) wakeSent(ctx context.Context, agent string, seq uint64, req wakeRequest, err error) {
 	ref, refused := refusedWake(req, err)
 	if err != nil && !refused {
 		return
 	}
+	defer s.showTurn(agent)()
 	s.mu.Lock()
 	newest := seq > s.answered[agent]
 	if newest {
@@ -107,10 +112,31 @@ func (s *Supervisor) wakeSent(ctx context.Context, agent string, seq uint64, req
 	}
 }
 
-// forgetRefusal drops what was remembered of agent's refusals: its runner
-// started anew, so the society's failure is gone and a refusal is news again.
-func (s *Supervisor) forgetRefusal(agent string) {
+// forgetRefusal drops what was remembered of agent's refusals and tells the
+// society the runner runs: it started anew, so the society's failure is gone
+// and a refusal is news again. It takes a show turn, like wakeSent.
+func (s *Supervisor) forgetRefusal(ctx context.Context, agent string) {
+	defer s.showTurn(agent)()
 	s.mu.Lock()
 	delete(s.refused, agent)
 	s.mu.Unlock()
+	s.runnerRunning(ctx, agent)
+}
+
+// showTurn waits for agent's show turn and returns its end. Within a turn,
+// what a refusal or its end makes the agent show is decided under s.mu and
+// told to the society after s.mu is released (the society takes its own
+// locks), so no other decision for that agent comes in between. Take it
+// without s.mu held. The turn is a channel rather than a mutex so a test
+// bubble (testing/synctest) sees a wait for it as blocked.
+func (s *Supervisor) showTurn(agent string) (end func()) {
+	s.mu.Lock()
+	turn, ok := s.telling[agent]
+	if !ok {
+		turn = make(chan struct{}, 1)
+		s.telling[agent] = turn
+	}
+	s.mu.Unlock()
+	turn <- struct{}{}
+	return func() { <-turn }
 }

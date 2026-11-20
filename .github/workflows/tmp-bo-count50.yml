@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MIT
+# Temporary: proves the wake tests hold under -race -count=50 on a GitHub runner
+# (SDK-2125). Removed again on this branch before the pull request is reviewed.
+name: tmp-bo-count50
+
+on:
+  push:
+    branches: [fix/sdk-2125-shown-state-order]
+
+permissions:
+  contents: read
+
+jobs:
+  wake-tests-count50:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: wake tests, -race -count=50
+        shell: bash
+        run: go test -race -count=50 -v -run 'TestWake_|TestStatus_' ./internal/agents/supervisor/... | tee wake.log
+      - name: pass counts
+        run: |
+          echo "pass: $(grep -c -- '^--- PASS' wake.log)"
+          echo "fail: $(grep -c -- '^--- FAIL' wake.log || true)"
+          echo "new test passes: $(grep -c -- '^--- PASS: TestWake_TwoAnswersAtOnceLeaveTheNewestShown' wake.log)"

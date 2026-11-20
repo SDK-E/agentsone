@@ -262,8 +262,7 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 		s.turnEnded(ctx, h.agent)
 	}
 	if ready {
-		s.forgetRefusal(h.agent)
-		s.runnerRunning(ctx, h.agent)
+		s.forgetRefusal(ctx, h.agent)
 	}
 	if out.Failed {
 		s.audit(ctx, ActionRunnerError, "agent:"+h.agent, map[string]any{"turnId": out.EndedTurn, "state": "error"})

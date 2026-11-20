@@ -41,7 +41,9 @@ func TestPlugins_InstallReportsACopyItCannotRemove(t *testing.T) {
 // brokenInsertRepo refuses to store a plugin record.
 type brokenInsertRepo struct{ domain.PluginRepository }
 
-func (brokenInsertRepo) Insert(context.Context, domain.Plugin) error { return errors.New("database full") }
+func (brokenInsertRepo) Insert(context.Context, domain.Plugin) error {
+	return errors.New("database full")
+}
 
 // stuckRemoveInstaller installs but cannot remove.
 type stuckRemoveInstaller struct{ domain.Installer }

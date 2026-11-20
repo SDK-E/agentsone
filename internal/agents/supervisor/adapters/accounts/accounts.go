@@ -145,7 +145,11 @@ func (a *Accounts) Lock(ctx context.Context, acc domain.Account) error {
 		return fmt.Errorf("lock account %q: not a custom agent user", acc.User)
 	}
 	if _, err := a.lookupUser(acc.User); err != nil {
-		return nil // nothing to lock
+		var unknown user.UnknownUserError
+		if errors.As(err, &unknown) {
+			return nil // nothing to lock
+		}
+		return fmt.Errorf("lock account %q: look up user: %w", acc.User, err)
 	}
 	return a.run(ctx, "usermod", "--lock", "--expiredate", "1", acc.User)
 }

@@ -3,10 +3,15 @@
 package app_test
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/events/app"
 	"github.com/SDK-E/agentsone/internal/events/domain"
 )
 
@@ -108,6 +113,35 @@ func TestRegisterEmitter_AFailingUnitLeavesItDisabled(t *testing.T) {
 	e, err := f.emitters.ByName(t.Context(), "watcher")
 	if err != nil || e.Enabled {
 		t.Fatalf("emitter after failed start = %+v, %v", e, err)
+	}
+}
+
+// stuckEmitters cannot change an emitter's enabled flag.
+type stuckEmitters struct {
+	domain.EmitterRepository
+	err error
+}
+
+func (s stuckEmitters) SetEnabled(context.Context, string, bool) error { return s.err }
+
+func TestRegisterEmitter_AFailingUnitThatCannotBeDisabledIsLoggedAsAnError(t *testing.T) {
+	var logs bytes.Buffer
+	f := newFixtureWith(t, func(d *app.Deps) {
+		d.Emitters = stuckEmitters{EmitterRepository: d.Emitters, err: errors.New("database locked")}
+		d.Log = slog.New(slog.NewTextHandler(&logs, nil))
+	})
+	f.units.err = errors.New("no systemd")
+
+	_, err := f.svc.RegisterEmitter(asRootAgent("founder"), processReg("watcher"))
+
+	if !errors.Is(err, core.ErrUnavailable) {
+		t.Fatalf("error = %v, want ErrUnavailable", err)
+	}
+	got := logs.String()
+	for _, want := range []string{"level=ERROR", "no systemd", "database locked", "watcher"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log lacks %q: %q", want, got)
+		}
 	}
 }
 

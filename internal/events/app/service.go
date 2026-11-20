@@ -304,6 +304,7 @@ type Page struct {
 func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 	viewer := s.viewerOf(ctx, callerOf(ctx))
 	var page Page
+	var kept uint64 // sequence of the last event in page.Events
 	cursor := q.After
 	for {
 		batch, err := s.d.Events.After(ctx, cursor, replayPage)
@@ -320,20 +321,16 @@ func (s *Service) List(ctx context.Context, q Query) (Page, error) {
 				continue
 			}
 			if len(page.Events) == q.Limit {
-				page.Next = core.FormatSequence(last(page.Events))
+				page.Next = core.FormatSequence(kept)
 				return page, nil
 			}
 			page.Events = append(page.Events, e)
+			kept = seq
 		}
 		if len(batch) < replayPage {
 			return page, nil
 		}
 	}
-}
-
-func last(events []core.Event) uint64 {
-	seq, _ := domain.ParseSequence(events[len(events)-1].Sequence)
-	return seq
 }
 
 // Stream returns events the caller may see as they happen. With after set,

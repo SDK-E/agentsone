@@ -74,7 +74,7 @@ func (f *Fetcher) download(ctx context.Context, rawURL, file string, limit int64
 		}
 		return download{}, fmt.Errorf("download %s: %w", rawURL, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // read-only body; the copy below reports read failures
 	if resp.StatusCode != http.StatusOK {
 		return download{}, fmt.Errorf("download %s: status %d: %w", rawURL, resp.StatusCode, domain.ErrNothingToInstall)
 	}
@@ -121,7 +121,7 @@ func readHead(file string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = in.Close() }()
+	defer func() { _ = in.Close() }() //nolint:errcheck // read-only file; the reads report any failure
 	head := make([]byte, 4)
 	n, err := io.ReadFull(in, head)
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
@@ -227,7 +227,7 @@ func (x *extractor) zip(file string) error {
 	if err != nil {
 		return fmt.Errorf("read zip: %w", domain.ErrUnsupportedSource)
 	}
-	defer func() { _ = zr.Close() }()
+	defer func() { _ = zr.Close() }() //nolint:errcheck // read-only archive; entry reads report any failure
 	for _, zf := range zr.File {
 		if err := x.zipEntry(zf); err != nil {
 			return err
@@ -246,7 +246,7 @@ func (x *extractor) zipEntry(zf *zip.File) error {
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer func() { _ = r.Close() }() //nolint:errcheck // read-only entry; reads report failures and the zip checksum
 		target, err := io.ReadAll(io.LimitReader(r, 4096))
 		if err != nil {
 			return err
@@ -257,7 +257,7 @@ func (x *extractor) zipEntry(zf *zip.File) error {
 		if err != nil {
 			return err
 		}
-		defer func() { _ = r.Close() }()
+		defer func() { _ = r.Close() }() //nolint:errcheck // read-only entry; reads report failures and the zip checksum
 		return x.file(zf.Name, r, mode.Perm()&0o111 != 0)
 	}
 	return fmt.Errorf("archive entry %q is not a regular file: %w", zf.Name, domain.ErrUnsafePath)
@@ -268,12 +268,12 @@ func (x *extractor) tgz(file string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = in.Close() }()
+	defer func() { _ = in.Close() }() //nolint:errcheck // read-only file; the reads report any failure
 	gz, err := gzip.NewReader(in)
 	if err != nil {
 		return fmt.Errorf("read gzip: %w", domain.ErrUnsupportedSource)
 	}
-	defer func() { _ = gz.Close() }()
+	defer func() { _ = gz.Close() }() //nolint:errcheck // read-only stream; tar reads report data and checksum failures
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()

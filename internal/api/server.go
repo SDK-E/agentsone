@@ -169,13 +169,11 @@ func (s *Server) Listen() (*Running, error) {
 		return nil, fmt.Errorf("listen on %s: %w", sock, err)
 	}
 	if err := os.Chmod(sock, 0o666); err != nil { // #nosec G302 -- identity comes from SO_PEERCRED, not file mode
-		_ = unixLn.Close() // already failing; the chmod error is the one to report
-		return nil, fmt.Errorf("open socket to local callers: %w", err)
+		return nil, errors.Join(fmt.Errorf("open socket to local callers: %w", err), unixLn.Close())
 	}
 	tcpLn, err := net.Listen("tcp", s.cfg.API.Addr)
 	if err != nil {
-		_ = unixLn.Close() // already failing; the listen error is the one to report
-		return nil, fmt.Errorf("listen on %s: %w", s.cfg.API.Addr, err)
+		return nil, errors.Join(fmt.Errorf("listen on %s: %w", s.cfg.API.Addr, err), unixLn.Close())
 	}
 	socketSrv := &http.Server{
 		Handler: s.socket, ReadHeaderTimeout: readHeaderTimeout,

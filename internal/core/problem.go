@@ -101,7 +101,7 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, p *Problem) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(p.Status)
-	_ = json.NewEncoder(w).Encode(p) // the status is already sent; nothing useful to do on error
+	_ = json.NewEncoder(w).Encode(p) //nolint:errcheck // the status is sent; a failed body write means the client left
 }
 
 // WriteError maps err with ProblemFrom and writes it.

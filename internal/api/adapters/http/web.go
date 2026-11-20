@@ -78,7 +78,7 @@ func UI(dir fs.FS) http.Handler {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
-		_, _ = w.Write(index) // the status is sent; a failed write means the client left
+		_, _ = w.Write(index) //nolint:errcheck // the status is sent; a failed write means the client left
 	})
 }
 

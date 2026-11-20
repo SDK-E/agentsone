@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/plugins/adapters/fetch"
 	"github.com/SDK-E/agentsone/internal/plugins/domain"
 )
@@ -38,7 +39,7 @@ func TestFetch_LocalCopiesTheDirectoryWithoutGit(t *testing.T) {
 	if tree.Dir == src {
 		t.Error("tree is the source itself, not a copy")
 	}
-	tree.Cleanup()
+	coretest.Check(t, tree.Cleanup)
 	assertNothingLeft(t, tmp)
 	if _, err := os.Stat(src); err != nil {
 		t.Errorf("Cleanup removed the source: %v", err)
@@ -55,7 +56,7 @@ func TestFetch_LocalSubdir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "x.txt") != "1" {
 		t.Error("subdir not applied")
@@ -122,7 +123,7 @@ func TestFetch_LocalSymlinkInsideTheSourceIsKept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "link.txt") != "data" {
 		t.Error("link does not resolve")

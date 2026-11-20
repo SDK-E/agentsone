@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,14 +22,18 @@ type LiveList struct {
 	lines    domain.LineRepository
 	profiles Profiles
 	clock    core.Clock
+	log      *slog.Logger
 	hub      *hub
 }
 
 var _ core.LiveList = (*LiveList)(nil)
 
-// NewLiveList returns a live list over repo.
-func NewLiveList(repo domain.LineRepository, profiles Profiles, clock core.Clock) *LiveList {
-	return &LiveList{lines: repo, profiles: profiles, clock: clock, hub: newHub()}
+// NewLiveList returns a live list over repo. A nil log uses slog.Default.
+func NewLiveList(repo domain.LineRepository, profiles Profiles, clock core.Clock, log *slog.Logger) *LiveList {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &LiveList{lines: repo, profiles: profiles, clock: clock, log: log, hub: newHub()}
 }
 
 // UpdateLine sets the agent's line from runner output. The text is cleaned;
@@ -44,7 +49,10 @@ func (l *LiveList) UpdateLine(ctx context.Context, agent, text string) error {
 	}
 	profiles, err := l.profiles.Profiles(ctx)
 	if err != nil {
-		return nil // the line is stored; watchers pick it up on their next reconcile
+		// The line is stored and watchers pick it up on their next
+		// reconcile, so the caller's work is done; only the push is lost.
+		l.log.WarnContext(ctx, "live line stored but not pushed: agents unreadable", "agent", agent, "error", err)
+		return nil
 	}
 	for _, p := range profiles {
 		if p.Agent == agent {

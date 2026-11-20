@@ -92,8 +92,7 @@ func (db *DB) Migrate(ctx context.Context, module string, ms []Migration) error 
 		var v int
 		var n string
 		if err := rows.Scan(&v, &n); err != nil {
-			_ = rows.Close()
-			return fmt.Errorf("store: scan schema_migrations: %w", err)
+			return errors.Join(fmt.Errorf("store: scan schema_migrations: %w", err), rows.Close())
 		}
 		applied[v] = n
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/plugins/adapters/fetch"
 	"github.com/SDK-E/agentsone/internal/plugins/domain"
 )
@@ -77,7 +78,7 @@ func TestFetch_GitClonesTheDefaultBranchWithoutTheGitFolder(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(tree.Dir, ".git")); !errors.Is(err, os.ErrNotExist) {
 		t.Error(".git was kept")
 	}
-	tree.Cleanup()
+	coretest.Check(t, tree.Cleanup)
 	assertNothingLeft(t, tmp)
 }
 
@@ -106,7 +107,7 @@ func TestFetch_GitRevisionCanBeABranchATagOrACommit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Fetch() error = %v", err)
 			}
-			defer tree.Cleanup()
+			defer coretest.Check(t, tree.Cleanup)
 			if got := readTree(t, tree, "v.txt"); got != tt.content {
 				t.Errorf("content = %q, want %q", got, tt.content)
 			}
@@ -130,7 +131,7 @@ func TestFetch_GitSubdir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "x.txt") != "1" {
 		t.Error("subdir not applied")

@@ -158,7 +158,7 @@ func (s *Shipper) call(ctx context.Context, token, method, path string, body []b
 	if err != nil {
 		return fmt.Errorf("edgeship: %s %s: %w", method, path, err)
 	}
-	defer func() { _ = res.Body.Close() }()
+	defer func() { _ = res.Body.Close() }() //nolint:errcheck // read-only body; ReadAll below reports read failures
 	answer, err := io.ReadAll(io.LimitReader(res.Body, maxAnswerBytes))
 	if err != nil {
 		return fmt.Errorf("edgeship: %s %s: %w", method, path, err)

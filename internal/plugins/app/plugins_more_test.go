@@ -31,7 +31,7 @@ func (f *specFetcher) Fetch(_ context.Context, spec domain.FetchSpec) (domain.Tr
 	if f.err != nil {
 		return domain.Tree{}, f.err
 	}
-	return domain.Tree{FS: f.files, Cleanup: func() {}}, nil
+	return domain.Tree{FS: f.files, Cleanup: func() error { return nil }}, nil
 }
 
 type fakeRegistry struct {

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/plugins/adapters/fetch"
 	"github.com/SDK-E/agentsone/internal/plugins/domain"
 )
@@ -103,7 +104,7 @@ func TestFetch_NPMDownloadsTheLatestVersionAndUnpacksThePackageFolder(t *testing
 	if _, err := os.Stat("/tmp/pwned"); err == nil {
 		t.Error("an install script ran")
 	}
-	tree.Cleanup()
+	coretest.Check(t, tree.Cleanup)
 	assertNothingLeft(t, tmp)
 }
 
@@ -116,7 +117,7 @@ func TestFetch_NPMPicksTheRequestedVersionAndSupportsScopedNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch() error = %v", err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "skills/a/SKILL.md") != "old" || tree.Rev != "1.0.0" {
 		t.Errorf("got %q at %q", readTree(t, tree, "skills/a/SKILL.md"), tree.Rev)
@@ -132,7 +133,7 @@ func TestFetch_NPMAcceptsATarballWithoutAPackageFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tree.Cleanup()
+	defer coretest.Check(t, tree.Cleanup)
 
 	if readTree(t, tree, "a.txt") != "a" {
 		t.Error("layout not kept")
@@ -166,7 +167,7 @@ func TestFetch_NPMChecksTheRegistryDigest(t *testing.T) {
 				t.Fatalf("error = %v, want %v", err, tt.want)
 			}
 			if tt.want == nil {
-				tree.Cleanup()
+				coretest.Check(t, tree.Cleanup)
 			}
 			assertNothingLeft(t, tmp)
 		})

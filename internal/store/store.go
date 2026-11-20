@@ -72,8 +72,7 @@ func Open(ctx context.Context, path string, opts ...Option) (*DB, error) {
 		db.SetMaxOpenConns(o.maxOpenConns)
 	}
 	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("store: ping %s: %w", path, err)
+		return nil, errors.Join(fmt.Errorf("store: ping %s: %w", path, err), db.Close())
 	}
 	return &DB{sql: db, path: path}, nil
 }
@@ -96,7 +95,9 @@ func (db *DB) Tx(ctx context.Context, fn func(*sql.Tx) error) (err error) {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				panic(fmt.Sprintf("%v (store: rollback after panic: %v)", p, rbErr))
+			}
 			panic(p)
 		}
 	}()

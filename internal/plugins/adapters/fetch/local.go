@@ -94,7 +94,7 @@ func copyFile(src, dest string, exec bool, limit int64) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = in.Close() }()
+	defer func() { _ = in.Close() }() //nolint:errcheck // read-only source file; the copy reports read failures
 	mode := os.FileMode(fileMode)
 	if exec {
 		mode = execMode

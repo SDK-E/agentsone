@@ -41,7 +41,11 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	defer closeStores()
+	defer func() {
+		if err := closeStores(); err != nil {
+			log.Error("close databases at shutdown", "error", err)
+		}
+	}()
 	clock := core.SystemClock{}
 	return serve(ctx, core.Deps{
 		Config: &cfg,

@@ -60,8 +60,9 @@ func TestAgentRecord_AnAlwaysOnAgentThatIsUpAndIdleIsAwake(t *testing.T) {
 	alice := d.SignInHuman("alice")
 
 	got := waitFor(t, "the founder awake", func() api.Agent { return alice.Agent("founder") },
-		func(a api.Agent) bool { return a.State != api.AgentStateSleeping })
+		func(a api.Agent) bool { return a.State == api.AgentStateAwake })
 
+	// The founder passes through waking on its way up, so only awake ends the wait.
 	if got.State != api.AgentStateAwake {
 		t.Fatalf("founder state = %s, want %s", got.State, api.AgentStateAwake)
 	}

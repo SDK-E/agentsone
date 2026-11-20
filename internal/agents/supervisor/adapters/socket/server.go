@@ -42,7 +42,9 @@ type Server struct {
 
 	mu        sync.Mutex
 	listeners map[string]net.Listener
-	wg        sync.WaitGroup
+	conns     map[*rpc.Conn]struct{}
+	wg        sync.WaitGroup // the accept loops
+	connWG    sync.WaitGroup // the connections, until their handler's Closed returned
 }
 
 // Path is the socket path of agent name.
@@ -110,7 +112,28 @@ func (s *Server) accept(ctx context.Context, name string, ln net.Listener) {
 			Versions: domain.DaemonVersions, MaxLineBytes: s.MaxLineBytes, HelloDeadline: s.deadline(),
 		})
 		h.Attach(c)
+		s.track(c)
 	}
+}
+
+// track remembers conn until it has ended and its handler's Closed returned,
+// so Shutdown can wait for that: the handler tells the society the runner
+// stopped, which must happen before the daemon closes its stores.
+func (s *Server) track(c *rpc.Conn) {
+	s.mu.Lock()
+	if s.conns == nil {
+		s.conns = map[*rpc.Conn]struct{}{}
+	}
+	s.conns[c] = struct{}{}
+	s.connWG.Add(1)
+	s.mu.Unlock()
+	go func() {
+		defer s.connWG.Done()
+		<-c.Done()
+		s.mu.Lock()
+		delete(s.conns, c)
+		s.mu.Unlock()
+	}()
 }
 
 func (s *Server) deadline() <-chan struct{} {
@@ -138,7 +161,8 @@ func (s *Server) Close(name string) error {
 	return err
 }
 
-// Shutdown closes every socket and waits for the accept loops to end.
+// Shutdown closes every socket, waits for the accept loops to end, then
+// closes every connection and waits until each handler has heard it end.
 func (s *Server) Shutdown() error {
 	s.mu.Lock()
 	names := make([]string, 0, len(s.listeners))
@@ -151,6 +175,16 @@ func (s *Server) Shutdown() error {
 		errs = append(errs, s.Close(n))
 	}
 	s.wg.Wait()
+	s.mu.Lock()
+	open := make([]*rpc.Conn, 0, len(s.conns))
+	for c := range s.conns {
+		open = append(open, c)
+	}
+	s.mu.Unlock()
+	for _, c := range open {
+		_ = c.Close() // the read loop ends and reports the close
+	}
+	s.connWG.Wait()
 	return errors.Join(errs...)
 }
 

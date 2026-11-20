@@ -5,7 +5,6 @@ package disk_test
 import (
 	"context"
 	"errors"
-	"flag"
 	"strings"
 	"testing"
 	"time"
@@ -239,29 +238,4 @@ func TestPublishFailureIsLoggedAndTheNextTransitionStillGoesOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireEvents(t, pub.Drafts(), "usage.normal /var")
-}
-
-func TestFlags_SetTheConfig(t *testing.T) {
-	t.Parallel()
-	fs := flag.NewFlagSet("disk", flag.ContinueOnError)
-	src := disk.Flags(fs)
-	if err := fs.Parse([]string{"--threshold", "80", "--margin", "5", "--interval", "30s", "--mounts", "/x"}); err != nil {
-		t.Fatal(err)
-	}
-	got := src.(*disk.Source).Config()
-	if got.ThresholdPercent != 80 || got.MarginPercent != 5 || got.Interval != 30*time.Second || got.MountsFile != "/x" {
-		t.Fatalf("config = %+v", got)
-	}
-}
-
-func TestFlags_DefaultsMatchDefaultConfig(t *testing.T) {
-	t.Parallel()
-	fs := flag.NewFlagSet("disk", flag.ContinueOnError)
-	src := disk.Flags(fs)
-	if err := fs.Parse(nil); err != nil {
-		t.Fatal(err)
-	}
-	if got, want := src.(*disk.Source).Config(), disk.DefaultConfig(); got != want {
-		t.Fatalf("config = %+v, want %+v", got, want)
-	}
 }

@@ -12,7 +12,6 @@ package disk
 
 import (
 	"context"
-	"flag"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/emitkit/app"
@@ -27,14 +26,15 @@ type Config struct {
 	MarginPercent int
 	// Interval is the time between samples.
 	Interval time.Duration
-	// MountsFile is the mount table to read.
-	MountsFile string
 }
 
 // DefaultConfig is what the machine runs with.
 func DefaultConfig() Config {
-	return Config{ThresholdPercent: 90, MarginPercent: 2, Interval: time.Minute, MountsFile: "/proc/self/mounts"}
+	return Config{ThresholdPercent: 90, MarginPercent: 2, Interval: time.Minute}
 }
+
+// DefaultMountsFile is the kernel's mount table.
+const DefaultMountsFile = "/proc/self/mounts"
 
 // Source is the disk source.
 type Source struct {
@@ -51,25 +51,8 @@ func New(cfg Config, mounts MountLister, stat Statter) *Source {
 	return &Source{cfg: cfg, mounts: mounts, stat: stat, gates: map[string]*domain.Gate{}}
 }
 
-// Flags registers the source's flags on fs and returns a source that reads
-// the real mount table and statfs once the flags are parsed.
-func Flags(fs *flag.FlagSet) app.Source {
-	s := &Source{cfg: DefaultConfig(), stat: StatFS{}, gates: map[string]*domain.Gate{}}
-	fs.IntVar(&s.cfg.ThresholdPercent, "threshold", s.cfg.ThresholdPercent, "used percent at which a file system is high")
-	fs.IntVar(&s.cfg.MarginPercent, "margin", s.cfg.MarginPercent, "percent below the threshold a file system must fall to be normal again")
-	fs.DurationVar(&s.cfg.Interval, "interval", s.cfg.Interval, "time between samples")
-	fs.StringVar(&s.cfg.MountsFile, "mounts", s.cfg.MountsFile, "mount table to read")
-	return s
-}
-
-// Config returns the settings the source runs with.
-func (s *Source) Config() Config { return s.cfg }
-
 // Run samples until ctx is cancelled.
 func (s *Source) Run(ctx context.Context, d app.Deps) error {
-	if s.mounts == nil {
-		s.mounts = MountsFile(s.cfg.MountsFile)
-	}
 	return app.Every(ctx, d.Sleeper, s.cfg.Interval, d.Log, func(ctx context.Context) error {
 		return s.sample(ctx, d)
 	})

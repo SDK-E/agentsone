@@ -13,7 +13,7 @@
 #   */app/*       90
 #   */adapters/*  70
 #   runners/claude 90 (holds the token proxy, the wall that keeps tokens from the engine)
-#   emitters/*     90 (the built-in event sources; their mains under cmd/ are excluded)
+#   emitters/*     90 (the built-in event sources, run inside the daemon)
 # Excluded from the gate: cmd/*, generated code and packages (gen, generated, *.gen.go,
 # *_gen.go, *.pb.go, zz_generated*.go, internal/contract/*), testdata, and test-support
 # packages (any directory whose name ends in "test", such as coretest).

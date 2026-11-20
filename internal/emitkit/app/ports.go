@@ -4,17 +4,12 @@ package app
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/emitkit/domain"
 )
-
-// ErrRejected says the daemon refused an event and asking again cannot help:
-// the event is wrong, or this source may not publish it.
-var ErrRejected = errors.New("the daemon rejected the event")
 
 // Publisher sends one event to the bus.
 type Publisher interface {

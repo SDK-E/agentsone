@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/core"
@@ -37,7 +40,76 @@ func boot(t *testing.T) (*events.Module, core.Deps) {
 	if err := m.Start(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := m.Stop(context.Background()); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	})
 	return m, deps
+}
+
+func TestModule_StopIsSafeWithoutStart(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	if err := events.New(deps).Stop(t.Context()); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+}
+
+func TestModule_RefusesAnEmittersTableThatCannotWork(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	cfg, err := core.ParseConfig([]byte("[emitters.disk]\nthreshold_percent = 500\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Config = &cfg
+
+	m := events.New(deps)
+
+	if err := m.Migrate(t.Context()); err == nil {
+		t.Fatal("Migrate() error = nil, want the bad [emitters] table reported")
+	}
+	if err := m.Start(t.Context()); err == nil {
+		t.Fatal("Start() error = nil, want the bad [emitters] table reported")
+	}
+}
+
+// The disk source runs inside the daemon and publishes through the bus: with
+// a threshold of 1 percent any real file system is high.
+func TestModule_RunsTheDiskSourceInProcess(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	dir := t.TempDir()
+	table := filepath.Join(dir, "mounts")
+	if err := os.WriteFile(table, []byte("/dev/x "+dir+" ext4 rw 0 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := core.ParseConfig([]byte("[emitters.disk]\nthreshold_percent = 1\nmargin_percent = 0\nmounts_file = '" + table + "'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Config = &cfg
+	m := events.New(deps)
+	m.Provide(deps.Ports)
+	if err := m.Migrate(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	live, err := deps.Ports.Subscribe.Subscribe(t.Context(), core.EventFilter{Types: []string{"agentsone.disk."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = m.Stop(context.Background()) }()
+
+	select {
+	case e := <-live:
+		if e.Type != "agentsone.disk.usage.high" || e.Source != "/emitters/disk" || e.Subject != dir || e.Actor != "system:daemon" {
+			t.Fatalf("event = %+v", e)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("no disk event within 10 seconds")
+	}
 }
 
 func TestModule_SeedsTheBuiltinEmittersAndServesThem(t *testing.T) {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/emitkit/app"
-	"github.com/SDK-E/agentsone/internal/emitkit/domain"
 	"github.com/SDK-E/agentsone/internal/emitkit/emitkittest"
 )
 
@@ -69,85 +68,18 @@ func TestEvery_StopsBeforeFirstStepWhenAlreadyCancelled(t *testing.T) {
 	}
 }
 
-func draft(t *testing.T) domain.Draft {
-	t.Helper()
-	d, err := domain.NewDraft("agentsone.clock.tick", "", map[string]string{"minute": "x"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func TestRetrying_RetriesTransientFailuresWithBackoff(t *testing.T) {
-	t.Parallel()
-	inner := &emitkittest.Publisher{Fail: func(n int) error {
-		if n < 3 {
-			return errors.New("connection refused")
-		}
-		return nil
-	}}
-	sl := &emitkittest.Sleeper{Clock: emitkittest.NewClock(t0)}
-	p := app.Retrying(inner, sl, emitkittest.Logger(), 4, time.Second)
-
-	if err := p.Publish(context.Background(), draft(t)); err != nil {
-		t.Fatalf("Publish error = %v", err)
-	}
-	if inner.Calls() != 3 {
-		t.Fatalf("calls = %d, want 3", inner.Calls())
-	}
-	if got := sl.Slept(); len(got) != 2 || got[0] != time.Second || got[1] != 2*time.Second {
-		t.Fatalf("backoff = %v, want [1s 2s]", got)
-	}
-}
-
-func TestRetrying_GivesUpAfterAttempts(t *testing.T) {
-	t.Parallel()
-	boom := errors.New("daemon down")
-	inner := &emitkittest.Publisher{Fail: func(int) error { return boom }}
-	p := app.Retrying(inner, &emitkittest.Sleeper{}, emitkittest.Logger(), 3, time.Second)
-
-	err := p.Publish(context.Background(), draft(t))
-
-	if !errors.Is(err, boom) {
-		t.Fatalf("error = %v, want the last cause", err)
-	}
-	if inner.Calls() != 3 {
-		t.Fatalf("calls = %d, want 3", inner.Calls())
-	}
-}
-
-func TestRetrying_DoesNotRetryARejection(t *testing.T) {
-	t.Parallel()
-	inner := &emitkittest.Publisher{Fail: func(int) error { return app.ErrRejected }}
-	p := app.Retrying(inner, &emitkittest.Sleeper{}, emitkittest.Logger(), 5, time.Second)
-
-	err := p.Publish(context.Background(), draft(t))
-
-	if !errors.Is(err, app.ErrRejected) || inner.Calls() != 1 {
-		t.Fatalf("error = %v after %d calls, want ErrRejected after 1", err, inner.Calls())
-	}
-}
-
-func TestRetrying_StopsWhenCancelledDuringBackoff(t *testing.T) {
+func TestTimer_ReturnsWhenCancelled(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	inner := &emitkittest.Publisher{Fail: func(int) error { return errors.New("down") }}
-	sl := &emitkittest.Sleeper{Cancel: cancel, Limit: 1}
-	p := app.Retrying(inner, sl, emitkittest.Logger(), 5, time.Second)
-
-	err := p.Publish(ctx, draft(t))
-
-	if !errors.Is(err, context.Canceled) || inner.Calls() != 1 {
-		t.Fatalf("error = %v after %d calls, want context.Canceled after 1", err, inner.Calls())
+	cancel()
+	if err := (app.Timer{}).Sleep(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Sleep error = %v, want context.Canceled", err)
 	}
 }
 
-func TestRetrying_AtLeastOneAttempt(t *testing.T) {
+func TestTimer_WaitsForTheDuration(t *testing.T) {
 	t.Parallel()
-	inner := &emitkittest.Publisher{}
-	p := app.Retrying(inner, &emitkittest.Sleeper{}, emitkittest.Logger(), 0, time.Second)
-	if err := p.Publish(context.Background(), draft(t)); err != nil || inner.Calls() != 1 {
-		t.Fatalf("Publish = %v after %d calls, want nil after 1", err, inner.Calls())
+	if err := (app.Timer{}).Sleep(context.Background(), time.Millisecond); err != nil {
+		t.Fatalf("Sleep error = %v", err)
 	}
 }

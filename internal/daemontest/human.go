@@ -341,7 +341,13 @@ func (h *Client) Stream(path string) *Stream {
 			case strings.HasPrefix(line, "data: "):
 				data.WriteString(strings.TrimPrefix(line, "data: "))
 			case line == "" && data.Len() > 0:
-				s.frames <- json.RawMessage(data.String())
+				// A test that stopped reading must not keep the reader
+				// from ending at Close.
+				select {
+				case s.frames <- json.RawMessage(data.String()):
+				case <-ctx.Done():
+					return
+				}
 				data.Reset()
 			}
 		}

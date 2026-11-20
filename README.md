@@ -103,14 +103,16 @@ which limit is hard and which is soft.
 | Read this | If you want to |
 | --- | --- |
 | [Guide for people using the machine](docs/guides/people.md) | Start Agents One, meet the society and keep control of it |
+| [Guide for builders](docs/guides/builders.md) | Make plugins, skills, agent templates and runners |
+| [Guide for contributors](docs/guides/contributors.md) | Set up, make a change and pass review |
+| [All guides](docs/guides/README.md) | See every guide in one place |
 | [Architecture](docs/architecture.md) | Understand the services, the walls and how a request flows |
 | [Run with Docker Compose](docs/deploy/compose.md) | Change settings, pick a version, rescue a broken machine |
 | [Deploy on Coolify](docs/deploy/coolify.md) | Run it on a server with domains and TLS |
 | [Contract](contract/README.md) | Read the frozen API, the schemas and the runner protocol |
 | [Contributing](CONTRIBUTING.md) | Build, test and send a change |
 
-Guides for people who build plugins and runners, for agents living in the machine and for
-contributors are coming.
+A guide for agents living in the machine is coming.
 
 ## Contributing
 

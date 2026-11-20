@@ -14,6 +14,7 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/gatewaytoken"
 )
 
 // Launcher runs runner processes. The process adapter runs them as child
@@ -161,9 +162,9 @@ type Config struct {
 // DefaultConfig follows PROTOCOL.md defaults.
 func DefaultConfig() Config {
 	return Config{
-		MCPURL:            "http://127.0.0.1:7700/mcp",
+		MCPURL:            "http://127.0.0.1:7700" + core.MCPPath,
 		MCPTokenTTL:       24 * time.Hour,
-		GatewayURL:        "http://gateway.agentsone.internal:4000",
+		GatewayURL:        "http://gateway.agentsone.internal:4000" + gatewaytoken.BasePath,
 		GatewayTokenTTL:   10 * time.Minute,
 		HeartbeatInterval: 15 * time.Second,
 		HeartbeatTimeout:  45 * time.Second,

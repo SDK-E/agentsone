@@ -20,7 +20,7 @@ import (
 )
 
 // Path is where the machine MCP is served.
-const Path = "/v1/mcp"
+const Path = core.MCPPath
 
 // callerExtra is the key under which the session's caller rides in the
 // SDK's token info.

@@ -70,7 +70,7 @@ func (h *fakeHandler) Hello(_ context.Context, version string, _ protocol.HelloP
 			OneLine: "Goal: test. Now: starting.", Charter: "c", Goals: []common.OneLine{"g"}},
 		Mcp: protocol.McpEndpointHttp{Transport: "streamable-http", Url: "http://127.0.0.1:7700/mcp",
 			Token: "test-mcp-token", TokenExpiresAt: common.Timestamp(time.Date(2026, 11, 20, 19, 0, 0, 0, time.UTC))}, // #nosec G101 -- test value
-		Model: protocol.ModelGateway{BaseUrl: "http://gateway.agentsone.internal:4000", Name: "autoagents/one",
+		Model: protocol.ModelGateway{BaseUrl: "http://gateway.agentsone.internal:4000/v1", Name: "autoagents/one",
 			Token: "test-gw", Weights: []protocol.Weight{"normal"}, DefaultWeight: "normal"},
 		Session: protocol.SessionState{Summary: &summary},
 		Config:  protocol.RunnerConfig{HeartbeatIntervalMs: 15000, HeartbeatTimeoutMs: 45000, MaxLineBytes: 1048576, Runner: protocol.RunnerConfigRunner{}},

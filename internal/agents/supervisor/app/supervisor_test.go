@@ -475,9 +475,9 @@ func TestHello_WelcomeCarriesIdentityTokensGatewayAndSummary(t *testing.T) {
 	switch {
 	case res.ProtocolVersion != "1.0", res.Agent.Name != "mira", res.Agent.Uid != 200001, res.Agent.Manager == nil || *res.Agent.Manager != "founder":
 		t.Errorf("agent = %+v", res.Agent)
-	case mcp.Url != "http://127.0.0.1:7700/mcp" || mcp.Token == "":
+	case mcp.Url != "http://127.0.0.1:7700/v1/mcp" || mcp.Token == "":
 		t.Errorf("mcp = %+v", mcp)
-	case res.Model.BaseUrl != "http://gateway.agentsone.internal:4000" || res.Model.Name != "autoagents/one" || res.Model.Token != "fake-gateway-token-mira":
+	case res.Model.BaseUrl != "http://gateway.agentsone.internal:4000/v1" || res.Model.Name != "autoagents/one" || res.Model.Token != "fake-gateway-token-mira":
 		t.Errorf("model = %+v", res.Model)
 	case res.Session.Summary == nil || *res.Session.Summary != "Chatted with alice." || res.Session.CompactedAt == nil:
 		t.Errorf("session = %+v", res.Session)

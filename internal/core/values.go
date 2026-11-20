@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+// MCPPath is where the daemon serves the machine MCP. The MCP server mounts
+// on it, and the supervisor hands runners an address ending in it.
+const MCPPath = "/v1/mcp"
+
 // agentName is the contract's AgentName pattern.
 var agentName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
 

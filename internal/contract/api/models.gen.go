@@ -62,6 +62,24 @@ func (e AgentKind) Valid() bool {
 	}
 }
 
+// Defines values for AgentLimitsHoldMode.
+const (
+	AgentLimitsHoldModeHard AgentLimitsHoldMode = "hard"
+	AgentLimitsHoldModeSoft AgentLimitsHoldMode = "soft"
+)
+
+// Valid indicates whether the value is a known member of the AgentLimitsHoldMode enum.
+func (e AgentLimitsHoldMode) Valid() bool {
+	switch e {
+	case AgentLimitsHoldModeHard:
+		return true
+	case AgentLimitsHoldModeSoft:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AgentNetRulesWall.
 const (
 	AgentNetRulesWallSoft AgentNetRulesWall = "soft"
@@ -1753,6 +1771,20 @@ type AgentLimits struct {
 	Wall Wall `json:"wall"`
 }
 
+// AgentLimitsHold Whether the Linux kernel holds custom agents' limits (`AgentLimits` `cpu_percent`, `memory_mb` and `tasks`) on this machine. The daemon decides once when it starts, before any agent runs. This is not `AgentLimits.wall`, which says who sets a limit and stays `soft`: a root agent inside the machine container can change cgroups either way. Root agents have no limits in either mode.
+type AgentLimitsHold struct {
+	// Mode `hard` when the daemon prepared its cgroup v2 tree, so each custom agent runs in its own cgroup `/agents/<id>` and the kernel holds its limits. `soft` when it could not (no cgroup v2, the daemon is not root, a read-only cgroup tree or a missing controller), so custom agents run with process resource limits only and their CPU use is not capped.
+	Mode AgentLimitsHoldMode `json:"mode"`
+
+	// Reason Plain words that say why the limits are soft and how to make them hard. Absent when `mode` is `hard`.
+	//
+	// Examples: The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, then restart the machine.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// AgentLimitsHoldMode `hard` when the daemon prepared its cgroup v2 tree, so each custom agent runs in its own cgroup `/agents/<id>` and the kernel holds its limits. `soft` when it could not (no cgroup v2, the daemon is not root, a read-only cgroup tree or a missing controller), so custom agents run with process resource limits only and their CPU use is not capped.
+type AgentLimitsHoldMode string
+
 // AgentLimitsInput defines model for AgentLimitsInput.
 type AgentLimitsInput struct {
 	CpuPercent *int `json:"cpu_percent,omitempty"`
@@ -3378,9 +3410,11 @@ type LoginRequest struct {
 
 // MachineMetrics defines model for MachineMetrics.
 type MachineMetrics struct {
-	Cpu      CpuMetrics    `json:"cpu"`
-	Disks    []DiskMetrics `json:"disks"`
-	Hostname string        `json:"hostname"`
+	// AgentLimits Whether the Linux kernel holds custom agents' limits (`AgentLimits` `cpu_percent`, `memory_mb` and `tasks`) on this machine. The daemon decides once when it starts, before any agent runs. This is not `AgentLimits.wall`, which says who sets a limit and stays `soft`: a root agent inside the machine container can change cgroups either way. Root agents have no limits in either mode.
+	AgentLimits *AgentLimitsHold `json:"agent_limits,omitempty"`
+	Cpu         CpuMetrics       `json:"cpu"`
+	Disks       []DiskMetrics    `json:"disks"`
+	Hostname    string           `json:"hostname"`
 
 	// Load 1, 5 and 15 minute load averages.
 	Load   []float32     `json:"load"`

@@ -1,0 +1,33 @@
+{
+  "status": 200,
+  "body": {
+    "time": "2026-11-19T12:45:00Z",
+    "hostname": "agentsone",
+    "uptime_seconds": 17100,
+    "load": [0.42, 0.37, 0.31],
+    "cpu": {
+      "cores": 4,
+      "used_percent": 11.5
+    },
+    "memory": {
+      "total_bytes": 8589934592,
+      "used_bytes": 3221225472,
+      "available_bytes": 5368709120
+    },
+    "disks": [
+      {
+        "mount": "/",
+        "total_bytes": 34359738368,
+        "used_bytes": 9663676416
+      }
+    ],
+    "net": {
+      "rx_bytes": 1288490188,
+      "tx_bytes": 214748364
+    },
+    "agent_limits": {
+      "mode": "soft",
+      "reason": "The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, then restart the machine."
+    }
+  }
+}

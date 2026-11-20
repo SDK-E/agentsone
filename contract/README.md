@@ -48,7 +48,9 @@ output; do not commit it.
 - Streams are Server-Sent Events whose `data` is one JSON frame; `x-stream` names the frame schema.
   Terminals use a WebSocket (`connectPty`).
 - Limits carry `wall`: `hard` is held by `edge`, a separate container that `machine` cannot reach,
-  `soft` by the daemon inside `machine`, where a root agent can bypass it.
+  `soft` by the daemon inside `machine`, where a root agent can bypass it. Whether the kernel
+  holds custom agents' cgroup limits at all is a separate thing, `agent_limits` on
+  `getMachineMetrics` (`hard` or `soft`, decided when the daemon starts).
 - Domain actions with rules are their own operations (`hireAgent`, `retireAgent`, `wakeAgent`,
   `assignTask`, `completeTask`, `applyFreeze`), not generic edits.
 
@@ -104,6 +106,21 @@ operation). A higher level covers a lower one of the same group. An operation wi
 operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 
 ## Changelog
+
+### 1.4.0
+
+Additive (minor: an optional field).
+
+- `MachineMetrics.agent_limits` (optional, `AgentLimitsHold`): whether the Linux kernel holds
+  custom agents' limits on this machine, decided once when the daemon starts. `mode` is `hard`
+  when the daemon prepared its cgroup v2 tree, so each custom agent has its own cgroup
+  `/agents/<id>`, and `soft` when it could not, so agents run with process resource limits only.
+  `reason` (up to 500 characters, only when soft) says why in plain words and how to make the
+  limits hard. A daemon older than 1.4.0 leaves the field out; clients show nothing then.
+- This is not `AgentLimits.wall`, which keeps its meaning (who sets a limit; `soft` for every
+  agent limit, since a root agent can change cgroups).
+- The `getMachineMetrics` fixture says `hard`. New fixtures `getMachineMetrics.soft-limits` and
+  `getMachineMetrics.soft-limits-long-text`.
 
 ### 1.3.0
 

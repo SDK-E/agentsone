@@ -1065,7 +1065,7 @@ export interface paths {
     };
     /**
      * Get machine metrics
-     * @description Returns a snapshot of CPU, memory, disk, network and load inside the machine container.
+     * @description Returns a snapshot of CPU, memory, disk, network and load inside the machine container, and whether the kernel holds custom agents' limits (`agent_limits`, decided when the daemon starts). A daemon older than contract 1.4.0 leaves `agent_limits` out.
      */
     get: operations["getMachineMetrics"];
     put?: never;
@@ -2468,6 +2468,19 @@ export interface components {
       tasks: number;
       wall: components["schemas"]["Wall"];
     };
+    /** @description Whether the Linux kernel holds custom agents' limits (`AgentLimits` `cpu_percent`, `memory_mb` and `tasks`) on this machine. The daemon decides once when it starts, before any agent runs. This is not `AgentLimits.wall`, which says who sets a limit and stays `soft`: a root agent inside the machine container can change cgroups either way. Root agents have no limits in either mode. */
+    AgentLimitsHold: {
+      /**
+       * @description `hard` when the daemon prepared its cgroup v2 tree, so each custom agent runs in its own cgroup `/agents/<id>` and the kernel holds its limits. `soft` when it could not (no cgroup v2, the daemon is not root, a read-only cgroup tree or a missing controller), so custom agents run with process resource limits only and their CPU use is not capped.
+       * @enum {string}
+       */
+      mode: "hard" | "soft";
+      /**
+       * @description Plain words that say why the limits are soft and how to make them hard. Absent when `mode` is `hard`.
+       * @example The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, then restart the machine.
+       */
+      reason?: string;
+    };
     AgentLimitsInput: {
       cpu_percent?: number;
       memory_mb?: number;
@@ -3614,6 +3627,7 @@ export interface components {
       password: string;
     };
     MachineMetrics: {
+      agent_limits?: components["schemas"]["AgentLimitsHold"];
       cpu: components["schemas"]["CpuMetrics"];
       disks: components["schemas"]["DiskMetrics"][];
       hostname: string;

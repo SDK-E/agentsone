@@ -85,9 +85,20 @@ func (l *launcher) unit(a string) (domain.UnitSpec, bool) {
 }
 
 type accounts struct {
-	mu      sync.Mutex
-	created map[string]domain.Account
-	locked  map[string]bool
+	mu        sync.Mutex
+	created   map[string]domain.Account
+	locked    map[string]bool
+	rootHomes map[string]bool
+}
+
+func (a *accounts) EnsureRootHome(_ context.Context, acc domain.Account) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.rootHomes == nil {
+		a.rootHomes = map[string]bool{}
+	}
+	a.rootHomes[acc.Home] = true
+	return nil
 }
 
 func (a *accounts) Ensure(_ context.Context, acc domain.Account) (int, error) {

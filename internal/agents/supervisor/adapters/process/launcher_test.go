@@ -106,7 +106,7 @@ func TestLauncher_StartsRunnerWithSocketEnvironmentAndStopsIt(t *testing.T) {
 		t.Fatalf("second Start error = %v, want no-op", err)
 	}
 	env := started(t, out)
-	for _, want := range []string{"AGENTSONE_RUNNER_SOCKET=/run/agentsone/runners/founder.sock", "AGENTSONE_AGENT=founder", "HOME=/root"} {
+	for _, want := range []string{"AGENTSONE_RUNNER_SOCKET=/run/agentsone/runners/founder.sock", "AGENTSONE_AGENT=founder", "HOME=/root/agents/founder"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("runner environment lacks %q", want)
 		}

@@ -110,6 +110,11 @@ func (s *Supervisor) install(ctx context.Context, a core.Agent, limits *domain.L
 	}
 	account := domain.AccountFor(a.Name, a.IsRoot).WithUID(a.UID)
 	uid := 0
+	if account.IsRoot {
+		if err := s.d.Accounts.EnsureRootHome(ctx, account); err != nil {
+			return 0, fmt.Errorf("provision %s: home: %w", a.Name, err)
+		}
+	}
 	if account.Create {
 		if account.UID <= 0 {
 			return 0, fmt.Errorf("provision %s: custom agent has no uid: %w", a.Name, core.ErrInvalid)

@@ -345,7 +345,7 @@ func TestPlanWake_ActionPerState(t *testing.T) {
 func TestAccountFor_RootAndCustom(t *testing.T) {
 	t.Parallel()
 	root := domain.AccountFor("founder", true)
-	if root.User != "root" || root.Create || !root.IsRoot || root.Home != "/root" {
+	if root.User != "root" || root.Create || !root.IsRoot || root.Home != "/root/agents/founder" {
 		t.Fatalf("root account = %+v", root)
 	}
 	c := domain.AccountFor("mira", false)

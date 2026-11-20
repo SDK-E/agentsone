@@ -36,6 +36,9 @@ type Accounts interface {
 	// missing, and returns the uid. With a.UID > 0 the user gets exactly that
 	// uid; an existing user with that name and uid is not an error.
 	Ensure(ctx context.Context, a domain.Account) (uid int, err error)
+	// EnsureRootHome makes a root agent's 0700 home, owned by root, when
+	// missing. Root agents have no user of their own.
+	EnsureRootHome(ctx context.Context, a domain.Account) error
 	// Lock disables the user without deleting it, so its uid is never reused
 	// for another agent while the archived home still holds its files.
 	Lock(ctx context.Context, a domain.Account) error

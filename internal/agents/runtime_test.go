@@ -67,6 +67,9 @@ func (a *accounts) Ensure(_ context.Context, acc supdomain.Account) (int, error)
 	return acc.UID, nil
 }
 func (a *accounts) Lock(context.Context, supdomain.Account) error { return nil }
+func (a *accounts) EnsureRootHome(context.Context, supdomain.Account) error {
+	return nil
+}
 
 type openaiRunner struct{}
 

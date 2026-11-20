@@ -117,6 +117,7 @@ func newFixture(t *testing.T) *fixture { return newFixtureWith(t, nil) }
 func newFixtureWith(t *testing.T, mutate func(*app.Deps)) *fixture {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
+	fakes.Waker.Strict(func(err error) { t.Error(err) })
 	for _, a := range []core.Agent{
 		{Name: "founder", Kind: core.AgentAlwaysOn, IsRoot: true},
 		{Name: "builder", Kind: core.AgentChat, Manager: "founder"},

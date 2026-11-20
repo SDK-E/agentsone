@@ -31,6 +31,7 @@ type env struct {
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	fakes, ports := coretest.NewFakes()
+	fakes.Waker.Strict(func(err error) { t.Error(err) })
 	add := func(name, manager string, root bool) {
 		fakes.Agents.Add(core.Agent{Name: name, Kind: core.AgentChat, Manager: manager, IsRoot: root, Runner: "echo"})
 	}

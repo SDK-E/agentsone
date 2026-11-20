@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/sched/domain"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 // Tasks are the task use cases. Every change checks who may make it, saves,
@@ -251,14 +253,20 @@ func (s *Tasks) checkAssignable(ctx context.Context, actor domain.Actor, agent s
 	return nil
 }
 
-// taskWake is the payload of a task wake, as the runner protocol defines it.
-type taskWake struct {
-	ID        string     `json:"id"`
-	Title     string     `json:"title"`
-	Body      string     `json:"body"`
-	From      string     `json:"from"`
-	CreatedAt time.Time  `json:"createdAt"`
-	Due       *time.Time `json:"due,omitempty"`
+// taskWake is task as the runner contract's wake payload for reason "task".
+func taskWake(task domain.Task) protocol.Task {
+	out := protocol.Task{
+		ID:        common.TaskID(task.ID),
+		Title:     common.OneLine(task.Title),
+		Body:      common.Markdown(task.Detail),
+		From:      common.ActorRef(task.CreatedBy.String()),
+		CreatedAt: common.Timestamp(task.CreatedAt),
+	}
+	if task.DueAt != nil {
+		d := common.Timestamp(*task.DueAt)
+		out.Due = &d
+	}
+	return out
 }
 
 // wakeAssignee wakes the task's assignee. The task is already saved, so a
@@ -267,10 +275,7 @@ func (s *Tasks) wakeAssignee(ctx context.Context, actor domain.Actor, task domai
 	if task.Assignee == "" {
 		return
 	}
-	payload, err := json.Marshal(taskWake{
-		ID: task.ID, Title: task.Title, Body: task.Detail, From: task.CreatedBy.String(),
-		CreatedAt: task.CreatedAt, Due: task.DueAt,
-	})
+	payload, err := json.Marshal(taskWake(task))
 	if err != nil {
 		s.Log.ErrorContext(ctx, "encode task wake", "task", task.ID, "err", err)
 		return

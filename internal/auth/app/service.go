@@ -226,15 +226,6 @@ func (s *Service) RevokeToken(ctx context.Context, by core.Caller, id string) er
 	return nil
 }
 
-// HumanByUID names the human account owning uid, for socket callers.
-func (s *Service) HumanByUID(ctx context.Context, uid int) (string, bool) {
-	h, err := s.d.Humans.HumanByUID(ctx, uid)
-	if err != nil {
-		return "", false
-	}
-	return h.Name, true
-}
-
 func (s *Service) publish(ctx context.Context, data eventdata.Data) {
 	// The daemon publishes, not the request's caller: the first human is
 	// created by an anonymous visitor, whom the events module refuses as an

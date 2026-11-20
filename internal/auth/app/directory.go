@@ -33,3 +33,13 @@ func (s *Service) HumanAccount(ctx context.Context, name string) (core.HumanAcco
 	}
 	return core.HumanAccount{Name: h.Name, UID: h.UID}, nil
 }
+
+// HumanByUID returns the human whose account number, and Linux uid, is
+// uid, or ErrNotFound. Other errors are failed lookups.
+func (s *Service) HumanByUID(ctx context.Context, uid int) (core.HumanAccount, error) {
+	h, err := s.d.Humans.HumanByUID(ctx, uid)
+	if err != nil {
+		return core.HumanAccount{}, fmt.Errorf("human account of uid %d: %w", uid, err)
+	}
+	return core.HumanAccount{Name: h.Name, UID: h.UID}, nil
+}

@@ -44,8 +44,8 @@ expect_code() {
 
 run
 expect_code "reports unhealthy while the daemon is not running" 1
-if echo "$out" | grep -q "api.sock"; then pass "says which socket did not answer"; else
-  fail "says which socket did not answer: output is '$out'"
+if echo "$out" | grep -q "127.0.0.1:7700"; then pass "says which address did not answer"; else
+  fail "says which address did not answer: output is '$out'"
 fi
 
 state="$(mktemp -d)"

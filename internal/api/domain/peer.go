@@ -3,8 +3,10 @@
 package domain
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/SDK-E/agentsone/internal/core"
@@ -26,34 +28,96 @@ type Peer struct {
 	UID int
 }
 
-// AgentByUID finds the custom agent that owns a Linux uid.
-type AgentByUID func(uid int) (name string, ok bool)
+// Directory finds who owns a Linux uid. Each lookup returns an error
+// matching core.ErrNotFound when nobody does. Any other error is a failed
+// lookup, and the peer is refused: a lookup never fails open.
+type Directory struct {
+	// AgentByUID names the custom agent whose Linux user has uid.
+	AgentByUID func(ctx context.Context, uid int) (string, error)
+	// HumanByUID names the human whose Linux user has uid.
+	HumanByUID func(ctx context.Context, uid int) (string, error)
+}
+
+// Why a socket peer is refused, as audit records and logs say it.
+const (
+	ReasonRootOutsideAgents = "uid 0 outside every agent cgroup and not the daemon"
+	ReasonNoAgent           = "uid in the agent range that no agent owns"
+	ReasonNobody            = "uid of no agent and no human"
+	ReasonAgentLookup       = "agent directory lookup failed"
+	ReasonHumanLookup       = "human directory lookup failed"
+	ReasonNoCredentials     = "peer credentials unreadable"
+	ReasonNoCgroup          = "peer cgroup unreadable"
+)
+
+// Refusal is a socket peer that is not an agent, a human or the daemon. It
+// matches core.ErrForbidden, and Err when a lookup failed.
+type Refusal struct {
+	Peer   Peer
+	Reason string
+	// Err is the failed lookup or read, or nil.
+	Err error
+}
+
+func (r *Refusal) Error() string {
+	s := fmt.Sprintf("socket peer pid %d uid %d refused: %s", r.Peer.PID, r.Peer.UID, r.Reason)
+	if r.Err != nil {
+		s += ": " + r.Err.Error()
+	}
+	return s
+}
+
+// Unwrap gives core.ErrForbidden and the cause.
+func (r *Refusal) Unwrap() []error {
+	if r.Err == nil {
+		return []error{core.ErrForbidden}
+	}
+	return []error{core.ErrForbidden, r.Err}
+}
 
 // ResolvePeer turns socket peer credentials and the peer's cgroup file into
-// a caller. In order:
+// a caller, or refuses the peer. daemonPID is the daemon's own pid. In order:
 //
-//  1. Hard: the process is in the agent's cgroup /agents/<name> (tools a
-//     runner spawns inherit it). Several uid-0 agents stay distinct.
-//  2. Soft, where cgroups cannot be placed: a uid in the custom agent range
-//     that the directory knows.
-//  3. Anything else is a system caller. A uid-0 process outside an agent
-//     cgroup is never an agent; root agents then prove who they are with
-//     their bearer token.
-func ResolvePeer(p Peer, cgroup string, agentByUID AgentByUID) core.Caller {
+//  1. Agent, hard: the process is in the agent's cgroup /agents/<name>
+//     (tools a runner spawns inherit it). Several uid-0 agents stay distinct.
+//  2. The daemon: the peer is the daemon's own process. The /daemon cgroup
+//     is no proof: the daemon's terminals, package scripts and git run there.
+//  3. Any other uid 0 is refused. Root agents outside their cgroup prove who
+//     they are with their bearer token.
+//  4. Agent, soft: a uid in the custom agent range that the directory knows.
+//  5. Human: a uid whose Linux user is a human's. The caller is that human,
+//     never root, with no token scopes. Soft: a root agent can take any uid.
+//  6. Anything else is refused, and so is a peer whose lookup failed.
+func ResolvePeer(ctx context.Context, p Peer, cgroup string, daemonPID int, d Directory) (core.Caller, error) {
 	root := p.UID == 0
 	if name, ok := AgentFromCgroup(cgroup); ok {
-		return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID, IsRoot: root}
+		return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID, IsRoot: root}, nil
+	}
+	if p.PID == daemonPID {
+		return core.Caller{Kind: core.CallerSystem, Name: "daemon", UID: p.UID, IsRoot: root}, nil
+	}
+	if root {
+		return core.Anonymous, &Refusal{Peer: p, Reason: ReasonRootOutsideAgents}
 	}
 	if p.UID >= MinAgentUID && p.UID <= MaxAgentUID {
-		if name, ok := agentByUID(p.UID); ok {
-			return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID, Assurance: core.AssuranceSoft}
+		name, err := d.AgentByUID(ctx, p.UID)
+		if err != nil {
+			return core.Anonymous, refusal(p, err, ReasonNoAgent, ReasonAgentLookup)
 		}
+		return core.Caller{Kind: core.CallerAgent, Name: name, UID: p.UID, Assurance: core.AssuranceSoft}, nil
 	}
-	name := "uid:" + strconv.Itoa(p.UID)
-	if path, ok := unifiedPath(cgroup); ok && path == "/daemon" {
-		name = "daemon"
+	name, err := d.HumanByUID(ctx, p.UID)
+	if err != nil {
+		return core.Anonymous, refusal(p, err, ReasonNobody, ReasonHumanLookup)
 	}
-	return core.Caller{Kind: core.CallerSystem, Name: name, UID: p.UID, IsRoot: root}
+	return core.Caller{Kind: core.CallerHuman, Name: name, UID: p.UID, Assurance: core.AssuranceSoft}, nil
+}
+
+// refusal names a lookup error: nobody owns the uid, or the lookup failed.
+func refusal(p Peer, err error, notFound, failed string) *Refusal {
+	if errors.Is(err, core.ErrNotFound) {
+		return &Refusal{Peer: p, Reason: notFound, Err: err}
+	}
+	return &Refusal{Peer: p, Reason: failed, Err: err}
 }
 
 // AgentFromCgroup returns the agent name when the cgroup v2 path is

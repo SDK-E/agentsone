@@ -229,6 +229,10 @@ func (l lateHumans) HumanAccount(ctx context.Context, name string) (core.HumanAc
 	return l.p.Humans.HumanAccount(ctx, name) //nolint:wrapcheck // pass-through to the humans port
 }
 
+func (l lateHumans) HumanByUID(ctx context.Context, uid int) (core.HumanAccount, error) {
+	return l.p.Humans.HumanByUID(ctx, uid) //nolint:wrapcheck // pass-through to the humans port
+}
+
 // auditPort reads the Audit port when used: ports are filled after New.
 type auditPort struct{ p *core.Ports }
 

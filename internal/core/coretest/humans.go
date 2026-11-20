@@ -46,3 +46,15 @@ func (h *Humans) HumanAccount(_ context.Context, name string) (core.HumanAccount
 	}
 	return core.HumanAccount{}, fmt.Errorf("human %s: %w", name, core.ErrNotFound)
 }
+
+// HumanByUID returns the human added with uid, or ErrNotFound.
+func (h *Humans) HumanByUID(_ context.Context, uid int) (core.HumanAccount, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, a := range h.humans {
+		if a.UID == uid {
+			return a, nil
+		}
+	}
+	return core.HumanAccount{}, fmt.Errorf("human uid %d: %w", uid, core.ErrNotFound)
+}

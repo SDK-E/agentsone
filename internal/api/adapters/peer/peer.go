@@ -7,7 +7,6 @@ package peer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"net"
 	"strconv"
@@ -25,40 +24,40 @@ type Resolver struct {
 	Proc fs.FS
 	// Credentials reads SO_PEERCRED; Credentials in production.
 	Credentials func(net.Conn) (domain.Peer, error)
-	// AgentByUID finds custom agents by Linux uid (soft identity).
-	AgentByUID domain.AgentByUID
+	// Directory finds the agent or human who owns a uid.
+	Directory domain.Directory
+	// DaemonPID is the daemon's own pid (os.Getpid()).
+	DaemonPID int
 }
 
-// NoAgents finds no agent for any uid.
-func NoAgents(int) (string, bool) { return "", false }
-
-// Caller resolves the peer of c. It reads the cgroup at accept time, while
-// the peer process is still connected, to keep pid reuse out of reach.
+// Caller resolves the peer of c, or refuses it with a *domain.Refusal. It
+// reads the cgroup at accept time, while the peer process is still
+// connected, to keep pid reuse out of reach.
 func (r Resolver) Caller(c net.Conn) (core.Caller, error) {
 	p, err := r.Credentials(c)
 	if err != nil {
-		return core.Anonymous, fmt.Errorf("peer credentials: %w", err)
+		return core.Anonymous, &domain.Refusal{Peer: domain.Peer{PID: -1, UID: -1}, Reason: domain.ReasonNoCredentials, Err: err}
 	}
+	// The peer is still connected while this runs: the lookups are bounded
+	// by the connection, not by any one request.
+	ctx := context.Background()
 	if r.Proc == nil {
-		// No cgroups on this platform: nobody can be an agent.
-		return domain.ResolvePeer(p, "", r.AgentByUID), nil
+		// No cgroups on this platform: nobody is placed as an agent.
+		return domain.ResolvePeer(ctx, p, "", r.DaemonPID, r.Directory)
 	}
 	cgroup, err := fs.ReadFile(r.Proc, strconv.Itoa(p.PID)+"/cgroup")
 	if err != nil {
-		return core.Anonymous, fmt.Errorf("peer cgroup of pid %d: %w", p.PID, err)
+		return core.Anonymous, &domain.Refusal{Peer: p, Reason: domain.ReasonNoCgroup, Err: err}
 	}
-	return domain.ResolvePeer(p, string(cgroup), r.AgentByUID), nil
+	return domain.ResolvePeer(ctx, p, string(cgroup), r.DaemonPID, r.Directory)
 }
 
 // ConnContext is an http.Server ConnContext that stores the resolved
-// caller with store, or leaves the context bare when it cannot be resolved
-// (requests are then refused).
-func (r Resolver) ConnContext(store func(context.Context, core.Caller) context.Context) func(context.Context, net.Conn) context.Context {
+// caller, or the refusal, with store. Requests on a refused connection are
+// refused unless they carry their own credentials.
+func (r Resolver) ConnContext(store func(context.Context, core.Caller, error) context.Context) func(context.Context, net.Conn) context.Context {
 	return func(ctx context.Context, c net.Conn) context.Context {
 		caller, err := r.Caller(c)
-		if err != nil {
-			return ctx
-		}
-		return store(ctx, caller)
+		return store(ctx, caller, err)
 	}
 }

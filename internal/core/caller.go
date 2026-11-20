@@ -52,7 +52,8 @@ const (
 	// human signed in to a daemon session, or a system caller.
 	AssuranceHard Assurance = ""
 	// AssuranceSoft: an agent named by its uid or by a bearer token, where
-	// the process could not be placed in its own cgroup.
+	// the process could not be placed in its own cgroup, or a human named
+	// by their Linux user's uid on the socket (a root agent can take any uid).
 	AssuranceSoft Assurance = "soft"
 )
 

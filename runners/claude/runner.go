@@ -31,7 +31,7 @@ const DefaultGraceMs = 2000
 const (
 	weightNormal = "normal"
 	// LicenceMessage is the turn error while the engine is not installed.
-	licenceMessage = "The Claude engine is not installed yet. A human must accept its licence on the setup page; the download starts then."
+	licenceMessage = "The Claude engine is off. A human can turn it on in Settings and accept its licence; the download starts then."
 	rootMessage    = "The Claude engine refused to run as root outside a recognised sandbox."
 	frozenMessage  = "A human froze model calls"
 	budgetBack     = "Budget is back. Continue the work you were doing."

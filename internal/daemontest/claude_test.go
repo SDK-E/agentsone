@@ -48,4 +48,4 @@ func TestClaudeRunner_WithoutTheEngineATurnSaysSoAndCallsNoModel(t *testing.T) {
 // licenceError are the parts of the daemon's log line for a turn the claude
 // runner ends because its engine is not installed: the runner's
 // model-unavailable code and its licence message.
-var licenceError = []string{"runner error", "code=1020", "The Claude engine is not installed yet"}
+var licenceError = []string{"runner error", "code=1020", "The Claude engine is off. A human can turn it on in Settings"}

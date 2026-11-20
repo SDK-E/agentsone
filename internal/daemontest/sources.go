@@ -15,8 +15,23 @@ import (
 )
 
 // builtinSources is how many built-in event sources the events module runs
-// (clock, disk and load). MoveSources waits for each of them to be asleep.
-const builtinSources = 3
+// (clock, disk, load and files). MoveSources waits for each of them to be
+// asleep.
+const builtinSources = 4
+
+// inboxDir is the folder the files source watches, next to config.toml.
+const inboxDir = "inbox"
+
+// DropFile writes a file named name into the folder the files source
+// watches. The source announces it once two scans in a row saw it unchanged.
+func (d *Daemon) DropFile(name, text string) {
+	d.t.Helper()
+	d.sourcesAsleep()
+	path := filepath.Join(filepath.Dir(d.setup.cfgPath), inboxDir, name)
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		d.t.Fatalf("drop %s: %v", name, err)
+	}
+}
 
 // mountsFile is the disk source's mount table, next to config.toml.
 const mountsFile = "mounts"

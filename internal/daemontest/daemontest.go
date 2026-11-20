@@ -289,6 +289,12 @@ func loadConfig(t testing.TB) (core.Config, string) {
 	// memory free, until a test fills it (FillMemory).
 	proc := filepath.Join(dir, procDir)
 	writeProc(t, proc, memoryHalfFree)
+	// The files source watches one empty folder, where a test drops files
+	// (DropFile).
+	inbox := filepath.Join(dir, inboxDir)
+	if err := os.Mkdir(inbox, 0o750); err != nil {
+		t.Fatalf("make the watched folder: %v", err)
+	}
 	toml := fmt.Sprintf(`state_dir = %q
 runtime_dir = %q
 lib_dir = %q
@@ -315,7 +321,11 @@ margin_percent = 0
 proc_dir = %q
 interval = "10s"
 window = "10s"
-`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled, mounts, proc)
+
+[emitters.files]
+watches = [%q]
+interval = "10s"
+`, filepath.Join(dir, "state"), run, filepath.Join(dir, "lib"), filepath.Join(dir, "agents"), key, bundled, mounts, proc, inbox)
 	path := filepath.Join(dir, "config.toml")
 	if err := os.WriteFile(path, []byte(toml), 0o600); err != nil {
 		t.Fatalf("write config.toml: %v", err)

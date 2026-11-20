@@ -56,7 +56,8 @@ type task struct {
 
 var tasks = []task{
 	{"agents", "agentctl agents list", "list the agents"},
-	{"agents", `agentctl agents send-chat-message <agent_name> --text "Hello"`, "chat with an agent"},
+	{"agents", `agentctl agents chat <agent_name> --text "Hello"`, "chat with an agent (same as send-chat-message)"},
+	{"agents", "agentctl agents chat-history <agent_name>", "read the chat so far"},
 	{"agents", "agentctl agents stream-chat <agent_name>", "follow an agent's chat as it happens"},
 	{"agents", "agentctl agents wake <agent_name>", "wake an agent that sleeps"},
 	{"router", "agentctl router list-live-list", "see what every agent is doing now"},

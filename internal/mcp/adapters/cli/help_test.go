@@ -77,8 +77,11 @@ func TestHelp_RootShowsHowToChatWithAnAgent(t *testing.T) {
 			chat = line
 		}
 	}
-	if !strings.Contains(chat, "agents send-chat-message <agent_name> --text") {
+	if !strings.Contains(chat, `agents chat <agent_name> --text "Hello"`) || !strings.Contains(chat, "same as send-chat-message") {
 		t.Errorf("no line shows how to chat with an agent; tasks = %q", taskLines(got))
+	}
+	if !strings.Contains(got, "agents chat-history <agent_name>") {
+		t.Errorf("the chat history is not shown; tasks = %q", taskLines(got))
 	}
 }
 

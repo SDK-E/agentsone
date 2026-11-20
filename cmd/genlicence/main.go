@@ -24,11 +24,11 @@ func main() {
 // run writes the licence file named by args and returns the exit code.
 func run(args []string, stderr io.Writer) int {
 	if len(args) != 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: genlicence <file>")
+		_, _ = fmt.Fprintln(stderr, "usage: genlicence <file>") //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return 2
 	}
 	if err := write(args[0]); err != nil {
-		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err) //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return 1
 	}
 	return 0

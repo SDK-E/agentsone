@@ -100,10 +100,10 @@ export function DesktopView({ human, connect }: { human: string; connect: VncCon
             </button>
           </div>
           <div className="desktop__group">
-            <button type="button" className="button button--quiet" onClick={fullScreen}>
+            <button type="button" className="button" onClick={fullScreen}>
               {t("panels.desktop.fullScreen")}
             </button>
-            <button type="button" className="button button--quiet" onClick={close}>
+            <button type="button" className="button" onClick={close}>
               {t("panels.desktop.disconnect")}
             </button>
           </div>

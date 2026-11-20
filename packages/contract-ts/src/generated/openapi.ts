@@ -2411,7 +2411,7 @@ export interface components {
       /** @description Agent directly above in the chart; null for the founder. */
       manager: string | null;
       name: components["schemas"]["AgentName"];
-      /** @description Latest one-line, or null before the first turn. */
+      /** @description Latest one-line. Before the agent's first turn it is the agent's role, or "new" when it has none. Null only for an agent a daemon older than 1.5.0 has not yet given one. */
       one_line: components["schemas"]["AgentOneLine"] | null;
       /** @description Short job title, for example "Router" or "Disk watcher". */
       role: string;
@@ -2428,8 +2428,11 @@ export interface components {
       template: string | null;
       /** @description Linux uid. 0 for root agents. */
       uid: number;
-      /** @description The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`. */
-      unit: string;
+      /**
+       * @deprecated
+       * @description Not set: runners are daemon child processes, not systemd units. Removed in 2.0.
+       */
+      unit?: string;
     };
     /** @description Hire an agent. The new agent sits below the caller unless `manager` names another agent below the caller. */
     AgentCreate: {

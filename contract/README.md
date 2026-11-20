@@ -107,6 +107,19 @@ operations (`getSetupStatus`, `createFirstHuman`, `createSession`).
 
 ## Changelog
 
+### 1.5.0
+
+Additive for readers that already treat `unit` as absent; it is a relaxation of a required field
+(minor).
+
+- `Agent.unit` is optional and deprecated. The daemon leaves it out: runners are child processes
+  of the daemon, not systemd units, so there is no unit to name, and the old value
+  `agent@<name>.service` named a unit that does not exist. The field and its pattern stay until
+  2.0, when it is removed. Clients must not read it.
+- `Agent.one_line` description: before an agent's first turn it is the agent's role, or "new"
+  when the agent has none. This is the same field and type as before.
+- The `listAgents`, `getAgent` and `wakeAgent` fixtures leave `unit` out.
+
 ### 1.4.1
 
 Description and fixtures only. No schema change.

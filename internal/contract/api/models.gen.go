@@ -1691,7 +1691,7 @@ type Agent struct {
 	// Name Agent name. Lowercase letter first, then lowercase letters, digits or hyphens, 1 to 31 characters. Also the Linux user name of a custom agent.
 	Name AgentName `json:"name"`
 
-	// OneLine Latest one-line, or null before the first turn.
+	// OneLine Latest one-line. Before the agent's first turn it is the agent's role, or "new" when it has none. Null only for an agent a daemon older than 1.5.0 has not yet given one.
 	OneLine *AgentOneLine `json:"one_line"`
 
 	// Role Short job title, for example "Router" or "Disk watcher".
@@ -1718,8 +1718,9 @@ type Agent struct {
 	// Uid Linux uid. 0 for root agents.
 	Uid int `json:"uid"`
 
-	// Unit The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.
-	Unit string `json:"unit"`
+	// Unit Not set: runners are daemon child processes, not systemd units. Removed in 2.0.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Unit *string `json:"unit,omitempty"`
 }
 
 // AgentCreate Hire an agent. The new agent sits below the caller unless `manager` names another agent below the caller.

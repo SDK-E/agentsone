@@ -441,7 +441,7 @@
             "$ref": "#/components/schemas/AgentName"
           },
           "one_line": {
-            "description": "Latest one-line, or null before the first turn.",
+            "description": "Latest one-line. Before the agent's first turn it is the agent's role, or \"new\" when it has none. Null only for an agent a daemon older than 1.5.0 has not yet given one.",
             "oneOf": [
               {
                 "$ref": "#/components/schemas/AgentOneLine"
@@ -487,7 +487,8 @@
             "type": "integer"
           },
           "unit": {
-            "description": "The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.",
+            "deprecated": true,
+            "description": "Not set: runners are daemon child processes, not systemd units. Removed in 2.0.",
             "pattern": "^agent@[a-z][a-z0-9-]{0,30}\\.service$",
             "type": "string"
           }
@@ -507,7 +508,6 @@
           "limits",
           "uid",
           "home",
-          "unit",
           "template",
           "created_at",
           "created_by",
@@ -8575,7 +8575,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.4.1"
+    "version": "1.5.0"
   },
   "openapi": "3.1.1",
   "paths": {

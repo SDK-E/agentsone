@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A token value now reads `aot_tok_<ULID>_<secret>`: the part after `aot_` up to the secret is the
   token's id, the same id the issue answers and a revoke takes. The value is still opaque to
   clients.
+- An agent's record no longer carries `unit`. It named a systemd unit (`agent@<name>.service`)
+  that does not exist, because runners are child processes of the daemon. The field is optional
+  and deprecated in contract 1.5.0 and is removed in 2.0. Clients must not read it.
 
 ### Removed
 

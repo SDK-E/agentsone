@@ -164,7 +164,7 @@ func (h sessionHandlers) GetMe(ctx context.Context, _ sessionapi.GetMeRequestObj
 func toAgent(a core.Agent) contract.Agent {
 	return contract.Agent{
 		Name: a.Name, Kind: contract.AgentKind(a.Kind), IsRoot: a.IsRoot, Runner: a.Runner,
-		Uid: a.UID, Home: a.Home, Unit: "agent@" + a.Name + ".service",
+		Uid: a.UID, Home: a.Home,
 	}
 }
 

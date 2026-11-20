@@ -86,7 +86,6 @@ Agent:
     - limits
     - uid
     - home
-    - unit
     - template
     - created_at
     - created_by
@@ -129,7 +128,7 @@ Agent:
       oneOf:
         - $ref: "#/AgentOneLine"
         - type: "null"
-      description: Latest one-line, or null before the first turn.
+      description: Latest one-line. Before the agent's first turn it is the agent's role, or "new" when it has none. Null only for an agent a daemon older than 1.5.0 has not yet given one.
     limits:
       oneOf:
         - $ref: "#/AgentLimits"
@@ -144,7 +143,8 @@ Agent:
       description: Home folder, `/home/agents/<name>` for custom agents, `/root/agents/<name>` for root agents.
     unit:
       type: string
-      description: The unit that runs the agent. The pattern keeps its first-design spelling; the agent's cgroup is `/agents/<id>`.
+      deprecated: true
+      description: "Not set: runners are daemon child processes, not systemd units. Removed in 2.0."
       pattern: '^agent@[a-z][a-z0-9-]{0,30}\.service$'
     template:
       type: [string, "null"]

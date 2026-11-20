@@ -29,7 +29,7 @@ func toAgent(a domain.Agent, team string, line *core.LiveLine) api.Agent {
 	out := api.Agent{
 		Name: a.Name, DisplayName: a.DisplayName, Kind: api.AgentKind(a.Kind), IsRoot: a.IsRoot,
 		Runner: a.Runner, Manager: optional(a.Manager), Team: team, Role: a.Role, Description: a.Description,
-		State: api.AgentState(a.State), Uid: max(0, a.UID), Home: a.Home, Unit: a.Unit(),
+		State: api.AgentState(a.State), Uid: max(0, a.UID), Home: a.Home,
 		Template: optional(a.Template), CreatedAt: api.Timestamp(a.CreatedAt), CreatedBy: a.CreatedBy, LastTurnAt: optionalTime(a.LastTurnAt),
 	}
 	if a.State == domain.StateFailed {

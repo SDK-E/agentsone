@@ -109,9 +109,6 @@ type Agent struct {
 // Active reports whether the agent is still part of the society.
 func (a Agent) Active() bool { return a.State != StateRetired }
 
-// Unit is the agent's systemd unit.
-func (a Agent) Unit() string { return "agent@" + a.Name + ".service" }
-
 // Core returns the directory view of the agent.
 func (a Agent) Core() core.Agent {
 	return core.Agent{

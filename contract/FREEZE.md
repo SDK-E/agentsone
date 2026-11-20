@@ -87,7 +87,7 @@ stay until a major version, and their descriptions say what they mean today:
 | problem type `urn:agentsone:problem:host-only` | Problem | Only the edge service may call this. |
 | actor kind `host:<part>`, `CallerHost` | Actor, event `actor`, `internal/core` | The edge service. |
 | audit record origin `host` | `audit-record.schema.json` | Written by the edge. |
-| `Agent.unit` pattern `agent@<name>.service`, event examples with it | `Agent` schema, event catalog | The unit name of an agent; the pattern is unchanged. |
+| `Agent.unit` pattern `agent@<name>.service`, event examples with it | `Agent` schema, event catalog | Optional and deprecated since 1.5.0, never set by the daemon, removed in 2.0; the pattern is unchanged. |
 | `host_acked_seq`, `HostBudgetPush` and similar field and schema names | OpenAPI | Set by the edge. |
 
 ## How to request a change

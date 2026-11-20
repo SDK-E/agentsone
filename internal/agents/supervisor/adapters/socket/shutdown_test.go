@@ -47,7 +47,7 @@ func TestServer_ShutdownReturnsAfterTheSocietyHeardEveryRunnerStop(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Cleanup(func() { coretest.Remove(t, dir) }) // Shutdown removes the sockets, so the folder is empty
 	fakes, ports := coretest.NewFakes()
 	fakes.Agents.Add(core.Agent{Name: "founder", Kind: core.AgentAlwaysOn, IsRoot: true})
 	c := &collect{sums: map[string]app.Summary{}}

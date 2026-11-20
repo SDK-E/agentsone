@@ -86,6 +86,11 @@ services:
       # Wall: the web door listens on the outer address only, never on the inner one, so the
       # machine cannot reach its own front door and pose as a human.
       - --door-addr=${AGENTSONE_EDGE_OUTER_IP:-10.77.42.34}:8080
+      # Wall: extra destination ranges the machine never reaches, even through an allowed name,
+      # as comma-separated CIDR ranges (for example the host's own public addresses, when a proxy
+      # on the host trusts the network edge leaves from). Empty adds none to the private ranges
+      # edge always refuses.
+      - --egress-deny=${AGENTSONE_EGRESS_DENY:-}
     restart: unless-stopped
     networks:
       inner:

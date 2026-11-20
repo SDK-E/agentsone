@@ -44,6 +44,9 @@ type Env struct {
 	Log       *slog.Logger
 	// DoorAddrs are the machine's door addresses (host:port, host may be a name), for the door.
 	DoorAddrs []string
+	// EgressDeny are extra destination ranges the internet filter never connects the machine
+	// to, even for an allowed name (for example the host's own public addresses).
+	EgressDeny []netip.Prefix
 	// Admin is the shared mux of the admin socket. Components add their routes in Start, under
 	// /v1/<component>/. It serves once every component has started.
 	Admin *http.ServeMux

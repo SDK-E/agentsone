@@ -86,6 +86,7 @@ services:
       - edge
       - --inner-addr=${AGENTSONE_EDGE_IP:-10.77.42.2}
       - --door-addr=${AGENTSONE_PROXY_ALIAS:-agentsone-door}:8080
+      - --egress-deny=${AGENTSONE_EGRESS_DENY:-}
     deploy:
       resources:
         limits:

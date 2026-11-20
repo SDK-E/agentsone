@@ -404,6 +404,32 @@ func TestComponent_RecordsRefusalsAsEdgeProof(t *testing.T) {
 	}
 }
 
+func TestComponent_RefusesAnAllowedNameThatResolvesToTheDeniedRanges(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	proof := &proofRecorder{}
+	c := edgenet.Component{Ports: &edgenet.Ports{}, Resolver: w.resolver, Dial: w.dial}
+	env := &component.Env{
+		InnerAddr: loopback, DataDir: t.TempDir(), Log: slog.New(slog.DiscardHandler), Proof: proof,
+		EgressDeny: []netip.Prefix{netip.MustParsePrefix(siteIP + "/32")},
+	}
+	s, err := c.Start(t.Context(), env)
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = s.Stop() }()
+
+	_, _, status := connect(t, s.(*edgenet.Edge), siteName+":443")
+
+	if status != http.StatusForbidden {
+		t.Fatalf("CONNECT status = %d, want 403", status)
+	}
+	got := proof.all()
+	if len(got) != 1 || got[0].Target != "network:"+siteName || got[0].Details["reason"] != "name resolved only to addresses the operator denied for egress" {
+		t.Fatalf("proofs = %+v, want one denied destination refusal", got)
+	}
+}
+
 type proofRecorder struct {
 	mu     sync.Mutex
 	proofs []component.Proof

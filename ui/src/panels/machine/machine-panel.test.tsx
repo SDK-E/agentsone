@@ -45,7 +45,7 @@ describe("Machine panel", () => {
     const machine = await screen.findByRole("region", { name: "The machine" });
     const note = await within(machine).findByRole("note", { name: "Agent limits" });
     expect(note).toHaveTextContent(
-      "Agent limits: soft. Custom agents do not get a cgroup of their own on this machine, so their CPU use is not capped.",
+      "Agent limits: soft. Custom agents have no cgroup of their own on this machine. The kernel does not cap their CPU, caps memory for each process rather than each agent, and still caps how many processes each agent runs.",
     );
     expect(within(note).getByText(fixtures.metricsSoft.agent_limits?.reason ?? "")).toBeVisible();
     expect(within(machine).queryByText("Agent limits: held by the kernel.")).toBeNull();

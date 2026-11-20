@@ -333,6 +333,20 @@ func TestSend_PortRefusals(t *testing.T) {
 			_, err := f.svc.Send(asAgent("intern"), core.BusMessage{From: "agent:builder", To: "agent:founder", Body: "x"})
 			return err
 		}, core.ErrForbidden},
+		// The system actor is set only inside the daemon: a root agent speaks
+		// for agents, never as the system.
+		{"a root agent speaking as the system", func() error {
+			_, err := f.svc.Send(asRootAgent("rooty"), core.BusMessage{From: "system:auth", To: "agent:intern", Body: "x"})
+			return err
+		}, core.ErrForbidden},
+		{"a root agent speaking as the daemon", func() error {
+			_, err := f.svc.Send(asRootAgent("rooty"), core.BusMessage{From: "system:daemon", To: "channel:general", Body: "x"})
+			return err
+		}, core.ErrForbidden},
+		{"an agent speaking as the system", func() error {
+			_, err := f.svc.Send(asAgent("intern"), core.BusMessage{From: "system:auth", To: "agent:founder", Body: "x"})
+			return err
+		}, core.ErrForbidden},
 	}
 	for _, tt := range tests {
 		if err := tt.ctx(); !errors.Is(err, tt.wantErr) {

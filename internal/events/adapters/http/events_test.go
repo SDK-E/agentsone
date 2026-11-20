@@ -4,6 +4,7 @@ package httpadapter_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -42,6 +43,31 @@ func TestPublishEvent_TheActorComesFromTheCallerNotTheBody(t *testing.T) {
 	got := decode[api.Event](t, rec, http.StatusCreated)
 	if got.Actor != "agent:builder" || got.Source != "/agents/builder" {
 		t.Fatalf("event = %+v, want the caller as actor", got)
+	}
+}
+
+// The system actor is set only inside the daemon. No agent, the root agent
+// included, publishes as the system by naming it in the body or a header.
+func TestPublishEvent_AnAgentNeverPublishesAsTheSystem(t *testing.T) {
+	for _, c := range []core.Caller{builder, founder} {
+		for _, actor := range []string{"system:auth", "system:daemon", "system"} {
+			t.Run(c.Name+"/"+actor, func(t *testing.T) {
+				e := newEnv(t)
+				raw := `{"type":"agentsone.custom.thing","data":{},"actor":"` + actor + `"}`
+				req := httptest.NewRequest(http.MethodPost, "/v1/events", strings.NewReader(raw))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Auth-Actor", actor)
+				req.Header.Set("X-Remote-User", actor)
+				rec := httptest.NewRecorder()
+
+				e.as(c).ServeHTTP(rec, req)
+
+				got := decode[api.Event](t, rec, http.StatusCreated)
+				if got.Actor != "agent:"+c.Name {
+					t.Fatalf("actor = %q, want agent:%s", got.Actor, c.Name)
+				}
+			})
+		}
 	}
 }
 

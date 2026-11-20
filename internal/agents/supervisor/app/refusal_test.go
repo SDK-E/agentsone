@@ -205,6 +205,92 @@ func TestWake_RefusalIsPerAgent(t *testing.T) {
 	}
 }
 
+const taskRefusedReason = "The runner refused a task wake: error -32602, Invalid params."
+
+// connectHoldingFirstWake connects founder's runner, which holds back its
+// answer to the first held wake, and returns once that wake reached it.
+func connectHoldingFirstWake(t *testing.T, w *world) (*fakeConn, func(error)) {
+	t.Helper()
+	h := w.sup.Connect("founder")
+	conn := newFakeConn()
+	answer := conn.holdNextWake(t)
+	h.Attach(conn)
+	if _, err := h.Hello(t.Context(), "1.0", helloParams); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle"}); err != nil {
+		t.Fatal(err)
+	}
+	conn.markReady()
+	conn.next(t)
+	return conn, answer
+}
+
+func holdWakes(t *testing.T, w *world, reasons ...core.WakeReason) {
+	t.Helper()
+	for _, reason := range reasons {
+		if err := w.sup.Wake(t.Context(), "founder", reason, json.RawMessage(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// Wakes to one runner can be in flight at once: here the runner answers the
+// held timer wake only after it refused chat wakes sent since. That older
+// answer does not clear the newer refusal, so the society never hears the
+// agent ran again in between, and the held chat wake's refusal is not news.
+func TestWake_LateAcceptOfAnEarlierWakeKeepsTheRefusal(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	holdWakes(t, w, core.WakeTimer, core.WakeChat, core.WakeTask)
+	conn, answer := connectHoldingFirstWake(t, w)
+	conn.refuseWakes(invalidParams)
+	for range 3 {
+		_ = wakeChat(t, w, "founder")
+	}
+
+	answer(nil) // the timer wake is accepted; the flush goes on with the chat and task wakes
+	waitFor(t, func() bool { return slices.Contains(w.sink.heard(), "failed founder: "+taskRefusedReason) })
+
+	want := []string{"running founder", "failed founder: " + invalidParamsReason, "failed founder: " + taskRefusedReason}
+	if diff := cmp.Diff(want, w.sink.heard()); diff != "" {
+		t.Errorf("society heard (-want +got):\n%s", diff)
+	}
+	if n := len(w.refusals()); n != 2 {
+		t.Errorf("%d audit records, want 2: chat once, task once", n)
+	}
+	if n := countOf(w.logs.all(), refusedLine); n != 2 {
+		t.Errorf("%d error lines, want 2: chat once, task once", n)
+	}
+}
+
+// The other way round: the runner refuses a held wake only after it accepted
+// a wake sent since. The refusal is still logged and audited, but the agent
+// is not shown as failed: the newer wake was accepted.
+func TestWake_LateRefusalOfAnEarlierWakeIsRecordedButNotShown(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	holdWakes(t, w, core.WakeChat, core.WakeTask)
+	conn, answer := connectHoldingFirstWake(t, w)
+	if err := wakeChat(t, w, "founder"); err != nil {
+		t.Fatalf("Wake() = %v, want accepted", err)
+	}
+	conn.next(t)
+
+	answer(invalidParams) // the held chat wake is refused; the flush goes on with the task wake
+	conn.next(t)          // the task wake reached the runner, so the refusal was taken
+
+	if n := len(w.refusals()); n != 1 {
+		t.Errorf("%d audit records, want 1", n)
+	}
+	if n := countOf(w.logs.all(), refusedLine); n != 1 {
+		t.Errorf("%d error lines, want 1", n)
+	}
+	if diff := cmp.Diff([]string{"running founder"}, w.sink.heard()); diff != "" {
+		t.Errorf("society heard (-want +got):\n%s", diff)
+	}
+}
+
 // A held wake is sent when the runner's first status arrives; a refusal there
 // is just as loud, and does not stop the wakes held behind it.
 func TestStatus_HeldWakeRefusedIsAuditedAndTheNextIsStillSent(t *testing.T) {

@@ -48,6 +48,10 @@ type Supervisor struct {
 	wallMarked  map[string]bool
 	// refused is the last wake each agent's runner refused, while it shows.
 	refused map[string]refusal
+	// wakes numbers the wakes handed to runners, in the order they are
+	// sent; answered is the newest wake whose outcome each agent took.
+	wakes    uint64
+	answered map[string]uint64
 	// resumed is the paused turn each agent was last resumed for, until its
 	// budget runs out again.
 	resumed map[string]string
@@ -82,7 +86,7 @@ type wakeRequest struct {
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
 	s := &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
-		refused: map[string]refusal{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{},
+		refused: map[string]refusal{}, answered: map[string]uint64{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{},
 		runWanted: map[string]bool{}}
 	// Every start and restart of a runner passes the launcher, so the wall
 	// is checked there: a new way to start a runner cannot skip it.
@@ -280,9 +284,10 @@ func (s *Supervisor) Wake(ctx context.Context, name string, reason core.WakeReas
 	default:
 		h := r.conn
 		turn := s.turnFor(r.session, req)
+		seq := s.numberWakeLocked()
 		s.mu.Unlock()
 		err := h.sendWake(ctx, req, turn)
-		s.wakeSent(ctx, name, req, err)
+		s.wakeSent(ctx, name, seq, req, err)
 		return err
 	}
 }

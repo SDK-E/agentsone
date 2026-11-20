@@ -54,36 +54,57 @@ func (r refusal) stateReason() string {
 	return fmt.Sprintf("The runner refused a %s wake: error %d, %s.", r.reason, r.code, string(msg))
 }
 
-// wakeSent takes the outcome of sending req to agent's runner. A runner's
-// refusal that differs from the last one is logged at error level, audited
-// and shown on the agent; the same refusal again changes nothing. An
-// accepted wake clears what was shown. Other errors (the connection ended)
-// are the caller's to handle.
-func (s *Supervisor) wakeSent(ctx context.Context, agent string, req wakeRequest, err error) {
-	if err == nil {
-		s.mu.Lock()
-		_, shown := s.refused[agent]
-		delete(s.refused, agent)
-		s.mu.Unlock()
-		if shown {
-			s.runnerRunning(ctx, agent)
-		}
-		return
-	}
-	ref, ok := refusedWake(req, err)
-	if !ok {
+// numberWakeLocked numbers the next wake handed to a runner. With the lock
+// held.
+func (s *Supervisor) numberWakeLocked() uint64 {
+	s.wakes++
+	return s.wakes
+}
+
+// wakeSent takes the outcome of sending req, wake number seq, to agent's
+// runner. A runner's refusal that differs from the last one is logged at
+// error level, audited and shown on the agent; the same refusal again
+// changes nothing. An accepted wake clears what was shown.
+//
+// Wakes to one runner can be in flight at once (the held wakes the first
+// status releases, and wakes sent straight to it), so their outcomes can
+// come here in any order. What the agent shows follows the newest wake: an
+// outcome older than the newest one taken neither clears nor shows a
+// refusal. An older refusal that differs from the one shown is still logged
+// and audited, since the runner did refuse it. Other errors (the connection
+// ended) are the caller's to handle.
+func (s *Supervisor) wakeSent(ctx context.Context, agent string, seq uint64, req wakeRequest, err error) {
+	ref, refused := refusedWake(req, err)
+	if err != nil && !refused {
 		return
 	}
 	s.mu.Lock()
-	prev, shown := s.refused[agent]
-	s.refused[agent] = ref
-	s.mu.Unlock()
-	if shown && prev == ref {
-		return
+	newest := seq > s.answered[agent]
+	if newest {
+		s.answered[agent] = seq
 	}
-	s.log().Error(LogWakeRefused, "agent", agent, "reason", string(ref.reason), "code", ref.code, "message", ref.message)
-	s.audit(ctx, ActionWakeRefused, "agent:"+agent, map[string]any{"reason": string(ref.reason), "code": ref.code, "message": ref.message})
-	s.runnerFailed(ctx, agent, ref.stateReason())
+	prev, shown := s.refused[agent]
+	same := refused && shown && prev == ref
+	if newest && !same {
+		if refused {
+			s.refused[agent] = ref
+		} else {
+			delete(s.refused, agent)
+		}
+	}
+	s.mu.Unlock()
+	switch {
+	case !refused:
+		if newest && shown {
+			s.runnerRunning(ctx, agent)
+		}
+	case !same:
+		s.log().Error(LogWakeRefused, "agent", agent, "reason", string(ref.reason), "code", ref.code, "message", ref.message)
+		s.audit(ctx, ActionWakeRefused, "agent:"+agent, map[string]any{"reason": string(ref.reason), "code": ref.code, "message": ref.message})
+		if newest {
+			s.runnerFailed(ctx, agent, ref.stateReason())
+		}
+	}
 }
 
 // forgetRefusal drops what was remembered of agent's refusals: its runner

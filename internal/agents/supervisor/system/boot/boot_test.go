@@ -125,7 +125,9 @@ func hardLimits(t *testing.T) {
 }
 
 // softLimits: without writable cgroups the daemon still runs custom agents,
-// as their own users, with process resource limits only.
+// as their own users, with process resource limits only: the memory limit
+// is each process's data limit, so an allocation past it fails, while the
+// address space stays unlimited for runtimes that reserve much of it.
 func softLimits(t *testing.T) {
 	if boot.Mode != domain.LimitsSoft || boot.Root != "" {
 		t.Fatalf("probe = %s root %q; want soft with no cgroup root on a read-only tree", boot.Line(), boot.Root)
@@ -136,11 +138,11 @@ func softLimits(t *testing.T) {
 	acc := agentUser(t, "aoboot-soft", 200203)
 	l, out := run(t, acc, domain.Limits{MemoryMaxBytes: 64 << 20, TasksMax: 64},
 		`read -r cg < /proc/self/cgroup; while read -r k v rest; do [ "$k" = Uid: ] && uid=$v; done < /proc/self/status; `+
-			`while read -r a b c d rest; do [ "$a $b $c" = "Max address space" ] && as=$d; done < /proc/self/limits; `+
-			`echo "$cg uid=$uid as=$as" > "$OUT"; exec sleep 600`)
+			`while read -r a b c d rest; do [ "$a $b $c" = "Max address space" ] && as=$d; [ "$a $b $c" = "Max data size" ] && data=$d; done < /proc/self/limits; `+
+			`timeout 20 tail /dev/zero 2>/dev/null; echo "$cg uid=$uid as=$as data=$data alloc exit=$?" > "$OUT"; exec sleep 600`)
 	got := readFifo(t, out)
-	t.Logf("proof boot soft: runner reported %q mode=%s", got, l.Mode(acc.User))
-	if want := fmt.Sprintf("0::/ uid=200203 as=%d", 64<<20); got != want || l.Mode(acc.User) != domain.LimitsSoft {
+	t.Logf("proof boot soft: runner reported %q mode=%s (tail /dev/zero grows its heap until the data limit refuses it)", got, l.Mode(acc.User))
+	if want := fmt.Sprintf("0::/ uid=200203 as=unlimited data=%d alloc exit=1", 64<<20); got != want || l.Mode(acc.User) != domain.LimitsSoft {
 		t.Errorf("runner reported %q mode %s; want %q and soft", got, l.Mode(acc.User), want)
 	}
 }

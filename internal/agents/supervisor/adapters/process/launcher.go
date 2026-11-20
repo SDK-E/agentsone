@@ -8,9 +8,13 @@
 // runner starts through the launch helper (see LaunchArgv0), which joins
 // the cgroup, lowers rlimits and drops to the agent's user before it execs
 // the runner, so the runner never runs unlimited or as root. Without a
-// writable tree only
-// process resource limits apply and the mode is reported as soft. Root
-// agents have no limits: they are trusted and could lift them anyway. The
+// writable tree only process resource limits apply and the mode is
+// reported as soft: there is no cgroup per agent, CPU is not capped,
+// memory is capped per process by a data limit (RLIMIT_DATA) and tasks
+// per agent user (RLIMIT_NPROC). A runner with a memory limit gets
+// GOMEMLIMIT at 3/4 of it, so a Go runner collects garbage before it
+// reaches the limit. Root agents have no limits: they are trusted and
+// could lift them anyway. The
 // launcher never starts a runner by itself: a runner that exits without
 // being stopped is reported to Exited, and the supervisor decides whether
 // it starts again, through its network wall check.
@@ -24,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -206,7 +211,7 @@ func (l *Launcher) startLocked(name string) error {
 		return fmt.Errorf("start %s: %w", name, err)
 	}
 	if mode == domain.LimitsSoft {
-		l.Log.Warn("agent limits are soft: no writable cgroup v2, CPU quota not enforced", "agent", name)
+		l.Log.Warn(SoftLimitsLine, "agent", name)
 	}
 	l.modes[name] = mode
 	p := &proc{cmd: cmd, exited: make(chan struct{})}
@@ -214,6 +219,17 @@ func (l *Launcher) startLocked(name string) error {
 	go l.wait(name, p, sys)
 	return nil
 }
+
+// SoftLimitsLine is the warning logged when a custom agent's runner starts
+// with soft limits.
+const SoftLimitsLine = "agent limits are soft: no cgroup per agent; CPU not capped; " +
+	"memory capped per process by a data limit; tasks capped per agent user"
+
+// GoMemLimitEnv is the Go runtime's soft memory limit. A runner with a
+// memory limit gets it at 3/4 of that limit, unless its own environment
+// sets it: the rest is room for memory the Go heap does not count, such
+// as the runtime's own maps, and for the runner's children.
+const GoMemLimitEnv = "GOMEMLIMIT"
 
 func environment(spec domain.UnitSpec) []string {
 	env := []string{
@@ -224,10 +240,16 @@ func environment(spec domain.UnitSpec) []string {
 		"LOGNAME=" + spec.Account.User,
 		"PATH=/usr/local/bin:/usr/bin:/bin",
 	}
+	own := false
 	for _, e := range spec.Exec.Env {
-		if k, _, _ := strings.Cut(e, "="); k != domain.SocketEnv {
+		k, _, _ := strings.Cut(e, "=")
+		own = own || k == GoMemLimitEnv
+		if k != domain.SocketEnv {
 			env = append(env, e)
 		}
+	}
+	if m := spec.Limits.MemoryMaxBytes; m > 0 && !own {
+		env = append(env, GoMemLimitEnv+"="+strconv.FormatInt(m/4*3, 10))
 	}
 	return env
 }

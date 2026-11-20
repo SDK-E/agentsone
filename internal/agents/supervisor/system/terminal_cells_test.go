@@ -242,7 +242,8 @@ func TestTerminalCell_AgentTerminalRunsInTheAgentsCgroupUnderItsLimits(t *testin
 }
 
 // Without writable cgroups, a terminal for a custom agent gets the same
-// process limits its runner gets: processes, address space, open files.
+// process limits its runner gets: processes, data size, open files. Its
+// address space stays unlimited, as the runner's does.
 func TestTerminalCell_AgentTerminalGetsTheRunnersLimitsWithoutCgroups(t *testing.T) {
 	acc := agentUser(t, "aotest-sol", 200112)
 	l := &process.Launcher{}
@@ -255,14 +256,15 @@ func TestTerminalCell_AgentTerminalGetsTheRunnersLimitsWithoutCgroups(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := core.ProcessCell{NoFile: process.DefaultNoFile, NProc: 48, AS: 1 << 30}
+	want := core.ProcessCell{NoFile: process.DefaultNoFile, NProc: 48, Data: 1 << 30}
 	if cell != want {
 		t.Fatalf("cell %+v, want %+v", cell, want)
 	}
-	out := terminal(t, `grep -E '^Max (processes|open files|address space)' /proc/self/limits | tr -s ' '; echo end.`,
+	out := terminal(t, `grep -E '^Max (processes|open files|data size|address space)' /proc/self/limits | tr -s ' '; echo end.`,
 		200112, gidOf(t, acc.User), acc.Home, cell)
 	t.Logf("proof soft limits: %q", out)
-	for _, line := range []string{"Max processes 48 48", "Max open files 4096 4096", "Max address space 1073741824 1073741824"} {
+	for _, line := range []string{"Max processes 48 48", "Max open files 4096 4096", "Max data size 1073741824 1073741824",
+		"Max address space unlimited unlimited"} {
 		if !strings.Contains(out, line) {
 			t.Errorf("terminal limits %q, want %q", out, line)
 		}

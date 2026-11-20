@@ -5,5 +5,7 @@
 // because the probe rearranges the container's cgroup tree once at start.
 // The go-integration CI job runs it twice: on the machine recipe
 // (writable-cgroups=true, hard limits) and on a read-only cgroup tree (soft
-// limits). It builds only with the linux and integration tags.
+// limits). In both it starts real runners (the Go runners and a Node.js
+// one) as custom agents and has each answer a chat. It builds only with
+// the linux and integration tags.
 package boot

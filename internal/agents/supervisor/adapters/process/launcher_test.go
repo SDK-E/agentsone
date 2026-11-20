@@ -3,6 +3,7 @@
 package process_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
@@ -308,15 +309,43 @@ func TestLauncher_ReportsSoftLimitsWithoutCgroup(t *testing.T) {
 	s := spec(t, "serve", out)
 	s.Account = domain.AccountFor("founder", false) // a custom agent; the test is not root, so no user switch
 	s.Limits = domain.Limits{MemoryMaxBytes: 1 << 34, TasksMax: 4096}
-	l := &process.Launcher{Log: quiet, CgroupRoot: filepath.Join(t.TempDir(), "no-cgroup", "x")}
+	var log bytes.Buffer
+	l := &process.Launcher{Log: slog.New(slog.NewTextHandler(&log, nil)), CgroupRoot: filepath.Join(t.TempDir(), "no-cgroup", "x")}
 	_ = l.Install(t.Context(), s)
 	if err := l.Start(t.Context(), "founder"); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = l.Stop(t.Context(), "founder") })
-	started(t, out)
+	env := started(t, out)
 	if l.Mode("founder") != domain.LimitsSoft {
 		t.Fatalf("mode = %s, want soft", l.Mode("founder"))
+	}
+	if want := "level=WARN msg=\"" + process.SoftLimitsLine + "\" agent=founder"; !strings.Contains(log.String(), want) {
+		t.Errorf("log = %q, want %q", log.String(), want)
+	}
+	// A Go runner collects garbage before it reaches its memory limit.
+	if want := "GOMEMLIMIT=12884901888"; !strings.Contains(env, want) {
+		t.Errorf("runner environment %q lacks %q (3/4 of 16 GiB)", env, want)
+	}
+}
+
+// A runner that sets its own GOMEMLIMIT keeps it.
+func TestLauncher_KeepsTheRunnersOwnGoMemLimit(t *testing.T) {
+	t.Parallel()
+	out := fifo(t)
+	s := spec(t, "serve", out)
+	s.Account = domain.AccountFor("founder", false)
+	s.Limits = domain.Limits{MemoryMaxBytes: 1 << 34}
+	s.Exec.Env = append(s.Exec.Env, "GOMEMLIMIT=1GiB")
+	l := &process.Launcher{Log: quiet}
+	_ = l.Install(t.Context(), s)
+	if err := l.Start(t.Context(), "founder"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Stop(t.Context(), "founder") })
+	env := started(t, out)
+	if n := strings.Count(env, "GOMEMLIMIT="); n != 1 || !strings.Contains(env, "GOMEMLIMIT=1GiB") {
+		t.Errorf("runner environment %q, want only its own GOMEMLIMIT=1GiB", env)
 	}
 }
 

@@ -192,6 +192,13 @@ jobs:
           for p in $pkgs; do
             CGO_ENABLED=0 go test -c -tags integration -o "systest/$(echo "${p#./}" | tr / _).test" "$p"
           done
+          # The real runners the boot system test starts as custom agents:
+          # the Go runners of the machine image, and its Node.js (pinned and
+          # checked in image/machine/pins.txt) for a runner that is not Go.
+          CGO_ENABLED=0 go build -o systest/ ./runners/echo/cmd/agentsone-runner-echo ./runners/openai/cmd/agentsone-runner-openai
+          image/machine/fetch-pinned.sh image/machine/pins.txt node "$(dpkg --print-architecture)" node.tar.gz
+          tar -xzf node.tar.gz -C systest --strip-components=2 --wildcards '*/bin/node'
+          rm node.tar.gz
           for bin in systest/*.test; do
             echo "== $bin"
             docker run --rm --cgroupns=private \

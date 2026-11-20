@@ -71,8 +71,12 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
+	s := &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{},
 		refused: map[string]refusal{}, runWanted: map[string]bool{}}
+	// Every start and restart of a runner passes the launcher, so the wall
+	// is checked there: a new way to start a runner cannot skip it.
+	s.d.Launcher = wallLauncher{Launcher: d.Launcher, s: s}
+	return s
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {
@@ -295,6 +299,11 @@ func (s *Supervisor) Run(ctx context.Context, name string) error {
 	_ = r.session.Start(s.d.Clock.Now())
 	s.mu.Unlock()
 	if err := s.launch(ctx, name, r); err != nil {
+		if errors.Is(err, ErrNetworkWall) {
+			s.mu.Lock()
+			s.runWanted[name] = true
+			s.mu.Unlock()
+		}
 		return fmt.Errorf("run %s: %w", name, err)
 	}
 	return nil
@@ -319,6 +328,13 @@ func (s *Supervisor) launch(ctx context.Context, name string, r *runner) error {
 	}
 	if err := s.d.Launcher.Start(ctx, name); err != nil {
 		s.audit(ctx, ActionRunnerError, "agent:"+name, map[string]any{"state": "not started", "message": err.Error()})
+		if errors.Is(err, ErrNetworkWall) {
+			// The launcher is the one place every start passes: the wall
+			// broke between the caller's check and here.
+			w, _ := s.wallRefusal()
+			fail(w.StateReason())
+			return err
+		}
 		fail(ReasonStartFailed)
 		return fmt.Errorf("start: %w", err)
 	}

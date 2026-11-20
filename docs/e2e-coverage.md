@@ -56,7 +56,7 @@ an Ubuntu runner with `e2e/run.sh up`, and then runs every stage.
 | -------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
 | Setup page                       | `setup-page`                   | The first human is made on the setup page, only through the web door.                 |
 | Login                            | `login`                        | The first human signs in and out through the web door.                                |
-| Small Seed                       | `small-seed`                   | On first boot the Small Seed installs and the founder, router and waker start.        |
+| Small Seed                       | `small-seed`                   | On first boot the Small Seed installs a founder, a router and a waker below it.       |
 | Founder hires                    | `hire`                         | The founder hires an agent below itself.                                              |
 | Bus message                      | `bus`                          | A message sent on the bus reaches its channel.                                        |
 | Live list and router pick        | `router`                       | The live list and the router pick an agent for a human's request.                     |

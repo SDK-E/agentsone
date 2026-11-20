@@ -54,6 +54,10 @@ stage_small_seed() {
   expect_out "no agent of the Small Seed has failed" '^true$' \
     jq -e '[.items[] | select(.name == "founder" or .name == "router" or .name == "waker")] | length == 3 and
       all(.[]; .state != "failed" and (.state_reason // null) == null)' "$WORK/agents.json"
+  # The Claude engine needs a licence a human accepts; the seed must run without it.
+  expect_out "the Small Seed runs on the open runners, never on the Claude engine" '^true$' \
+    jq -e '[.items[] | select(.name == "founder" or .name == "router" or .name == "waker")] | length == 3 and
+      all(.[]; .runner == "openai" or .runner == "echo")' "$WORK/agents.json"
   expect ok "the founder's home is in root's home, as a root agent's is" in_machine test -d /root/agents/founder
   expect ok "the router has its own Linux user and a home only it can open" small_seed_own_home router
   expect ok "the waker has its own Linux user and a home only it can open" small_seed_own_home waker

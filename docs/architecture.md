@@ -180,7 +180,11 @@ recipe puts back what the agents added.
   hold, starts no runner (a wake and an idle start of an always-on agent are both refused) and
   records that in the audit trail. When the check finds the wall broken while runners are up, it
   stops every one of them and records each stop. The runners of always-on agents start again
-  when the wall holds; the others start on their next wake.
+  when the wall holds; the others start on their next wake. A runner that crashes is started
+  again only by the supervisor, after a wait that doubles from 2 seconds up to 5 minutes, and
+  only after a fresh wall check finds the wall holding. The agent shows the runner failing with
+  its last error; the audit trail gets one record when it starts failing and one when it has
+  stayed up for 5 minutes again.
 - **Own address range.** The inner network uses a fixed range, set by variables in `compose.yaml`.
   Two stacks on one server need two different ranges.
 

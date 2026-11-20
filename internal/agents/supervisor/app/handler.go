@@ -226,6 +226,7 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 		s.audit(ctx, ActionTurnFault, "agent:"+h.agent, map[string]any{"turnId": out.EndedTurn, "fault": "no profile.update"})
 	}
 	if ready {
+		s.forgetRefusal(h.agent)
 		s.runnerRunning(ctx, h.agent)
 	}
 	if out.Failed {
@@ -242,7 +243,12 @@ func (h *Handler) Status(ctx context.Context, p protocol.StatusParams) error {
 
 func (h *Handler) flush(ctx context.Context, held []wakeRequest, turns []string) {
 	for i, req := range held {
-		if err := h.sendWake(ctx, req, turns[i]); err != nil {
+		err := h.sendWake(ctx, req, turns[i])
+		h.s.wakeSent(ctx, h.agent, req, err)
+		if _, refused := refusedWake(req, err); refused {
+			continue // the runner is there and said no to this one; the rest may still be wanted
+		}
+		if err != nil {
 			h.log.Warn("held wake not delivered", "err", err)
 			return
 		}

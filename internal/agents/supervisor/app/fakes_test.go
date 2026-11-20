@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sync"
@@ -213,12 +214,32 @@ type fakeConn struct {
 	calls     chan call
 	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call
 	ready     chan struct{}
+	mu        sync.Mutex
+	wakeErr   error // answers every wake when set
 	readyOnce sync.Once
 	closed    chan struct{}
 	once      sync.Once
 }
 
 var errFakeNotReady = errors.New("runner has not reported its first status")
+
+// runnerRefusal is an error the runner answered a request with, as the real
+// connection returns it.
+type runnerRefusal struct {
+	code    int
+	message string
+}
+
+func (e *runnerRefusal) Error() string      { return fmt.Sprintf("runner error %d: %s", e.code, e.message) }
+func (e *runnerRefusal) RPCCode() int       { return e.code }
+func (e *runnerRefusal) RPCMessage() string { return e.message }
+
+// refuseWakes makes the runner answer every wake with err; nil accepts them.
+func (c *fakeConn) refuseWakes(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.wakeErr = err
+}
 
 func newFakeConn() *fakeConn {
 	return &fakeConn{calls: make(chan call, 32), arrivals: make(chan string, 32), ready: make(chan struct{}), closed: make(chan struct{})}
@@ -230,6 +251,14 @@ func (c *fakeConn) Call(_ context.Context, method string, params, result any) er
 	default:
 		c.arrive("refused " + method)
 		return errFakeNotReady
+	}
+	if method == protocol.MethodWake {
+		c.mu.Lock()
+		err := c.wakeErr
+		c.mu.Unlock()
+		if err != nil {
+			return err
+		}
 	}
 	raw, _ := json.Marshal(params)
 	c.calls <- call{method, raw}

@@ -60,15 +60,10 @@ if [ -x "$bin" ]; then pass "server program at $bin"; else
   fail "no server program at $bin"
   exit 1
 fi
-licence=""
-for f in "$dir/LICENSE.txt" "$dir/LICENSE"; do
-  if [ -f "$f" ]; then
-    licence=$f
-    break
-  fi
-done
-if [ -n "$licence" ] && grep -q "MIT License" "$licence"; then pass "build carries its MIT licence ($licence)"; else
-  fail "no MIT licence text in $dir"
+# The server archive carries no licence; the image ships VSCodium's, pinned in pins.txt.
+licence=/usr/share/doc/vscodium-server/LICENSE
+if [ -f "$licence" ] && head -n 1 "$licence" | grep -qx "MIT License"; then pass "build ships its MIT licence ($licence)"; else
+  fail "no MIT licence at $licence"
 fi
 gallery=$(grep -o '"serviceUrl": *"[^"]*"' "$dir/product.json" || true)
 case "$gallery" in

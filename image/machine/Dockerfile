@@ -62,6 +62,9 @@ RUN /fetch/fetch-pinned.sh /fetch/pins.txt vscodium-server "$TARGETARCH" /tmp/vs
     && mkdir -p /out/opt/vscodium-server \
     && tar -xzf /tmp/vscodium-server.tar.gz -C /out/opt/vscodium-server --no-same-owner \
     && rm /tmp/vscodium-server.tar.gz
+RUN mkdir -p /out/usr/share/doc/vscodium-server \
+    && /fetch/fetch-pinned.sh /fetch/pins.txt vscodium-licence all /out/usr/share/doc/vscodium-server/LICENSE \
+    && chmod 0644 /out/usr/share/doc/vscodium-server/LICENSE
 
 # --- The machine ------------------------------------------------------------
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2

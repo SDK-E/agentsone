@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 )
@@ -95,6 +96,17 @@ func TestWaker(t *testing.T) {
 	wakes := w.Wakes()
 	if len(wakes) != 1 || wakes[0].Agent != "dev" || wakes[0].Reason != core.WakeTask || string(wakes[0].Payload) != string(payload) {
 		t.Fatalf("wakes %+v", wakes)
+	}
+}
+
+// Every reason the daemon wakes for has a payload the runner contract
+// defines. A reason added to core without a mapping in the validator fails here.
+func TestEveryWakeReasonHasAPayloadInTheRunnerContract(t *testing.T) {
+	for _, reason := range []core.WakeReason{core.WakeMessage, core.WakeTask, core.WakeEvent, core.WakeTimer, core.WakeChat} {
+		err := contracttest.ValidateWakePayload(string(reason), []byte(`{}`))
+		if err == nil || strings.Contains(err.Error(), "not in the runner contract") {
+			t.Errorf("reason %q: ValidateWakePayload(empty object) error = %v, want a schema violation", reason, err)
+		}
 	}
 }
 

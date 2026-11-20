@@ -228,8 +228,10 @@ type NewTask struct {
 
 // Task is a created task.
 type Task struct {
-	ID       string
-	Title    string
+	ID    string
+	Title string
+	// Body is the task's detail, as NewTask.Body gave it.
+	Body     string
 	Assignee string
 	// Status is a contract TaskStatus value: open, in-progress, blocked, done, cancelled or failed.
 	Status    string
@@ -238,6 +240,8 @@ type Task struct {
 	// Result is what the assignee reported when the task ended.
 	Result  string
 	Created time.Time
+	// Due is when the task is due, nil when it has no due time.
+	Due *time.Time
 }
 
 // TaskService creates and completes tasks.

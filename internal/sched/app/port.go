@@ -88,7 +88,7 @@ func (s *Tasks) CompleteTask(ctx context.Context, id string, outcome core.TaskOu
 
 func toCore(t domain.Task) core.Task {
 	return core.Task{
-		ID: t.ID, Title: t.Title, Assignee: t.Assignee, Status: string(t.Status),
-		Priority: string(t.Priority), CreatedBy: t.CreatedBy.String(), Result: t.Result, Created: t.CreatedAt,
+		ID: t.ID, Title: t.Title, Body: t.Detail, Assignee: t.Assignee, Status: string(t.Status),
+		Priority: string(t.Priority), CreatedBy: t.CreatedBy.String(), Result: t.Result, Created: t.CreatedAt, Due: t.DueAt,
 	}
 }

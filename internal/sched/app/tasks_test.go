@@ -86,6 +86,24 @@ func TestCreate_AssigningWakesTheAssigneeWithReasonTask(t *testing.T) {
 	}
 }
 
+func TestCreate_TheTaskWakeCarriesTheDueTime(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t) // the fixture's waker checks the payload against the runner contract
+	due := time.Date(2026, 1, 2, 15, 4, 5, 0, time.FixedZone("CET", 3600))
+
+	if _, err := e.tasks.Create(asAgent("builder"), app.CreateInput{Title: "Ship it", Assignee: "scribe", DueAt: &due}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	wakes := e.fakes.Waker.Wakes()
+	if len(wakes) != 1 {
+		t.Fatalf("wakes = %+v, want one", wakes)
+	}
+	if got := payloadOf(t, wakes[0].Payload)["due"]; got != "2026-01-02T14:04:05Z" {
+		t.Fatalf("due = %v, want the UTC time", got)
+	}
+}
+
 func TestCreate_RefusesWithoutTouchingAnything(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

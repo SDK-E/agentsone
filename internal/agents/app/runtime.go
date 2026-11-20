@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/contract/common"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
 // ChatFrame carries a stored chat message.
@@ -90,10 +92,41 @@ type WakeRequest struct {
 	TaskID string
 }
 
-type wakePayload struct {
-	Reason string `json:"reason"`
-	TaskID string `json:"task_id,omitempty"`
-	By     string `json:"by"`
+// wakeSubject is the subject of the bus message a wake without a task sends.
+const wakeSubject = "Wake"
+
+// wakeFor builds the runner contract's wake payload for req. With a task id
+// it is that task (reason "task"; the contract's task has no place for the
+// reason text, so the text is not sent). A task that does not exist refuses
+// the wake with core.ErrNotFound. Without a task it is a bus message from
+// the caller to agent, with the subject "Wake" and the reason as the body.
+func (s *Society) wakeFor(ctx context.Context, c core.Caller, agent string, req WakeRequest) (core.WakeReason, any, error) {
+	if req.TaskID == "" {
+		return core.WakeMessage, protocol.BusMessage{
+			ID:      common.MessageID(s.ids.New("msg")),
+			From:    common.ActorRef(string(c.Kind) + ":" + c.Name),
+			To:      common.AgentName(agent),
+			Subject: wakeSubject,
+			Body:    common.Markdown(req.Reason),
+			SentAt:  common.Timestamp(s.clock.Now()),
+		}, nil
+	}
+	t, err := s.ports.Tasks.GetTask(ctx, req.TaskID)
+	if err != nil {
+		return "", nil, fmt.Errorf("wake %s for task %s: %w", agent, req.TaskID, err)
+	}
+	task := protocol.Task{
+		ID:        common.TaskID(t.ID),
+		Title:     common.OneLine(t.Title),
+		Body:      common.Markdown(t.Body),
+		From:      common.ActorRef(t.CreatedBy),
+		CreatedAt: common.Timestamp(t.Created),
+	}
+	if t.Due != nil {
+		d := common.Timestamp(*t.Due)
+		task.Due = &d
+	}
+	return core.WakeTask, task, nil
 }
 
 const maxWakeReason = 500
@@ -111,11 +144,11 @@ func (s *Society) WakeAgent(ctx context.Context, agent string, req WakeRequest) 
 	if n := len([]rune(req.Reason)); n < 1 || n > maxWakeReason {
 		return domain.Agent{}, fmt.Errorf("wake reason has %d characters, want 1..%d: %w", n, maxWakeReason, core.ErrInvalid)
 	}
-	reason := core.WakeMessage
-	if req.TaskID != "" {
-		reason = core.WakeTask
+	reason, wake, err := s.wakeFor(ctx, c, agent, req)
+	if err != nil {
+		return domain.Agent{}, err
 	}
-	payload, err := json.Marshal(wakePayload{Reason: req.Reason, TaskID: req.TaskID, By: string(c.Kind) + ":" + c.Name})
+	payload, err := json.Marshal(wake)
 	if err != nil {
 		return domain.Agent{}, fmt.Errorf("encode wake: %w", err)
 	}

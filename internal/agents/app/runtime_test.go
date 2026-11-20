@@ -272,19 +272,86 @@ func TestWaker_Refusals(t *testing.T) {
 	}
 }
 
-func TestWakeAgent_DeliversTheReasonAsATaskOrMessage(t *testing.T) {
+// The runner refuses a wake whose payload does not match its contract. A
+// wake without a task is a bus message from the caller, with the subject
+// "Wake" and the reason as its body.
+func TestWakeAgent_WithoutATaskSendsTheRunnerContractsBusMessage(t *testing.T) {
+	t.Parallel()
+	callers := map[string]context.Context{
+		"agent":  asAgent("watcher"),
+		"system": core.WithCaller(context.Background(), core.Caller{Kind: core.CallerSystem, Name: "router"}),
+	}
+	for name, ctx := range callers {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+
+			if _, err := e.society.WakeAgent(ctx, "dev", app.WakeRequest{Reason: "Disk is full"}); err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff([]core.WakeReason{core.WakeMessage}, e.rt.Wakes()); diff != "" {
+				t.Fatalf("wakes (-want +got):\n%s", diff)
+			}
+			payload := e.rt.Payloads()[0]
+			if err := contracttest.ValidateWakePayload(string(core.WakeMessage), payload); err != nil {
+				t.Fatal(err)
+			}
+			var got struct{ From, To, Subject, Body string }
+			if err := json.Unmarshal(payload, &got); err != nil {
+				t.Fatal(err)
+			}
+			caller, _ := core.CallerFrom(ctx)
+			want := struct{ From, To, Subject, Body string }{string(caller.Kind) + ":" + caller.Name, "dev", "Wake", "Disk is full"}
+			if got != want {
+				t.Fatalf("payload = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestWakeAgent_WithATaskSendsTheRunnerContractsTask(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	task, err := e.fakes.Tasks.CreateTask(asAgent("watcher"), core.NewTask{
+		Title: "Free disk space", Body: "Remove old logs.", Assignee: "dev", CreatedBy: "agent:watcher",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := e.society.WakeAgent(asAgent("watcher"), "dev", app.WakeRequest{Reason: "Fix it", TaskID: task.ID}); err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff([]core.WakeReason{core.WakeTask}, e.rt.Wakes()); diff != "" {
+		t.Fatalf("wakes (-want +got):\n%s", diff)
+	}
+	payload := e.rt.Payloads()[0]
+	if err := contracttest.ValidateWakePayload(string(core.WakeTask), payload); err != nil {
+		t.Fatal(err)
+	}
+	var got struct{ ID, Title, Body, From string }
+	if err := json.Unmarshal(payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := struct{ ID, Title, Body, From string }{task.ID, "Free disk space", "Remove old logs.", "agent:watcher"}
+	if got != want {
+		t.Fatalf("payload = %+v, want %+v", got, want)
+	}
+}
+
+func TestWakeAgent_RefusesATaskThatDoesNotExist(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 
-	if _, err := e.society.WakeAgent(asAgent("watcher"), "dev", app.WakeRequest{Reason: "Disk is full"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.society.WakeAgent(asAgent("watcher"), "dev", app.WakeRequest{Reason: "Fix it", TaskID: "tsk_1"}); err != nil {
-		t.Fatal(err)
-	}
+	_, err := e.society.WakeAgent(asAgent("watcher"), "dev", app.WakeRequest{Reason: "Fix it", TaskID: "tsk_01JD7ZK3M00000000000000009"})
 
-	if diff := cmp.Diff([]core.WakeReason{core.WakeMessage, core.WakeTask}, e.rt.Wakes()); diff != "" {
-		t.Fatalf("wakes (-want +got):\n%s", diff)
+	if !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("WakeAgent() error = %v, want core.ErrNotFound", err)
+	}
+	if got := e.rt.Wakes(); len(got) != 0 {
+		t.Fatalf("woke %v for a task that does not exist", got)
 	}
 }
 

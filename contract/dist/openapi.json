@@ -6819,7 +6819,7 @@
         "type": "object"
       },
       "SetupPhase": {
-        "description": "Where first boot stands. `needs-human` until the first human exists; `needs-licence` until\nthe Claude engine licence is accepted or skipped; `fetching-engine` while it downloads; `ready` after.\n",
+        "description": "Where first boot stands. `needs-human` until the first human exists; `ready` after. The Claude\nengine is off by default and turned on later in Settings, so first setup does not wait for its\nlicence or its download: `licence_accepted` and `engine` say where the engine stands.\n`needs-licence` and `fetching-engine` are kept for older clients; the daemon does not enter them.\n",
         "enum": [
           "needs-human",
           "needs-licence",
@@ -8444,7 +8444,7 @@
     },
     "summary": "The daemon API every part of Agents One builds against.",
     "title": "Agents One machine API",
-    "version": "1.0.5"
+    "version": "1.0.6"
   },
   "openapi": "3.1.1",
   "paths": {

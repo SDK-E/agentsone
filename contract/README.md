@@ -91,6 +91,15 @@ content" warnings.
 
 ## Changelog
 
+### 1.0.6
+
+Wording only.
+
+- `SetupPhase`: the Claude engine is off by default, so first setup goes from `needs-human`
+  straight to `ready`. `needs-licence` and `fetching-engine` stay in the enum for older clients;
+  the daemon does not enter them. `licence_accepted` and `engine` say where the engine stands.
+- New fixture `getSetupStatus.engine-off`: a machine right after setup, with the engine off.
+
 ### 1.0.5
 
 Additive.

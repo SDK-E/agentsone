@@ -4144,8 +4144,10 @@ export interface components {
       human: components["schemas"]["Human"];
     };
     /**
-     * @description Where first boot stands. `needs-human` until the first human exists; `needs-licence` until
-     *     the Claude engine licence is accepted or skipped; `fetching-engine` while it downloads; `ready` after.
+     * @description Where first boot stands. `needs-human` until the first human exists; `ready` after. The Claude
+     *     engine is off by default and turned on later in Settings, so first setup does not wait for its
+     *     licence or its download: `licence_accepted` and `engine` say where the engine stands.
+     *     `needs-licence` and `fetching-engine` are kept for older clients; the daemon does not enter them.
      * @enum {string}
      */
     SetupPhase: "needs-human" | "needs-licence" | "fetching-engine" | "ready";

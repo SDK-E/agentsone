@@ -32,9 +32,12 @@ founder_turn_script() {
       {content: $final}]}'
 }
 
-# founder_turn_put_script <json>: PUT the script on the fake provider, from the outer network.
+# founder_turn_put_script <json> [curl args...]: PUT the script on the fake provider, from the
+# outer network.
 founder_turn_put_script() {
-  from_outer -sS -m 10 -X PUT -H 'Content-Type: application/json' --data-binary "$1" \
+  local body="$1"
+  shift
+  from_outer -sS -m 10 -X PUT -H 'Content-Type: application/json' --data-binary "$body" "$@" \
     "http://fakeprovider:8080/script"
 }
 

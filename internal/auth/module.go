@@ -50,7 +50,7 @@ func New(deps core.Deps) *Module {
 		Argon2:   domain.Argon2Params{Time: settings.Argon2TimeCost, Memory: settings.Argon2MemoryKiB, Threads: settings.Argon2Threads},
 		Sessions: repo, Tokens: repo, Humans: repo, Setup: repo,
 		Licence: licencefile.New(filepath.Join(deps.Config.LibDir, "engine", "licence.json")),
-		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports}, Seed: lateSeed{deps.Ports},
+		Events:  lateEvents{deps.Ports}, Audit: lateAudit{deps.Ports}, Seed: lateSeed{deps.Ports}, Log: deps.Log,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("auth: %v", err))

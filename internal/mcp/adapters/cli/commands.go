@@ -67,8 +67,8 @@ func (e problemError) code() int {
 
 // Run executes agentctl with args and returns the process exit code. Errors
 // are written to io.Err in plain words; nothing else is printed on failure.
-func Run(ctx context.Context, cat *app.Catalog, version string, args []string, io IO) int {
-	root := NewRoot(cat, version, io)
+func Run(ctx context.Context, cat *app.Catalog, version string, args []string, io IO, opts ...Option) int {
+	root := NewRoot(cat, version, io, opts...)
 	root.SetArgs(args)
 	err := root.ExecuteContext(ctx)
 	if err == nil {
@@ -116,13 +116,18 @@ type globals struct {
 
 // NewRoot builds the whole command tree: one command per API operation,
 // grouped by tag, plus version and mcp. Nothing is listed by hand: the
-// commands come from the catalog.
-func NewRoot(cat *app.Catalog, version string, io IO) *cobra.Command {
+// commands come from the catalog. Only the help is written: the common
+// tasks (see tasks.go).
+func NewRoot(cat *app.Catalog, version string, io IO, opts ...Option) *cobra.Command {
 	g := &globals{}
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	root := &cobra.Command{
 		Use:           "agentctl",
 		Short:         "Talk to the Agents One daemon",
-		Long:          "agentctl runs one daemon API operation per command.\nBy default it talks to " + DefaultURL + ".",
+		Long:          rootHelp(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -141,7 +146,7 @@ func NewRoot(cat *app.Catalog, version string, io IO) *cobra.Command {
 	for _, c := range cat.Commands() {
 		grp, ok := groups[c.Group]
 		if !ok {
-			grp = groupCommand(c.Group)
+			grp = groupCommand(c.Group, o.tags[c.Group])
 			groups[c.Group] = grp
 			root.AddCommand(grp)
 		}
@@ -152,10 +157,16 @@ func NewRoot(cat *app.Catalog, version string, io IO) *cobra.Command {
 }
 
 // groupCommand is a tag: it only lists its commands, and refuses a name it does not have.
-func groupCommand(tag string) *cobra.Command {
+// about is the tag's description in the contract, when there is one.
+func groupCommand(tag, about string) *cobra.Command {
+	short := "Commands for " + tag
+	if about = strings.TrimSuffix(strings.TrimSpace(about), "."); about != "" {
+		short = about
+	}
 	return &cobra.Command{
 		Use:   tag,
-		Short: "Commands for " + tag,
+		Short: short,
+		Long:  groupHelp(tag, short),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return usageError{fmt.Errorf("unknown command %q for %q", args[0], cmd.CommandPath())}
@@ -182,10 +193,11 @@ func newCommand(c domain.Command, g *globals, io IO) *cobra.Command {
 		use += " <" + a.Name + ">"
 	}
 	cmd := &cobra.Command{
-		Use:   use,
-		Short: c.Operation.Summary,
-		Long:  longHelp(c),
-		Args:  positional(c),
+		Use:     use,
+		Short:   c.Operation.Summary,
+		Long:    longHelp(c),
+		Args:    positional(c),
+		Aliases: aliases[c.Operation.ID],
 	}
 	fs := cmd.Flags()
 	for _, f := range c.Flags {

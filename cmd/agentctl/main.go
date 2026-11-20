@@ -36,5 +36,5 @@ func run(ctx context.Context, args []string, stdio cli.IO) int {
 		_, _ = fmt.Fprintf(stdio.Err, "error: the embedded API description cannot be used: %v\n", err) //nolint:errcheck // stderr is the last place to report; the exit code still says failure
 		return cli.ExitFailure
 	}
-	return cli.Run(ctx, cat, version, args, stdio)
+	return cli.Run(ctx, cat, version, args, stdio, cli.WithTagDescriptions(api.Spec))
 }

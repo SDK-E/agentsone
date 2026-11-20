@@ -1,6 +1,7 @@
 # Contributing to Agents One
 
-Thank you for helping. This page is the short version. Fuller guides will live in `docs/guides/`.
+Thank you for helping. This page is the short version. The fuller [guide for contributors](docs/guides/contributors.md) walks through a change from
+clone to merge.
 
 ## Repository layout
 

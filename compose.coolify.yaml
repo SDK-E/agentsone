@@ -67,8 +67,6 @@ services:
     memswap_limit: 256m
     networks:
       proxy: {}
-    ports:
-      - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_CONTROL_PORT:-7781}:8081
     read_only: true
     restart: unless-stopped
     security_opt:
@@ -128,8 +126,6 @@ services:
       proxy:
         aliases:
           - ${AGENTSONE_PROXY_ALIAS:-agentsone-door}
-    ports:
-      - ${AGENTSONE_BIND_ADDR:-127.0.0.1}:${AGENTSONE_WEB_DOOR_PORT:-7780}:8080
     read_only: true
     restart: unless-stopped
     security_opt:

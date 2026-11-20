@@ -115,11 +115,11 @@ Process:
       $ref: "./common.yaml#/Timestamp"
     unit:
       type: [string, "null"]
-      description: systemd unit owning the process.
+      description: Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself.
     agent:
       type: [string, "null"]
       pattern: "^[a-z][a-z0-9-]{0,30}$"
-      description: Agent whose cgroup `/agents/<id>` holds the process.
+      description: Agent whose Linux user runs the process, null for other users.
 
 ProcessList:
   type: object
@@ -167,7 +167,7 @@ Service:
     agent:
       type: [string, "null"]
       pattern: "^[a-z][a-z0-9-]{0,30}$"
-      description: Agent that owns the unit, for agent units.
+      description: Agent that owns the service. Null for the services the daemon reports today.
 
 ServiceList:
   type: object

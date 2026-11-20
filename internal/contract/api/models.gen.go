@@ -3974,7 +3974,7 @@ type Problem struct {
 
 // Process defines model for Process.
 type Process struct {
-	// Agent Agent whose cgroup `/agents/<id>` holds the process.
+	// Agent Agent whose Linux user runs the process, null for other users.
 	Agent *string `json:"agent"`
 
 	// Command Full command line.
@@ -3987,7 +3987,7 @@ type Process struct {
 	// StartedAt RFC 3339 timestamp in UTC with a Z suffix and 0 to 9 fraction digits. Offsets other than Z are not allowed, so one instant has one spelling (this matters for audit hashes).
 	StartedAt Timestamp `json:"started_at"`
 
-	// Unit systemd unit owning the process.
+	// Unit Service owning the process. The daemon sets it for none today (always null), because it supervises agent runners itself.
 	Unit *string `json:"unit"`
 	User string  `json:"user"`
 }
@@ -4211,7 +4211,7 @@ type SemverRange = string
 type Service struct {
 	ActiveState ServiceActiveState `json:"active_state"`
 
-	// Agent Agent that owns the unit, for agent units.
+	// Agent Agent that owns the service. Null for the services the daemon reports today.
 	Agent       *string `json:"agent"`
 	Description string  `json:"description"`
 	Enabled     bool    `json:"enabled"`

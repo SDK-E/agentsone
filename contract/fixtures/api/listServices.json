@@ -4,7 +4,7 @@
     "items": [
       {
         "unit": "agentsoned.service",
-        "description": "Agents One daemon",
+        "description": "Agents One daemon. Reboot: Restarts the machine container. Changes outside the recipe stay until a rescue (recreate) from Docker or Coolify.",
         "load_state": "loaded",
         "active_state": "active",
         "sub_state": "running",
@@ -12,47 +12,11 @@
         "agent": null
       },
       {
-        "unit": "agentsone-kiosk.service",
-        "description": "Agents One kiosk (cage + Chromium)",
+        "unit": "machine-recipe.service",
+        "description": "Machine recipe: 2 packages, 1 file applied",
         "load_state": "loaded",
         "active_state": "active",
-        "sub_state": "running",
-        "enabled": true,
-        "agent": null
-      },
-      {
-        "unit": "agentsone-ide@ada.service",
-        "description": "Agents One IDE server for ada",
-        "load_state": "loaded",
-        "active_state": "active",
-        "sub_state": "running",
-        "enabled": false,
-        "agent": null
-      },
-      {
-        "unit": "agent@founder.service",
-        "description": "Agents One agent founder",
-        "load_state": "loaded",
-        "active_state": "active",
-        "sub_state": "running",
-        "enabled": true,
-        "agent": "founder"
-      },
-      {
-        "unit": "agent@keeper.service",
-        "description": "Agents One agent keeper",
-        "load_state": "loaded",
-        "active_state": "inactive",
-        "sub_state": "dead",
-        "enabled": true,
-        "agent": "keeper"
-      },
-      {
-        "unit": "emitter@emt_01JD7ZK3M00000000000000010.service",
-        "description": "Agents One emitter ci-hooks",
-        "load_state": "loaded",
-        "active_state": "failed",
-        "sub_state": "failed",
+        "sub_state": "exited",
         "enabled": true,
         "agent": null
       }

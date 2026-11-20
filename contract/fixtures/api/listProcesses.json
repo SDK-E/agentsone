@@ -3,58 +3,47 @@
   "body": {
     "items": [
       {
-        "pid": 1,
-        "ppid": 0,
-        "user": "root",
-        "command": "/sbin/init",
-        "cpu_percent": 0,
-        "rss_bytes": 12582912,
-        "started_at": "2026-11-19T08:00:00Z",
-        "unit": "init.scope",
-        "agent": null
-      },
-      {
-        "pid": 412,
-        "ppid": 1,
-        "user": "root",
-        "command": "/usr/lib/agentsone/agentsoned --config /etc/agentsone/config.toml",
-        "cpu_percent": 1.8,
-        "rss_bytes": 62914560,
-        "started_at": "2026-11-19T08:00:02Z",
-        "unit": "agentsoned.service",
-        "agent": null
-      },
-      {
-        "pid": 1023,
-        "ppid": 1,
-        "user": "root",
-        "command": "/usr/lib/agentsone/runners/claude --agent founder",
-        "cpu_percent": 3.2,
-        "rss_bytes": 251658240,
-        "started_at": "2026-11-19T08:01:00Z",
-        "unit": "agent@founder.service",
-        "agent": "founder"
-      },
-      {
-        "pid": 1188,
-        "ppid": 1,
+        "pid": 58,
+        "ppid": 7,
         "user": "builder",
-        "command": "/usr/lib/agentsone/runners/claude --agent builder",
+        "command": "/usr/lib/agentsone/runners/claude",
         "cpu_percent": 5.6,
         "rss_bytes": 293601280,
         "started_at": "2026-11-19T08:10:45Z",
-        "unit": "agent@builder.service",
+        "unit": null,
         "agent": "builder"
       },
       {
-        "pid": 1502,
+        "pid": 41,
+        "ppid": 7,
+        "user": "root",
+        "command": "/usr/lib/agentsone/runners/claude",
+        "cpu_percent": 3.2,
+        "rss_bytes": 251658240,
+        "started_at": "2026-11-19T08:01:00Z",
+        "unit": null,
+        "agent": null
+      },
+      {
+        "pid": 7,
         "ppid": 1,
-        "user": "ada",
-        "command": "/usr/lib/agentsone/code-oss/bin/code-server --host 127.0.0.1 --port 7801",
-        "cpu_percent": 0.9,
-        "rss_bytes": 419430400,
-        "started_at": "2026-11-19T08:15:00Z",
-        "unit": "agentsone-ide@ada.service",
+        "user": "root",
+        "command": "/usr/lib/agentsone/bin/agentsoned",
+        "cpu_percent": 1.8,
+        "rss_bytes": 62914560,
+        "started_at": "2026-11-19T08:00:02Z",
+        "unit": null,
+        "agent": null
+      },
+      {
+        "pid": 1,
+        "ppid": 0,
+        "user": "root",
+        "command": "/usr/bin/tini -- /usr/lib/agentsone/entrypoint /usr/lib/agentsone/bin/agentsoned",
+        "cpu_percent": 0,
+        "rss_bytes": 819200,
+        "started_at": "2026-11-19T08:00:00Z",
+        "unit": null,
         "agent": null
       }
     ],

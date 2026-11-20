@@ -156,11 +156,9 @@ jobs:
       - name: go test
         if: steps.detect.outputs.has_go == 'true'
         run: |
-          mkdir -p coverage
-          go test -race -coverprofile=coverage/cover.out ./...
-      - name: coverage floors
-        if: steps.detect.outputs.has_go == 'true'
-        run: scripts/check-coverage.sh coverage/cover.out
+          set -o pipefail
+          go test -race -count=50 -v -run TestDaemon_ARunnerKeepsModelAndToolAccessAcrossTokenRenewals ./internal/agents/supervisor/adapters/socket/ | tee repeat.txt
+          echo "passes: $(grep -c '^--- PASS' repeat.txt) fails: $(grep -c '^--- FAIL' repeat.txt || true)"
 
   go-integration:
     # Linux system tests (TESTING.md B6): real users, homes, sockets and

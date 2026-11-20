@@ -167,6 +167,25 @@ func TestFakesFillNewPorts(t *testing.T) {
 	}
 }
 
+func TestHumans_FindsWhatWasAdded(t *testing.T) {
+	f, p := coretest.NewFakes()
+	if p.Humans != f.Humans {
+		t.Fatal("humans port not wired to the fake")
+	}
+	ctx := context.Background()
+	f.Humans.Add("ada", 1000)
+	all, err := p.Humans.HumanAccounts(ctx)
+	if err != nil || len(all) != 1 || all[0] != (core.HumanAccount{Name: "ada", UID: 1000}) {
+		t.Fatalf("humans %+v %v", all, err)
+	}
+	if h, err := p.Humans.HumanAccount(ctx, "ada"); err != nil || h.UID != 1000 {
+		t.Fatalf("ada %+v %v", h, err)
+	}
+	if _, err := p.Humans.HumanAccount(ctx, "eve"); !errors.Is(err, core.ErrNotFound) {
+		t.Fatalf("eve: %v", err)
+	}
+}
+
 func TestSeed_ReportsWhatItIsSet(t *testing.T) {
 	s := coretest.NewSeed()
 	if got, err := s.SeedInstalled(context.Background()); err != nil || got {

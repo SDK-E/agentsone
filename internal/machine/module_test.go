@@ -6,12 +6,15 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/core/moduletest"
+	humandomain "github.com/SDK-E/agentsone/internal/humanuser/domain"
 	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 )
@@ -101,6 +104,40 @@ func TestStartReappliesTheRecipeAndNeverBlocks(t *testing.T) {
 	}
 	if !recorded {
 		t.Fatalf("no recipe outcome in audit: %+v", fakes.Audit.Entries())
+	}
+}
+
+type recordedAccounts struct {
+	mu    sync.Mutex
+	users []string
+}
+
+func (r *recordedAccounts) Ensure(_ context.Context, u humandomain.User) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.users = append(r.users, u.Name)
+	return nil
+}
+
+func TestStartMakesEveryHumansLinuxUser(t *testing.T) {
+	deps, fakes := coretest.NewDeps(t)
+	fakes.Humans.Add("ada", 1000)
+	fakes.Humans.Add("bob", 1001)
+	sys := machinetest.NoopSystem()
+	acc := &recordedAccounts{}
+	sys.HumanAccounts = acc
+	m := machine.NewWith(deps, sys)
+	m.Provide(deps.Ports)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	acc.mu.Lock()
+	defer acc.mu.Unlock()
+	if !slices.Equal(acc.users, []string{"h_ada", "h_bob"}) {
+		t.Fatalf("users made at start %q", acc.users)
 	}
 }
 

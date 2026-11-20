@@ -61,12 +61,13 @@ func New(deps core.Deps) *Module {
 // Name is the module and migration namespace.
 func (*Module) Name() string { return "auth" }
 
-// Provide makes the service the daemon's token issuer and its engine setup
-// port. The token issuer also verifies session cookies, so the API layer
-// needs only that port.
+// Provide makes the service the daemon's token issuer, its engine setup port
+// and its human directory. The token issuer also verifies session cookies,
+// so the API layer needs only that port.
 func (m *Module) Provide(p *core.Ports) {
 	p.Tokens = m.svc
 	p.EngineSetup = m.svc
+	p.Humans = m.svc
 }
 
 // Migrate creates the identity tables in core.db.

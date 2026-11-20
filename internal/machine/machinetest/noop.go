@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	humandomain "github.com/SDK-E/agentsone/internal/humanuser/domain"
 	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/machine/app"
 	"github.com/SDK-E/agentsone/internal/machine/domain"
@@ -22,8 +23,15 @@ func NoopSystem() machine.System {
 	return machine.System{
 		Packages: Packages{}, Files: Files{}, Processes: Processes{}, Users: Users{}, Pty: Pty{},
 		Metrics: Metrics{}, Recipes: &Recipes{}, Baseline: Baseline{}, Power: Power{}, Timer: Power{},
+		HumanAccounts: HumanAccounts{},
 	}
 }
+
+// HumanAccounts makes no Linux users and says each one is made.
+type HumanAccounts struct{}
+
+// Ensure does nothing.
+func (HumanAccounts) Ensure(context.Context, humandomain.User) error { return nil }
 
 // New builds a machine module on NoopSystem.
 func New(deps core.Deps) *machine.Module { return machine.NewWith(deps, NoopSystem()) }

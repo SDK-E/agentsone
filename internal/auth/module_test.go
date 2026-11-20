@@ -42,6 +42,21 @@ func TestModule_ProvidesTheTokenIssuer(t *testing.T) {
 	}
 }
 
+func TestModule_ProvidesTheHumanDirectory(t *testing.T) {
+	t.Parallel()
+	deps, _ := coretest.NewDeps(t)
+	m := auth.New(deps)
+	m.Provide(deps.Ports)
+	ctx := context.Background()
+	if err := m.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	all, err := deps.Ports.Humans.HumanAccounts(ctx)
+	if err != nil || len(all) != 0 {
+		t.Fatalf("humans before setup: %+v %v", all, err)
+	}
+}
+
 func TestModule_ProvidesEngineSetup(t *testing.T) {
 	t.Parallel()
 	deps, _ := coretest.NewDeps(t)

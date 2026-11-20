@@ -316,6 +316,19 @@ func TestInstallPlugin_NilBodyIsInvalid(t *testing.T) {
 	}
 }
 
+// Reading panel files lands with its own change; until then it says so with
+// 501 instead of pretending.
+func TestGetPluginFile_IsNotImplementedYet(t *testing.T) {
+	t.Parallel()
+	h := httpadapter.NewPluginsHandler(newFake(t))
+
+	_, err := h.GetPluginFile(context.Background(), pluginsapi.GetPluginFileRequestObject{PluginId: pluginID})
+
+	if !errors.Is(err, core.ErrNotImplemented) {
+		t.Fatalf("error = %v, want core.ErrNotImplemented", err)
+	}
+}
+
 // Failures the contract has no status for pass through unchanged so the API
 // layer answers its generic server error.
 func TestPluginService_UnknownFailureIsNotMapped(t *testing.T) {

@@ -51,7 +51,8 @@
         "mode": "0777",
         "owner": "builder",
         "group": "builder",
-        "modified_at": "2026-11-19T12:31:12Z"
+        "modified_at": "2026-11-19T12:31:12Z",
+        "link_target": "dist"
       }
     ],
     "next_cursor": null

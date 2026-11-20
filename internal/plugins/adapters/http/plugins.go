@@ -237,6 +237,13 @@ func (h *PluginsHandler) IssuePanelToken(ctx context.Context, req pluginsapi.Iss
 	}, nil
 }
 
+// GetPluginFile reads one panel file for the interface's panel host. The
+// contract operation lands first; the plugins module serves it in its own
+// change, so until then it answers 501.
+func (h *PluginsHandler) GetPluginFile(_ context.Context, _ pluginsapi.GetPluginFileRequestObject) (pluginsapi.GetPluginFileResponseObject, error) {
+	return nil, fmt.Errorf("read a panel file: %w", core.ErrNotImplemented)
+}
+
 // coreErr gives a domain error the core sentinel the API layer maps to a
 // status, keeping the message. Errors that already carry a core sentinel, and
 // unknown errors, pass through; unknown ones become a 500.

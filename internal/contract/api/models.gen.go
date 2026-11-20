@@ -2891,6 +2891,13 @@ type FileEncoding string
 type FileEntry struct {
 	Group string `json:"group"`
 
+	// LinkTarget Where a symlink points, as stored in the link (relative or absolute). Null or absent for
+	// other types.
+	//
+	//
+	// Examples: releases/42
+	LinkTarget *string `json:"link_target,omitempty"`
+
 	// Mode Examples: 0644
 	Mode string `json:"mode"`
 
@@ -3780,6 +3787,27 @@ type Plugin struct {
 
 	// Version Semantic version.
 	Version string `json:"version"`
+}
+
+// PluginFile One file of a panel plugin, read for the interface's panel host. Text files use `utf-8`;
+// others use `base64`.
+type PluginFile struct {
+	Content  string       `json:"content"`
+	Encoding FileEncoding `json:"encoding"`
+
+	// MediaType Media type from the file name, for example `text/html` or `image/svg+xml`.
+	//
+	// Examples: text/html
+	MediaType string `json:"media_type"`
+
+	// Path The normalised path inside the plugin, without a leading `./`.
+	//
+	// Examples: panel/index.html
+	Path string `json:"path"`
+
+	// PluginId Installed plugin id, `plg_` plus a ULID.
+	PluginId  PluginId `json:"plugin_id"`
+	SizeBytes int64    `json:"size_bytes"`
 }
 
 // PluginHealth defines model for PluginHealth.
@@ -4764,6 +4792,9 @@ type PackageName = string
 // Pid defines model for Pid.
 type Pid = int
 
+// PluginFilePath defines model for PluginFilePath.
+type PluginFilePath = string
+
 // PluginIdParameter Installed plugin id, `plg_` plus a ULID.
 type PluginIdParameter = PluginId
 
@@ -5455,6 +5486,13 @@ type ListPluginsParams struct {
 
 	// Limit Page size.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetPluginFileParams defines parameters for GetPluginFile.
+type GetPluginFileParams struct {
+	// Path A file inside the plugin, relative to its root, with forward slashes and an optional leading
+	// `./`, for example `./panel/index.html`. No segment may start with a dot.
+	Path PluginFilePath `form:"path" json:"path"`
 }
 
 // ListLiveListParams defines parameters for ListLiveList.

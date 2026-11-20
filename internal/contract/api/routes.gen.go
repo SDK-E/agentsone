@@ -115,6 +115,7 @@ var Routes = []Route{
 	{Method: "GET", Path: BasePath + "/plugins/{plugin_id}", OperationID: "getPlugin", Tag: "plugins", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/plugins/{plugin_id}/disable", OperationID: "disablePlugin", Tag: "plugins", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/plugins/{plugin_id}/enable", OperationID: "enablePlugin", Tag: "plugins", Stream: false, WebSocket: false},
+	{Method: "GET", Path: BasePath + "/plugins/{plugin_id}/files", OperationID: "getPluginFile", Tag: "plugins", Stream: false, WebSocket: false},
 	{Method: "POST", Path: BasePath + "/plugins/{plugin_id}/panel-token", OperationID: "issuePanelToken", Tag: "plugins", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/router/assignments/{assignment_id}", OperationID: "getAssignment", Tag: "router", Stream: false, WebSocket: false},
 	{Method: "GET", Path: BasePath + "/router/live", OperationID: "listLiveList", Tag: "router", Stream: false, WebSocket: false},

@@ -301,6 +301,13 @@ FileEntry:
       type: string
     modified_at:
       $ref: "./common.yaml#/Timestamp"
+    link_target:
+      type: [string, "null"]
+      maxLength: 4096
+      description: |
+        Where a symlink points, as stored in the link (relative or absolute). Null or absent for
+        other types.
+      examples: [releases/42]
 
 FileList:
   type: object

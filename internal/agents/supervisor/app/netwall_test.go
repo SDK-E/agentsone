@@ -3,10 +3,12 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -231,6 +233,47 @@ func TestTick_AWallThatBreaksStopsEveryRunnerAndRestartsAlwaysOnOnes(t *testing.
 	}
 	if w.launcher.isRunning("mira") {
 		t.Error("the chat agent mira started without a wake")
+	}
+}
+
+// agentsDown answers ListAgents with an error once down is set.
+type agentsDown struct {
+	core.AgentDirectory
+	down *atomic.Bool
+}
+
+func (a agentsDown) ListAgents(ctx context.Context) ([]core.Agent, error) {
+	if a.down.Load() {
+		return nil, core.ErrUnavailable
+	}
+	return a.AgentDirectory.ListAgents(ctx)
+}
+
+// When the agents cannot be listed, the runners still stop; the log says,
+// at error level, which ones will not start again by themselves.
+func TestTick_AWallThatBreaksStopsRunnersEvenWhenAgentsCannotBeListed(t *testing.T) {
+	t.Parallel()
+	down := &atomic.Bool{}
+	w := newWorld(t, func(d *app.Deps) {
+		d.Ports.Agents = agentsDown{AgentDirectory: d.Ports.Agents, down: down}
+	})
+	ctx := t.Context()
+	if err := w.sup.Run(ctx, "founder"); err != nil {
+		t.Fatal(err)
+	}
+	down.Store(true)
+	w.wall.set(brokenWall)
+	w.fakes.Clock.Advance(5 * time.Minute)
+	if err := w.sup.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if w.launcher.isRunning("founder") {
+		t.Error("founder still runs behind a broken wall")
+	}
+	const line = "ERROR supervisor: the runners stopped by the broken network wall will not start again by themselves"
+	attrs, ok := w.logs.attrsOf(line)
+	if !ok || attrs["agents"] != "founder" {
+		t.Errorf("log %v, attributes %v; want the error line naming founder", w.logs.all(), attrs)
 	}
 }
 

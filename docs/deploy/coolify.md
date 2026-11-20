@@ -194,7 +194,9 @@ the domains: the images have no shell or curl, so use the checks above.
 6. Check the wall in the logs of the `machine` service. At start, and again whenever the answer
    changes, the daemon logs `network wall holds: no default route, interfaces: eth0`. If it logs
    `network wall broken: no agent will wake` instead, the line says what breaks the wall and how
-   to fix it. No agent wakes until the wall holds again; the daemon checks every 5 minutes.
+   to fix it. No runner starts until the wall holds again, and runners that were up are stopped
+   (each stop is in the audit trail); the daemon checks every 5 minutes. When the wall holds
+   again, the runners of always-on agents start by themselves.
 
 ## Upgrade
 

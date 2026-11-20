@@ -8,7 +8,11 @@ import { PagedList } from "./paged-list";
 const tone = (state: MachineService["active_state"]) =>
   state === "active" ? "status--on" : state === "failed" ? "status--failed" : "status--paused";
 
-/** The services systemd runs, with their state in words. */
+/** A one-shot service that ran and finished is "active" with the sub state "exited": say done. */
+const stateKey = (s: MachineService) =>
+  s.active_state === "active" && s.sub_state === "exited" ? "done" : s.active_state;
+
+/** The services the daemon reports, with their state in words. */
 export function ServicesSection() {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.machine.services" });
   const api = useApi();
@@ -27,9 +31,7 @@ export function ServicesSection() {
           <>
             <div className="machine__head">
               <p className="machine__title code">{s.unit}</p>
-              <span className={`status ${tone(s.active_state)}`}>
-                {t(`state.${s.active_state}`)}
-              </span>
+              <span className={`status ${tone(s.active_state)}`}>{t(`state.${stateKey(s)}`)}</span>
             </div>
             <p>{s.description}</p>
             <p className="machine__meta">

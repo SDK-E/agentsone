@@ -532,7 +532,7 @@
         "lessCommand": "Show less"
       },
       "services": {
-        "lead": "The services systemd runs, including one for each agent and each event source.",
+        "lead": "The services the daemon reports: the daemon itself and the machine recipe that restores packages and settings files.",
         "listLabel": "Services",
         "loading": "Reading the services…",
         "empty": {
@@ -541,6 +541,7 @@
         },
         "state": {
           "active": "Running",
+          "done": "Done",
           "reloading": "Reloading",
           "inactive": "Stopped",
           "failed": "Failed",

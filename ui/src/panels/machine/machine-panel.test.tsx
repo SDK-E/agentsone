@@ -66,24 +66,35 @@ describe("Machine panel", () => {
     const list = await screen.findByRole("list", { name: "Processes" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(fixtures.processes.length);
-    const founder = items.find((li) => li.textContent.includes("--agent founder"));
-    if (!founder) throw new Error("no founder process");
-    expect(within(founder).getByText("Agent founder")).toBeVisible();
-    expect(within(founder).getByText("Service agent@founder.service")).toBeVisible();
-    expect(within(founder).getByText("3.2% processor")).toBeVisible();
-    expect(within(founder).getByText("240.0 MiB memory")).toBeVisible();
+    const builder = items.find((li) => li.textContent.includes("Agent builder"));
+    if (!builder) throw new Error("no builder process");
+    expect(within(builder).getByText("Runs as builder")).toBeVisible();
+    expect(within(builder).getByText("5.6% processor")).toBeVisible();
+    expect(within(builder).getByText("280.0 MiB memory")).toBeVisible();
+    // The daemon runs no systemd, so it names no service for a process.
+    expect(within(list).queryByText(/^Service /)).toBeNull();
     await expectNoAxeViolations(container);
   });
 
   it("names each service state in words", async () => {
-    renderWith(<MachinePanel />);
+    const api = new FakeApi();
+    const [daemon, recipe] = fixtures.services;
+    if (!daemon || !recipe) throw new Error("no service fixtures");
+    api.services = [
+      daemon,
+      recipe,
+      { ...recipe, unit: "one.service", active_state: "failed", sub_state: "failed" },
+      { ...recipe, unit: "two.service", active_state: "inactive", sub_state: "pending" },
+    ];
+    renderWith(<MachinePanel />, api);
     await show("Services");
 
     const list = await screen.findByRole("list", { name: "Services" });
-    expect(within(list).getAllByText("Running").length).toBeGreaterThan(0);
-    expect(within(list).getByText("Stopped")).toBeVisible();
+    expect(within(list).getByText("Running")).toBeVisible();
+    // A one-shot service that finished is done, not "running".
+    expect(within(list).getByText("Done")).toBeVisible();
     expect(within(list).getByText("Failed")).toBeVisible();
-    expect(within(list).getByText("Agent keeper")).toBeVisible();
+    expect(within(list).getByText("Stopped")).toBeVisible();
   });
 
   it("finds packages by name and pages through the rest", async () => {

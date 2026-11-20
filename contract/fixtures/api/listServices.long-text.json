@@ -3,13 +3,13 @@
   "body": {
     "items": [
       {
-        "unit": "emitter@emt_01JD7ZK3M00000000000000011-long-running-webhook-relay-for-the-landing-page-build-pipeline.service",
-        "description": "Agents One emitter that relays every webhook the landing page build pipeline sends, including retries, signatures and the full delivery history for the society to read later",
+        "unit": "machine-recipe.service",
+        "description": "Machine recipe: 3 packages, 2 files applied; failed package libreoffice-writer-nogui-with-all-language-packs-and-fonts-for-the-society: apt could not reach the package mirror after three tries and 2 more",
         "load_state": "loaded",
-        "active_state": "deactivating",
-        "sub_state": "stop-sigterm",
+        "active_state": "failed",
+        "sub_state": "failed",
         "enabled": true,
-        "agent": "builder"
+        "agent": null
       }
     ],
     "next_cursor": null

@@ -161,6 +161,10 @@ type Launcher struct {
 	Server *Server
 	// Ctx bounds the accept loops; normally the module's run context.
 	Ctx context.Context //nolint:containedctx // accept loops outlive the Start call
+	// UserID finds the uid of the runner's Linux user, which owns its
+	// socket. Nil means the system's user database ("root" is 0). Tests
+	// that run no Linux users inject their own.
+	UserID func(user string) (int, error)
 
 	mu   sync.Mutex
 	uids map[string]int
@@ -170,7 +174,11 @@ var _ app.Launcher = (*Launcher)(nil)
 
 // Install remembers the runner's uid and installs the unit.
 func (l *Launcher) Install(ctx context.Context, spec domain.UnitSpec) error {
-	uid, err := lookupUID(spec.Account.User)
+	userID := l.UserID
+	if userID == nil {
+		userID = lookupUID
+	}
+	uid, err := userID(spec.Account.User)
 	if err != nil {
 		return err
 	}

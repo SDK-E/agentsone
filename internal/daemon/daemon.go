@@ -36,22 +36,54 @@ import (
 // once the daemon is asked to stop.
 const ShutdownGrace = 10 * time.Second
 
+// Option replaces one machine part of the wiring. The daemon runs with
+// none. The in-process test harness (internal/daemontest) uses them so its
+// tests touch no Linux users, packages or network of the host.
+type Option func(*options)
+
+type options struct {
+	machine    func(core.Deps) core.Module
+	supervisor agents.SupervisorOptions
+	sched      []sched.Option
+}
+
+// WithMachine builds the machine module with newMachine instead of
+// machine.New.
+func WithMachine(newMachine func(core.Deps) core.Module) Option {
+	return func(o *options) { o.machine = newMachine }
+}
+
+// WithSupervisor runs the agents' runner supervisor on so instead of the
+// daemon's own parts.
+func WithSupervisor(so agents.SupervisorOptions) Option {
+	return func(o *options) { o.supervisor = so }
+}
+
+// WithSched passes opts to the sched module.
+func WithSched(opts ...sched.Option) Option {
+	return func(o *options) { o.sched = opts }
+}
+
 // Modules lists every daemon module in start order. Builders fill their own
 // package; this list only changes through a contract change.
-func Modules(deps core.Deps) []core.Module {
+func Modules(deps core.Deps, opts ...Option) []core.Module {
+	o := options{machine: func(d core.Deps) core.Module { return machine.New(d) }}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return []core.Module{
 		audit.New(deps),
 		gatewaymint.New(deps),
-		agents.New(deps, agents.WithSupervisor(agents.SupervisorOptions{})),
+		agents.New(deps, agents.WithSupervisor(o.supervisor)),
 		auth.New(deps),
 		api.New(deps),
 		bus.New(deps),
 		events.New(deps),
-		sched.New(deps),
+		sched.New(deps, o.sched...),
 		router.New(deps),
 		memory.New(deps),
 		plugins.New(deps),
-		machine.New(deps),
+		o.machine(deps),
 		mcp.New(deps),
 		enginefetch.New(deps),
 	}

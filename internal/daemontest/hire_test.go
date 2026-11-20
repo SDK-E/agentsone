@@ -63,6 +63,10 @@ func TestHire_AnAgentWithoutTheRightIsRefusedThroughItsToken(t *testing.T) {
 	}{
 		{"a custom agent hires a root agent", hireBody("guard", nil, true)},
 		{"a custom agent hires above itself", hireBody("guard", &founder, false)},
+		// The hirer is the token's subject, read from its stored record. A
+		// request that names the founder as the hirer, in any field, does
+		// not lend a custom agent the founder's right to make root agents.
+		{"a custom agent names the founder as the hirer", claimFounder(hireBody("guard", nil, true))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -96,6 +100,33 @@ func TestHire_AnAgentWithoutTheRightIsRefusedThroughItsToken(t *testing.T) {
 }
 
 // hireBody is the hire_agent arguments: the body fields, as a runner sends them.
+// A hire the token's subject may make stays its own when the request names
+// the founder as the hirer: the chart, the event and the audit all say the
+// custom agent hired.
+func TestHire_TheHirerIsTheTokensSubjectWhateverTheRequestSays(t *testing.T) {
+	t.Parallel()
+	d := daemontest.Start(t)
+	alice := d.SignInHuman("alice")
+	d.AsAgent("founder").HireEcho("echo")
+	echo := toolSession(t, d, "echo")
+
+	res := callTool(t, echo, "hire_agent", claimFounder(hireBody("notes", nil, false)))
+
+	if res.IsError {
+		t.Fatalf("hire_agent = error %q, want the hired agent", text(res))
+	}
+	a := alice.Agent("notes")
+	if a.Manager == nil || *a.Manager != "echo" || a.IsRoot || string(a.CreatedBy) != "agent:echo" {
+		t.Fatalf("notes = manager %v root %v created by %q, want a custom agent hired by echo below itself", a.Manager, a.IsRoot, a.CreatedBy)
+	}
+	if ev := hiredEvents(alice, "notes"); len(ev) != 1 || ev[0].Actor != "agent:echo" || ev[0].Source != "/agents/echo" {
+		t.Fatalf("hired events = %+v, want one from echo", ev)
+	}
+	if !audited(alice, "agent.hire", "agent:echo", "agent:notes") || audited(alice, "agent.hire", "agent:founder", "agent:notes") {
+		t.Fatal("the audit log does not say echo hired notes")
+	}
+}
+
 func hireBody(name string, manager *string, root bool) map[string]any {
 	in := api.AgentCreate{
 		Name: name, DisplayName: name, Kind: api.AgentKindChat, Role: "Writes things down",
@@ -109,6 +140,17 @@ func hireBody(name string, manager *string, root bool) map[string]any {
 	if err := json.Unmarshal(raw, &args); err != nil {
 		panic(err)
 	}
+	return args
+}
+
+// claimFounder adds every field a request could use to name the founder as
+// the one who hires.
+func claimFounder(args map[string]any) map[string]any {
+	for _, k := range []string{"hirer", "by", "actor", "created_by", "caller", "agent"} {
+		args[k] = "founder"
+	}
+	args["created_by"] = "agent:founder"
+	args["actor"] = "agent:founder"
 	return args
 }
 

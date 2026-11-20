@@ -112,7 +112,13 @@ type AgentStates interface {
 
 // RunnerConn is the daemon's half of one runner connection.
 type RunnerConn interface {
+	// Call refuses until the runner's first status has been accepted (rule H8).
 	Call(ctx context.Context, method string, params, result any) error
+	// WaitReady returns nil once Call no longer refuses for that reason. The
+	// connection marks itself ready only after Handler.Status returns, so a
+	// call started from Status, or because the session is already idle,
+	// waits here first. It returns an error when the connection ends or ctx is done.
+	WaitReady(ctx context.Context) error
 	Close() error
 }
 

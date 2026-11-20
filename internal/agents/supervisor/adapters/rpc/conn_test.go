@@ -479,6 +479,41 @@ func TestConn_RefusesCallBeforeFirstStatus(t *testing.T) {
 	}
 }
 
+// H8: WaitReady holds a daemon request until the first status is accepted,
+// and gives up when the connection ends first.
+func TestConn_WaitReadyReturnsOnceTheFirstStatusIsAccepted(t *testing.T) {
+	t.Parallel()
+	p := newPeer(t, newFakeHandler(), rpc.Options{})
+	p.send(hello)
+	p.next()
+	stopped, stop := context.WithCancel(t.Context())
+	stop()
+	if err := p.conn.WaitReady(stopped); !errors.Is(err, context.Canceled) {
+		t.Fatalf("WaitReady before status error = %v, want the context's error", err)
+	}
+	p.send(`{"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}`)
+	if err := p.conn.WaitReady(t.Context()); err != nil {
+		t.Fatalf("WaitReady after status error = %v", err)
+	}
+	called := make(chan error, 1)
+	go func() { called <- p.conn.Call(t.Context(), protocol.MethodCancel, cancelParams, nil) }()
+	if m := p.next(); m["method"] != "cancel" {
+		t.Fatalf("request after WaitReady = %v, want cancel", m)
+	}
+	p.send(`{"jsonrpc":"2.0","id":1,"result":{}}`)
+	if err := <-called; err != nil {
+		t.Fatalf("Call after WaitReady error = %v", err)
+	}
+
+	closed := newPeer(t, newFakeHandler(), rpc.Options{})
+	closed.send(hello)
+	closed.next()
+	_ = closed.nc.Close()
+	if err := closed.conn.WaitReady(t.Context()); !errors.Is(err, rpc.ErrClosed) {
+		t.Fatalf("WaitReady on an ended connection error = %v, want ErrClosed", err)
+	}
+}
+
 // F5 and F6: daemon request ids start at 1 and rise by 1; each response reaches its caller.
 func TestConn_NumbersDaemonRequestsFromOne(t *testing.T) {
 	t.Parallel()

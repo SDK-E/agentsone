@@ -5,6 +5,7 @@ package app_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"sync"
 	"testing"
@@ -177,17 +178,30 @@ type call struct {
 
 // fakeConn is the runner end as the app sees it: it records requests and
 // answers sleep with a summary and everything else with an empty result.
+// Like the real connection it refuses calls until it is marked ready, which
+// the read loop does only after Status returns (rule H8).
 type fakeConn struct {
-	calls  chan call
-	closed chan struct{}
-	once   sync.Once
+	calls     chan call
+	arrivals  chan string // "wait" for each WaitReady, "refused <method>" for each refused Call
+	ready     chan struct{}
+	readyOnce sync.Once
+	closed    chan struct{}
+	once      sync.Once
 }
 
+var errFakeNotReady = errors.New("runner has not reported its first status")
+
 func newFakeConn() *fakeConn {
-	return &fakeConn{calls: make(chan call, 32), closed: make(chan struct{})}
+	return &fakeConn{calls: make(chan call, 32), arrivals: make(chan string, 32), ready: make(chan struct{}), closed: make(chan struct{})}
 }
 
 func (c *fakeConn) Call(_ context.Context, method string, params, result any) error {
+	select {
+	case <-c.ready:
+	default:
+		c.arrive("refused " + method)
+		return errFakeNotReady
+	}
 	raw, _ := json.Marshal(params)
 	c.calls <- call{method, raw}
 	if method == protocol.MethodSleep && result != nil {
@@ -195,6 +209,46 @@ func (c *fakeConn) Call(_ context.Context, method string, params, result any) er
 	}
 	return nil
 }
+
+// arrive records a, unless no test is reading arrivals and the buffer is full.
+func (c *fakeConn) arrive(a string) {
+	select {
+	case c.arrivals <- a:
+	default:
+	}
+}
+
+func (c *fakeConn) WaitReady(ctx context.Context) error {
+	c.arrive("wait")
+	select {
+	case <-c.ready:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (c *fakeConn) markReady() { c.readyOnce.Do(func() { close(c.ready) }) }
+
+// markReadyAfter plays the read loop between Status returning and the
+// connection marking itself ready: it waits until n calls have either
+// started waiting for readiness or been refused, fails on a refusal (that
+// request never reaches the runner), then marks the connection ready.
+func (c *fakeConn) markReadyAfter(t *testing.T, n int) {
+	t.Helper()
+	for range n {
+		select {
+		case a := <-c.arrivals:
+			if a != "wait" {
+				t.Fatalf("%s: sent before the connection was ready, so the runner never gets it", a)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("no request to the runner within 5s")
+		}
+	}
+	c.markReady()
+}
+
 func (c *fakeConn) Close() error { c.once.Do(func() { close(c.closed) }); return nil }
 
 func (c *fakeConn) next(t *testing.T) call {
@@ -273,6 +327,7 @@ func (w *world) connect(t *testing.T, agent string) (*app.Handler, *fakeConn, pr
 	if err := h.Status(t.Context(), protocol.StatusParams{State: "idle"}); err != nil {
 		t.Fatalf("first Status(idle) error = %v", err)
 	}
+	conn.markReady() // the read loop, once Status has returned
 	return h, conn, res
 }
 

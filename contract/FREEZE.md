@@ -15,7 +15,7 @@ once. The owner of the freeze is the orchestrator.
 | Daemon seams | `internal/core` (module, deps, ports, caller, config, paths, problems), `internal/api/compose.go` |
 | Storage and audit chain | `internal/store`, `internal/auditchain` |
 | Edge seam | `internal/edge/edgeenv` |
-| Wiring | `cmd/agentsoned/modules.go`, `cmd/agentsone/main.go`, `scripts/gen.sh` |
+| Wiring | `internal/daemon/daemon.go` (the module list, `Modules`), `cmd/agentsone/main.go`, `scripts/gen.sh` |
 
 Not frozen: adding new fixture variants (`<operationId>.<variant>.json`), and everything inside
 the package a work package owns, as long as it keeps the seams.

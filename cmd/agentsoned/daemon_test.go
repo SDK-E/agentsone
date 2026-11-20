@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -99,30 +98,6 @@ func TestDaemon_Runtime(t *testing.T) {
 	}
 }
 
-func TestLifecycleStopsStartedModulesInReverse(t *testing.T) {
-	var order []string
-	mods := []core.Module{
-		&recorder{name: "a", order: &order},
-		&recorder{name: "b", order: &order},
-		&recorder{name: "c", order: &order, failStart: true},
-	}
-	l := &lifecycle{mods: mods, log: slog.New(slog.DiscardHandler)}
-	if err := l.start(context.Background(), core.NewPorts()); err == nil {
-		t.Fatal("start error swallowed")
-	}
-	l.stop(context.Background())
-	want := []string{"provide a", "provide b", "provide c", "migrate a", "migrate b", "migrate c",
-		"start a", "start b", "start c", "stop b", "stop a"}
-	if len(order) != len(want) {
-		t.Fatalf("order %v", order)
-	}
-	for i := range want {
-		if order[i] != want[i] {
-			t.Fatalf("order %v, want %v", order, want)
-		}
-	}
-}
-
 func TestOpenStoresCreatesTheFourDatabases(t *testing.T) {
 	cfg := core.DefaultConfig()
 	cfg.StateDir = t.TempDir()
@@ -155,33 +130,6 @@ func TestNewLoggerRejectsUnknownFormat(t *testing.T) {
 	if _, err := newLogger(core.LogConfig{Level: "debug", Format: "json"}); err != nil {
 		t.Fatal(err)
 	}
-}
-
-type recorder struct {
-	core.Base
-	name      string
-	order     *[]string
-	failStart bool
-}
-
-func (r *recorder) Name() string { return r.name }
-func (r *recorder) Provide(*core.Ports) {
-	*r.order = append(*r.order, "provide "+r.name)
-}
-func (r *recorder) Migrate(context.Context) error {
-	*r.order = append(*r.order, "migrate "+r.name)
-	return nil
-}
-func (r *recorder) Start(context.Context) error {
-	*r.order = append(*r.order, "start "+r.name)
-	if r.failStart {
-		return errors.New("boom")
-	}
-	return nil
-}
-func (r *recorder) Stop(context.Context) error {
-	*r.order = append(*r.order, "stop "+r.name)
-	return nil
 }
 
 func unixClient(sock string) *http.Client {

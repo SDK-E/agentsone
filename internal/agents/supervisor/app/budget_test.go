@@ -3,7 +3,9 @@
 package app_test
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"runtime"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/contract/contracttest"
 	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/runners/sdk/protocol"
 )
 
@@ -215,5 +218,38 @@ func TestTick_RestoredBudgetResumesASleepingAgent(t *testing.T) {
 	eventually(t, func() bool { return w.launcher.isRunning("founder") }) // the wake goes out on its own goroutine
 	if n := len(w.resumes()); n != 1 {
 		t.Errorf("%d resumes, want 1", n)
+	}
+}
+
+// refusingBus is an event bus that cannot publish.
+type refusingBus struct{ *coretest.Events }
+
+func (refusingBus) Publish(context.Context, core.Event) (core.Event, error) {
+	return core.Event{}, errors.New("bus is down")
+}
+
+// An agent whose "budget is back" event could not be published was not
+// resumed: the next tick tries again.
+func TestTick_AResumeThatCouldNotBePublishedIsTriedAgain(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	h, _, turn := startTurn(t, w, "founder")
+	pauseTurn(t, h, turn)
+	w.setBudget("founder", 500)
+	working := w.ports.Events
+	w.ports.Events = refusingBus{w.fakes.Events}
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := w.logs.attrsOf("WARN supervisor: cannot publish that the budget is back"); !ok {
+		t.Fatal("no warning that the budget event could not be published")
+	}
+	w.ports.Events = working
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if n := len(w.restoredEvents()); n != 1 {
+		t.Errorf("%d restored events after the bus came back, want 1", n)
 	}
 }

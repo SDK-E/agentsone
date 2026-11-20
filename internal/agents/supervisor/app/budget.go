@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
@@ -46,20 +47,10 @@ func (s *Supervisor) resumeBudget(ctx context.Context) {
 		candidates = append(candidates, paused{name, turn})
 	}
 	s.mu.Unlock()
-	slices.SortFunc(candidates, func(a, b paused) int { return compareStrings(a.agent, b.agent) })
+	slices.SortFunc(candidates, func(a, b paused) int { return strings.Compare(a.agent, b.agent) })
 	for _, c := range candidates {
 		s.resumeOne(ctx, c.agent, c.turn)
 	}
-}
-
-func compareStrings(a, b string) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	}
-	return 0
 }
 
 func (s *Supervisor) resumeOne(ctx context.Context, agent, turn string) {

@@ -13,7 +13,16 @@ var ErrNoCommonVersion = errors.New("no protocol version in common")
 
 // DaemonVersions are the runner protocol versions this daemon speaks,
 // highest first. The daemon supports the current and the previous major.
-var DaemonVersions = []string{"1.0"}
+var DaemonVersions = []string{"1.1", "1.0"}
+
+// CredentialsUpdates reports whether a connection that negotiated version
+// gets credentials.update (rule K1: 1.1 or later).
+func CredentialsUpdates(version string) bool {
+	v, ok := parseVersion(version)
+	return ok && !v.less(version11)
+}
+
+var version11 = version{major: 1, minor: 1, raw: "1.1"}
 
 // Negotiate picks the highest version that both lists hold (PROTOCOL.md
 // handshake step 2, rule H4). Versions compare as <major>.<minor> numbers, so

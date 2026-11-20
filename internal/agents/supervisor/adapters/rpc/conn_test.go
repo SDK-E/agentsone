@@ -263,7 +263,8 @@ func TestConn_RefusesRunnerWithNoCommonVersion(t *testing.T) {
 	m := p.next()
 	code, _ := errCode(t, m)
 	data := m["error"].(map[string]any)["data"].(map[string]any)
-	if code != rpc.CodeUnsupportedVersion || len(data["supported"].([]any)) != 1 {
+	// The daemon names the versions it speaks: 1.1 and 1.0.
+	if code != rpc.CodeUnsupportedVersion || len(data["supported"].([]any)) != 2 {
 		t.Fatalf("answer = %v, want -32002 with supported", m)
 	}
 	p.expectClosed()
@@ -603,6 +604,42 @@ func TestConn_CallStopsWhenContextEnds(t *testing.T) {
 }
 
 // F2: the daemon never sends a line over the limit.
+// H8 and F6: a notification goes out only after the runner's first status,
+// as one line without an id.
+func TestConn_NotifiesOnlyAfterTheFirstStatus(t *testing.T) {
+	t.Parallel()
+	p := newPeer(t, newFakeHandler(), rpc.Options{})
+	p.send(hello)
+	p.next()
+	at := common.Timestamp(time.Date(2026, 11, 19, 19, 30, 0, 0, time.UTC))
+	params := protocol.CredentialsUpdateParams{
+		GatewayToken: "test-gateway-token-founder-0002", GatewayTokenExpiresAt: at, // #nosec G101 -- test value
+		McpToken: "test-mcp-token-founder-0002", McpTokenExpiresAt: at,
+	}
+	if err := p.conn.Notify(t.Context(), protocol.MethodCredentialsUpdate, params); !errors.Is(err, rpc.ErrNotReady) {
+		t.Fatalf("Notify before status = %v, want ErrNotReady", err)
+	}
+	p.send(`{"jsonrpc":"2.0","method":"status","params":{"state":"idle"}}`)
+	p.send(`{"jsonrpc":"2.0","id":2,"method":"dance","params":{}}`)
+	p.next()
+
+	if err := p.conn.Notify(t.Context(), protocol.MethodCredentialsUpdate, params); err != nil {
+		t.Fatal(err)
+	}
+	m := p.next()
+	if _, hasID := m["id"]; hasID || m["method"] != protocol.MethodCredentialsUpdate || m["jsonrpc"] != "2.0" {
+		t.Fatalf("notification = %v, want credentials.update without an id", m)
+	}
+	if err := p.conn.Notify(t.Context(), protocol.MethodCredentialsUpdate, map[string]any{"x": strings.Repeat("x", rpc.DefaultMaxLineBytes)}); !errors.Is(err, rpc.ErrLineTooLarge) {
+		t.Fatalf("overlong Notify = %v, want ErrLineTooLarge", err)
+	}
+	_ = p.conn.Close()
+	<-p.conn.Done()
+	if err := p.conn.Notify(t.Context(), protocol.MethodCredentialsUpdate, params); !errors.Is(err, rpc.ErrClosed) {
+		t.Fatalf("Notify after close = %v, want ErrClosed", err)
+	}
+}
+
 func TestConn_RefusesToSendOverlongLine(t *testing.T) {
 	t.Parallel()
 	p := newPeer(t, newFakeHandler(), rpc.Options{MaxLineBytes: 4096})

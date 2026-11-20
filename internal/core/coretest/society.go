@@ -123,6 +123,7 @@ func (t *Tokens) Issue(_ context.Context, subject core.Caller, scopes []string, 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	subject.Scopes = slices.Clone(scopes)
+	subject.ByToken = true
 	tok := core.Token{Value: t.ids.New("tok"), Expires: t.clock.Now().Add(ttl)}
 	t.issued[tok.Value] = issuedToken{caller: subject, expires: tok.Expires}
 	return tok, nil

@@ -155,8 +155,12 @@ func (s *Supervisor) issueMCP(ctx context.Context, agent string) (core.Token, er
 	if err != nil {
 		return core.Token{}, fmt.Errorf("mcp token for %s: %w", agent, err)
 	}
-	caller := core.Caller{Kind: core.CallerAgent, Name: agent, UID: a.UID, IsRoot: a.IsRoot, Scopes: []string{MCPScope}}
-	tok, err := s.d.Ports.Tokens.Issue(ctx, caller, []string{MCPScope}, s.d.Config.MCPTokenTTL)
+	caller := core.Caller{Kind: core.CallerAgent, Name: agent, UID: a.UID, IsRoot: a.IsRoot}
+	scopes, err := RunnerScopes()
+	if err != nil {
+		return core.Token{}, fmt.Errorf("mcp token scopes for %s: %w", agent, err)
+	}
+	tok, err := s.d.Ports.Tokens.Issue(ctx, caller, scopes, s.d.Config.MCPTokenTTL)
 	if err != nil {
 		return core.Token{}, fmt.Errorf("mcp token for %s: %w", agent, err)
 	}

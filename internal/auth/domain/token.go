@@ -121,6 +121,7 @@ func (t Token) Caller() core.Caller {
 	c.IsRoot = false
 	c.UID = -1
 	c.Scopes = append([]string(nil), t.Scopes...)
+	c.ByToken = true
 	// A token proves who holds it, not where the process runs.
 	c.Assurance = core.AssuranceSoft
 	return c

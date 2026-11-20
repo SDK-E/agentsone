@@ -38,6 +38,10 @@ type Caller struct {
 	IsRoot bool
 	// Scopes are the permissions granted to a token or session.
 	Scopes []string
+	// ByToken is true when a bearer token named the caller. Its power is
+	// then limited to Scopes: the API layer refuses every operation whose
+	// contract scope the token does not cover, before any handler runs.
+	ByToken bool
 	// Assurance says how strongly the identity is known. The zero value is
 	// hard; agents named by uid or by token are soft.
 	Assurance Assurance

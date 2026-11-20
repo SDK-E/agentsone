@@ -5,10 +5,47 @@ package app
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
+	"sync"
 
+	contract "github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/mcp/domain"
 )
+
+// mcpScope is what a token needs to talk to the machine MCP itself (post
+// messages, end the session; write covers listening, which needs read).
+const mcpScope = "mcp:write"
+
+// ToolScopes is the scope every tool's operation needs in the contract,
+// plus the machine MCP's own, without repeats and sorted. A token holding
+// exactly these can use every tool that takes a token, and no operation
+// outside them. Tools whose operation takes no token (human-only cookie
+// operations, the public ones) add nothing: a token is refused there anyway.
+func (c *Catalog) ToolScopes() ([]string, error) {
+	scopes := []string{mcpScope}
+	for _, t := range c.tools {
+		i := slices.IndexFunc(contract.Routes, func(r contract.Route) bool { return r.OperationID == t.Operation.ID })
+		if i < 0 {
+			return nil, fmt.Errorf("tool %s: operation %s is not in the route table", t.Name, t.Operation.ID)
+		}
+		if s := contract.Routes[i].Scope; s != "" {
+			scopes = append(scopes, s)
+		}
+	}
+	slices.Sort(scopes)
+	return slices.Compact(scopes), nil
+}
+
+// RunnerScopes are the scopes of a runner's machine MCP token: the tools of
+// the catalog built from the embedded contract (ToolScopes). Built once.
+var RunnerScopes = sync.OnceValues(func() ([]string, error) {
+	cat, err := NewCatalog(contract.Spec)
+	if err != nil {
+		return nil, err
+	}
+	return cat.ToolScopes()
+})
 
 // ErrDuplicateTool means two operations map to the same tool name.
 var ErrDuplicateTool = errors.New("duplicate tool name")

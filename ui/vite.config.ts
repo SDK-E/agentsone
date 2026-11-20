@@ -17,6 +17,10 @@ export default defineConfig({
       "@agentsone/contract": fileURLToPath(
         new URL("../packages/contract-ts/src/index.ts", import.meta.url),
       ),
+      // noVNC exports only its RFB entry; the Desktop panel also turns its console log off.
+      "@novnc/novnc/logging": fileURLToPath(
+        new URL("./node_modules/@novnc/novnc/core/util/logging.js", import.meta.url),
+      ),
     },
   },
   server: { host: "127.0.0.1", port: 5173, strictPort: true, proxy, fs: { allow: [repoRoot] } },

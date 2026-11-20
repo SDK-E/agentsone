@@ -189,7 +189,9 @@ mount.
 **A tool calls the daemon with a token.** Tokens carry scopes, such as `tasks:read`. Each daemon
 operation names the one scope it needs in the contract. The daemon refuses a token without that
 scope, and refuses a token on anything that is not a contract operation, before any module runs.
-Agent tokens are issued only by the daemon (for runners, holding exactly the scopes of their MCP
+A request that sends a bearer token is named by that token only: a bad, expired or revoked token
+gets 401 on every path and both listeners, even beside a valid session cookie. Agent tokens are
+issued only by the daemon (for runners, holding exactly the scopes of their MCP
 tools) and by root agents. Humans never use tokens: they use their session cookie in the browser,
 or the socket identity when they run `agentctl` on the machine. Their power comes from who they
 are and their place in the org chart, not from scopes. A remote `agentctl` would need a new rule.

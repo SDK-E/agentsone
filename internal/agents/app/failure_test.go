@@ -58,6 +58,8 @@ func TestUseCases_ReportStorageFailuresAndPublishNothing(t *testing.T) {
 			_, err := s.Update(asAgent("lead"), "dev", domain.Update{Role: &title})
 			return err
 		}},
+		{"hire stores the agent with its event", "HireAgent", func(s *app.Society) error { _, err := s.Hire(asAgent("lead"), spec("mira")); return err }},
+		{"flush reads the outbox", "PendingEvents", func(s *app.Society) error { return s.Flush(context.Background()) }},
 		{"update saves", "SaveAgents", func(s *app.Society) error {
 			_, err := s.Update(asAgent("lead"), "dev", domain.Update{Runner: &runner})
 			return err
@@ -133,6 +135,30 @@ func TestUseCases_ReportStorageFailuresAndPublishNothing(t *testing.T) {
 			}
 			if got := fakes.Events.Published(); len(got) != 0 {
 				t.Errorf("published %d events after a storage failure", len(got))
+			}
+		})
+	}
+}
+
+// The hire is committed before its event is sent, so a failure to read or
+// mark the outbox afterwards does not fail it; the event waits for the next
+// flush.
+func TestHire_StandsWhenTheOutboxCannotBeSentAfterTheCommit(t *testing.T) {
+	t.Parallel()
+	for _, method := range []string{"PendingEvents", "MarkSent"} {
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+			s, _ := brokenEnv(t, method)
+
+			if _, err := s.Hire(asAgent("lead"), spec("mira")); err != nil {
+				t.Fatalf("Hire() error = %v, want the hire kept", err)
+			}
+
+			if _, err := s.Get(asHuman("ada"), "mira"); err != nil {
+				t.Fatalf("hired agent not stored: %v", err)
+			}
+			if err := s.Flush(context.Background()); !errors.Is(err, errDisk) {
+				t.Fatalf("Flush() error = %v, want %v", err, errDisk)
 			}
 		})
 	}

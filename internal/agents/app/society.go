@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
@@ -50,6 +51,7 @@ type Society struct {
 	clock core.Clock
 	ids   core.IDs
 	hub   *Hub
+	log   *slog.Logger
 
 	mu sync.Mutex
 	// replies holds agent replies being written, by turn id.
@@ -61,7 +63,10 @@ type Society struct {
 // New returns the society over repo. Ports is read when used, so modules
 // may fill it after New.
 func New(repo domain.Repository, rt Runtime, ports *core.Ports, clock core.Clock, ids core.IDs) *Society {
-	return &Society{repo: repo, rt: rt, ports: ports, clock: clock, ids: ids, hub: NewHub(), replies: map[string]*reply{}, failed: map[string]string{}}
+	return &Society{
+		repo: repo, rt: rt, ports: ports, clock: clock, ids: ids, hub: NewHub(), log: slog.New(slog.DiscardHandler),
+		replies: map[string]*reply{}, failed: map[string]string{},
+	}
 }
 
 // Hub returns the society's stream hub.
@@ -93,6 +98,13 @@ func (s *Society) chart(ctx context.Context) (domain.Chart, error) {
 // record audits and publishes one society fact. The audit record comes
 // first: it is the testimony; the event is the notification.
 func (s *Society) record(ctx context.Context, actorRef, action, target string, detail any, ev event) error {
+	if err := s.audit(ctx, actorRef, action, target, detail); err != nil {
+		return err
+	}
+	return s.publish(ctx, actorRef, ev)
+}
+
+func (s *Society) audit(ctx context.Context, actorRef, action, target string, detail any) error {
 	raw, err := json.Marshal(detail)
 	if err != nil {
 		return fmt.Errorf("encode %s detail: %w", action, err)
@@ -100,7 +112,7 @@ func (s *Society) record(ctx context.Context, actorRef, action, target string, d
 	if err := s.ports.Audit.Append(ctx, core.AuditEntry{Actor: actorRef, Action: action, Target: target, Detail: raw}); err != nil {
 		return fmt.Errorf("audit %s: %w", action, err)
 	}
-	return s.publish(ctx, actorRef, ev)
+	return nil
 }
 
 // event is the event of one society fact. Its data is a generated contract
@@ -149,15 +161,19 @@ func (s *Society) Found(ctx context.Context, spec domain.HireSpec) (domain.Agent
 	if err != nil {
 		return domain.Agent{}, err
 	}
-	if err := s.provisionAndStore(ctx, &founder); err != nil {
+	data := eventdata.AgentsHired{Agent: founder.Name, Manager: founder.Name, Kind: eventdata.AgentsHiredKind(founder.Kind), IsRoot: true, Template: founder.Template}
+	hired, err := s.outbound(by, event{"/daemon", "team:" + founder.Name, data})
+	if err != nil {
 		return domain.Agent{}, err
 	}
+	if err := s.provisionAndHire(ctx, &founder, hired); err != nil {
+		return domain.Agent{}, err
+	}
+	defer s.flushAfterChange(ctx)
 	if err := s.seedFromTemplate(ctx, founder.Name, domain.NewChart([]domain.Agent{founder}), founder, seed); err != nil {
 		return domain.Agent{}, err
 	}
-	data := eventdata.AgentsHired{Agent: founder.Name, Manager: founder.Name, Kind: eventdata.AgentsHiredKind(founder.Kind), IsRoot: true, Template: founder.Template}
-	return founder, s.record(ctx, by, "agent.found", "agent:"+founder.Name, data,
-		event{"/daemon", "team:" + founder.Name, data})
+	return founder, s.audit(ctx, by, "agent.found", "agent:"+founder.Name, data)
 }
 
 // Hire hires an agent below the calling agent. An always-on agent's runner
@@ -197,29 +213,34 @@ func (s *Society) hire(ctx context.Context, hirer, by string, spec domain.HireSp
 	if err != nil {
 		return domain.Agent{}, err
 	}
-	if err := s.provisionAndStore(ctx, &a); err != nil {
-		return domain.Agent{}, err
-	}
 	after := domain.NewChart(append(chart.Agents(), a))
-	if err := s.seedFromTemplate(ctx, hirer, after, a, seed); err != nil {
-		return domain.Agent{}, err
-	}
 	source := "/agents/" + hirer
 	if by != "agent:"+hirer {
 		source = "/daemon"
 	}
 	data := eventdata.AgentsHired{Agent: a.Name, Manager: a.Manager, Kind: eventdata.AgentsHiredKind(a.Kind), IsRoot: a.IsRoot, Template: a.Template}
-	return a, s.record(ctx, by, "agent.hire", "agent:"+a.Name, data,
-		event{source, "team:" + after.Team(a.Name), data})
+	hired, err := s.outbound(by, event{source, "team:" + after.Team(a.Name), data})
+	if err != nil {
+		return domain.Agent{}, err
+	}
+	if err := s.provisionAndHire(ctx, &a, hired); err != nil {
+		return domain.Agent{}, err
+	}
+	defer s.flushAfterChange(ctx)
+	if err := s.seedFromTemplate(ctx, hirer, after, a, seed); err != nil {
+		return domain.Agent{}, err
+	}
+	return a, s.audit(ctx, by, "agent.hire", "agent:"+a.Name, data)
 }
 
-// provisionAndStore gives a its Linux user and unit, then stores it. When
-// the store fails the provisioning is undone.
-func (s *Society) provisionAndStore(ctx context.Context, a *domain.Agent) error {
+// provisionAndHire gives a its Linux user and unit, then stores it with
+// the event that announces it, in one transaction. When the store fails the
+// provisioning is undone, so a refused or failed hire leaves nothing.
+func (s *Society) provisionAndHire(ctx context.Context, a *domain.Agent, hired domain.Outbound) error {
 	if _, err := s.rt.Provision(ctx, a.Core(), a.Limits); err != nil {
 		return fmt.Errorf("provision %s: %w", a.Name, err)
 	}
-	if err := s.repo.CreateAgent(ctx, *a); err != nil {
+	if err := s.repo.HireAgent(ctx, *a, hired); err != nil {
 		if undo := s.rt.Retire(ctx, a.Name); undo != nil {
 			return fmt.Errorf("store %s: %w (undo provisioning: %w)", a.Name, err, undo)
 		}

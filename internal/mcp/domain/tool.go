@@ -103,8 +103,7 @@ func objectProperties(s Schema) (map[string]any, []string, bool) {
 	}
 	if members, ok := s["allOf"].([]any); ok {
 		for _, m := range members {
-			ms, _ := m.(map[string]any)
-			p, r, ok := objectProperties(ms)
+			p, r, ok := objectProperties(object(m))
 			if !ok {
 				return nil, nil, false
 			}

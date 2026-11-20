@@ -79,24 +79,30 @@ func Run(ctx context.Context, cat *app.Catalog, version string, args []string, i
 	switch {
 	case errors.As(err, &p):
 		if p.raw {
-			_, _ = fmt.Fprintf(io.Err, "%s\n", problemJSON(p))
+			report(io, "%s\n", problemJSON(p))
 		} else {
-			_, _ = fmt.Fprintf(io.Err, "error: %s\n", p.Error())
+			report(io, "error: %s\n", p.Error())
 		}
 		return p.code()
 	case errors.As(err, &rt):
-		_, _ = fmt.Fprintf(io.Err, "error: %s\n", err)
+		report(io, "error: %s\n", err)
 		return ExitFailure
 	}
-	_, _ = fmt.Fprintf(io.Err, "error: %s\nTry --help.\n", err)
+	report(io, "error: %s\nTry --help.\n", err)
 	return ExitUsage
+}
+
+// report writes a failure message to stderr. The exit code is what carries
+// the failure, so a write that fails has nowhere better to be reported.
+func report(io IO, format string, args ...any) {
+	_, _ = fmt.Fprintf(io.Err, format, args...) //nolint:errcheck // stderr is the last place to report; the exit code still tells the failure
 }
 
 func problemJSON(p problemError) []byte {
 	if len(bytes.TrimSpace(p.body)) > 0 && json.Valid(p.body) {
 		return bytes.TrimSpace(p.body)
 	}
-	b, _ := json.Marshal(p.problem)
+	b, _ := json.Marshal(p.problem) //nolint:errcheck // a Problem holds only strings and an int, so marshalling cannot fail
 	return b
 }
 
@@ -306,7 +312,10 @@ func collectArgs(cmd *cobra.Command, c domain.Command, pos []string, stdin io.Re
 
 	wholeBody := false
 	if c.HasBody {
-		raw, _ := fs.GetString(bodyJSONFlag)
+		raw, err := fs.GetString(bodyJSONFlag)
+		if err != nil {
+			return nil, fmt.Errorf("read --%s: %w", bodyJSONFlag, err)
+		}
 		if fs.Changed(bodyJSONFlag) {
 			wholeBody = true
 			if err := mergeBody(args, c, raw, stdin); err != nil {
@@ -350,14 +359,20 @@ func flagValue(fs *pflag.FlagSet, f domain.Flag) (any, error) {
 		}
 		return out, err
 	case domain.FlagJSON:
-		text, _ := fs.GetString(f.Name)
+		text, err := fs.GetString(f.Name)
+		if err != nil {
+			return nil, err
+		}
 		v, err := decodeJSON(text)
 		if err != nil {
 			return nil, fmt.Errorf("--%s is not valid JSON: %w", f.Name, err)
 		}
 		return v, nil
 	}
-	text, _ := fs.GetString(f.Name)
+	text, err := fs.GetString(f.Name)
+	if err != nil {
+		return nil, err
+	}
 	if len(f.Enum) > 0 && !slices.Contains(f.Enum, text) {
 		return nil, fmt.Errorf("--%s must be one of: %s", f.Name, strings.Join(f.Enum, ", "))
 	}

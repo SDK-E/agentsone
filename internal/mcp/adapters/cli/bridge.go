@@ -42,6 +42,13 @@ func (c *Client) MCPTransport() *mcp.StreamableClientTransport {
 	}
 }
 
+// closeQuietly closes a connection on the way out. By then the bridge result
+// is decided (the message error, or a clean end), and a close that fails
+// after the other side has hung up carries no news the caller could use.
+func closeQuietly(c mcp.Connection) {
+	_ = c.Close() //nolint:errcheck // teardown after the bridge result is decided
+}
+
 // Bridge copies MCP messages both ways between two transports until one
 // side ends. A clean end (the local side hanging up) returns nil.
 func Bridge(ctx context.Context, local, remote mcp.Transport) error {
@@ -51,12 +58,12 @@ func Bridge(ctx context.Context, local, remote mcp.Transport) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = lc.Close() }()
+	defer closeQuietly(lc)
 	rc, err := remote.Connect(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = rc.Close() }()
+	defer closeQuietly(rc)
 
 	b := &bridge{pending: map[any]bool{}, errc: make(chan error, 8)}
 	var wg sync.WaitGroup
@@ -115,8 +122,8 @@ func Bridge(ctx context.Context, local, remote mcp.Transport) error {
 		wg.Wait() // let the last answers reach the local side
 	}
 	cancel()
-	_ = lc.Close()
-	_ = rc.Close()
+	closeQuietly(lc)
+	closeQuietly(rc)
 	wg.Wait()
 	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || errors.Is(err, mcp.ErrConnectionClosed) {
 		return nil

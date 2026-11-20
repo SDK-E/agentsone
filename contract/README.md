@@ -91,6 +91,17 @@ content" warnings.
 
 ## Changelog
 
+### 1.2.0
+
+Additive (minor: a new operation).
+
+- New operation `getNetworkWall` (`GET /machine/wall`, signed-in humans): whether the machine's
+  network wall holds (`holds`), the machine's interfaces besides loopback (`interfaces`), when the
+  daemon last checked (`checked_at`), and, only when it does not hold, plain words that say why and
+  how to fix it (`reason`, up to 500 characters). The daemon checks at start and every 5 minutes
+  and starts no runner while the wall does not hold; the interface shows a banner.
+- New fixtures `getNetworkWall` and `getNetworkWall.broken`.
+
 ### 1.1.1
 
 Descriptions and examples only. No schema change.

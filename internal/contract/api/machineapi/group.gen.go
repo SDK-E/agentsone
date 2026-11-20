@@ -143,3 +143,8 @@ func (Unimplemented) StopService(context.Context, StopServiceRequestObject) (Sto
 func (Unimplemented) ListMachineUsers(context.Context, ListMachineUsersRequestObject) (ListMachineUsersResponseObject, error) {
 	return nil, core.ErrNotImplemented
 }
+
+// GetNetworkWall is not implemented yet.
+func (Unimplemented) GetNetworkWall(context.Context, GetNetworkWallRequestObject) (GetNetworkWallResponseObject, error) {
+	return nil, core.ErrNotImplemented
+}

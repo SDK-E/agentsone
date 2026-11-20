@@ -16,6 +16,27 @@ metrics:
               $ref: "../components/schemas/machine.yaml#/MachineMetrics"
       "401":
         $ref: "../components/responses.yaml#/Unauthorized"
+wall:
+  get:
+    operationId: getNetworkWall
+    tags: [machine]
+    summary: Get the network wall
+    description: >-
+      Says whether the machine's network wall holds: no default route and no network besides the
+      inner one, so the edge is the only way out. The daemon checks it from inside the machine
+      container at start and every 5 minutes; while it does not hold, no agent wakes. Open to
+      signed-in humans; the interface shows a banner while `holds` is false.
+    responses:
+      "200":
+        description: The wall as last checked.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/machine.yaml#/NetworkWall"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthorized"
+      "403":
+        $ref: "../components/responses.yaml#/Forbidden"
 processes:
   get:
     operationId: listProcesses

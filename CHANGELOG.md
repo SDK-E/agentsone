@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An agent's record no longer carries `unit`. It named a systemd unit (`agent@<name>.service`)
   that does not exist, because runners are child processes of the daemon. The field is optional
   and deprecated in contract 1.5.0 and is removed in 2.0. Clients must not read it.
+- The Claude engine is off by default. First setup is done once the first account exists, with no
+  licence or download step. The engine downloads only after someone turns it on in Settings and
+  accepts its licence there. Each install uses its own Anthropic account, key or plan; Agents One
+  does not provide, pay for or resell Claude usage. Contract 1.6.0 says so in `SetupPhase` and
+  adds the `getSetupStatus.engine-off` fixture.
 
 ### Removed
 

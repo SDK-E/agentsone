@@ -16,15 +16,15 @@ import (
 	"github.com/SDK-E/agentsone/internal/contract/api"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/daemontest"
+	mcpapp "github.com/SDK-E/agentsone/internal/mcp/app"
 )
 
 // Integration tests: an agent hires the way its runner does, with the tool
 // token the daemon issues it, over MCP on the API's TCP listener. A token
 // caller is never root, whoever holds it, so these hires go through the
-// same rules a runner meets in production.
-
-// mcpScope is the scope of the tool token the supervisor gives a runner.
-const mcpScope = "mcp:write"
+// same rules a runner meets in production. The token holds the scopes the
+// supervisor gives a runner (mcpapp.RunnerScopes), so a refusal here comes
+// from the chart rules, never from a missing scope.
 
 func TestHire_TheFounderHiresThroughItsTokenOverTheToolServer(t *testing.T) {
 	t.Parallel()
@@ -80,6 +80,11 @@ func TestHire_AnAgentWithoutTheRightIsRefusedThroughItsToken(t *testing.T) {
 
 			if !res.IsError || !strings.Contains(text(res), "status 403") {
 				t.Fatalf("hire_agent = %v %q, want a 403 refusal", res.IsError, text(res))
+			}
+			// The chart refuses, not the scope check: the runner token holds
+			// agents:admin, which hireAgent needs.
+			if strings.Contains(text(res), "scope") {
+				t.Fatalf("hire_agent was refused for a scope (%q), want the chart's refusal", text(res))
 			}
 			if _, err := d.Ports.Agents.GetAgent(asDaemon(), "guard"); !errors.Is(err, core.ErrNotFound) {
 				t.Fatalf("GetAgent(guard) error = %v, want not found", err)
@@ -166,8 +171,12 @@ func toolSession(t *testing.T, d *daemontest.Daemon, agent string) *mcp.ClientSe
 	if err != nil {
 		t.Fatalf("agent %s: %v", agent, err)
 	}
-	subject := core.Caller{Kind: core.CallerAgent, Name: a.Name, UID: a.UID, IsRoot: a.IsRoot, Scopes: []string{mcpScope}}
-	tok, err := d.Ports.Tokens.Issue(asDaemon(), subject, []string{mcpScope}, time.Hour)
+	scopes, err := mcpapp.RunnerScopes()
+	if err != nil {
+		t.Fatalf("runner scopes: %v", err)
+	}
+	subject := core.Caller{Kind: core.CallerAgent, Name: a.Name, UID: a.UID, IsRoot: a.IsRoot}
+	tok, err := d.Ports.Tokens.Issue(asDaemon(), subject, scopes, time.Hour)
 	if err != nil {
 		t.Fatalf("issue %s's tool token: %v", agent, err)
 	}

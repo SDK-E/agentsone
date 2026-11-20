@@ -67,15 +67,15 @@ func (s *Source) Fetch(ctx context.Context, url string, offset int64) (app.Body,
 	case http.StatusPartialContent:
 		start, ok := rangeStart(resp.Header.Get("Content-Range"))
 		if !ok {
-			_ = resp.Body.Close()
+			_ = resp.Body.Close() //nolint:errcheck // a turned-away read-only body has nothing to flush
 			return app.Body{}, fmt.Errorf("the download server sent an unreadable Content-Range %q", resp.Header.Get("Content-Range"))
 		}
 		return app.Body{ReadCloser: resp.Body, Offset: start}, nil
 	case http.StatusRequestedRangeNotSatisfiable:
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // a turned-away read-only body has nothing to flush
 		return app.Body{}, app.ErrRangeRefused
 	}
-	_ = resp.Body.Close()
+	_ = resp.Body.Close() //nolint:errcheck // a turned-away read-only body has nothing to flush
 	return app.Body{}, fmt.Errorf("the download server answered %s", resp.Status)
 }
 

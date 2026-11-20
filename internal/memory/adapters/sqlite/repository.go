@@ -163,7 +163,7 @@ func (s *Repository) List(ctx context.Context, q domain.ListQuery) (domain.Page,
 	if err != nil {
 		return domain.Page{}, fmt.Errorf("list memory: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // rows.Err is checked after the loop; closing a read-only cursor adds nothing
 	var items []domain.Record
 	for rows.Next() {
 		rec, err := scanRecord(rows)
@@ -205,7 +205,7 @@ func (s *Repository) Search(ctx context.Context, q domain.SearchQuery) (domain.H
 	if err != nil {
 		return domain.HitPage{}, fmt.Errorf("search memory: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // rows.Err is checked after the loop; closing a read-only cursor adds nothing
 	hits := []domain.Hit{}
 	for rows.Next() {
 		var (

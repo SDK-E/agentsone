@@ -169,8 +169,7 @@ func flagsFor(op Operation) ([]Flag, bool, error) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		schema, _ := bf.properties[k].(map[string]any)
-		f := newFlag(k, FromBody, schema, op.Body.Required && reqSet[k], "")
+		f := newFlag(k, FromBody, object(bf.properties[k]), op.Body.Required && reqSet[k], "")
 		if err := add(f); err != nil {
 			return nil, false, err
 		}
@@ -180,7 +179,7 @@ func flagsFor(op Operation) ([]Flag, bool, error) {
 
 func newFlag(key, from string, schema Schema, required bool, desc string) Flag {
 	if desc == "" {
-		desc, _ = schema["description"].(string)
+		desc = str(schema["description"])
 	}
 	return Flag{
 		Name: Kebab(key), Key: key, From: from, Kind: kindOf(schema), Required: required,
@@ -208,8 +207,7 @@ func kindOf(s Schema) FlagKind {
 	case "boolean":
 		return FlagBool
 	case "array":
-		items, _ := s["items"].(map[string]any)
-		if typeOf(items) == "string" {
+		if typeOf(object(s["items"])) == "string" {
 			return FlagList
 		}
 	}
@@ -232,9 +230,8 @@ func typeOf(s Schema) string {
 }
 
 func enumOf(s Schema) []string {
-	list, _ := s["enum"].([]any)
 	var out []string
-	for _, e := range list {
+	for _, e := range anySlice(s["enum"]) {
 		if text, ok := e.(string); ok {
 			out = append(out, text)
 		}

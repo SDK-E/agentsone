@@ -30,7 +30,8 @@ var (
 	// at the asked offset; the download then starts over.
 	ErrRangeRefused = errors.New("the download server cannot resume at this offset")
 
-	errShort = errors.New("the download ended before the whole engine arrived")
+	errShort    = errors.New("the download ended before the whole engine arrived")
+	errPartKept = errors.New("the unusable download could not be deleted")
 )
 
 // LicenceGate says whether a human accepted the engine licence.
@@ -162,10 +163,14 @@ func (f *Fetcher) Ensure(ctx context.Context) (domain.Status, error) {
 		return f.fail(ctx, 0, a.Size, "The engine download could not be read back: "+err.Error()+".", err)
 	}
 	if sum != a.SHA256 || size != a.Size {
-		_ = f.d.Disk.RemovePart(f.d.Pin) // a failed removal is retried by the next download, which truncates
+		cause := f.dropPart(ErrChecksum)
 		reason := "The downloaded engine did not match the checksum pinned in this release, so it was deleted. " +
 			"Try again later; if it fails again, the download source changed and needs a new release."
-		return f.fail(ctx, 0, a.Size, reason, ErrChecksum)
+		if errors.Is(cause, errPartKept) {
+			reason = "The downloaded engine did not match the checksum pinned in this release, and it could not be deleted: " +
+				cause.Error() + ". Delete the partial engine download on the state volume, then try again."
+		}
+		return f.fail(ctx, 0, a.Size, reason, cause)
 	}
 	if err := f.d.Disk.Install(f.d.Pin); err != nil {
 		return f.fail(ctx, a.Size, a.Size, "The engine could not be saved on the state volume: "+err.Error()+".", err)
@@ -184,8 +189,19 @@ func (f *Fetcher) installed(a domain.Artifact) bool {
 	if sum == a.SHA256 && size == a.Size {
 		return true
 	}
-	_ = f.d.Disk.RemoveInstalled(f.d.Pin) // install renames over it anyway
+	_ = f.d.Disk.RemoveInstalled(f.d.Pin) //nolint:errcheck // install renames over it anyway, so a binary that stays is replaced
 	return false
+}
+
+// dropPart deletes a download that must not be used again and returns cause.
+// When the delete fails, the part would fail the same way on every later try
+// (a part of the full size is never downloaded again), so the failure is
+// joined to cause instead of being lost.
+func (f *Fetcher) dropPart(cause error) error {
+	if err := f.d.Disk.RemovePart(f.d.Pin); err != nil {
+		return errors.Join(cause, fmt.Errorf("%w: %w", errPartKept, err))
+	}
+	return cause
 }
 
 func (f *Fetcher) download(ctx context.Context, a domain.Artifact) error {
@@ -220,7 +236,7 @@ func (f *Fetcher) attempt(ctx context.Context, a domain.Artifact) error {
 	if offset == a.Size {
 		return nil
 	}
-	_ = f.save(ctx, f.status(domain.StateDownloading, offset, a.Size, ""), nil) // progress is best effort
+	_ = f.save(ctx, f.status(domain.StateDownloading, offset, a.Size, ""), nil) //nolint:errcheck // progress is best effort: the next state change saves again and reports a failing store
 	url := f.d.Pin.URL(a)
 	body, err := f.d.Source.Fetch(ctx, url, offset)
 	if errors.Is(err, ErrRangeRefused) {
@@ -230,7 +246,7 @@ func (f *Fetcher) attempt(ctx context.Context, a domain.Artifact) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = body.Close() }() // a read-only body has nothing to flush
+	defer func() { _ = body.Close() }() //nolint:errcheck // a read-only body has nothing to flush
 	if body.Offset != offset {
 		if body.Offset != 0 {
 			return fmt.Errorf("the download server resumed at byte %d, not %d", body.Offset, offset)
@@ -251,8 +267,7 @@ func (f *Fetcher) attempt(ctx context.Context, a domain.Artifact) error {
 	}
 	switch {
 	case offset+n > a.Size:
-		_ = f.d.Disk.RemovePart(f.d.Pin) // the next download truncates it anyway
-		return ErrTooLarge
+		return f.dropPart(ErrTooLarge)
 	case cerr != nil:
 		return cerr
 	case offset+n < a.Size:
@@ -265,9 +280,17 @@ func (f *Fetcher) downloadFailed(ctx context.Context, a domain.Artifact, err err
 	if ctx.Err() != nil {
 		return domain.Status{}, err
 	}
-	done, _ := f.d.Disk.PartSize(f.d.Pin) // only shown as progress
+	done, serr := f.d.Disk.PartSize(f.d.Pin)
+	if serr != nil {
+		done = 0 // the size is only shown as progress; the failure below is what matters
+	}
 	if errors.Is(err, ErrTooLarge) {
-		return f.fail(ctx, 0, a.Size, "The download was larger than the pinned engine, so it was deleted.", err)
+		reason := "The download was larger than the pinned engine, so it was deleted."
+		if errors.Is(err, errPartKept) {
+			reason = "The download was larger than the pinned engine, and it could not be deleted: " + err.Error() +
+				". Delete the partial engine download on the state volume, then try again."
+		}
+		return f.fail(ctx, 0, a.Size, reason, err)
 	}
 	reason := "The engine download stopped: " + err.Error() + ". It continues from where it stopped on the next try."
 	return f.fail(ctx, done, a.Size, reason, err)
@@ -312,7 +335,7 @@ func (p *progress) Write(b []byte) (int, error) {
 	p.done += int64(n)
 	if p.done >= p.next && p.done < p.total {
 		p.next = p.done + p.f.d.ReportEvery
-		_ = p.f.save(p.ctx, p.f.status(domain.StateDownloading, p.done, p.total, ""), nil) // best effort
+		_ = p.f.save(p.ctx, p.f.status(domain.StateDownloading, p.done, p.total, ""), nil) //nolint:errcheck // progress is best effort, as above
 	}
 	return n, err
 }

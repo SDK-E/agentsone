@@ -26,7 +26,11 @@ func useCommonTimestamp(src []byte, commonPath string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse generated source: %w", err)
 	}
-	var timeTimes []*ast.SelectorExpr
+	type timeUse struct {
+		pkg *ast.Ident // the "time" in time.Time
+		sel *ast.SelectorExpr
+	}
+	var timeTimes []timeUse
 	otherTimeUses := false
 	ast.Inspect(file, func(n ast.Node) bool {
 		sel, ok := n.(*ast.SelectorExpr)
@@ -35,7 +39,7 @@ func useCommonTimestamp(src []byte, commonPath string) ([]byte, error) {
 		}
 		if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "time" {
 			if sel.Sel.Name == "Time" {
-				timeTimes = append(timeTimes, sel)
+				timeTimes = append(timeTimes, timeUse{pkg: pkg, sel: sel})
 			} else {
 				otherTimeUses = true
 			}
@@ -51,9 +55,9 @@ func useCommonTimestamp(src []byte, commonPath string) ([]byte, error) {
 	if commonSpec != nil && commonSpec.Name != nil {
 		ident = commonSpec.Name.Name
 	}
-	for _, sel := range timeTimes {
-		sel.X.(*ast.Ident).Name = ident
-		sel.Sel.Name = "Timestamp"
+	for _, use := range timeTimes {
+		use.pkg.Name = ident
+		use.sel.Sel.Name = "Timestamp"
 	}
 
 	switch {

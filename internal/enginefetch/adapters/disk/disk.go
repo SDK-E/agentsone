@@ -67,12 +67,10 @@ func (d *Disk) AppendPart(p domain.Pin, offset int64) (io.WriteCloser, error) {
 		return nil, fmt.Errorf("open partial download: %w", err)
 	}
 	if err := f.Truncate(offset); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("cut partial download: %w", err)
+		return nil, errors.Join(fmt.Errorf("cut partial download: %w", err), f.Close())
 	}
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("seek partial download: %w", err)
+		return nil, errors.Join(fmt.Errorf("seek partial download: %w", err), f.Close())
 	}
 	return syncCloser{f}, nil
 }
@@ -112,7 +110,7 @@ func (d *Disk) Install(p domain.Pin) error {
 	if err != nil {
 		return fmt.Errorf("open engine folder: %w", err)
 	}
-	defer func() { _ = dir.Close() }() // read-only handle
+	defer func() { _ = dir.Close() }() //nolint:errcheck // read-only handle, synced above
 	if err := dir.Sync(); err != nil {
 		return fmt.Errorf("sync engine folder: %w", err)
 	}
@@ -140,7 +138,7 @@ func sum(path string) (string, int64, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("open %s: %w", filepath.Base(path), err)
 	}
-	defer func() { _ = f.Close() }() // read-only handle
+	defer func() { _ = f.Close() }() //nolint:errcheck // read-only handle, nothing to flush
 	h := sha256.New()
 	n, err := io.Copy(h, f)
 	if err != nil {

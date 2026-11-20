@@ -308,6 +308,41 @@ func TestEnsure_DeletesADownloadThatFailsItsChecksum(t *testing.T) {
 	}
 }
 
+// A part that cannot be deleted would fail the checksum on every later try
+// (a complete part is never downloaded again), so the failure must say so.
+func TestEnsure_ReportsAMismatchedDownloadThatCannotBeDeleted(t *testing.T) {
+	t.Parallel()
+	r := newRig(true)
+	bad := append([]byte(nil), engine...)
+	bad[100] ^= 0xff
+	r.source.Data = bad
+	errLocked := errors.New("disk is read-only")
+	r.disk.FailRemovePart = errLocked
+
+	st, err := r.fetcher(t).Ensure(t.Context())
+
+	if !errors.Is(err, app.ErrChecksum) || !errors.Is(err, errLocked) {
+		t.Fatalf("Ensure() error = %v, want both %v and %v", err, app.ErrChecksum, errLocked)
+	}
+	if st.State != domain.StateFailed || !strings.Contains(st.Error, "could not be deleted") {
+		t.Fatalf("status = %+v, want failed with a reason that says the bad download stays", st)
+	}
+}
+
+func TestEnsure_ReportsAnOversizedDownloadThatCannotBeDeleted(t *testing.T) {
+	t.Parallel()
+	r := newRig(true)
+	r.source.Data = append(append([]byte(nil), engine...), "extra"...)
+	errLocked := errors.New("disk is read-only")
+	r.disk.FailRemovePart = errLocked
+
+	_, err := r.fetcher(t).Ensure(t.Context())
+
+	if !errors.Is(err, app.ErrTooLarge) || !errors.Is(err, errLocked) {
+		t.Fatalf("Ensure() error = %v, want both %v and %v", err, app.ErrTooLarge, errLocked)
+	}
+}
+
 func TestEnsure_DeletesADownloadLargerThanPinned(t *testing.T) {
 	t.Parallel()
 	r := newRig(true)

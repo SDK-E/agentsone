@@ -33,9 +33,8 @@ func injectNotImplemented(doc map[string]any) {
 			},
 		},
 	}
-	paths, _ := doc["paths"].(map[string]any)
-	for _, item := range paths {
-		pathItem, _ := item.(map[string]any)
+	for _, item := range object(doc["paths"]) {
+		pathItem := object(item)
 		for _, method := range httpMethods {
 			op, ok := pathItem[method].(map[string]any)
 			if !ok {

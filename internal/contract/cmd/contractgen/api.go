@@ -42,12 +42,11 @@ type operation struct {
 
 // basePath is the path of the first server URL, for example "/v1".
 func (s spec) basePath() (string, error) {
-	servers, _ := s.doc["servers"].([]any)
+	servers := list(s.doc["servers"])
 	if len(servers) == 0 {
 		return "", nil
 	}
-	first, _ := servers[0].(map[string]any)
-	raw, _ := first["url"].(string)
+	raw := as[string](object(servers[0])["url"])
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "", fmt.Errorf("server url %q: %w", raw, err)
@@ -103,15 +102,17 @@ func (s spec) operations() ([]operation, error) {
 }
 
 func newOperation(method, path string, raw map[string]any) (operation, error) {
-	id, _ := raw["operationId"].(string)
+	id := as[string](raw["operationId"])
 	if id == "" {
 		return operation{}, fmt.Errorf("%s %s has no operationId", method, path)
 	}
-	tags, _ := raw["tags"].([]any)
-	if len(tags) == 0 {
+	var tag string
+	if tags := list(raw["tags"]); len(tags) > 0 {
+		tag = as[string](tags[0])
+	}
+	if tag == "" {
 		return operation{}, fmt.Errorf("operation %s has no tag; the first tag picks its group", id)
 	}
-	tag, _ := tags[0].(string)
 	return operation{
 		Method:      strings.ToUpper(method),
 		Path:        path,
@@ -126,13 +127,11 @@ func streams(op map[string]any) bool {
 	if op["x-stream"] != nil {
 		return true
 	}
-	responses, _ := op["responses"].(map[string]any)
-	for code, r := range responses {
+	for code, r := range object(op["responses"]) {
 		if !strings.HasPrefix(code, "2") {
 			continue
 		}
-		content, _ := r.(map[string]any)["content"].(map[string]any)
-		if _, ok := content[eventStream]; ok {
+		if _, ok := object(object(r)["content"])[eventStream]; ok {
 			return true
 		}
 	}
@@ -188,7 +187,7 @@ func generateAPI(r repo, s spec) error {
 	if err != nil {
 		return fmt.Errorf("temp dir: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	defer func() { _ = os.RemoveAll(tmp) }() //nolint:errcheck // a scratch folder left behind changes nothing in the generated files
 
 	if err := generateModels(r, s, tmp); err != nil {
 		return err

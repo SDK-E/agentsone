@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+# Temporary: proves the wake refusal tests are stable on a GitHub runner. Removed before review.
+name: soak-wake
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soak-wake-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: wake tests, 50 runs under the race detector
+        run: |
+          status=0
+          go test -race -count=50 -run 'TestWake_' -v ./internal/agents/supervisor/app/ > "$RUNNER_TEMP/soak.log" || status=$?
+          grep -E '^--- (PASS|FAIL)' "$RUNNER_TEMP/soak.log" | sed -E 's/ \(.*//' | sort | uniq -c
+          tail -n 3 "$RUNNER_TEMP/soak.log"
+          exit "$status"

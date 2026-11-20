@@ -113,54 +113,29 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Detect Go files
-        id: detect
-        run: |
-          if [ -n "$(find . -name '*.go' -not -path './node_modules/*' -print -quit)" ]; then
-            echo "has_go=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_go=false" >> "$GITHUB_OUTPUT"
-            echo "No Go files yet, skipping Go checks."
-          fi
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
-        if: steps.detect.outputs.has_go == 'true'
         with:
           go-version-file: go.mod
-      - name: go mod tidy
-        if: steps.detect.outputs.has_go == 'true'
-        # Fails when go.mod or go.sum differ from what `go mod tidy` writes; run it and commit.
-        run: go mod tidy -diff
-      - name: gofmt
-        if: steps.detect.outputs.has_go == 'true'
+      - name: go test (throwaway repeat of the wall and restart tests of #69)
         run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "These files need gofmt:" >&2
-            echo "$unformatted" >&2
-            exit 1
-          fi
-      - name: go vet
-        if: steps.detect.outputs.has_go == 'true'
-        run: go vet ./...
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        if: steps.detect.outputs.has_go == 'true'
-        with:
-          version: latest
-      - name: go test
-        if: steps.detect.outputs.has_go == 'true'
-        run: |
-          mkdir -p coverage
-          go test -race -coverprofile=coverage/cover.out ./...
-      - name: coverage floors
-        if: steps.detect.outputs.has_go == 'true'
-        run: scripts/check-coverage.sh coverage/cover.out
+          set -o pipefail
+          go test -race -count=50 -v -run 'Wall|Launch|TestRun_|TestTick_|RunnerExited|Backoff|TestLauncher_' \
+            ./internal/agents/supervisor/app/ ./internal/agents/supervisor/domain/ \
+            ./internal/agents/supervisor/adapters/process/ ./internal/agents/ > repeat.txt 2>&1 || status=$?
+          grep -E '^(ok|FAIL|---)' repeat.txt | grep -v -- '--- PASS' || true
+          echo "top-level PASS: $(grep -c -E '^--- PASS' repeat.txt)"
+          echo "top-level FAIL: $(grep -c -E '^--- FAIL' repeat.txt || true)"
+          for t in $(grep -E '^--- (PASS|FAIL)' repeat.txt | awk '{print $3}' | sort -u); do
+            echo "$t pass=$(grep -c -E "^--- PASS: $t " repeat.txt) fail=$(grep -c -E "^--- FAIL: $t " repeat.txt || true)"
+          done
+          exit "${status:-0}"
 
   go-integration:
     # Linux system tests (TESTING.md B6): real users, homes, sockets and

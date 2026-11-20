@@ -245,9 +245,10 @@ func (s *Service) publish(ctx context.Context, typ string, data map[string]strin
 	// actor, and the society seeds itself on that event.
 	ctx = core.WithCaller(ctx, core.Caller{Kind: core.CallerSystem, Name: "auth", UID: -1})
 	// Events are a notification; a missing bus must not block sign-in, but
-	// a lost event is said out loud.
+	// a lost event is said out loud. The source is the daemon's own: the
+	// events module refuses any other shape for a daemon publish.
 	if _, err := s.d.Events.Publish(ctx, core.Event{
-		SpecVersion: "1.0", Source: "agentsone/auth", Type: typ, DataContentType: "application/json",
+		SpecVersion: "1.0", Source: "/daemon", Type: typ, DataContentType: "application/json",
 		Data: b, Actor: "system:auth", ChartScope: "machine",
 	}); err != nil {
 		s.log().Error("auth: event not published", "type", typ, "err", err)

@@ -16,10 +16,12 @@ import (
 	"github.com/SDK-E/agentsone/internal/auth/authtest"
 	"github.com/SDK-E/agentsone/internal/core"
 	"github.com/SDK-E/agentsone/internal/core/coretest"
+	eventsdomain "github.com/SDK-E/agentsone/internal/events/domain"
 )
 
 // callerEvents records who publishes each event, as the events module
-// takes the actor from the context's caller.
+// takes the actor from the context's caller. It refuses a source the events
+// module refuses, so an event it records would also be stored.
 type callerEvents struct {
 	mu      sync.Mutex
 	callers map[string]core.Caller
@@ -27,6 +29,9 @@ type callerEvents struct {
 }
 
 func (e *callerEvents) Publish(ctx context.Context, ev core.Event) (core.Event, error) {
+	if err := eventsdomain.ValidateSource(ev.Source); err != nil {
+		return core.Event{}, err
+	}
 	c, _ := core.CallerFrom(ctx)
 	e.mu.Lock()
 	defer e.mu.Unlock()

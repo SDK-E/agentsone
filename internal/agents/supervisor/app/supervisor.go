@@ -51,6 +51,9 @@ type Supervisor struct {
 	// resumed is the paused turn each agent was last resumed for, until its
 	// budget runs out again.
 	resumed map[string]string
+	// resumeRetry holds back the next resume of an agent whose last resume
+	// wake failed.
+	resumeRetry map[string]resumeBackoff
 }
 
 var (
@@ -71,7 +74,7 @@ type wakeRequest struct {
 
 // New builds a supervisor.
 func New(d Deps) *Supervisor {
-	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}, resumed: map[string]string{}}
+	return &Supervisor{d: d, runners: map[string]*runner{}, wall: wallUnchecked, wallMarked: map[string]bool{}, refused: map[string]refusal{}, resumed: map[string]string{}, resumeRetry: map[string]resumeBackoff{}}
 }
 
 func (s *Supervisor) runnerLocked(name string) *runner {

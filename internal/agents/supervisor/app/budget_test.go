@@ -221,6 +221,58 @@ func TestTick_RestoredBudgetResumesASleepingAgent(t *testing.T) {
 	}
 }
 
+// A wake the runner did not take must not strand the paused turn: the resume
+// is tried again, but after a wait, not on every tick, and once it works it is
+// not repeated.
+func TestTick_AResumeWakeThatFailedIsRetriedAfterAWait(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	h, conn, turn := startTurn(t, w, "founder")
+	pauseTurn(t, h, turn)
+	done := make(chan error, 1)
+	go func() { done <- w.sup.Sleep(t.Context(), "founder", false) }()
+	conn.next(t) // shutdown
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	const failed = "WARN supervisor: the agent did not take the wake that resumes its paused turn; trying again later"
+	w.launcher.mu.Lock()
+	w.launcher.startErr = errors.New("cannot start the runner")
+	w.launcher.mu.Unlock()
+	w.setBudget("founder", 500)
+
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func() bool { _, ok := w.logs.attrsOf(failed); return ok })
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(w.restoredEvents()); n != 1 {
+		t.Fatalf("%d resume attempts on the tick right after a failure, want 1", n)
+	}
+
+	w.launcher.mu.Lock()
+	w.launcher.startErr = nil
+	w.launcher.mu.Unlock()
+	w.fakes.Clock.Advance(61 * time.Second)
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func() bool { return w.launcher.isRunning("founder") })
+	if n := len(w.restoredEvents()); n != 2 {
+		t.Fatalf("%d resume attempts after the wait, want 2", n)
+	}
+
+	w.fakes.Clock.Advance(11 * time.Minute)
+	if err := w.sup.Tick(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(w.restoredEvents()); n != 2 {
+		t.Errorf("%d resume attempts after a success, want still 2", n)
+	}
+}
+
 // refusingBus is an event bus that cannot publish.
 type refusingBus struct{ *coretest.Events }
 

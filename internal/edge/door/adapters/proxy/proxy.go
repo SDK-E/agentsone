@@ -40,6 +40,7 @@ func New(upstream *url.URL, log *slog.Logger) http.Handler {
 			// against it, and believes it only from the door's address.
 			pr.Out.Header.Set("X-Forwarded-Host", pr.In.Host)
 		},
+		Transport: ownTransport(),
 		// Flush every write: event streams and long polls reach the browser as they happen.
 		FlushInterval: -1,
 		ErrorLog:      slog.NewLogLogger(log.Handler(), slog.LevelWarn),
@@ -54,4 +55,15 @@ func New(upstream *url.URL, log *slog.Logger) http.Handler {
 			})
 		},
 	}
+}
+
+// ownTransport is a copy of the standard transport, so the door's connections to the machine are
+// its own. With http.DefaultTransport, anything else in the process that closes its idle
+// connections could close one just as it answered a request in flight, and the door would answer
+// that request 502 though the machine is up.
+func ownTransport() *http.Transport {
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		return t.Clone()
+	}
+	return &http.Transport{Proxy: http.ProxyFromEnvironment, ForceAttemptHTTP2: true}
 }

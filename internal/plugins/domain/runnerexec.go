@@ -45,7 +45,9 @@ type BuiltinRunner struct {
 	Version     string
 }
 
-// BuiltinRunners lists the runners under <libDir>/runners: echo and openai.
+// BuiltinRunners lists the runners under <libDir>/runners: echo, openai and
+// claude. The claude runner ships in the image; its engine downloads after
+// a human accepts the engine's licence.
 func BuiltinRunners(libDir string) []BuiltinRunner {
 	bin := func(name string) string { return filepath.Join(libDir, "runners", name) }
 	return []BuiltinRunner{
@@ -56,6 +58,10 @@ func BuiltinRunners(libDir string) []BuiltinRunner {
 		{
 			Runner:      Runner{Name: "openai", Description: "Calls the model through the host gateway.", Command: bin("openai"), ProtocolVersions: []string{"1.1", "1.0"}},
 			DisplayName: "OpenAI compatible", Model: "autoagents/one", Version: "1.1.0",
+		},
+		{
+			Runner:      Runner{Name: "claude", Description: "Runs the Claude Code engine through the host gateway. The engine downloads after a human accepts its licence.", Command: bin("claude"), ProtocolVersions: []string{"1.1", "1.0"}},
+			DisplayName: "Claude Code", Model: "autoagents/one", Version: "1.1.0",
 		},
 	}
 }

@@ -14,6 +14,7 @@ import (
 	supapp "github.com/SDK-E/agentsone/internal/agents/supervisor/app"
 	"github.com/SDK-E/agentsone/internal/agents/supervisor/domain"
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/runners/claude"
 	"github.com/SDK-E/agentsone/runners/echo"
 	"github.com/SDK-E/agentsone/runners/openai"
 	"github.com/SDK-E/agentsone/runners/sdk"
@@ -70,7 +71,7 @@ func (l *inProcess) Start(_ context.Context, agent string) error {
 	if _, ok := l.running[agent]; ok {
 		return nil
 	}
-	opts, h, err := runnerFor(spec)
+	opts, h, err := runnerFor(spec, l.runtimeDir)
 	if err != nil {
 		return fmt.Errorf("start %s: %w", agent, err)
 	}
@@ -169,7 +170,10 @@ func (l *inProcess) runnerEnds() []error {
 	return append([]error(nil), l.ends...)
 }
 
-func runnerFor(spec domain.UnitSpec) (sdk.Options, sdk.Handler, error) {
+// runnerFor picks the runner of spec. runtimeDir holds the claude runner's
+// state; its engine is never installed in the harness, as on a machine
+// where no human turned the Claude engine on.
+func runnerFor(spec domain.UnitSpec, runtimeDir string) (sdk.Options, sdk.Handler, error) {
 	switch name := filepath.Base(spec.Exec.Path); name {
 	case "echo":
 		return echo.Options(), echo.New(), nil
@@ -177,10 +181,22 @@ func runnerFor(spec domain.UnitSpec) (sdk.Options, sdk.Handler, error) {
 		// It reaches the model gateway and the tool server at the addresses
 		// of its welcome; WithModelProvider makes them the harness's.
 		return openai.Options(), openai.New(openai.Config{}), nil
+	case "claude":
+		state := filepath.Join(runtimeDir, "claude-"+spec.Agent)
+		return claude.Options(), claude.New(claude.Config{
+			EnginePath: filepath.Join(state, NoEngine),
+			StateDir:   state,
+			Log:        func(string) {},
+		}), nil
 	default:
-		return sdk.Options{}, nil, fmt.Errorf("runner %q does not run in process; the harness runs echo and openai", name)
+		return sdk.Options{}, nil, fmt.Errorf("runner %q does not run in process; the harness runs echo, openai and claude", name)
 	}
 }
+
+// NoEngine is the file name the harness gives the claude runner as its
+// engine. The file never exists, so every turn of a claude agent meets a
+// machine whose Claude engine is not installed.
+const NoEngine = "claude-engine-not-installed"
 
 // socketOf is the socket path the runner adapter told the runner to dial.
 func socketOf(spec domain.UnitSpec) (string, error) {

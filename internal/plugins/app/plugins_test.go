@@ -280,7 +280,7 @@ func TestPlugins_RunnersListBuiltinsAndEnabledPluginRunners(t *testing.T) {
 	for _, r := range infos {
 		names = append(names, r.Name)
 	}
-	if len(names) != 3 || names[0] != "acme" || names[1] != "echo" || names[2] != "openai" {
+	if len(names) != 4 || names[0] != "acme" || names[1] != "claude" || names[2] != "echo" || names[3] != "openai" {
 		t.Fatalf("runners = %v", names)
 	}
 

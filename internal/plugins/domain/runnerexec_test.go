@@ -48,20 +48,21 @@ func TestRunnerExec_ACommandWithoutPluginRootIsLeftAlone(t *testing.T) {
 	}
 }
 
-func TestBuiltinRunners_AreEchoAndOpenAIUnderTheLibDir(t *testing.T) {
+func TestBuiltinRunners_AreEchoOpenAIAndClaudeUnderTheLibDir(t *testing.T) {
 	t.Parallel()
 	got := domain.BuiltinRunners("/usr/lib/agentsone")
-	if len(got) != 2 || got[0].Name != "echo" || got[1].Name != "openai" {
+	if len(got) != 3 || got[0].Name != "echo" || got[1].Name != "openai" || got[2].Name != "claude" {
 		t.Fatalf("builtins = %+v", got)
 	}
-	if got[0].Command != "/usr/lib/agentsone/runners/echo" || got[1].Command != "/usr/lib/agentsone/runners/openai" {
-		t.Errorf("commands = %q, %q", got[0].Command, got[1].Command)
+	if got[0].Command != "/usr/lib/agentsone/runners/echo" || got[1].Command != "/usr/lib/agentsone/runners/openai" ||
+		got[2].Command != "/usr/lib/agentsone/runners/claude" {
+		t.Errorf("commands = %q, %q, %q", got[0].Command, got[1].Command, got[2].Command)
 	}
-	if got[1].Model != "autoagents/one" || got[0].Model != "" {
-		t.Errorf("models = %q, %q", got[0].Model, got[1].Model)
+	if got[0].Model != "" || got[1].Model != "autoagents/one" || got[2].Model != "autoagents/one" {
+		t.Errorf("models = %q, %q, %q", got[0].Model, got[1].Model, got[2].Model)
 	}
-	// Both renew their tokens on protocol 1.1 and still speak 1.0
-	// (runners/echo and runners/openai, version 1.1.0).
+	// All renew their tokens on protocol 1.1 and still speak 1.0
+	// (runners/echo, runners/openai and runners/claude, version 1.1.0).
 	for _, b := range got {
 		if b.Version != "1.1.0" || strings.Join(b.ProtocolVersions, ",") != "1.1,1.0" {
 			t.Errorf("%s: version %q, protocols %v, want 1.1.0 speaking 1.1 then 1.0", b.Name, b.Version, b.ProtocolVersions)

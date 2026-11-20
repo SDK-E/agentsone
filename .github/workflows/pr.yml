@@ -17,21 +17,22 @@ permissions:
 
 # Body-only edits. Editing a pull request fires `edited`, and the payload's `changes` names what
 # changed: `title`, `base` or `body`. A body-only edit (no `title`, no `base`) changes nothing
-# the checks look at, so its run checks nothing: every job below is skipped on it, and it runs
-# in its own concurrency group, so it never cancels the running checks of the same commit.
+# the checks look at, so its run checks nothing: every job below but the gate is skipped on it.
+# It runs in its own concurrency group and cancels nothing, so it never cancels the running
+# checks of the same commit, and body-only edits made one after another queue up.
 #
-# Such a run must never report the required `gate` check, because a skipped check counts as
-# passed and the newest check of a name wins: a skipped `gate` would turn a failed gate green
-# with no check run again. So on a body-only edit the gate job is skipped and has another name
-# (see the gate job). Every other run, title and base edits included, runs the checks in full
-# and reports `gate` as before. A title or base edit still cancels the running checks: it
+# Such a run must never report the required `gate` check, because a skipped or passed check
+# there would be the newest check of that name on the commit and would turn a failed gate green
+# with no check run again. So on a body-only edit the gate job has another name and only says
+# so (see the gate job). Every other run, title and base edits included, runs the checks in
+# full and reports `gate` as before. A title or base edit still cancels the running checks: it
 # changes what the gate checks, so the gate runs again on the new title or base.
 #
-# The test, repeated on each job that has no other job to wait for:
+# The test, repeated on each job that has no other job to wait for and in the gate:
 #   github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
 concurrency:
   group: pr-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base && '-body-edit' || '' }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
 
 jobs:
   changes:
@@ -556,17 +557,18 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   gate:
-    # The one required check. On a body-only edit (see concurrency above) the gate is skipped
-    # and named otherwise, so that run never reports a `gate` check: a skipped `gate` would
-    # count as passed and replace a failed one on the same commit. Every other run names it
-    # `gate`, and it fails unless the jobs that run on every pull request or merge group passed,
-    # so a run where everything was skipped cannot pass it either.
+    # The one required check. On a body-only edit (see concurrency above) this job is named
+    # otherwise and only says so, so that run never reports a `gate` check: a `gate` that passed
+    # or was skipped there would replace a failed one on the same commit. It is not skipped on
+    # that run, because GitHub names a skipped job by the raw text of its `name` expression.
+    # Every other run names it `gate`, and it fails unless the jobs that run on every pull
+    # request or merge group passed, so a run where everything was skipped cannot pass it. The
+    # name and the steps use the same test, so whenever this job is named `gate` the checks
+    # below run, and they fail if the other jobs were skipped.
     name: >-
       ${{ github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
       && 'body-only edit: no checks run' || 'gate' }}
-    if: >-
-      always() &&
-      (github.event.action != 'edited' || github.event.changes.title || github.event.changes.base)
+    if: always()
     needs:
       - changes
       - go
@@ -589,7 +591,11 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     steps:
+      - name: Body-only edit, nothing to check
+        if: github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base
+        run: echo "Only the body changed. The gate of the last full run on this commit stands."
       - name: Fail when a needed job failed or was cancelled
+        if: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
@@ -603,6 +609,7 @@ jobs:
             esac
           done
       - name: Fail when a job that always runs did not pass
+        if: ${{ !(github.event.action == 'edited' && !github.event.changes.title && !github.event.changes.base) }}
         env:
           EVENT: ${{ github.event_name }}
           CHANGES: ${{ needs.changes.result }}

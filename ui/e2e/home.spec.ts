@@ -129,6 +129,29 @@ test("home, a refresh that fails keeps the page and says so without moving it", 
   // One row on every width, with the button beside the text.
   const row = await page.locator(".stale").boundingBox();
   expect(row?.height).toBeLessThan(40);
+  // The button is small to look at, but a 24 by 24 pixel square around its centre hits it.
+  const target = await retry.boundingBox();
+  const centre = {
+    x: (target?.x ?? 0) + (target?.width ?? 0) / 2,
+    y: (target?.y ?? 0) + (target?.height ?? 0) / 2,
+  };
+  const reached = await page.evaluate(({ x, y }) => {
+    const corners = [
+      [-12, -12],
+      [12, -12],
+      [-12, 12],
+      [12, 12],
+      [0, 0],
+    ] as const;
+    return corners.every(([dx, dy]) => {
+      const hit = document.elementFromPoint(
+        x + dx + (dx > 0 ? -1 : 1) * (dx === 0 ? 0 : 0.5),
+        y + dy + (dy > 0 ? -1 : 1) * (dy === 0 ? 0 : 0.5),
+      );
+      return hit?.closest("button")?.textContent === "Try again";
+    });
+  }, centre);
+  expect(reached).toBe(true);
   // At the top of the page the line covers nothing: it ends above the first card.
   const firstTop = await page.evaluate(() => {
     const tops = [...document.querySelectorAll("main > *")]

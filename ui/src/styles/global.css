@@ -515,6 +515,29 @@ ul.notice {
   gap: var(--space-xs) var(--space-sm);
 }
 
+/* The safety chip is a button that looks like the soft wall label: small and quiet, with a hit
+   area of 44px that reaches past its outline without moving anything. */
+.safety-chip {
+  position: relative;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.safety-chip::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.safety-chip:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
 .society__title .safety-chip {
   margin-inline-start: 0;
 }

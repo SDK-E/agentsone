@@ -2,6 +2,7 @@
 import { useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 
+import { usePanelRequest } from "../../shell/panel-request";
 import { MachineCard } from "../monitor/machine-card";
 import { FilesSection } from "./files";
 import { PackagesSection } from "./packages";
@@ -41,6 +42,13 @@ const VIEWS: Record<Section, ComponentType> = {
 export default function MachinePanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.machine" });
   const [section, setSection] = useState<Section>("usage");
+  // The society's safety chip asks for the safety notice, which lives in usage.
+  const { request } = usePanelRequest();
+  const [shown, setShown] = useState(request?.seq);
+  if (request?.panel === "machine" && request.target && request.seq !== shown) {
+    setShown(request.seq);
+    setSection("usage");
+  }
   const View = VIEWS[section];
   // On a phone the sections scroll sideways; fade the end that hides part of a section.
   const row = useRowEdges<HTMLDivElement>();

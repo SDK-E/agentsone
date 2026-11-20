@@ -5,10 +5,12 @@
 // tone from it. Today there is one level, `limitsSoft`. A stronger level is added as one more
 // entry in LEVELS and its words in en.json, without changing the places that show it.
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { MachineMetrics } from "../api/api";
 import { useApi } from "../app/api-context";
+import { usePanelRequest } from "./panel-request";
 
 export const metricsKey = ["monitor", "metrics"] as const;
 
@@ -47,12 +49,38 @@ export function safetyOf(metrics: MachineMetrics | undefined): MachineSafety | u
   return undefined;
 }
 
-/** The notice: what holds less than it should, and why in the daemon's words. */
+/**
+ * The notice: what holds less than it should, and why in the daemon's words. When the chip asked
+ * for it, it brings itself into view and takes focus, once.
+ */
 export function SafetyNotice({ safety }: { safety: MachineSafety }) {
   const { t } = useTranslation(undefined, { keyPrefix: `safety.${safety.level}` });
   const { tone, role } = LEVELS[safety.level];
+  const { request, take } = usePanelRequest();
+  const ref = useRef<HTMLDivElement>(null);
+  const asked = request?.target === safety.level;
+  useEffect(() => {
+    if (!asked) return;
+    // On a phone the panels sheet opens in the same commit, after this effect, and a modal
+    // dialog takes focus as it opens; so move focus on the next frame, once per request.
+    const frame = requestAnimationFrame(() => {
+      if (!take(safety.level)) return;
+      ref.current?.scrollIntoView({ block: "center" });
+      ref.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [asked, take, safety.level]);
   return (
-    <div role={role} aria-label={t("label")} className={`notice safety safety--${tone} stack-sm`}>
+    <div
+      ref={ref}
+      id={`safety-${safety.level}`}
+      tabIndex={-1}
+      role={role}
+      aria-label={t("label")}
+      className={`notice safety safety--${tone} stack-sm`}
+    >
       <p>
         <strong>{t("title")}</strong> {t("body")}
       </p>
@@ -61,14 +89,21 @@ export function SafetyNotice({ safety }: { safety: MachineSafety }) {
   );
 }
 
-/** The chip: a small label for places that only point at the notice, such as the society. */
+/** The chip: small and quiet, for places that only point at the notice. It opens the notice. */
 export function SafetyChip({ safety }: { safety: MachineSafety }) {
   const { t } = useTranslation(undefined, { keyPrefix: `safety.${safety.level}` });
   const { tone } = LEVELS[safety.level];
+  const { openPanel } = usePanelRequest();
   return (
-    <p className={`wall wall--soft safety-chip safety-chip--${tone}`}>
+    <button
+      type="button"
+      className={`wall wall--soft safety-chip safety-chip--${tone}`}
+      aria-label={t("chipLabel")}
+      onClick={() => {
+        openPanel("machine", safety.level);
+      }}
+    >
       {t("chip")}
-      <span className="visually-hidden">{t("chipMore")}</span>
-    </p>
+    </button>
   );
 }

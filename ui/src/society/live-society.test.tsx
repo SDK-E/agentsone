@@ -31,17 +31,16 @@ describe("LiveSociety", () => {
     expect(screen.getByText("Live")).toBeVisible();
   });
 
-  it("wears a small chip when agent limits are soft, and says more to a screen reader", async () => {
+  it("wears a small chip when agent limits are soft, named for where it leads", async () => {
     const api = new FakeApi();
     api.metrics = fixtures.metricsSoft;
     const { container } = renderWith(<LiveSociety />, api);
     await residents();
 
-    const chip = await screen.findByText("Limits: soft");
-    expect(chip).toBeVisible();
-    expect(chip).toHaveTextContent(
-      "Limits: soft. The kernel does not hold custom agents' limits on this machine. The Machine panel says why.",
-    );
+    const chip = await screen.findByRole("button", {
+      name: "Limits: soft. Open the Machine panel to see why.",
+    });
+    expect(chip).toHaveTextContent("Limits: soft");
     // Only the chip: the notice and the daemon's reason stay in the Machine panel.
     expect(screen.queryByRole("note")).toBeNull();
     expect(screen.queryByText(fixtures.metricsSoft.agent_limits?.reason ?? "")).toBeNull();

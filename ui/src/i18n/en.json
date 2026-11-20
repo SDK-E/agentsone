@@ -106,9 +106,9 @@
     "limitsSoft": {
       "label": "Agent limits",
       "title": "Agent limits: soft.",
-      "body": "The kernel does not hold custom agents' CPU, memory and process limits on this machine.",
+      "body": "Custom agents do not get a cgroup of their own on this machine, so their CPU use is not capped.",
       "chip": "Limits: soft",
-      "chipMore": ". The kernel does not hold custom agents' limits on this machine. The Machine panel says why."
+      "chipLabel": "Limits: soft. Open the Machine panel to see why."
     }
   },
   "society": {

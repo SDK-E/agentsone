@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { panels, type PanelId } from "../panels/registry";
+import { usePanelRequest } from "./panel-request";
 import { Loading } from "./status";
 import { useMediaQuery } from "./use-media-query";
 
@@ -42,7 +43,14 @@ function Chevron({ side, ref }: { side: "start" | "end"; ref: Ref<HTMLSpanElemen
 /** The panels under the home screen, as tabs. Arrow keys move between tabs, as WAI-ARIA asks. */
 export function PanelTabs() {
   const { t } = useTranslation();
-  const [active, setActive] = useState<PanelId>(panels[0]?.id ?? "monitor");
+  const { request } = usePanelRequest();
+  const [active, setActive] = useState<PanelId>(request?.panel ?? panels[0]?.id ?? "monitor");
+  // Something on the home screen asked for a panel: turn to it, once per request.
+  const [turned, setTurned] = useState(request?.seq);
+  if (request && request.seq !== turned) {
+    setTurned(request.seq);
+    setActive(request.panel);
+  }
   const tabs = useRef<Partial<Record<PanelId, HTMLButtonElement | null>>>({});
   const list = useRef<HTMLDivElement>(null);
   const cues = useRef<Record<"start" | "end", HTMLSpanElement | null>>({ start: null, end: null });
@@ -216,6 +224,13 @@ export function PanelsArea() {
   const phone = useMediaQuery("(max-width: 767px)");
   const sheet = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+  const { request } = usePanelRequest();
+  // On a phone the panels live in a sheet: a request for a panel opens it, once per request.
+  const [opened, setOpened] = useState(request?.seq);
+  if (request && request.seq !== opened) {
+    setOpened(request.seq);
+    if (phone) setOpen(true);
+  }
 
   useEffect(() => {
     const dialog = sheet.current;

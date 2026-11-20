@@ -12,6 +12,11 @@
 // any header or in the body. GET /seen returns the notes. The fake never keeps or returns a key
 // itself, so the e2e can show what the provider saw without printing a secret.
 //
+// PUT /script sets the next answers to chat calls (not routing prompts), in order: each is a text
+// or the tool calls the model asks for, as an agent's turn needs them. A PUT replaces the script;
+// once it is used up, chat calls get the fixed reply again. GET /script says how many are left.
+// Only the outer network reaches the fake, so the machine cannot script it.
+//
 // Usage:
 //
 //	fakeprovider serve [addr]   serve on addr (default :8080) until SIGTERM or SIGINT
@@ -78,6 +83,8 @@ type Call struct {
 	Headers []string `json:"headers"`
 	// GatewayToken is true when an ao1. token was in any header value or in the body.
 	GatewayToken bool `json:"gateway_token"`
+	// Scripted is true when the answer was the next reply of the script (PUT /script).
+	Scripted bool `json:"scripted"`
 }
 
 // Seen is the answer of GET /seen.
@@ -85,10 +92,47 @@ type Seen struct {
 	Calls []Call `json:"calls"`
 }
 
+// ToolCall is a call of a function the model asks for, in the chat-completions shape.
+type ToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name string `json:"name"`
+		// Arguments is the JSON text of the arguments, as the API sends it.
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+// Reply is one answer: a text, or the tool calls the model asks for. Never both.
+type Reply struct {
+	Content   string     `json:"content,omitempty"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+}
+
+// Script is the body of PUT /script: the next answers to chat calls, in order.
+type Script struct {
+	Replies []Reply `json:"replies"`
+}
+
+func (s Script) validate() error {
+	for i, r := range s.Replies {
+		if (r.Content == "") == (len(r.ToolCalls) == 0) {
+			return fmt.Errorf("reply %d: give a content or tool calls, not both", i)
+		}
+		for j, c := range r.ToolCalls {
+			if c.ID == "" || c.Type != "function" || c.Function.Name == "" || !json.Valid([]byte(c.Function.Arguments)) {
+				return fmt.Errorf("reply %d, tool call %d: needs an id, type function, a name and JSON arguments", i, j)
+			}
+		}
+	}
+	return nil
+}
+
 // Provider is the fake. The zero value is ready.
 type Provider struct {
-	mu    sync.Mutex
-	calls []Call
+	mu     sync.Mutex
+	calls  []Call
+	script []Reply
 }
 
 // Handler serves the provider routes.
@@ -96,6 +140,8 @@ func (p *Provider) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/chat/completions", p.complete)
 	mux.HandleFunc("GET /seen", p.seen)
+	mux.HandleFunc("PUT /script", p.setScript)
+	mux.HandleFunc("GET /script", p.scriptLeft)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = io.WriteString(w, "ok\n") //nolint:errcheck // the status is already sent; a gone client has nothing to be told
@@ -138,25 +184,62 @@ func (p *Provider) complete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "send the provider key as a bearer token", http.StatusUnauthorized)
 		return
 	}
-	content, routed := routeVerdict(req)
-	call.Kind = KindChat
-	if routed {
-		call.Kind = KindRoute
-	} else {
-		content = ChatReply
+	verdict, routed := routeVerdict(req)
+	reply := Reply{Content: verdict}
+	call.Kind = KindRoute
+	if !routed {
+		call.Kind = KindChat
+		reply, call.Scripted = p.next()
 	}
 	p.note(call)
 	if req.Stream {
-		writeStream(w, req.Model, content)
+		writeStream(w, req.Model, reply)
 		return
 	}
-	writeJSON(w, completion(req.Model, content))
+	writeJSON(w, completion(req.Model, reply))
 }
 
 func (p *Provider) note(c Call) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.calls = append(p.calls, c)
+}
+
+// next takes the next scripted reply; with none left it is the fixed chat reply.
+func (p *Provider) next() (Reply, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.script) == 0 {
+		return Reply{Content: ChatReply}, false
+	}
+	r := p.script[0]
+	p.script = p.script[1:]
+	return r, true
+}
+
+func (p *Provider) setScript(w http.ResponseWriter, r *http.Request) {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBody))
+	dec.DisallowUnknownFields()
+	var s Script
+	if err := dec.Decode(&s); err != nil {
+		http.Error(w, "the script is not JSON of the form {\"replies\": [...]}: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p.mu.Lock()
+	p.script = s.Replies
+	p.mu.Unlock()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (p *Provider) scriptLeft(w http.ResponseWriter, _ *http.Request) {
+	p.mu.Lock()
+	left := len(p.script)
+	p.mu.Unlock()
+	writeJSON(w, map[string]int{"left": left})
 }
 
 func (p *Provider) seen(w http.ResponseWriter, _ *http.Request) {
@@ -242,19 +325,42 @@ type usage struct {
 
 var fixedUsage = usage{PromptTokens: PromptTokens, CompletionTokens: CompletionTokens, TotalTokens: PromptTokens + CompletionTokens}
 
-func completion(model, content string) map[string]any {
+// finish is the finish reason of a reply.
+func (r Reply) finish() string {
+	if len(r.ToolCalls) > 0 {
+		return "tool_calls"
+	}
+	return "stop"
+}
+
+func completion(model string, r Reply) map[string]any {
+	msg := map[string]any{"role": "assistant", "content": r.Content}
+	if len(r.ToolCalls) > 0 {
+		msg = map[string]any{"role": "assistant", "content": nil, "tool_calls": r.ToolCalls}
+	}
 	return map[string]any{
 		"id": "chatcmpl-e2e", "object": "chat.completion", "created": time.Now().Unix(), "model": model,
-		"choices": []any{map[string]any{
-			"index": 0, "message": map[string]any{"role": "assistant", "content": content}, "finish_reason": "stop",
-		}},
-		"usage": fixedUsage,
+		"choices": []any{map[string]any{"index": 0, "message": msg, "finish_reason": r.finish()}},
+		"usage":   fixedUsage,
 	}
 }
 
-// writeStream answers as an OpenAI event stream: the content, the stop, the usage chunk and
-// [DONE].
-func writeStream(w http.ResponseWriter, model, content string) {
+// delta is the first stream chunk's delta of a reply: its text, or its tool calls with their
+// index.
+func (r Reply) delta() map[string]any {
+	if len(r.ToolCalls) == 0 {
+		return map[string]any{"role": "assistant", "content": r.Content}
+	}
+	calls := make([]any, 0, len(r.ToolCalls))
+	for i, c := range r.ToolCalls {
+		calls = append(calls, map[string]any{"index": i, "id": c.ID, "type": c.Type, "function": c.Function})
+	}
+	return map[string]any{"role": "assistant", "tool_calls": calls}
+}
+
+// writeStream answers as an OpenAI event stream: the content or the tool calls, the finish, the
+// usage chunk and [DONE].
+func writeStream(w http.ResponseWriter, model string, r Reply) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	chunk := func(choices []any, extra map[string]any) map[string]any {
@@ -266,8 +372,8 @@ func writeStream(w http.ResponseWriter, model, content string) {
 		return c
 	}
 	events := []map[string]any{
-		chunk([]any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant", "content": content}, "finish_reason": nil}}, nil),
-		chunk([]any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}}, nil),
+		chunk([]any{map[string]any{"index": 0, "delta": r.delta(), "finish_reason": nil}}, nil),
+		chunk([]any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": r.finish()}}, nil),
 		chunk([]any{}, map[string]any{"usage": fixedUsage}),
 	}
 	for _, e := range events {

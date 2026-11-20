@@ -28,7 +28,8 @@ If the machine reaches the internet without the edge, the deployment is not in R
   `docker version --format '{{.Server.Version}}'` on the server before you deploy.
 - Docker Compose v2 or newer (Coolify's installer brings it).
 - A Linux server with cgroup v2. Check with `stat -fc %T /sys/fs/cgroup`: it must print
-  `cgroup2fs`.
+  `cgroup2fs`. Then each custom agent gets hard limits, and the machine's log says
+  `limits: hard (cgroup v2, writable)` at start. Without it the log says `limits: soft` and why.
 - Two domains pointing at the server: one for the web door, one for the control page.
 - A server that is not shared with another Agents One stack: the subnets and router names are
   fixed per stack.

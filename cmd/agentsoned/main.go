@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/SDK-E/agentsone/internal/agents/supervisor/adapters/process"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -35,6 +36,10 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	// Decide once, before any agent runs, whether custom agents get hard
+	// limits (a cgroup each) or soft ones, and say so on one log line.
+	limits := process.ProbeSystem()
+	limits.Log(log)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	stores, closeStores, err := openStores(ctx, cfg)
@@ -54,7 +59,7 @@ func run(configPath string) error {
 		IDs:    core.SystemIDs(),
 		Stores: stores,
 		Ports:  core.NewPorts(),
-	})
+	}, limits.Root)
 }
 
 func newLogger(c core.LogConfig) (*slog.Logger, error) {

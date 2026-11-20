@@ -199,6 +199,15 @@ jobs:
               -e AGENTSONE_SYSTEST_IN_CONTAINER=1 -v "$PWD/systest:/systest:ro" \
               ubuntu:24.04 sh -c 'grep CapEff /proc/self/status; exec "/systest/$(basename "$0")" -test.v -test.count=1' "$bin"
           done
+      - name: agent limits on a read-only cgroup tree
+        # The step above runs on the machine recipe, where the daemon's start
+        # probe must give hard limits. Without writable-cgroups Docker mounts
+        # the cgroup tree read-only: the probe must fall back to soft limits,
+        # say why, and still run custom agents.
+        run: |
+          docker run --rm --cgroupns=private --security-opt no-new-privileges=true \
+            -e AGENTSONE_SYSTEST_IN_CONTAINER=1 -e AGENTSONE_SYSTEST_CGROUPS=read-only -v "$PWD/systest:/systest:ro" \
+            ubuntu:24.04 sh -c 'grep CapEff /proc/self/status; exec /systest/internal_agents_supervisor_system_boot.test -test.v -test.count=1'
 
   go-test-drops:
     # Test code may keep old blank drops (see .golangci.yml), but new test
@@ -299,6 +308,26 @@ jobs:
             echo "compose.coolify.yaml is out of date; remake it as its header says" >&2
             exit 1
           fi
+      - name: Machine keeps the cgroup recipe, no service is privileged
+        # Hard per-agent limits need the machine in a private cgroup namespace with writable
+        # cgroups. They never need privileged, an added capability or the Docker socket, on any
+        # service.
+        env:
+          AGENTSONE_DOMAIN: door.example.test
+          AGENTSONE_CONTROL_DOMAIN: control.example.test
+        run: |
+          for f in compose.yaml compose.coolify.yaml; do
+            docker compose -f "$f" config --format json > "$RUNNER_TEMP/stack.json"
+            if ! jq -e '.services.machine | .cgroup == "private" and any(.security_opt[]?; . == "writable-cgroups=true")' "$RUNNER_TEMP/stack.json" > /dev/null; then
+              echo "$f: machine needs cgroup: private and security_opt writable-cgroups=true" >&2
+              exit 1
+            fi
+            if ! jq -e '[.services[] | (.privileged // false) == false and (.cap_add // []) == [] and ([.volumes[]?.source // "" | select(test("docker\\.sock"))] == [])] | all' "$RUNNER_TEMP/stack.json" > /dev/null; then
+              echo "$f: a service is privileged, adds a capability or mounts the Docker socket" >&2
+              exit 1
+            fi
+            echo "$f: machine has cgroup: private and writable-cgroups=true; no service is privileged, adds a capability or mounts the Docker socket"
+          done
       - name: hadolint
         run: docker run --rm -v "$PWD/image/edge:/work:ro" --workdir /work "$HADOLINT_IMAGE" hadolint Dockerfile
       - name: e2e stage list

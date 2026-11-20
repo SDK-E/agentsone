@@ -183,20 +183,36 @@ func TestCgroup_CustomAgentCannotLeaveOrChangeItsWall(t *testing.T) {
 	run(t, other, `echo up > "$OUT"; exec sleep 600`, limits, root)
 	otherDir := filepath.Join(root, other.User)
 	selfDir := filepath.Join(root, acc.User)
+	l := &process.Launcher{CgroupRoot: root}
+	// A human's web terminal cell, which the socket names as that human.
+	humans := filepath.Join(filepath.Dir(root), process.HumansCgroup)
+	humanDir := filepath.Join(humans, "aotest-hana")
+	evilHuman := filepath.Join(humans, "aotest-evil")
+	t.Cleanup(func() {
+		for _, d := range []string{evilHuman, humanDir} {
+			if err := os.Remove(d); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("remove %s: %v", d, err)
+			}
+		}
+	})
+	if _, err := l.HumanCell(t.Context(), "aotest-hana"); err != nil {
+		t.Fatal(err)
+	}
 	// Each attempt runs in a subshell, so a write that worked would move or
 	// change only that subshell; the answer is in the exit status.
 	script := `if (echo $$ > "$OTHER/cgroup.procs") 2>/dev/null; then a=moved; else a=refused; fi; ` +
 		`if (echo $$ > "$DAEMON_CG/cgroup.procs") 2>/dev/null; then b=moved; else b=refused; fi; ` +
 		`if mkdir "$EVIL" 2>/dev/null; then c=made; else c=refused; fi; ` +
 		`if (echo max > "$SELF_CG/pids.max") 2>/dev/null; then d=raised; else d=refused; fi; ` +
-		`export R="join-other=$a join-daemon=$b mkdir=$c raise-limit=$d"; exec "$BIN"`
+		`if (echo $$ > "$HUMAN_CG/cgroup.procs") 2>/dev/null; then e=moved; else e=refused; fi; ` +
+		`if mkdir "$EVIL_HUMAN" 2>/dev/null; then f=made; else f=refused; fi; ` +
+		`export R="join-other=$a join-daemon=$b mkdir=$c raise-limit=$d join-human=$e mkdir-human=$f"; exec "$BIN"`
 	out := fifo(t)
-	l := &process.Launcher{CgroupRoot: root}
 	spec := domain.UnitSpec{Agent: acc.User, Account: acc, Limits: limits,
 		Exec: domain.Exec{Path: "/bin/sh", Args: []string{"-c", script}, Env: []string{
 			"OUT=" + out, "BIN=" + self, dialEnv + "=" + sock,
 			"OTHER=" + otherDir, "DAEMON_CG=" + filepath.Join(filepath.Dir(root), process.DaemonCgroup),
-			"EVIL=" + evil, "SELF_CG=" + selfDir,
+			"EVIL=" + evil, "SELF_CG=" + selfDir, "HUMAN_CG=" + humanDir, "EVIL_HUMAN=" + evilHuman,
 		}}}
 	if err := l.Install(t.Context(), spec); err != nil {
 		t.Fatal(err)
@@ -212,7 +228,7 @@ func TestCgroup_CustomAgentCannotLeaveOrChangeItsWall(t *testing.T) {
 
 	got := readFifo(t, out)
 	t.Logf("proof cgroup wall: runner as uid 200109 in %s reported %q; pids.max=%s", selfDir, got, value(t, selfDir, "pids.max"))
-	want := "join-other=refused join-daemon=refused mkdir=refused raise-limit=refused whoami="
+	want := "join-other=refused join-daemon=refused mkdir=refused raise-limit=refused join-human=refused mkdir-human=refused whoami="
 	if !strings.HasPrefix(got, want) {
 		t.Fatalf("runner reported %q, want prefix %q", got, want)
 	}
@@ -230,10 +246,14 @@ func TestCgroup_CustomAgentCannotLeaveOrChangeItsWall(t *testing.T) {
 	if v := value(t, selfDir, "pids.max"); v != "64" {
 		t.Errorf("pids.max = %s, want 64 unchanged", v)
 	}
-	if _, err := os.Stat(evil); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("%s exists: %v", evil, err)
+	for _, d := range []string{evil, evilHuman} {
+		if _, err := os.Stat(d); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s exists: %v", d, err)
+		}
 	}
 	requireRootOwned(t, root)
 	requireRootOwned(t, selfDir)
 	requireRootOwned(t, otherDir)
+	requireRootOwned(t, humans)
+	requireRootOwned(t, humanDir)
 }

@@ -48,9 +48,11 @@ func New(deps core.Deps, opts ...Option) *Module {
 	db := deps.Stores.Core
 	d := app.Deps{Clock: deps.Clock, IDs: deps.IDs, Ports: deps.Ports, Log: deps.Log}
 	schedules := app.NewSchedules(d, sqlite.NewSchedules(db))
-	tick := ticker.New(schedules, deps.Log, ticker.DefaultInterval)
+	var tick *ticker.Ticker
 	if o.beat != nil {
 		tick = ticker.NewWithBeat(schedules, deps.Log, o.beat)
+	} else {
+		tick = ticker.New(schedules, deps.Log, ticker.DefaultInterval)
 	}
 	return &Module{
 		db: db, clock: deps.Clock,

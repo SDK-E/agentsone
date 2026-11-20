@@ -7,6 +7,7 @@
 //   - internal/contract/api/<tag>api: one strict server interface per tag
 //   - internal/contract/<name>: types for each JSON Schema
 //   - runners/sdk/protocol: runner protocol types and method names
+//   - internal/contract/eventdata: one type per event in the event catalog
 //
 // Output is deterministic: the same contract gives the same bytes.
 package main
@@ -46,6 +47,9 @@ func run(root, bundle string) error {
 	}
 	if err := generateRunnerMethods(r); err != nil {
 		return fmt.Errorf("runner protocol: %w", err)
+	}
+	if err := generateEventData(r); err != nil {
+		return fmt.Errorf("event data: %w", err)
 	}
 	return nil
 }

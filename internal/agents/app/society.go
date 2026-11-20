@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -98,32 +99,18 @@ func (s *Society) record(ctx context.Context, actorRef, action, target string, d
 	return s.publish(ctx, actorRef, ev)
 }
 
+// event is the event of one society fact. Its data is a generated contract
+// type, so the payload is the catalog's.
 type event struct {
-	typ, source, scope string
-	data               any
+	source, scope string
+	data          eventdata.Data
 }
 
 func (s *Society) publish(ctx context.Context, actorRef string, ev event) error {
-	data, err := json.Marshal(ev.data)
-	if err != nil {
-		return fmt.Errorf("encode %s: %w", ev.typ, err)
-	}
-	_, err = s.ports.Events.Publish(ctx, core.Event{
-		SpecVersion: "1.0", Type: ev.typ, Source: ev.source, DataContentType: "application/json",
-		Data: data, Actor: actorRef, ChartScope: ev.scope,
+	_, err := core.PublishData(ctx, s.ports.Events, core.Publication{
+		Source: ev.source, Actor: actorRef, ChartScope: ev.scope, Data: ev.data,
 	})
-	if err != nil {
-		return fmt.Errorf("publish %s: %w", ev.typ, err)
-	}
-	return nil
-}
-
-type hiredData struct {
-	Agent    string `json:"agent"`
-	Manager  string `json:"manager"`
-	Kind     string `json:"kind"`
-	IsRoot   bool   `json:"is_root"`
-	Template string `json:"template"`
+	return err //nolint:wrapcheck // PublishData names the event type
 }
 
 // Found creates the founder of an empty society. Only the daemon or the
@@ -154,9 +141,9 @@ func (s *Society) Found(ctx context.Context, spec domain.HireSpec) (domain.Agent
 	if err := s.seedFromTemplate(ctx, founder.Name, domain.NewChart([]domain.Agent{founder}), founder, seed); err != nil {
 		return domain.Agent{}, err
 	}
-	data := hiredData{Agent: founder.Name, Manager: founder.Name, Kind: string(founder.Kind), IsRoot: true, Template: founder.Template}
+	data := eventdata.AgentsHired{Agent: founder.Name, Manager: founder.Name, Kind: eventdata.AgentsHiredKind(founder.Kind), IsRoot: true, Template: founder.Template}
 	return founder, s.record(ctx, by, "agent.found", "agent:"+founder.Name, data,
-		event{"agentsone.agents.hired", "/daemon", "team:" + founder.Name, data})
+		event{"/daemon", "team:" + founder.Name, data})
 }
 
 // Hire hires an agent below the calling agent.
@@ -196,9 +183,9 @@ func (s *Society) hire(ctx context.Context, hirer, by string, spec domain.HireSp
 	if by != "agent:"+hirer {
 		source = "/daemon"
 	}
-	data := hiredData{Agent: a.Name, Manager: a.Manager, Kind: string(a.Kind), IsRoot: a.IsRoot, Template: a.Template}
+	data := eventdata.AgentsHired{Agent: a.Name, Manager: a.Manager, Kind: eventdata.AgentsHiredKind(a.Kind), IsRoot: a.IsRoot, Template: a.Template}
 	return a, s.record(ctx, by, "agent.hire", "agent:"+a.Name, data,
-		event{"agentsone.agents.hired", source, "team:" + after.Team(a.Name), data})
+		event{source, "team:" + after.Team(a.Name), data})
 }
 
 // provisionAndStore gives a its Linux user and unit, then stores it. When
@@ -214,11 +201,6 @@ func (s *Society) provisionAndStore(ctx context.Context, a *domain.Agent) error 
 		return fmt.Errorf("store %s: %w", a.Name, err)
 	}
 	return nil
-}
-
-type editedData struct {
-	Agent  string   `json:"agent"`
-	Fields []string `json:"fields"`
 }
 
 // Update edits an agent below the calling agent. Kind, runner and limits
@@ -254,31 +236,26 @@ func (s *Society) Update(ctx context.Context, target string, u domain.Update) (d
 	if err := s.repo.SaveAgents(ctx, next); err != nil {
 		return domain.Agent{}, fmt.Errorf("save %s: %w", target, err)
 	}
-	data := editedData{Agent: target, Fields: fields}
+	data := eventdata.AgentsEdited{Agent: target, Fields: fields}
 	return next, s.record(ctx, "agent:"+name, "agent.edit", "agent:"+target, data,
-		event{"agentsone.agents.edited", "/agents/" + name, "agent:" + target, data})
+		event{"/agents/" + name, "agent:" + target, data})
 }
 
 // editedFields names the changed fields in the event catalog's words. The
 // catalog has no word for display name, role or description, so a wording
 // edit is reported as the agent's profile line ("one_line").
-func editedFields(u domain.Update) []string {
-	var fields []string
+func editedFields(u domain.Update) []eventdata.AgentsEditedFieldsElem {
+	var fields []eventdata.AgentsEditedFieldsElem
 	if u.Limits != nil {
-		fields = append(fields, "limits")
+		fields = append(fields, eventdata.AgentsEditedFieldsElemLimits)
 	}
 	if u.Runner != nil || u.Kind != nil {
-		fields = append(fields, "runner")
+		fields = append(fields, eventdata.AgentsEditedFieldsElemRunner)
 	}
 	if u.DisplayName != nil || u.Role != nil || u.Description != nil {
-		fields = append(fields, "one_line")
+		fields = append(fields, eventdata.AgentsEditedFieldsElemOneLine)
 	}
 	return fields
-}
-
-type retiredData struct {
-	Agent string `json:"agent"`
-	By    string `json:"by"`
 }
 
 // Retire retires an agent below the calling agent: its runner stops for
@@ -316,7 +293,7 @@ func (s *Society) Retire(ctx context.Context, target string) error {
 	}
 	detail := map[string]any{"agent": target, "by": name, "moved": plan.Moved}
 	return s.record(ctx, "agent:"+name, "agent.retire", "agent:"+target, detail,
-		event{"agentsone.agents.retired", "/agents/" + name, "team:" + team, retiredData{Agent: target, By: name}})
+		event{"/agents/" + name, "team:" + team, eventdata.AgentsRetired{Agent: target, By: name}})
 }
 
 // Move moves an agent and its branch below a new manager.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/SDK-E/agentsone/internal/auth/domain"
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -102,7 +103,7 @@ func (s *Service) CreateFirstHuman(ctx context.Context, n NewHuman) (domain.Huma
 	s.audit(ctx, core.Caller{Kind: core.CallerSystem, Name: "setup"}, "human.create-first", "human:"+h.Name)
 	// The society seeds itself on this event; it is stored, so a daemon
 	// restarted before seeding replays it.
-	s.publish(ctx, "agentsone.setup.first-human.created", map[string]string{"human": h.Name})
+	s.publish(ctx, eventdata.SetupFirstHumanCreated{Human: h.Name})
 	return h, nil
 }
 
@@ -148,7 +149,7 @@ func (s *Service) AcceptEngineLicence(ctx context.Context, by core.Caller, versi
 		return domain.EngineFetch{}, fmt.Errorf("queue engine fetch: %w", err)
 	}
 	s.audit(ctx, by, "setup.licence-accept", "licence:"+version)
-	s.publish(ctx, "agentsone.setup.licence.accepted", map[string]string{"engine": engine, "version": version, "accepted_by": by.Name})
+	s.publish(ctx, eventdata.SetupLicenceAccepted{Engine: engine, Version: version, AcceptedBy: by.Name})
 	return f, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/SDK-E/agentsone/internal/agents/domain"
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -147,7 +148,7 @@ func (s *Society) changeableGoal(ctx context.Context, id string) (string, domain
 }
 
 func (s *Society) goalChanged(ctx context.Context, actorName, action string, g domain.Goal) error {
-	data := editedData{Agent: g.Owner, Fields: []string{"goals"}}
+	data := eventdata.AgentsEdited{Agent: g.Owner, Fields: []eventdata.AgentsEditedFieldsElem{eventdata.AgentsEditedFieldsElemGoals}}
 	return s.record(ctx, "agent:"+actorName, action, "goal:"+g.ID, map[string]string{"owner": g.Owner, "title": g.Title, "status": string(g.Status)},
-		event{"agentsone.agents.edited", "/agents/" + actorName, "agent:" + g.Owner, data})
+		event{"/agents/" + actorName, "agent:" + g.Owner, data})
 }

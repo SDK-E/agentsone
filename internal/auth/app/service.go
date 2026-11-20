@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/auth/domain"
+	"github.com/SDK-E/agentsone/internal/contract/eventdata"
 	"github.com/SDK-E/agentsone/internal/core"
 )
 
@@ -100,7 +100,7 @@ func (s *Service) SignIn(ctx context.Context, name, password, remote string) (do
 	if err := s.d.Humans.UpdateHuman(ctx, h); err != nil {
 		return domain.Session{}, "", domain.Human{}, fmt.Errorf("record sign-in: %w", err)
 	}
-	s.publish(ctx, "agentsone.auth.login.succeeded", map[string]string{"user": name, "method": "password", "remote": remote})
+	s.publish(ctx, eventdata.AuthLoginSucceeded{User: name, Method: eventdata.AuthLoginSucceededMethodPassword, Remote: remote})
 	return sess, secret, h, nil
 }
 
@@ -129,15 +129,15 @@ func (s *Service) failSignIn(ctx context.Context, name, remote string, now time.
 	s.mu.Lock()
 	s.throttle.Fail(name, now)
 	s.mu.Unlock()
-	reason := "bad-credentials"
+	reason := eventdata.AuthLoginFailedReasonBadCredentials
 	if errors.Is(cause, core.ErrNotFound) {
-		reason = "unknown-user"
+		reason = eventdata.AuthLoginFailedReasonUnknownUser
 	}
 	user := name
 	if len(user) > 32 {
 		user = user[:32]
 	}
-	s.publish(ctx, "agentsone.auth.login.failed", map[string]string{"user": user, "method": "password", "remote": remote, "reason": reason})
+	s.publish(ctx, eventdata.AuthLoginFailed{User: user, Method: eventdata.AuthLoginFailedMethodPassword, Remote: remote, Reason: reason})
 }
 
 // SessionCaller returns the human signed in with the cookie secret.
@@ -171,7 +171,7 @@ func (s *Service) SignOut(ctx context.Context, secret string) error {
 	if err := s.d.Sessions.DeleteSession(ctx, id); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
-	s.publish(ctx, "agentsone.auth.logout", map[string]string{"user": sess.Human})
+	s.publish(ctx, eventdata.AuthLogout{User: sess.Human})
 	return nil
 }
 
@@ -235,11 +235,7 @@ func (s *Service) HumanByUID(ctx context.Context, uid int) (string, bool) {
 	return h.Name, true
 }
 
-func (s *Service) publish(ctx context.Context, typ string, data map[string]string) {
-	b, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
+func (s *Service) publish(ctx context.Context, data eventdata.Data) {
 	// The daemon publishes, not the request's caller: the first human is
 	// created by an anonymous visitor, whom the events module refuses as an
 	// actor, and the society seeds itself on that event.
@@ -247,11 +243,10 @@ func (s *Service) publish(ctx context.Context, typ string, data map[string]strin
 	// Events are a notification; a missing bus must not block sign-in, but
 	// a lost event is said out loud. The source is the daemon's own: the
 	// events module refuses any other shape for a daemon publish.
-	if _, err := s.d.Events.Publish(ctx, core.Event{
-		SpecVersion: "1.0", Source: "/daemon", Type: typ, DataContentType: "application/json",
-		Data: b, Actor: "system:auth", ChartScope: "machine",
+	if _, err := core.PublishData(ctx, s.d.Events, core.Publication{
+		Source: "/daemon", Actor: "system:auth", ChartScope: "machine", Data: data,
 	}); err != nil {
-		s.log().Error("auth: event not published", "type", typ, "err", err)
+		s.log().Error("auth: event not published", "type", data.EventType(), "err", err)
 	}
 }
 

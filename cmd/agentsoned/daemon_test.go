@@ -127,13 +127,16 @@ func TestDaemon_Limits(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer coretest.Close(t, resp.Body)
+			var m api.MachineMetrics
+			decodeErr := json.NewDecoder(resp.Body).Decode(&m)
+			if err := resp.Body.Close(); err != nil {
+				t.Fatal(err)
+			}
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("GET /v1/machine/metrics status %d, want 200", resp.StatusCode)
 			}
-			var m api.MachineMetrics
-			if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
-				t.Fatal(err)
+			if decodeErr != nil {
+				t.Fatal(decodeErr)
 			}
 			got := m.AgentLimits
 			if got == nil || got.Mode != tc.want {

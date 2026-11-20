@@ -8,6 +8,7 @@ import { PackagesSection } from "./packages";
 import { ProcessesSection } from "./processes";
 import { ServicesSection } from "./services";
 import { TerminalsSection } from "./terminals";
+import { useRowEdges } from "./use-row-edges";
 import { UsersSection } from "./users";
 
 export const SECTIONS = [
@@ -36,13 +37,15 @@ export default function MachinePanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "panels.machine" });
   const [section, setSection] = useState<Section>("usage");
   const View = VIEWS[section];
+  // On a phone the sections scroll sideways; fade the end that hides part of a section.
+  const row = useRowEdges<HTMLDivElement>();
 
   return (
     <div className="machine stack">
       <p className="hint">{t("about")}</p>
       <fieldset className="segmented">
         <legend>{t("sectionsLabel")}</legend>
-        <div className="segmented__options">
+        <div className="segmented__options" ref={row.ref} onScroll={row.onScroll} {...row.edges}>
           {SECTIONS.map((choice) => (
             <label key={choice} className="segmented__option">
               <input

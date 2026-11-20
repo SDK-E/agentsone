@@ -2192,6 +2192,34 @@ body:has(.sheet[open]) {
   scroll-snap-align: start;
 }
 
+/* Where a section is cut off at the edge of the row, the row fades out instead of cutting a word. */
+.machine .segmented__options[data-more-end] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.machine .segmented__options[data-more-start] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+
+.machine .segmented__options[data-more-start][data-more-end] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 32px,
+    #000 calc(100% - 32px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 32px,
+    #000 calc(100% - 32px),
+    transparent
+  );
+}
+
 .machine__figure {
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);

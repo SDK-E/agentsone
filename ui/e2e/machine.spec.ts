@@ -129,6 +129,24 @@ test("machine, files, a long name takes the row and size and owner go under it",
   clean();
 });
 
+test("machine, the row of sections fades where a section is cut off", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("phone"), "The sections only overflow on a phone.");
+  const clean = await useScenario(page, {});
+  await openPanel(page, "Machine");
+
+  const row = page.locator(".machine .segmented__options");
+  await expect(row).toHaveAttribute("data-more-end", "true");
+  await expect(row).not.toHaveAttribute("data-more-start");
+  await row.evaluate((el) => {
+    el.scrollLeft = el.scrollWidth;
+  });
+  await expect(row).toHaveAttribute("data-more-start", "true");
+  await expect(row).not.toHaveAttribute("data-more-end");
+  clean();
+});
+
 test("machine, read a file", async ({ page }, testInfo) => {
   const clean = await useScenario(page, {});
   await openPanel(page, "Machine");

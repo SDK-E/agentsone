@@ -28,24 +28,51 @@ func TestModuleOwnsItsTags(t *testing.T) {
 	moduletest.AssertOwnsTags(t, m, "machine", "net", "ide")
 }
 
-func TestNetworkRulesAndIDEAreNotHereYet(t *testing.T) {
-	deps, _ := coretest.NewDeps(t)
-	mux := moduletest.Mount(machine.New(deps))
+func TestNetworkRulesAreNotHereYetTheEditorIs(t *testing.T) {
+	deps, fakes := coretest.NewDeps(t)
+	fakes.Humans.Add("alice", 1000)
+	m := machine.New(deps)
+	mux := moduletest.Mount(m)
+	for _, r := range m.API().Routes {
+		mux.Handle(r.Pattern, r.Handler)
+	}
 	human := core.Caller{Kind: core.CallerHuman, Name: "alice", UID: -1}
-	get := func(target string) int {
+	get := func(target string) (int, string) {
 		req := httptest.NewRequest(http.MethodGet, target, nil)
 		req = req.WithContext(core.WithCaller(req.Context(), human))
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
-		return rec.Code
+		return rec.Code, rec.Body.String()
 	}
-	for _, target := range []string{"/v1/net/agents", "/v1/ide"} {
-		if code := get(target); code != http.StatusNotImplemented {
-			t.Errorf("%s: status %d, want 501", target, code)
-		}
+	if code, _ := get("/v1/net/agents"); code != http.StatusNotImplemented {
+		t.Errorf("net: status %d, want 501", code)
 	}
-	if code := get("/v1/machine/pty"); code != http.StatusOK {
+	if code, body := get("/v1/ide"); code != http.StatusOK || !strings.Contains(body, `"build":"vscodium"`) ||
+		!strings.Contains(body, `"human":"alice"`) {
+		t.Errorf("ide: status %d %s", code, body)
+	}
+	if code, _ := get("/ide/alice/"); code != http.StatusServiceUnavailable {
+		t.Errorf("editor proxy before start: status %d, want 503", code)
+	}
+	if code, _ := get("/v1/machine/pty"); code != http.StatusOK {
 		t.Fatalf("terminals: status %d, want 200", code)
+	}
+}
+
+func TestNoopSystemRefusesToStartAnEditor(t *testing.T) {
+	deps, fakes := coretest.NewDeps(t)
+	fakes.Humans.Add("alice", 1000)
+	m := machinetest.New(deps)
+	mux := moduletest.Mount(m)
+	req := httptest.NewRequest(http.MethodPut, "/v1/ide/servers/alice", nil)
+	req = req.WithContext(core.WithCaller(req.Context(), core.Caller{Kind: core.CallerHuman, Name: "alice", UID: -1}))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("start: %d %s", rec.Code, rec.Body)
+	}
+	if err := m.Stop(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }
 

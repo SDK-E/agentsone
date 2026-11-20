@@ -135,6 +135,46 @@ func (d *Daemon) LogIn(name string) *Client {
 // just long enough for the password rule.
 func humanPassword(name string) string { return name + " uses the test harness" }
 
+// Password is the password LogIn signs the human called name in with, for
+// a test that creates more humans (POST /humans).
+func Password(name string) string { return humanPassword(name) }
+
+// Anonymous is a client without a session, as a browser that never signed
+// in.
+func (d *Daemon) Anonymous() *Client {
+	d.t.Helper()
+	return d.newClient("")
+}
+
+// Page gets path from the root of the daemon's TCP listener, outside /v1
+// (such as the editor proxy under /ide/<human>/), as a browser asking for
+// a page does. It returns the status, the headers and the body.
+func (h *Client) Page(path string) (int, http.Header, string) {
+	h.d.t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(base, "/v1")+path, nil)
+	if err != nil {
+		h.d.t.Fatalf("GET %s: %v", path, err)
+	}
+	req.Header.Set("Accept", "text/html")
+	h.authorize(req)
+	resp, err := h.c.Do(req)
+	if err != nil {
+		h.d.t.Fatalf("GET %s: %v", path, err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.d.t.Errorf("GET %s: close answer: %v", path, err)
+		}
+	}()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		h.d.t.Fatalf("GET %s: read answer: %v", path, err)
+	}
+	return resp.StatusCode, resp.Header, string(raw)
+}
+
 // Do calls one API operation as the human: body, when not nil, is sent as
 // JSON, and a 2xx answer is decoded into out, when not nil. Any other
 // status fails the test with the problem the daemon answered.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/SDK-E/agentsone/internal/core"
 	humandomain "github.com/SDK-E/agentsone/internal/humanuser/domain"
+	ideapp "github.com/SDK-E/agentsone/internal/ide/app"
 	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/machine/app"
 	"github.com/SDK-E/agentsone/internal/machine/domain"
@@ -23,8 +24,16 @@ func NoopSystem() machine.System {
 	return machine.System{
 		Packages: Packages{}, Files: Files{}, Processes: Processes{}, Users: Users{}, Pty: Pty{},
 		Metrics: Metrics{}, Recipes: &Recipes{}, Baseline: Baseline{}, Power: Power{}, Timer: Power{},
-		HumanAccounts: HumanAccounts{},
+		HumanAccounts: HumanAccounts{}, Editor: Editor{}, EditorVersion: "test",
 	}
+}
+
+// Editor starts no editor server: every start fails as unavailable.
+type Editor struct{}
+
+// Launch refuses.
+func (Editor) Launch(context.Context, ideapp.Spec) (ideapp.Process, error) {
+	return nil, fmt.Errorf("no editor in the noop machine: %w", core.ErrUnavailable)
 }
 
 // HumanAccounts makes no Linux users and says each one is made.

@@ -11,6 +11,12 @@
 node              amd64  061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2  https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.gz
 node              arm64  261af2af250dfd7e9f25cf151d1b2713a0adf8f10a9ad116c4947f68627affe8  https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-arm64.tar.gz
 
-# VSCodium server for the browser (REH web) 1.143.17232, from the release's .sha256 files
+# VSCodium server for the browser (REH web) 1.143.17232, from the release's .sha256 files.
+# MIT licence (VSCodium, built from the MIT Code - OSS sources); its extension store is Open VSX.
+# The official VS Code build is never baked in: its licence forbids redistribution.
 vscodium-server   amd64  0d1e00fa4e3564617aba798a88395d9a5fb507d771d711e0454bb1065a030f7c  https://github.com/VSCodium/vscodium/releases/download/1.143.17232/vscodium-reh-web-linux-x64-1.143.17232.tar.gz
 vscodium-server   arm64  5ad0ccbda2010e99dbb8306fbabfcfd91c80a56ad579ad7903f6635b95d0615f  https://github.com/VSCodium/vscodium/releases/download/1.143.17232/vscodium-reh-web-linux-arm64-1.143.17232.tar.gz
+
+# The VSCodium licence at the same release: the server archive carries none, and MIT asks for
+# the notice to ship with the program. One file for every architecture.
+vscodium-licence  all    2fa3f8948a0a17ea30b62845caf1ee8aae8b55b5417273920ca2df2642209e0e  https://raw.githubusercontent.com/VSCodium/vscodium/1.143.17232/LICENSE

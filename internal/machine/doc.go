@@ -11,6 +11,7 @@
 // before agents wake, so a rescue gives the agents' machine back.
 //
 // Owned by work package 7 (machine control, recipe; terminals next); the
-// IDE part by work package 13. Shape: domain/, app/, adapters/{http,system}/,
-// wired in module.go.
+// IDE part by work package 13, which lives in internal/ide and the humans'
+// Linux users in internal/humanuser, both wired here. Shape: domain/, app/,
+// adapters/{http,system}/, wired in module.go.
 package machine

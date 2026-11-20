@@ -8,7 +8,9 @@
 //
 // Only the machine parts a test must not touch are replaced: the clock is
 // fake, the machine module changes no packages or files of the host,
-// custom agents get no Linux users, and the network wall holds. A test
+// custom agents get no Linux users, a human's editor is a small server on
+// the socket the daemon asks for (Daemon.Editors), and the network wall
+// holds. A test
 // needs no root, no Docker and no network.
 //
 // See TESTING.md (B5) for when to use it instead of the coretest fakes.
@@ -35,6 +37,7 @@ import (
 	"github.com/SDK-E/agentsone/internal/core/coretest"
 	"github.com/SDK-E/agentsone/internal/daemon"
 	"github.com/SDK-E/agentsone/internal/events"
+	"github.com/SDK-E/agentsone/internal/machine"
 	"github.com/SDK-E/agentsone/internal/machine/machinetest"
 	"github.com/SDK-E/agentsone/internal/sched"
 	"github.com/SDK-E/agentsone/internal/store"
@@ -63,6 +66,7 @@ type Daemon struct {
 	logs    *logBuffer
 	door    *webDoor
 	tcp     string // the API's loopback address
+	editors *editors
 	// stop stops the daemon and closes its stores, once.
 	stop func()
 	// setup is what Start's options set up. A restarted daemon keeps it, so
@@ -142,6 +146,7 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, s
 		sources: newSourceSleeper(clock),
 		logs:    logs,
 		door:    &webDoor{},
+		editors: &editors{},
 		setup:   setup,
 	}
 	stores, closeStores := openStores(t, cfg)
@@ -155,7 +160,11 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, s
 	}
 	acc := &accounts{}
 	mods := append(daemon.Modules(deps,
-		daemon.WithMachine(func(deps core.Deps) core.Module { return machinetest.New(deps) }),
+		daemon.WithMachine(func(deps core.Deps) core.Module {
+			sys := machinetest.NoopSystem()
+			sys.Editor = d.editors
+			return machine.NewWith(deps, sys)
+		}),
 		daemon.WithSupervisor(agents.SupervisorOptions{
 			Processes: d.runners, Accounts: acc, UserID: acc.userID, Wall: wallHolds{},
 			Config: d.setup.supervisor,
@@ -197,6 +206,9 @@ func start(t testing.TB, cfg core.Config, clock *coretest.Clock, ids core.IDs, s
 		}
 		d.runners.close()
 		closeStores()
+		for _, err := range d.editors.failures() {
+			t.Errorf("editor server: %v", err)
+		}
 		if t.Failed() {
 			t.Logf("daemon log:\n%s", logs)
 		}

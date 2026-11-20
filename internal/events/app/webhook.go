@@ -68,7 +68,7 @@ func (s *Service) ReceiveWebhook(ctx context.Context, w Webhook) (core.Event, er
 	}
 	stored, err := s.publish(core.WithCaller(ctx, systemCaller), systemCaller, domain.Draft{
 		Type: webhookEventType, Source: webhookEmitterPath, Subject: e.Name, Data: data,
-	}, "", "")
+	}, published{})
 	if err != nil {
 		return core.Event{}, err
 	}

@@ -110,8 +110,18 @@ type event struct {
 	data          eventdata.Data
 }
 
+// emitter is who announces society facts on the bus: the society itself,
+// the daemon's "agents" emitter. Built-in agent events state facts only the
+// society can vouch for, so the events module takes them from no agent
+// directly, and an agent reached by token is never root. It stays in this
+// package: no port, API operation or MCP tool hands it out.
+var emitter = core.Caller{Kind: core.CallerSystem, Name: "agents", UID: -1}
+
+// publish announces a fact the society has already checked and stored. It is
+// called only after the change's own chart rules passed, so it publishes as
+// the society's emitter and names the agent that acted as the actor.
 func (s *Society) publish(ctx context.Context, actorRef string, ev event) error {
-	_, err := core.PublishData(ctx, s.ports.Events, core.Publication{
+	_, err := core.PublishData(core.WithCaller(ctx, emitter), s.ports.Events, core.Publication{
 		Source: ev.source, Actor: actorRef, ChartScope: ev.scope, Data: ev.data,
 	})
 	return err //nolint:wrapcheck // PublishData names the event type

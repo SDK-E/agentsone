@@ -82,10 +82,6 @@ func callerOf(ctx context.Context) core.Caller {
 	return systemCaller
 }
 
-func isPrivileged(c core.Caller) bool {
-	return c.IsRoot || c.Kind == core.CallerSystem || c.Kind == core.CallerHost
-}
-
 // audit records an action. A failing audit log never fails the action, but
 // the failure is logged.
 func (s *Service) audit(ctx context.Context, actor, action, target string, detail map[string]any) {
@@ -142,19 +138,28 @@ func (s *Service) isBelow(ctx context.Context, ancestor string) func(string) boo
 
 // Publish stores an event for another module and fans it out. The event's
 // actor and chart scope are derived, except that the daemon's own modules
-// may name the chart scope. See PublishDraft for the API path.
+// may name the chart scope, and name the actor of a fact they announce
+// (domain.PortActor). See PublishDraft for the API path.
 func (s *Service) Publish(ctx context.Context, e core.Event) (core.Event, error) {
 	c := callerOf(ctx)
 	d := domain.Draft{
 		Type: e.Type, Source: e.Source, Subject: e.Subject, Data: e.Data,
 		CausationID: e.CausationID, CorrelationID: e.CorrelationID,
 	}
+	actor, err := domain.PortActor(c, e.Actor)
+	if err != nil {
+		return core.Event{}, err
+	}
 	scope := ""
-	if isPrivileged(c) {
+	if domain.Privileged(c) {
 		scope = e.ChartScope
 	}
-	return s.publish(ctx, c, d, e.ID, scope)
+	return s.publish(ctx, c, d, published{id: e.ID, actor: actor, scope: scope})
 }
+
+// published is what the port caller may set on an event; empty fields are
+// derived from the caller.
+type published struct{ id, actor, scope string }
 
 // PublishDraft stores an event for an API caller. The publish is rate
 // limited per caller and audited.
@@ -167,7 +172,7 @@ func (s *Service) PublishDraft(ctx context.Context, d domain.Draft) (core.Event,
 	if !s.limiter.Allow("publish:"+actor, publishRate) {
 		return core.Event{}, core.NewProblem(429, "rate-limited", "too many events published; slow down")
 	}
-	e, err := s.publish(ctx, c, d, "", "")
+	e, err := s.publish(ctx, c, d, published{})
 	if err != nil {
 		return core.Event{}, err
 	}
@@ -175,7 +180,7 @@ func (s *Service) PublishDraft(ctx context.Context, d domain.Draft) (core.Event,
 	return e, nil
 }
 
-func (s *Service) publish(ctx context.Context, c core.Caller, d domain.Draft, id, scope string) (core.Event, error) {
+func (s *Service) publish(ctx context.Context, c core.Caller, d domain.Draft, p published) (core.Event, error) {
 	if err := d.Validate(); err != nil {
 		return core.Event{}, err
 	}
@@ -183,6 +188,10 @@ func (s *Service) publish(ctx context.Context, c core.Caller, d domain.Draft, id
 	if err != nil {
 		return core.Event{}, err
 	}
+	if p.actor != "" {
+		actor = p.actor
+	}
+	scope, id := p.scope, p.id
 	if d.Source == "" {
 		d.Source = domain.DefaultSource(c)
 	}
@@ -228,19 +237,7 @@ func (s *Service) authorise(ctx context.Context, c core.Caller, d domain.Draft) 
 	if name, ok := domain.EmitterOfSource(d.Source); ok {
 		return s.authoriseEmitter(ctx, c, name, d.Type)
 	}
-	if !isPrivileged(c) && domain.BuiltinEmitterType(d.Type) {
-		return domain.ErrTypeReserved
-	}
-	switch {
-	case isPrivileged(c):
-		return nil
-	case d.Source == "/agents/"+c.Name && c.Kind == core.CallerAgent:
-		return nil
-	case d.Source == "/daemon" && c.Kind == core.CallerHuman:
-		return nil
-	default:
-		return domain.ErrSourceForbidden
-	}
+	return domain.AuthoriseSource(c, d.Source, d.Type)
 }
 
 func (s *Service) authoriseEmitter(ctx context.Context, c core.Caller, name, eventType string) error {

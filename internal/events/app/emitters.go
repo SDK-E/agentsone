@@ -64,7 +64,7 @@ func (s *Service) RegisterEmitter(ctx context.Context, reg domain.Registration) 
 	if err := reg.Validate(); err != nil {
 		return Registered{}, err
 	}
-	if reg.Kind == domain.KindProcess && !isPrivileged(c) {
+	if reg.Kind == domain.KindProcess && !domain.Privileged(c) {
 		return Registered{}, fmt.Errorf("%w: only root may register a process emitter", core.ErrForbidden)
 	}
 	if reg.Kind == domain.KindProcess && !s.d.Units.Available() {
@@ -121,7 +121,7 @@ func (s *Service) setEnabled(ctx context.Context, id string, enabled bool) (doma
 	if err != nil {
 		return domain.Emitter{}, err
 	}
-	if !isPrivileged(c) && e.Owner != actorName(c) {
+	if !domain.Privileged(c) && e.Owner != actorName(c) {
 		return domain.Emitter{}, fmt.Errorf("%w: only the owner may change emitter %s", core.ErrForbidden, e.Name)
 	}
 	if e.Enabled != enabled {

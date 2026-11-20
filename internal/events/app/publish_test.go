@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/SDK-E/agentsone/internal/core"
+	"github.com/SDK-E/agentsone/internal/events/app"
 	"github.com/SDK-E/agentsone/internal/events/domain"
 )
 
@@ -194,7 +195,7 @@ func TestPublishDraft_RateLimitsAPICallers(t *testing.T) {
 func TestPublish_PortKeepsAGivenIDAndAssignsOtherwise(t *testing.T) {
 	f := newFixture(t)
 	given := core.Event{ID: "evt_01JD8X3Q5Y6Z7A8B9C0D1E2F60", Type: "agentsone.agents.woke", Source: "/emitters/agents",
-		Data: json.RawMessage(`{"agent":"builder"}`), ChartScope: "agent:builder", Actor: "agent:evil"}
+		Data: json.RawMessage(`{"agent":"builder"}`), ChartScope: "agent:builder"}
 
 	kept, err := f.svc.Publish(asSystem(), given)
 	if err != nil || kept.ID != given.ID || kept.Actor != "system:daemon" || kept.ChartScope != "agent:builder" {
@@ -223,6 +224,51 @@ func TestPublish_PortNeverLetsAnAgentPublishAsTheSystem(t *testing.T) {
 				t.Fatalf("Publish() actor = %q, want %s or a refusal", e.Actor, want)
 			}
 		})
+	}
+}
+
+func hired(agent, manager string) core.Event {
+	return core.Event{
+		Type: "agentsone.agents.hired", Source: "/agents/" + manager, ChartScope: "team:founder",
+		Data: json.RawMessage(`{"agent":"` + agent + `","manager":"` + manager + `","kind":"chat","is_root":false,"template":""}`),
+	}
+}
+
+// A daemon module announces a fact it has checked as itself and names the
+// agent that caused it: the hire is the founder's, the event the daemon's.
+func TestPublish_PortWritesTheActorAModuleNames(t *testing.T) {
+	f := newFixture(t)
+	module := core.WithCaller(context.Background(), core.Caller{Kind: core.CallerSystem, Name: "agents", UID: -1})
+	ev := hired("builder", "founder")
+	ev.Actor = "agent:founder"
+
+	e, err := f.svc.Publish(module, ev)
+
+	if err != nil || e.Actor != "agent:founder" || e.Source != "/agents/founder" || e.ChartScope != "team:founder" {
+		t.Fatalf("Publish() = actor %q source %q scope %q, %v", e.Actor, e.Source, e.ChartScope, err)
+	}
+	ev.Actor = "agent:Founder!"
+	if _, err := f.svc.Publish(module, ev); !errors.Is(err, domain.ErrInvalidActor) {
+		t.Fatalf("Publish() with a malformed actor error = %v, want ErrInvalidActor", err)
+	}
+}
+
+// An agent that asks the bus itself for a built-in type is still refused,
+// root or not by token, whatever actor it names: only the module that owns
+// the fact announces it.
+func TestPublish_PortRefusesABuiltInTypeFromAnAgentWithAToken(t *testing.T) {
+	f := newFixture(t)
+	token := core.WithCaller(context.Background(), core.Caller{Kind: core.CallerAgent, Name: "founder", UID: -1, Assurance: core.AssuranceSoft})
+	ev := hired("builder", "founder")
+	ev.Actor = "system:agents"
+
+	_, err := f.svc.Publish(token, ev)
+
+	if !errors.Is(err, domain.ErrTypeReserved) {
+		t.Fatalf("Publish() error = %v, want ErrTypeReserved", err)
+	}
+	if page, err := f.svc.List(asSystem(), app.Query{Limit: 10}); err != nil || len(page.Events) != 0 {
+		t.Fatalf("stored %v, %v, want nothing", page.Events, err)
 	}
 }
 

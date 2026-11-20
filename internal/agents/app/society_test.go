@@ -112,6 +112,32 @@ func TestHire_StoresProvisionsPublishesAndAudits(t *testing.T) {
 	}
 }
 
+// A runner reaches the daemon by token, and a token caller is never root.
+// The founder still hires: the society checks the hire against the chart,
+// then announces it as its own emitter with the founder as the actor.
+func TestHire_TheFounderHiresThroughItsToken(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	token := core.WithCaller(context.Background(), core.Caller{
+		Kind: core.CallerAgent, Name: "founder", UID: -1, Scopes: []string{"mcp:write"}, Assurance: core.AssuranceSoft,
+	})
+
+	if _, err := e.society.Hire(token, spec("mira")); err != nil {
+		t.Fatalf("Hire() error = %v", err)
+	}
+
+	if diff := cmp.Diff([]string{"agentsone.agents.hired"}, e.eventTypes()); diff != "" {
+		t.Fatalf("events (-want +got):\n%s", diff)
+	}
+	ev := e.fakes.Events.Published()[0]
+	if ev.Actor != "agent:founder" || ev.Source != "/agents/founder" || ev.ChartScope != "team:mira" {
+		t.Errorf("event actor %q source %q scope %q", ev.Actor, ev.Source, ev.ChartScope)
+	}
+	if rec := e.fakes.Audit.Entries()[0]; rec.Action != "agent.hire" || rec.Actor != "agent:founder" {
+		t.Errorf("audit %+v", rec)
+	}
+}
+
 func TestHire_RefusalsChangeNothing(t *testing.T) {
 	t.Parallel()
 	root := spec("guard")

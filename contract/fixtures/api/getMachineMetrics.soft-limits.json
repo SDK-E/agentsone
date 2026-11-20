@@ -27,7 +27,7 @@
     },
     "agent_limits": {
       "mode": "soft",
-      "reason": "The machine container's cgroup tree is read-only. Keep the cgroup: private and writable-cgroups=true lines in compose.yaml, then restart the machine."
+      "reason": "The machine container's cgroup tree is read-only, so the daemon cannot give each custom agent a cgroup of its own.\nTo fix:\n- Make sure compose.yaml has `cgroup: private` and `security_opt: writable-cgroups=true` for the machine service.\n- Use Docker Engine 28 or newer.\n- Restart the machine and check its log for `limits: hard`."
     }
   }
 }

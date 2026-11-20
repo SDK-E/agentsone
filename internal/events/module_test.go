@@ -5,6 +5,7 @@ package events_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -149,6 +150,49 @@ func TestModule_RunsTheLoadSourceInProcess(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("no load event within 10 seconds")
+	}
+}
+
+func TestModule_RunsTheFilesSourceOnTheWatchedFolders(t *testing.T) {
+	deps, _ := coretest.NewDeps(t)
+	dir := t.TempDir()
+	cfg, err := core.ParseConfig([]byte("[emitters.files]\nwatches = ['" + dir + "']\ninterval = '1s'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Config = &cfg
+	m := events.New(deps)
+	m.Provide(deps.Ports)
+	if err := m.Migrate(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	live, err := deps.Ports.Subscribe.Subscribe(t.Context(), core.EventFilter{Types: []string{"agentsone.files."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = m.Stop(context.Background()) }()
+
+	// The first scan only takes the baseline and may run after a file is
+	// written, so keep adding files until one is announced.
+	deadline := time.After(20 * time.Second)
+	for i := 0; ; i++ {
+		file := filepath.Join(dir, fmt.Sprintf("report-%d.csv", i))
+		if err := os.WriteFile(file, []byte("a,b\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case e := <-live:
+			if e.Type != "agentsone.files.created" || e.Source != "/emitters/files" || filepath.Dir(e.Subject) != dir || e.Actor != "system:daemon" {
+				t.Fatalf("event = %+v", e)
+			}
+			return
+		case <-time.After(700 * time.Millisecond):
+		case <-deadline:
+			t.Fatal("no files event within 20 seconds")
+		}
 	}
 }
 

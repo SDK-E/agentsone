@@ -12,6 +12,7 @@ import (
 
 	"github.com/SDK-E/agentsone/emitters/clock"
 	"github.com/SDK-E/agentsone/emitters/disk"
+	"github.com/SDK-E/agentsone/emitters/files"
 	"github.com/SDK-E/agentsone/emitters/load"
 	"github.com/SDK-E/agentsone/internal/core"
 	emitapp "github.com/SDK-E/agentsone/internal/emitkit/app"
@@ -92,6 +93,10 @@ func sources(o builtin.Options, log *slog.Logger) []builtin.Named {
 	list := []builtin.Named{
 		{Name: "clock", Source: clock.New()},
 		{Name: "disk", Source: disk.New(cfg, disk.MountsFile(d.MountsFile), disk.StatFS{})},
+	}
+	if f := o.Files; len(f.Watches) > 0 {
+		fc := files.Config{Watches: f.Watches, Interval: f.Interval.Duration, MaxFiles: f.MaxFiles}
+		list = append(list, builtin.Named{Name: "files", Source: files.New(fc, files.Disk{})})
 	}
 	l := o.Load
 	if _, err := os.Stat(filepath.Join(l.ProcDir, "stat")); err != nil {

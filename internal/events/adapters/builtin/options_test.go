@@ -138,6 +138,52 @@ func TestLoadOptions_RejectsLoadValuesThatCannotWork(t *testing.T) {
 	}
 }
 
+func TestLoadOptions_FilesTableDefaultsAndOverrides(t *testing.T) {
+	t.Parallel()
+	cfg := core.DefaultConfig()
+	got, err := builtin.LoadOptions(&cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := got.Files; len(f.Watches) != 0 || f.Interval.Duration != 10*time.Second || f.MaxFiles != 10000 {
+		t.Fatalf("files defaults = %+v, want no watches", f)
+	}
+
+	set, err := core.ParseConfig([]byte("[emitters.files]\nwatches = [\"/srv/inbox\", \"/etc/agentsone\"]\ninterval = \"30s\"\nmax_files = 50\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err = builtin.LoadOptions(&set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := got.Files; len(f.Watches) != 2 || f.Watches[0] != "/srv/inbox" || f.Interval.Duration != 30*time.Second || f.MaxFiles != 50 {
+		t.Fatalf("files options = %+v", f)
+	}
+}
+
+func TestLoadOptions_RejectsFilesValuesThatCannotWork(t *testing.T) {
+	t.Parallel()
+	for name, toml := range map[string]string{
+		"relative watch": "[emitters.files]\nwatches = [\"inbox\"]\n",
+		"empty watch":    "[emitters.files]\nwatches = [\"\"]\n",
+		"zero interval":  "[emitters.files]\ninterval = \"0s\"\n",
+		"fast interval":  "[emitters.files]\ninterval = \"100ms\"\n",
+		"zero max files": "[emitters.files]\nmax_files = 0\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := core.ParseConfig([]byte(toml))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := builtin.LoadOptions(&cfg); err == nil {
+				t.Fatal("LoadOptions error = nil, want one")
+			}
+		})
+	}
+}
+
 func TestLoadOptions_NilConfigGivesDefaults(t *testing.T) {
 	t.Parallel()
 	got, err := builtin.LoadOptions(nil)

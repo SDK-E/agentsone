@@ -47,6 +47,18 @@ func TestLoadSource_FullMemoryWakesTheWatchingAgent(t *testing.T) {
 	out.WaitText("echo: event agentsone.load.memory.high")
 }
 
+func TestFilesSource_ANewFileWakesTheWatchingAgent(t *testing.T) {
+	t.Parallel()
+	d := daemontest.Start(t)
+	out := watch(t, d, "agentsone.files.created")
+
+	d.DropFile("report.txt", "Q3 numbers")
+	d.MoveSources(10 * time.Second) // the scan that sees it
+	d.MoveSources(10 * time.Second) // the scan that sees it unchanged
+
+	out.WaitText("echo: event agentsone.files.created")
+}
+
 // watch hires the echo agent, has the founder wake it on events of type,
 // and returns the agent's output as a human sees it.
 func watch(t *testing.T, d *daemontest.Daemon, typ string) *daemontest.Stream {

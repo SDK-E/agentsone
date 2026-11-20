@@ -5,6 +5,7 @@ package builtin
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/SDK-E/agentsone/internal/core"
@@ -31,8 +32,17 @@ type LoadSourceOptions struct {
 // Options is the [emitters] table of the daemon config. Every key has a
 // default, so a machine with no table runs the sources as designed.
 type Options struct {
-	Disk DiskOptions       `toml:"disk"`
-	Load LoadSourceOptions `toml:"load"`
+	Disk  DiskOptions        `toml:"disk"`
+	Load  LoadSourceOptions  `toml:"load"`
+	Files FilesSourceOptions `toml:"files"`
+}
+
+// FilesSourceOptions is the [emitters.files] table. With no watches the
+// source does not run.
+type FilesSourceOptions struct {
+	Watches  []string      `toml:"watches"`
+	Interval core.Duration `toml:"interval"`
+	MaxFiles int           `toml:"max_files"`
 }
 
 // DefaultOptions are the settings a machine runs with.
@@ -51,6 +61,10 @@ func DefaultOptions() Options {
 			Interval:               core.Duration{Duration: 10 * time.Second},
 			Window:                 core.Duration{Duration: time.Minute},
 			ProcDir:                "/proc",
+		},
+		Files: FilesSourceOptions{
+			Interval: core.Duration{Duration: 10 * time.Second},
+			MaxFiles: 10000,
 		},
 	}
 }
@@ -84,7 +98,28 @@ func (o Options) validate() error {
 	case d.MountsFile == "":
 		return errors.New("disk.mounts_file must not be empty")
 	}
-	return o.Load.validate()
+	if err := o.Load.validate(); err != nil {
+		return err
+	}
+	return o.Files.validate()
+}
+
+// minFilesInterval keeps the folder scan from becoming a busy loop.
+const minFilesInterval = time.Second
+
+func (f FilesSourceOptions) validate() error {
+	for _, w := range f.Watches {
+		if !filepath.IsAbs(w) {
+			return fmt.Errorf("files.watches: %q must be an absolute path", w)
+		}
+	}
+	switch {
+	case f.Interval.Duration < minFilesInterval:
+		return errors.New("files.interval must be at least 1s")
+	case f.MaxFiles < 1:
+		return errors.New("files.max_files must be at least 1")
+	}
+	return nil
 }
 
 func (l LoadSourceOptions) validate() error {

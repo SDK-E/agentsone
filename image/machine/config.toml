@@ -31,3 +31,8 @@ addr = "0.0.0.0:7700"
 # interval = "10s"               # time between samples
 # window = "1m"                  # a reading must stay high this long to be reported
 # proc_dir = "/proc"             # where stat and meminfo are read
+#
+# [emitters.files]
+# watches = []                   # absolute folders to watch; none means the source is off
+# interval = "10s"               # time between scans (at least 1s)
+# max_files = 10000              # most files tracked under one watch

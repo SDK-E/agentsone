@@ -169,11 +169,15 @@ func (s *Society) Found(ctx context.Context, spec domain.HireSpec) (domain.Agent
 	if err := s.provisionAndHire(ctx, &founder, hired); err != nil {
 		return domain.Agent{}, err
 	}
+	// Committed: the founder is on the record before anything else can fail.
 	defer s.flushAfterChange(ctx)
+	if err := s.audit(ctx, by, "agent.found", "agent:"+founder.Name, data); err != nil {
+		return domain.Agent{}, err
+	}
 	if err := s.seedFromTemplate(ctx, founder.Name, domain.NewChart([]domain.Agent{founder}), founder, seed); err != nil {
 		return domain.Agent{}, err
 	}
-	return founder, s.audit(ctx, by, "agent.found", "agent:"+founder.Name, data)
+	return founder, nil
 }
 
 // Hire hires an agent below the calling agent. An always-on agent's runner
@@ -226,11 +230,15 @@ func (s *Society) hire(ctx context.Context, hirer, by string, spec domain.HireSp
 	if err := s.provisionAndHire(ctx, &a, hired); err != nil {
 		return domain.Agent{}, err
 	}
+	// Committed: the hire is on the record before anything else can fail.
 	defer s.flushAfterChange(ctx)
+	if err := s.audit(ctx, by, "agent.hire", "agent:"+a.Name, data); err != nil {
+		return domain.Agent{}, err
+	}
 	if err := s.seedFromTemplate(ctx, hirer, after, a, seed); err != nil {
 		return domain.Agent{}, err
 	}
-	return a, s.audit(ctx, by, "agent.hire", "agent:"+a.Name, data)
+	return a, nil
 }
 
 // provisionAndHire gives a its Linux user and unit, then stores it with

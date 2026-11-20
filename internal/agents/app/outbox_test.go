@@ -136,6 +136,63 @@ func TestFlush_ReportsABusFailureAndKeepsTheEvent(t *testing.T) {
 	}
 }
 
+// brokenLive is the router's live list when it cannot store a line, so a
+// template's seed fails after the hire committed.
+type brokenLive struct{ core.LiveList }
+
+func (brokenLive) UpdateLine(context.Context, string, string) error { return errBusDown }
+
+// The template's seed runs after the hire committed. When it fails the
+// hirer hears of it, but the hire stands, and it stands on the record: the
+// agent, one hired event and the audit record.
+func TestHire_ASeedThatFailsAfterTheCommitLeavesTheHireAuditedAndAnnounced(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	addTemplate(e, "small-seed/docs-writer", false)
+	e.ports.Live = brokenLive{e.ports.Live}
+	s := spec("scribe")
+	s.Template = "small-seed/docs-writer"
+
+	_, err := e.society.Hire(asAgent("lead"), s)
+
+	if !errors.Is(err, errBusDown) {
+		t.Fatalf("Hire() error = %v, want the seed failure", err)
+	}
+	if _, err := e.repo.GetAgent(context.Background(), "scribe"); err != nil {
+		t.Fatalf("agent not stored: %v", err)
+	}
+	if got := e.hiredEvents(); len(got) != 1 {
+		t.Fatalf("published %d hired events, want 1", len(got))
+	}
+	if diff := cmp.Diff([]string{"agent.hire"}, e.auditActions()); diff != "" {
+		t.Fatalf("audit (-want +got):\n%s", diff)
+	}
+}
+
+func TestFound_ASeedThatFailsAfterTheCommitLeavesTheFounderAudited(t *testing.T) {
+	t.Parallel()
+	fakes, ports := coretest.NewFakes()
+	e := env{fakes: fakes, ports: ports, repo: memory.New(), rt: agentstest.NewRuntime()}
+	e.society = app.New(e.repo, e.rt, ports, fakes.Clock, fakes.IDs)
+	addTemplate(e, "small-seed/docs-writer", true)
+	ports.Live = brokenLive{ports.Live}
+	sys := core.WithCaller(context.Background(), core.Caller{Kind: core.CallerSystem, Name: "seed"})
+	founder := spec("founder")
+	founder.Template = "small-seed/docs-writer"
+
+	_, err := e.society.Found(sys, founder)
+
+	if !errors.Is(err, errBusDown) {
+		t.Fatalf("Found() error = %v, want the seed failure", err)
+	}
+	if got := e.hiredEvents(); len(got) != 1 {
+		t.Fatalf("published %d hired events, want 1", len(got))
+	}
+	if diff := cmp.Diff([]string{"agent.found"}, e.auditActions()); diff != "" {
+		t.Fatalf("audit (-want +got):\n%s", diff)
+	}
+}
+
 func TestFound_StoresTheFounderWithItsEvent(t *testing.T) {
 	t.Parallel()
 	fakes, ports := coretest.NewFakes()
